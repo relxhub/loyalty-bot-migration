@@ -5,7 +5,7 @@ import express from 'express';
 import { loadConfig, getConfig } from './src/config/config.js';
 import { loadAdminCache } from './src/services/admin.service.js';
 import { handleAdminCommand } from './src/handlers/admin.handlers.js'; 
-// import { runScheduler } from './src/jobs/scheduler.js'; 
+import { runScheduler } from './src/jobs/scheduler.js'; 
 
 const PORT = process.env.PORT || 3000;
 const app = express();
@@ -38,7 +38,7 @@ async function startBot() {
     console.log(`✅ Admin Bot Webhook set to: ${webhookUrl}`);
 
     // 4. รัน Cron Scheduler 
-    // runScheduler(TIMEZONE); 
+    runScheduler(TIMEZONE); 
     
     // 5. รันเซิร์ฟเวอร์ Express
     app.listen(PORT, () => {

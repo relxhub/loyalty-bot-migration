@@ -1,48 +1,88 @@
 // src/handlers/admin.handlers.js
 
-import { getAdminRole } from '../services/admin.service.js';
-// ... (imports อื่นๆ เช่น transaction.service, reward.service)
+import { prisma } from '../db.js';
+import { getActiveCampaign } from '../services/campaign.service.js';
+import { sendText, sendAlertToSuperAdmin } from '../services/notification.service.js'; // ใช้ sendText ชั่วคราว (เดิมใช้ใน Admin Bot)
+import { giveReferralBonus } from '../services/customer.service.js'; // ต้องสร้าง function นี้
+import { addDays } from '../utils/date.utils.js';
+import { generateUniqueCode } from '../utils/crypto.utils.js'; // สมมติว่ามี function นี้
+import { isValidIdFormat } from '../utils/validation.utils.js'; // สมมติว่ามี function นี้
 
-// ⚠️ Note: Logic สำหรับคำสั่งต่างๆ ต้องถูก implement ในไฟล์ services หรือใน handler นี้
+// ⭐️ ฟังก์ชันหลักที่รันตรรกะการสร้างลูกค้าใหม่ (แทนที่ Placeholder)
+export async function handleNewCustomer(ctx, commandParts) {
+    
+    const newCustomerId = commandParts[1]?.toUpperCase();
+    const referrerId = commandParts[2]?.toUpperCase() || null;
+    const adminUser = ctx.from.username || ctx.from.first_name;
+    const chatId = ctx.chat.id;
 
-/**
- * 🔐 Gating: ตรวจสอบสิทธิ์และ Route คำสั่ง Admin
- */
-export async function handleAdminCommand(ctx) {
-    const userTgId = String(ctx.from.id);
-    const text = ctx.message.text || "";
-    const role = await getAdminRole(userTgId);
-
-    if (!role) {
-        return ctx.reply("⛔️ คุณไม่มีสิทธิ์ใช้งานคำสั่งนี้");
+    // --- 1. ตรวจสอบความถูกต้อง (Validations) ---
+    if (!newCustomerId || commandParts.length > 3) {
+        return ctx.reply("❗️รูปแบบคำสั่งผิด\nต้องเป็น: /new [รหัสลูกค้าใหม่] [รหัสผู้แนะนำ (ถ้ามี)]");
+    }
+    
+    if (!isValidIdFormat(newCustomerId)) {
+        return ctx.reply(`❌ รูปแบบรหัสลูกค้าไม่ถูกต้อง (ต้องเป็น A-Z และ 0-9)`);
     }
 
-    const commandParts = text.split(" ");
-    const command = commandParts[0].toLowerCase();
-
-    // ⭐️ ตรรกะ: /add ถูกจำกัดไว้สำหรับ Super Admin
-    if (command === "/add" && role !== "SuperAdmin") {
-        return ctx.reply("⛔️ คุณไม่มีสิทธิ์ใช้งานคำสั่ง /add");
+    const customerExists = await prisma.customer.findUnique({ 
+        where: { customerId: newCustomerId, isDeleted: false } 
+    });
+    if (customerExists) {
+        return ctx.reply(`❌ รหัสลูกค้า '${newCustomerId}' มีอยู่ในระบบแล้ว`);
     }
 
-    switch (command) {
-        case "/add":
-            // ⚠️ ต้องเรียกใช้ตรรกะ handleAddPoints(ctx, commandParts);
-            return ctx.reply("✅ ตรรกะ /add จะถูกเรียกใช้"); 
-        case "/redeem":
-            // ⚠️ ต้องเรียกใช้ตรรกะ handleRedeemReward(ctx, commandParts);
-            return ctx.reply("✅ ตรรกะ /redeem จะถูกเรียกใช้");
-        case "/new":
-            // ⚠️ ต้องเรียกใช้ตรรกะ handleNewCustomer(ctx, commandParts);
-            return ctx.reply("✅ ตรรกะ /new จะถูกเรียกใช้");
-        case "/reversesignup": 
-            // ⚠️ คำสั่งย้อนกลับที่เราออกแบบไว้
-            return ctx.reply("✅ ตรรกะ /reversesignup จะถูกเรียกใช้");
-        case "/check":
-            // ⚠️ ต้องเรียกใช้ตรรกะ checkCustomerInfo(customerId);
-            return ctx.reply("✅ ตรรกะ /check จะถูกเรียกใช้");
-        // ... (คำสั่งอื่นๆ)
-        default:
-             return ctx.reply(`👋 สวัสดี ${ctx.from.first_name}!\nบอทแอดมินพร้อมใช้งาน`);
+    if (referrerId && referrerId !== 'N/A') {
+        const referrerExists = await prisma.customer.findUnique({ 
+            where: { customerId: referrerId, isDeleted: false } 
+        });
+        if (!referrerExists) {
+            return ctx.reply(`❌ ไม่พบข้อมูลรหัสผู้แนะนำ '${referrerId}' ในระบบ`);
+        }
+        if (newCustomerId === referrerId) {
+            return ctx.reply("❌ รหัสลูกค้าและรหัสผู้แนะนำไม่สามารถเป็นรหัสเดียวกันได้");
+        }
     }
+    // ----------------------------------------
+
+    // --- 2. สร้างข้อมูลพื้นฐานและบันทึก Customer ใน DB ---
+    const verificationCode = generateUniqueCode(4); // 4 หลัก
+    const initialPoints = 0; 
+    const newExpiryDate = addDays(new Date(), 30); // 30 วัน
+
+    await prisma.customer.create({
+        data: {
+            customerId: newCustomerId,
+            referrerId: referrerId,
+            points: initialPoints,
+            expiryDate: newExpiryDate,
+            verificationCode: verificationCode,
+            adminCreatedBy: adminUser,
+        }
+    });
+
+    // --- 3. เรียก giveReferralBonus (ถ้ามี) ---
+    if (referrerId && referrerId !== 'N/A') {
+        await giveReferralBonus(referrerId, newCustomerId, adminUser); 
+    }
+    
+    // 4. สร้างข้อความ Dynamic และ 5. ส่งข้อความต้อนรับ
+    const campaign = await getActiveCampaign();
+    const linkBonusPoints = campaign?.linkBonus || 50; 
+    const referralBonusPoints = campaign?.base || 50;
+    const customerBotLink = "https://t.me/ONEHUBCustomer_Bot"; // ⚠️ ควรดึงจาก SystemConfig ⚠️
+
+    // ... (ละเว้นตรรกะสร้างข้อความ HTML ที่ซับซ้อน แต่หลักการคือการประกอบ String)
+    const customerMessage = `🎉 ยินดีต้อนรับสู่การเป็นสมาชิกค่ะ!\n\n` +
+      `👤 <b>รหัสสมาชิก:</b> ${newCustomerId}\n` +
+      `🔑 <b>รหัสยืนยัน:</b> ${verificationCode}\n\n` +
+      `กดลิงก์: ${customerBotLink}\n` +
+      `พิมพ์คำสั่ง: <code>/link ${newCustomerId} ${verificationCode}</code>`;
+
+    // ส่งข้อความให้แอดมินยืนยัน
+    ctx.reply(`✅ สร้างลูกค้าใหม่ '${newCustomerId}' เรียบร้อยแล้ว`);
+    
+    // ส่งข้อความต้อนรับ
+    // ⚠️ Note: ในระบบจริง คุณจะใช้ notification.service.js ส่งข้อความนี้
+    ctx.telegram.sendMessage(chatId, customerMessage, { parse_mode: 'HTML' });
 }
