@@ -2,7 +2,7 @@
 
 import { prisma } from '../db.js';
 import { getActiveCampaign } from '../services/campaign.service.js';
-import { sendText, sendAlertToSuperAdmin } from '../services/notification.service.js'; // ใช้ sendText ชั่วคราว (เดิมใช้ใน Admin Bot)
+import { sendAdminReply, sendAlertToSuperAdmin } from '../services/notification.service.js';
 import { giveReferralBonus } from '../services/customer.service.js'; // ต้องสร้าง function นี้
 import { addDays } from '../utils/date.utils.js';
 import { generateUniqueCode } from '../utils/crypto.utils.js'; // สมมติว่ามี function นี้
