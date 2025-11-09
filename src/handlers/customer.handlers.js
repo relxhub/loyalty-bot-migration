@@ -1,18 +1,27 @@
 // src/handlers/customer.handlers.js
 
 import fetch from 'node-fetch';
+import { prisma } from '../db.js';
 import { getConfig } from '../config/config.js';
-// ... (imports อื่นๆ เช่น linkAccount, checkPoints)
+import { sendNotificationToCustomer } from '../services/notification.service.js';
+// ... (imports handlers: handleLinkAccountLogic, checkPointsLogic)
 
 /**
- * 🔐 ตรวจสอบสถานะสมาชิกใน Channel
+ * 🔐 ตรวจสอบสถานะสมาชิกใน Channel (ใช้ Token ของ Customer Bot/Order Bot)
  */
 async function isChannelMember(userId) {
-    const customerBotToken = getConfig('customerBotToken');
-    const channelId = getConfig('channelId'); // ต้องเพิ่ม 'channelId' ใน SystemConfig หรือ ENV
-    if (!channelId) return true; // ป้องกันการล่มถ้า config หาย
+    // Note: Customer Bot Token ถูกใช้ใน customer_app.js อยู่แล้ว
+    // แต่สำหรับการตรวจสอบ API ภายนอก เราจะใช้ Order Bot Token (ซึ่งอาจเป็นตัวเดียวกับ Customer Token)
+    const orderBotToken = getConfig('orderBotToken'); 
+    const channelId = getConfig('channelId'); // ⚠️ ต้องมี Channel ID ใน SystemConfig/ENV
+    const channelLink = getConfig('channelLink'); // ⚠️ ต้องมี Channel Link ใน SystemConfig/ENV
     
-    const url = `https://api.telegram.org/bot${customerBotToken}/getChatMember?chat_id=${channelId}&user_id=${userId}`;
+    if (!channelId) {
+        console.warn("Channel ID is missing. Skipping channel membership check.");
+        return true; // อนุญาตให้ผ่านถ้า config หาย
+    }
+
+    const url = `https://api.telegram.org/bot${orderBotToken}/getChatMember?chat_id=${channelId}&user_id=${userId}`;
     
     try {
         const response = await fetch(url);
@@ -26,33 +35,37 @@ async function isChannelMember(userId) {
 }
 
 
-/**
- * 👤 Route คำสั่งลูกค้าทั้งหมด
- */
+// ⭐️ ฟังก์ชันหลัก: Router คำสั่งลูกค้า
 export async function handleCustomerCommand(ctx) {
     const userTgId = String(ctx.from.id);
     const text = ctx.message.text || "";
+    const customerName = ctx.from.first_name;
     const commandParts = text.split(" ");
     const command = commandParts[0].toLowerCase();
+    const chatId = ctx.chat.id;
 
     // 1. Channel Gating (ตรวจสอบการเข้าร่วม Channel)
-    // ⚠️ ต้องเพิ่ม channelId และ channelLink ใน SystemConfig
     if (!(await isChannelMember(userTgId))) {
-        // ⚠️ ต้อง implement logic สำหรับส่งข้อความพร้อมปุ่ม Join
-        return ctx.reply('🔔 กรุณาเข้าร่วม Channel ของเราก่อน'); 
+        // ⚠️ TODO: Implement sending message with Join button (เหมือนโค้ดเดิม)
+        return ctx.reply(`🔔 กรุณาเข้าร่วม Channel ของเราก่อน เพื่อใช้งานฟังก์ชันนี้นะคะ`); 
     }
 
     switch (command) {
         case "/points":
-            // ⚠️ ต้องเรียกใช้ตรรกะ checkPointsByTelegramId
-            return ctx.reply("✅ ตรรกะ /points จะถูกเรียกใช้");
+            // ⚠️ TODO: Call checkPointsByTelegramId Logic
+            return ctx.reply("✅ Logic /points จะถูกเรียกใช้");
         case "/link":
-            // ⚠️ ต้องเรียกใช้ตรรกะ handleLinkAccount(customerId, verificationCode, userTgId)
-            return ctx.reply("✅ ตรรกะ /link จะถูกเรียกใช้");
+            if (commandParts.length < 3) {
+                return ctx.reply("❗️ รูปแบบคำสั่งผิด: /link [รหัสลูกค้า] [รหัสยืนยัน]");
+            }
+            // ⚠️ TODO: Call handleLinkAccount Logic
+            return ctx.reply("✅ Logic /link จะถูกเรียกใช้");
         case "/reward":
-            // ⚠️ ต้องเรียกใช้ตรรกะ listRewardsForCustomer
-            return ctx.reply("✅ ตรรกะ /reward จะถูกเรียกใช้");
+            // ⚠️ TODO: Call listRewardsForCustomer Logic
+            return ctx.reply("✅ Logic /reward จะถูกเรียกใช้");
+        case "/start":
+             return ctx.reply(`👋 สวัสดีค่ะคุณ ${customerName}!\n\nนี่คือบอทสำหรับตรวจสอบโปรแกรมสะสมแต้ม`);
         default:
-            return ctx.reply(`🤔 ขออภัยค่ะ ไม่รู้จักคำสั่งนี้`);
+            return ctx.reply(`🤔 ขออภัยค่ะคุณ ${customerName} ไม่รู้จักคำสั่งนี้`);
     }
 }
