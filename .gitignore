@@ -1,0 +1,8 @@
+# โฟลเดอร์และไฟล์ที่ควรละเว้น
+
+node_modules
+.env
+/dist
+/build
+/out
+*.log

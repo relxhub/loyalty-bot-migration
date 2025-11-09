@@ -1,0 +1,79 @@
+// prisma/schema.prisma
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ------------------- โมเดลทั้งหมด -------------------
+
+model Customer {
+  customerId        String    @id
+  referrerId        String?
+  points            Int       @default(0)
+  expiryDate        DateTime
+  telegramUserId    String?   @unique
+  verificationCode  String?
+  adminCreatedBy    String
+  referralCount     Int       @default(0)
+  activeCampaignTag String?
+  isDeleted         Boolean   @default(false) 
+
+  @@index([verificationCode])
+}
+
+model Admin {
+  telegramId String  @id
+  name       String?
+  role       Role    @default(Admin)
+}
+
+enum Role {
+  SuperAdmin
+  Admin
+}
+
+model Reward {
+  rewardId String  @id
+  name     String
+  points   Int
+}
+
+model Campaign {
+  id              Int      @id @default(autoincrement())
+  campaignName    String   @unique
+  startAt         DateTime
+  endAt           DateTime
+  baseReferral    Int      @default(50)
+  milestoneTarget Int      @default(0)
+  milestoneBonus  Int      @default(0)
+  linkBonus       Int      @default(50)
+}
+
+model SystemConfig {
+  key   String @id
+  value String
+}
+
+model AdminLog {
+  id           Int      @id @default(autoincrement())
+  createdAt    DateTime @default(now())
+  admin        String
+  action       String
+  customerId   String?
+  pointsChange Int      @default(0)
+  details      String?
+}
+
+model CustomerLog {
+  id             Int      @id @default(autoincrement())
+  createdAt      DateTime @default(now())
+  telegramUserId String
+  customerId     String?
+  action         String
+  pointsChange   Int      @default(0)
+}
