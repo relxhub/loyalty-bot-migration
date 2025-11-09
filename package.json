@@ -5,7 +5,7 @@
   "main": "app.js",
   "type": "module",
   "scripts": {
-    "start": "node app.js & node customer_app.js",
+    "start": "PORT=3000 node app.js & PORT=3001 node customer_app.js", 
     "dev": "npm run start",
     "prisma:migrate": "npx prisma migrate dev --name init_schema",
     "prisma:seed": "node prisma/seed.js",
