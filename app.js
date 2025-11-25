@@ -1,70 +1,92 @@
-// app.js (Admin Bot Entry - ฉบับแก้ไข)
+// app.js (ฉบับรวมร่าง - แก้ปัญหา Port Railway)
 
 import 'dotenv/config'; 
 import { Telegraf } from 'telegraf';
 import express from 'express';
 import { loadConfig, getConfig } from './src/config/config.js';
 import { loadAdminCache } from './src/services/admin.service.js';
-import { handleAdminCommand } from './src/handlers/admin.handlers.js'; 
-import { runScheduler } from './src/jobs/scheduler.js'; // ยังคง import ไว้
-import { sendAdminReply } from './src/services/notification.service.js';
 
+// Import Handlers ของทั้ง 2 บอท
+import { handleAdminCommand } from './src/handlers/admin.handlers.js'; 
+import { handleCustomerCommand } from './src/handlers/customer.handlers.js';
+
+// Import Scheduler (ยัง Bypass ไว้ก่อน)
+// import { runScheduler } from './src/jobs/scheduler.js'; 
+
+// ⭐️ ใช้ PORT จาก Railway เป็นหลัก (สำคัญมาก)
 const PORT = process.env.PORT || 3000;
 const app = express();
 
-async function startBot() {
-    console.log("Starting Admin Bot initialization...");
+async function startServer() {
+    console.log("🚀 Starting Unified Server...");
     
-    // 1. โหลดค่าตั้งค่า Dynamic จาก DB และ Secrets (ENV)
+    // 1. โหลด Config และ Cache
     await loadConfig();
-    
-    // 2. โหลดรายชื่อ Admin เข้า In-Memory Cache 
     await loadAdminCache();
 
-    // 3. ดึง Token และ Timezone
-    const ADMIN_BOT_TOKEN = getConfig('adminBotToken');
-    const TIMEZONE = getConfig('systemTimezone');
-    
-    if (!ADMIN_BOT_TOKEN) {
-        // แจ้งเตือนเมื่อ Token หาย (ซึ่งเคยเกิดมาก่อน)
-        console.error("FATAL ERROR: ADMIN_BOT_TOKEN is missing in ENV/Config.");
-        process.exit(1);
-    }
+    const PUBLIC_URL = process.env.PUBLIC_URL;
+    if (!PUBLIC_URL) throw new Error("PUBLIC_URL is missing");
 
-    const bot = new Telegraf(ADMIN_BOT_TOKEN);
-
-    // 4. ตั้งค่า Webhook
+    // 2. ตั้งค่า Express (ประตูหลัก)
     app.use(express.json()); 
-    app.post(`/webhook/admin`, (req, res) => {
-        bot.handleUpdate(req.body);
-        res.sendStatus(200); 
-    });
 
-    // 5. กำหนด Listener สำหรับคำสั่งทั้งหมด
-    bot.on('message', handleAdminCommand);
-
-    // 6. ตั้งค่า Webhook บน Telegram API
-    const webhookUrl = `${process.env.PUBLIC_URL}/webhook/admin`;
-    await bot.telegram.setWebhook(webhookUrl);
-    console.log(`✅ Admin Bot Webhook set to: ${webhookUrl}`);
-
-    // 7. ❌ BYPASS CRASH: คอมเมนต์ส่วน Scheduler ออกชั่วคราว ❌
-    /*
-    runScheduler(TIMEZONE); 
-    console.log(`✅ Scheduler started for Timezone: ${TIMEZONE}`);
-    */
+    // =========================================
+    // 🤖 ส่วนที่ 1: ADMIN BOT SETUP
+    // =========================================
+    const adminToken = getConfig('adminBotToken');
+    const adminBot = new Telegraf(adminToken);
     
-    // 8. รันเซิร์ฟเวอร์ Express
+    // กำหนด Logic
+    adminBot.on('message', handleAdminCommand);
+    
+    // กำหนด Webhook Route
+    app.post(`/webhook/admin`, (req, res) => {
+        adminBot.handleUpdate(req.body);
+        res.sendStatus(200);
+    });
+    
+    // บอก Telegram ให้ส่งมาที่นี่
+    await adminBot.telegram.setWebhook(`${PUBLIC_URL}/webhook/admin`);
+    console.log(`✅ Admin Bot Webhook Ready`);
+
+
+    // =========================================
+    // 👤 ส่วนที่ 2: CUSTOMER BOT SETUP
+    // =========================================
+    const customerToken = getConfig('customerBotToken');
+    const customerBot = new Telegraf(customerToken);
+    
+    // กำหนด Logic
+    customerBot.on('message', handleCustomerCommand);
+    
+    // กำหนด Webhook Route (ใช้ App ตัวเดิม แต่คนละ Path)
+    app.post(`/webhook/customer`, (req, res) => {
+        customerBot.handleUpdate(req.body);
+        res.sendStatus(200);
+    });
+    
+    // บอก Telegram ให้ส่งมาที่นี่
+    await customerBot.telegram.setWebhook(`${PUBLIC_URL}/webhook/customer`);
+    console.log(`✅ Customer Bot Webhook Ready`);
+
+
+    // =========================================
+    // ⏰ ส่วนที่ 3: SCHEDULER (Bypassed)
+    // =========================================
+    /*
+    const TIMEZONE = getConfig('systemTimezone');
+    runScheduler(TIMEZONE);
+    */
+
+    // 3. เปิดประตูรับแขก (Listen)
     app.listen(PORT, () => {
-        console.log(`⚡️ Admin Bot listening on port ${PORT}`);
+        console.log(`⚡️ Server listening on port ${PORT}`);
+        console.log(`   - Admin Bot path: /webhook/admin`);
+        console.log(`   - Customer Bot path: /webhook/customer`);
     });
 }
 
-startBot().catch(err => {
-    // ใช้ sendAdminReply เพื่อแจ้งเตือน Super Admin หากเป็นไปได้
-    if (err.message.includes("FATAL ERROR")) {
-        // ใช้ logic แจ้งเตือน (หรือแค่ log)
-    }
-    console.error("Critical error during bot startup:", err);
+startServer().catch(err => {
+    console.error("Critical error during startup:", err);
     process.exit(1);
 });

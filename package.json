@@ -5,12 +5,12 @@
   "main": "app.js",
   "type": "module",
   "scripts": {
-    "start": "PORT=3000 node app.js & PORT=3001 node customer_app.js", 
-    "dev": "npm run start",
-    "prisma:migrate": "npx prisma migrate dev --name init_schema",
-    "prisma:seed": "node prisma/seed.js",
+    "start": "node app.js",
+    "dev": "node app.js",
+    "prisma:migrate": "npx prisma migrate dev",
     "prisma:generate": "npx prisma generate",
-    "prisma:studio": "npx prisma studio"
+    "prisma:studio": "npx prisma studio",
+    "prisma:seed": "node prisma/seed.js"
   },
   "keywords": [],
   "author": "",
@@ -20,6 +20,7 @@
     "dotenv": "^16.4.1",
     "express": "^4.18.2",
     "node-cron": "^3.0.3",
+    "node-fetch": "^3.3.2",
     "telegraf": "^4.15.3"
   },
   "devDependencies": {
