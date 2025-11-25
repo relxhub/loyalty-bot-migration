@@ -5,12 +5,12 @@
   "main": "app.js",
   "type": "module",
   "scripts": {
+    // ❌ ของเดิม (ผิด): "start": "PORT=3000 node app.js & ...",
+    // ✅ ของใหม่ (ถูกต้อง): ลบ PORT=... ออกให้หมด
     "start": "node app.js",
     "dev": "node app.js",
-    "prisma:migrate": "npx prisma migrate dev",
-    "prisma:generate": "npx prisma generate",
-    "prisma:studio": "npx prisma studio",
-    "prisma:seed": "node prisma/seed.js"
+    
+    // ... ส่วนอื่นๆ เหมือนเดิม
   },
   "keywords": [],
   "author": "",
