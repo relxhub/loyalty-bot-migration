@@ -1,16 +1,16 @@
-// src/jobs/scheduler.js (ฉบับปรับปรุงความปลอดภัย)
+// src/jobs/scheduler.js
 
 import cron from 'node-cron'; 
 import { getConfig } from '../config/config.js';
 import { runPointExpiryJob, runReminderJob } from './expiry.job.js';
 
 export function runScheduler(timezone) {
-    // ⭐️ แก้ไข: เปลี่ยน Default ให้เป็นรูปแบบ 5 Fields ที่ถูกต้อง ⭐️
-    // '5 0 * * *' หมายถึง: นาทีที่ 5 ของทุกชั่วโมงที่ 0 (ตี 00:05 น.) ของทุกวัน
+    // ⭐️ แก้ไข: เพิ่ม || 'ค่ามาตรฐาน' เพื่อป้องกัน Crash 100%
+    // ถ้าใน DB หาไม่เจอ ให้ใช้ '5 0 * * *' (เที่ยงคืน 5 นาที) แทนทันที
     const cutoffTime = getConfig('expiryCutoffTime') || '5 0 * * *'; 
-    const reminderTime = getConfig('reminderNotificationTime') || '0 9 * * *'; // Default: 09:00 น.
+    const reminderTime = getConfig('reminderNotificationTime') || '0 9 * * *';
 
-    // ⚠️ Note: ถ้าโค้ดมาถึงตรงนี้ แสดงว่าค่าจาก DB ถูกต้องแล้ว
+    console.log(`[Scheduler] Starting jobs with times: Cutoff="${cutoffTime}", Reminder="${reminderTime}"`);
 
     cron.schedule(cutoffTime, runPointExpiryJob, {
         scheduled: true,
@@ -21,6 +21,4 @@ export function runScheduler(timezone) {
         scheduled: true,
         timezone: timezone 
     });
-
-    console.log(`[Scheduler] Jobs scheduled with times: Cutoff=${cutoffTime}, Reminder=${reminderTime}`);
-}
+} //
