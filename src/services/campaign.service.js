@@ -1,41 +1,44 @@
-// src/services/campaign.service.js (ฉบับถูกต้อง)
+// src/services/campaign.service.js (ฉบับ Real-time)
 
 import { prisma } from '../db.js';
 import { getConfig } from '../config/config.js';
 
-let activeCampaignCache = null;
+// ❌ ลบตัวแปร Cache ออก
+// let activeCampaignCache = null;
 
 /**
- * 🔍 ค้นหาแคมเปญที่กำลัง Active อยู่
- * @returns {object | null} Campaign object หรือ null ถ้าไม่มีแคมเปญที่ Active
+ * 🔍 ค้นหาแคมเปญที่กำลัง Active อยู่ (แบบ Real-time)
+ * อ่านจาก Database ทุกครั้ง เพื่อความแม่นยำสูงสุดเมื่อมีการแก้ไขข้อมูล
  */
 export async function getActiveCampaign() {
-    // 1. ตรวจสอบ Cache ก่อน หากแคมเปญที่อยู่ใน Cache ยังไม่หมดอายุ
+    // ❌ ลบเงื่อนไขการเช็ค Cache ออก
+    /*
     if (activeCampaignCache && activeCampaignCache.endAt > new Date()) {
         return activeCampaignCache;
     }
+    */
     
     const now = new Date();
     
-    // 2. ค้นหาใน DB: หาแคมเปญที่ 'ตอนนี้' อยู่ระหว่าง startAt และ endAt
+    // 1. ค้นหาใน DB สดๆ ทุกครั้ง
     const campaign = await prisma.campaign.findFirst({
         where: {
             startAt: { lte: now }, // ต้องเริ่มแล้ว
             endAt: { gt: now }     // และยังไม่จบ
         },
-        // ถ้า Active พร้อมกัน ให้เลือกแคมเปญที่กำหนดให้จบเร็วที่สุด
         orderBy: { endAt: 'asc' } 
     });
 
-    // 3. อัปเดต Cache
-    activeCampaignCache = campaign || null;
+    // (ไม่ต้องอัปเดต Cache แล้ว)
     
-    // 4. หากไม่มีแคมเปญ Active ให้คืนค่ามาตรฐาน (Standard Campaign)
+    // 2. หากไม่มีแคมเปญ Active ให้คืนค่ามาตรฐาน
     if (!campaign) {
         return {
             active: false,
             name: "Standard",
+            // แปลงค่าจาก Config เป็นตัวเลข (ถ้าไม่มีใช้ 50)
             base: parseInt(getConfig('standardReferralPoints')) || 50,
+            baseReferral: parseInt(getConfig('standardReferralPoints')) || 50, // เพิ่มตัวนี้เผื่อกันเหนียว
             linkBonus: parseInt(getConfig('standardLinkBonus')) || 50,
             milestoneTarget: 0,
             milestoneBonus: 0,
