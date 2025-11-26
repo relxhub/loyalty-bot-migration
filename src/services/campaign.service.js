@@ -1,46 +1,50 @@
-// src/services/campaign.service.js
+// src/services/customer.service.js
+
 import { prisma } from '../db.js';
+import { getActiveCampaign } from './campaign.service.js';
+import { addDays } from '../utils/date.utils.js';
+import { sendNotificationToCustomer } from './notification.service.js'; 
 import { getConfig } from '../config/config.js';
 
-let activeCampaignCache = null;
+export async function giveReferralBonus(referrerId, newCustomerId, adminUser) {
+    const campaign = await getActiveCampaign();
+    
+    // ⭐️ แก้ไขจุดที่ผิด: อ่านค่า baseReferral (จาก DB) หรือ base (จากค่า Default)
+    const bonusPoints = campaign?.baseReferral || campaign?.base || getConfig('standardReferralPoints') || 50; 
+    
+    const daysToExtend = getConfig('expiryDaysReferralBonus') || 7;
+    const limitDays = getConfig('expiryDaysLimitMax') || 60;
 
-/**
- * 🔍 ค้นหาแคมเปญที่กำลัง Active อยู่
- * @returns {object | null} Campaign object หรือ null ถ้าไม่มีแคมเปญที่ Active
- */
-export async function getActiveCampaign() {
-    // 1. ตรวจสอบ Cache ก่อน หากแคมเปญที่อยู่ใน Cache ยังไม่หมดอายุ
-    if (activeCampaignCache && activeCampaignCache.endAt > new Date()) {
-        return activeCampaignCache;
-    }
-    
-    const now = new Date();
-    
-    // 2. ค้นหาใน DB: หาแคมเปญที่ 'ตอนนี้' อยู่ระหว่าง startAt และ endAt
-    const campaign = await prisma.campaign.findFirst({
-        where: {
-            startAt: { lte: now }, // ต้องเริ่มแล้ว
-            endAt: { gt: now }     // และยังไม่จบ
-        },
-        // ถ้า Active พร้อมกัน ให้เลือกแคมเปญที่กำหนดให้จบเร็วที่สุด (เพื่อให้ง่ายต่อการจัดการ)
-        orderBy: { endAt: 'asc' } 
+    // 1. ดึงข้อมูลผู้แนะนำ
+    const referrer = await prisma.customer.findUnique({ where: { customerId: referrerId } });
+    if (!referrer) return;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // 2. ตรรกะการต่ออายุ
+    const baseDate = referrer.expiryDate > today ? referrer.expiryDate : today;
+    const proposedExpiry = addDays(baseDate, daysToExtend);
+    const limitDate = addDays(today, limitDays); 
+    const finalExpiryDate = proposedExpiry > limitDate ? limitDate : proposedExpiry;
+
+    // 3. อัปเดต DB
+    await prisma.customer.update({
+        where: { customerId: referrerId },
+        data: {
+            points: { increment: bonusPoints },
+            expiryDate: finalExpiryDate,
+            referralCount: { increment: 1 },
+            // ใช้ campaignName หรือ name แล้วแต่ว่ามาจาก DB หรือ Default
+            activeCampaignTag: campaign?.campaignName || campaign?.name || null 
+        }
     });
 
-    // 3. อัปเดต Cache
-    activeCampaignCache = campaign || null;
+    // 4. ส่ง Notification
+    const newPoints = referrer.points + bonusPoints;
+    const notificationMessage = `💌 ขอบคุณที่แนะนำเพื่อน!\n⭐️ คุณได้รับแต้มโบนัส ${bonusPoints} แต้ม จากการแนะนำคุณ ${newCustomerId}\n💰 แต้มสะสมปัจจุบัน: ${newPoints} แต้ม`;
     
-    // 4. หากไม่มีแคมเปญ Active ให้คืนค่ามาตรฐาน (Standard Campaign)
-    if (!campaign) {
-        return {
-            active: false,
-            name: "Standard",
-            base: getConfig('standardReferralPoints') || 50,
-            linkBonus: getConfig('standardLinkBonus') || 50,
-            milestoneTarget: 0,
-            milestoneBonus: 0,
-            endDate: null 
-        };
+    if (referrer.telegramUserId) {
+        await sendNotificationToCustomer(referrer.telegramUserId, notificationMessage);
     }
-
-    return campaign;
 }
