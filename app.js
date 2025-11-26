@@ -61,8 +61,8 @@ async function startServer() {
     await customerBot.telegram.setWebhook(`${PUBLIC_URL}/webhook/customer`);
     console.log(`✅ Customer Bot Webhook set`);
 
-    // 3. เปิด Server
-    app.listen(PORT, () => {
+    // 3. เปิด Server (แบบใหม่ - รับแขกจากทุกทิศ)
+    app.listen(PORT, '0.0.0.0', () => {
         console.log(`⚡️ Server listening on port ${PORT}`);
     });
 }
