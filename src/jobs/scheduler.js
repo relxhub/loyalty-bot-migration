@@ -1,18 +1,25 @@
+// src/jobs/scheduler.js
+
 import cron from 'node-cron'; 
 import { getConfig } from '../config/config.js';
 import { runPointExpiryJob, runReminderJob } from './expiry.job.js';
 
 export function runScheduler(timezone) {
-    // ⭐️ แก้ไขตรงนี้: เปลี่ยนค่า Default ให้มีครบ 5 ส่วน (* * * * *)
-    // '5 0 * * *' = เวลา 00:05 น. ของทุกวัน
-    const cutoffTime = getConfig('expiryCutoffTime') || '5 0 * * *'; 
-    
-    // '0 9 * * *' = เวลา 09:00 น. ของทุกวัน
-    const reminderTime = getConfig('reminderNotificationTime') || '0 9 * * *';
+    // ดึงค่าจาก Config
+    let cutoffTime = getConfig('expiryCutoffTime');
+    let reminderTime = getConfig('reminderNotificationTime');
+
+    // ⭐️ การตรวจสอบความถูกต้อง (Validation) ⭐️
+    // ถ้าค่าที่ได้มาสั้นเกินไป (เช่น "5") หรือไม่มีค่า ให้ใช้ค่ามาตรฐานทันที
+    if (!cutoffTime || cutoffTime.length < 5) {
+        cutoffTime = '5 0 * * *'; // ตี 00:05 น.
+    }
+    if (!reminderTime || reminderTime.length < 5) {
+        reminderTime = '0 9 * * *'; // 09:00 น.
+    }
 
     console.log(`[Scheduler] Starting jobs with times: Cutoff="${cutoffTime}", Reminder="${reminderTime}"`);
 
-    // เพิ่ม Try-Catch เพื่อป้องกันไม่ให้ระบบล่มถ้าค่า Config ผิดพลาด
     try {
         cron.schedule(cutoffTime, runPointExpiryJob, {
             scheduled: true,
@@ -23,6 +30,7 @@ export function runScheduler(timezone) {
             scheduled: true,
             timezone: timezone 
         });
+        console.log(`✅ Cron Jobs scheduled successfully.`);
     } catch (error) {
         console.error("⚠️ Failed to schedule cron jobs:", error.message);
     }
