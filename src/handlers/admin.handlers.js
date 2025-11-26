@@ -1,13 +1,11 @@
-// src/handlers/admin.handlers.js (Final Version - With Undo & Correct Timezone)
+// src/handlers/admin.handlers.js (Final Version)
 
 import { prisma } from '../db.js';
-// ⭐️ เพิ่ม loadAdminCache สำหรับการรีเฟรชสิทธิ์
 import { getAdminRole, loadAdminCache } from '../services/admin.service.js';
 import { sendAdminReply, sendAlertToSuperAdmin, sendNotificationToCustomer } from '../services/notification.service.js'; 
 import { listRewards, formatRewardsForAdmin } from '../services/reward.service.js';
 import { isValidIdFormat } from '../utils/validation.utils.js'; 
 import { generateUniqueCode } from '../utils/crypto.utils.js';
-// ⭐️ ใช้ getThaiNow เพื่อแก้ปัญหาเวลา
 import { addDays, getThaiNow } from '../utils/date.utils.js';
 import { getActiveCampaign } from '../services/campaign.service.js';
 import { getConfig } from '../config/config.js';
@@ -139,16 +137,41 @@ async function handleUndoLastAction(ctx, adminUser, chatId) {
                             `แต้มที่คืนค่า: ${revertPoints > 0 ? '+' + revertPoints : revertPoints}`;
         } 
         else if (actionType === 'CREATE_CUSTOMER') {
-            // ย้อนกลับการสร้างลูกค้า (Soft Delete)
+            // ⭐️ Logic ใหม่: เช็คผู้แนะนำและหักแต้มคืน
+            const targetCustomer = await prisma.customer.findUnique({
+                where: { customerId: customerId }
+            });
+
+            let refundMsg = "";
+
+            // ถ้ามีผู้แนะนำ -> ไปหักแต้มคืนจากผู้แนะนำ
+            if (targetCustomer && targetCustomer.referrerId) {
+                const referrerId = targetCustomer.referrerId;
+                // คำนวณแต้มที่ต้องหักคืน (ใช้ตรรกะเดียวกับตอนให้)
+                const campaign = await getActiveCampaign();
+                const bonusPoints = campaign?.baseReferral || campaign?.base || getConfig('standardReferralPoints') || 50;
+                
+                await prisma.customer.update({
+                    where: { customerId: referrerId },
+                    data: { 
+                        points: { decrement: bonusPoints },
+                        referralCount: { decrement: 1 } 
+                    }
+                });
+                refundMsg = `\n(และหัก ${bonusPoints} แต้มคืนจากผู้แนะนำ ${referrerId})`;
+            }
+
+            // ย้อนกลับการสร้างลูกค้า (Soft Delete และล้างความสัมพันธ์)
             await prisma.customer.update({
                 where: { customerId: customerId },
                 data: { 
                     isDeleted: true,
                     telegramUserId: null,
-                    verificationCode: null
+                    verificationCode: null,
+                    referrerId: null // ล้างผู้แนะนำออก
                 }
             });
-            resultMessage = `✅ ยกเลิกการสร้างลูกค้า ${customerId} สำเร็จ (ปิดใช้งานบัญชีนี้แล้ว)`;
+            resultMessage = `✅ ยกเลิกการสร้างลูกค้า ${customerId} สำเร็จ${refundMsg}`;
         }
         else {
             return sendAdminReply(chatId, `⚠️ ไม่รองรับการ Undo คำสั่งประเภท: ${actionType}`);
@@ -179,10 +202,10 @@ async function handleAddAdmin(ctx, commandParts, chatId) {
             create: { telegramId: targetTgId, role: targetRole, name: targetName }
         });
         await loadAdminCache();
-        sendAdminReply(chatId, `✅ บันทึก Admin เรียบร้อย\nID: ${targetTgId}\nRole: ${targetRole}`);
+        sendAdminReply(chatId, `✅ บันทึกข้อมูล Admin เรียบร้อย\nID: ${targetTgId}\nRole: ${targetRole}\nName: ${targetName}`);
     } catch (e) {
         console.error("Add Admin Error:", e);
-        sendAdminReply(chatId, "❌ เกิดข้อผิดพลาด");
+        sendAdminReply(chatId, "❌ เกิดข้อผิดพลาดในการบันทึกข้อมูล");
     }
 }
 
@@ -233,7 +256,6 @@ async function handleNewCustomer(ctx, commandParts, adminUser, chatId) {
     // 4. Prepare Messages
     const campaign = await getActiveCampaign();
     const linkBonus = campaign?.linkBonus || 50;
-    // ⭐️ แก้ไข: เช็คค่าจาก DB ก่อน (baseReferral) ถ้าไม่มีใช้ Default
     const referralBonus = campaign?.baseReferral || campaign?.base || 50;
     const botLink = getConfig('customerBotLink') || "https://t.me/ONEHUBCustomer_Bot";
 
@@ -247,14 +269,9 @@ async function handleNewCustomer(ctx, commandParts, adminUser, chatId) {
          if (campaign.endAt) {
              const endDate = new Date(campaign.endAt);
              const dateStr = endDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-             // แสดงข้อความโปรโมชั่นถ้าแต้มไม่เท่ากับปกติ
-             if (referralBonus !== 50) {
-                 promoText = `\n💌 <i>(แคมเปญพิเศษถึง ${dateStr} | ปกติ 50 แต้ม)</i>`;
-             }
+             promoText = `\n💌 <i>(แคมเปญพิเศษถึง ${dateStr} | ปกติ 50 แต้ม)</i>`;
          } else {
-             if (referralBonus !== 50) {
-                 promoText = `\n💌 <i>(แคมเปญพิเศษ ${campaign.name} | ปกติ 50 แต้ม)</i>`;
-             }
+             promoText = `\n💌 <i>(แคมเปญพิเศษ ${campaign.name} | ปกติ 50 แต้ม)</i>`;
          }
     }
 
@@ -303,9 +320,8 @@ async function handleAddPoints(ctx, commandParts, adminUser, chatId) {
     if (!customer) return sendAdminReply(chatId, `🔍 ไม่พบข้อมูลลูกค้า ${customerId}`);
 
     // ⭐️ FIX: Cutoff Logic ที่ถูกต้อง (ใช้ getThaiNow เพื่อความแม่นยำเรื่อง Timezone)
-    // สูตร: MAX(วันเดิม, วันนี้) + 30 วัน แต่ไม่เกิน 60 วัน
     const today = getThaiNow(); 
-    today.setHours(0,0,0,0); // Reset เวลาให้เป็นเที่ยงคืนตามเวลาไทย
+    today.setHours(0,0,0,0); 
     
     const currentExpiry = customer.expiryDate;
     const limitDays = getConfig('expiryDaysLimitMax') || 60;
