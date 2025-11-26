@@ -1,4 +1,4 @@
-// src/handlers/admin.handlers.js (Final Version)
+// src/handlers/admin.handlers.js (Final Version - Fix Undo & Duplicate Check)
 
 import { prisma } from '../db.js';
 import { getAdminRole, loadAdminCache } from '../services/admin.service.js';
@@ -12,33 +12,26 @@ import { getConfig } from '../config/config.js';
 import { giveReferralBonus } from '../services/customer.service.js';
 
 // ==================================================
-// ⭐️ MAIN ROUTER: จัดการคำสั่งทั้งหมดของ Admin
+// ⭐️ MAIN ROUTER
 // ==================================================
 export async function handleAdminCommand(ctx) {
     const userTgId = String(ctx.from.id);
     const text = ctx.message.text || "";
     const role = await getAdminRole(userTgId);
     
-    // แยกคำสั่งและ Argument
     const commandParts = text.trim().split(/\s+/);
     const command = commandParts[0].toLowerCase();
     
     const adminUser = ctx.from.username || ctx.from.first_name || "Admin";
     const chatId = ctx.chat.id;
 
-    // 1. ตรวจสอบสิทธิ์ (Gating)
-    if (!role) {
-        return sendAdminReply(chatId, "⛔️ คุณไม่มีสิทธิ์ใช้งานคำสั่งนี้");
-    }
-
-    // 2. ตรวจสอบสิทธิ์เฉพาะคำสั่ง (Super Admin Only)
+    if (!role) return sendAdminReply(chatId, "⛔️ คุณไม่มีสิทธิ์ใช้งานคำสั่งนี้");
+    
     if (["/add", "/addadmin"].includes(command) && role !== "SuperAdmin") {
         return sendAdminReply(chatId, `⛔️ คุณไม่มีสิทธิ์ใช้งานคำสั่ง ${command}`);
     }
 
-    // 3. Route คำสั่ง
     switch (command) {
-        // ⭐️ เพิ่มคำสั่ง UNDO
         case "/undo":
             await handleUndoLastAction(ctx, adminUser, chatId);
             break;
@@ -71,7 +64,6 @@ export async function handleAdminCommand(ctx) {
         case "/reward":
             const rewards = await listRewards();
             const result = formatRewardsForAdmin(rewards);
-            // ไม่ต้อง Log การดู reward เพื่อไม่ให้รก
             sendAdminReply(chatId, result);
             break;
             
@@ -100,7 +92,6 @@ export async function handleAdminCommand(ctx) {
 
 // ⭐️ ฟังก์ชันยกเลิกคำสั่งล่าสุด (/undo)
 async function handleUndoLastAction(ctx, adminUser, chatId) {
-    // 1. ค้นหา Log ล่าสุดของ Admin คนนี้ (ยกเว้นคำสั่งที่ไม่ได้เปลี่ยนค่า)
     const lastLog = await prisma.adminLog.findFirst({
         where: { 
             admin: adminUser,
@@ -122,34 +113,39 @@ async function handleUndoLastAction(ctx, adminUser, chatId) {
     let resultMessage = "";
 
     try {
-        // 2. ตรวจสอบประเภทและทำการย้อนกลับ (Revert)
         if (actionType === 'ADD_POINTS' || actionType === 'REDEEM_POINTS') {
-            // ย้อนกลับแต้ม (กลับเครื่องหมาย +/-)
             const revertPoints = pointsDiff * -1; 
-            
             await prisma.customer.update({
                 where: { customerId: customerId },
                 data: { points: { increment: revertPoints } }
             });
-
             resultMessage = `✅ ยกเลิกรายการ ${actionType} สำเร็จ\n` +
                             `ลูกค้า: ${customerId}\n` +
                             `แต้มที่คืนค่า: ${revertPoints > 0 ? '+' + revertPoints : revertPoints}`;
         } 
         else if (actionType === 'CREATE_CUSTOMER') {
-            // ⭐️ Logic ใหม่: เช็คผู้แนะนำและหักแต้มคืน
+            // ⭐️ Logic 1: เช็คผู้แนะนำและหักแต้มคืน
             const targetCustomer = await prisma.customer.findUnique({
                 where: { customerId: customerId }
             });
 
             let refundMsg = "";
 
-            // ถ้ามีผู้แนะนำ -> ไปหักแต้มคืนจากผู้แนะนำ
             if (targetCustomer && targetCustomer.referrerId) {
                 const referrerId = targetCustomer.referrerId;
-                // คำนวณแต้มที่ต้องหักคืน (ใช้ตรรกะเดียวกับตอนให้)
+                // ดึง Log การให้โบนัสล่าสุดที่เกี่ยวข้องกับลูกค้าคนนี้
+                // เพื่อดูว่าให้ไปเท่าไหร่ (จะได้หักคืนถูก)
+                const bonusLog = await prisma.adminLog.findFirst({
+                     where: {
+                         action: 'REFERRAL_BONUS',
+                         customerId: referrerId,
+                         createdAt: { gte: lastLog.createdAt } // ต้องเกิดพร้อมกันหรือหลังจากการสร้าง
+                     }
+                });
+                
+                // ถ้าหา Log ไม่เจอ ให้ใช้ค่า Config ปัจจุบันแทน
                 const campaign = await getActiveCampaign();
-                const bonusPoints = campaign?.baseReferral || campaign?.base || getConfig('standardReferralPoints') || 50;
+                const bonusPoints = bonusLog ? bonusLog.pointsChange : (campaign?.baseReferral || 50);
                 
                 await prisma.customer.update({
                     where: { customerId: referrerId },
@@ -161,23 +157,25 @@ async function handleUndoLastAction(ctx, adminUser, chatId) {
                 refundMsg = `\n(และหัก ${bonusPoints} แต้มคืนจากผู้แนะนำ ${referrerId})`;
             }
 
-            // ย้อนกลับการสร้างลูกค้า (Soft Delete และล้างความสัมพันธ์)
+            // ⭐️ Logic 2: เปลี่ยนชื่อ ID (Rename) เพื่อให้ชื่อเดิมว่าง
+            const deletedId = `${customerId}_DEL_${Date.now().toString().slice(-4)}`; // เช่น TEST12_DEL_5678
+
             await prisma.customer.update({
                 where: { customerId: customerId },
                 data: { 
+                    customerId: deletedId, // เปลี่ยนชื่อ ID
                     isDeleted: true,
                     telegramUserId: null,
                     verificationCode: null,
-                    referrerId: null // ล้างผู้แนะนำออก
+                    referrerId: null 
                 }
             });
-            resultMessage = `✅ ยกเลิกการสร้างลูกค้า ${customerId} สำเร็จ${refundMsg}`;
+            resultMessage = `✅ ยกเลิกการสร้างลูกค้า ${customerId} สำเร็จ (ลบข้อมูลแล้ว)${refundMsg}`;
         }
         else {
             return sendAdminReply(chatId, `⚠️ ไม่รองรับการ Undo คำสั่งประเภท: ${actionType}`);
         }
 
-        // 3. บันทึก Log การ Undo
         await createAdminLog(adminUser, "UNDO_ACTION", customerId, 0, `Reverted action ID: ${lastLog.id} (${actionType})`);
         sendAdminReply(chatId, resultMessage);
 
@@ -202,7 +200,7 @@ async function handleAddAdmin(ctx, commandParts, chatId) {
             create: { telegramId: targetTgId, role: targetRole, name: targetName }
         });
         await loadAdminCache();
-        sendAdminReply(chatId, `✅ บันทึกข้อมูล Admin เรียบร้อย\nID: ${targetTgId}\nRole: ${targetRole}\nName: ${targetName}`);
+        sendAdminReply(chatId, `✅ บันทึก Admin เรียบร้อย\nID: ${targetTgId}\nRole: ${targetRole}\nName: ${targetName}`);
     } catch (e) {
         console.error("Add Admin Error:", e);
         sendAdminReply(chatId, "❌ เกิดข้อผิดพลาดในการบันทึกข้อมูล");
@@ -218,20 +216,29 @@ async function handleNewCustomer(ctx, commandParts, adminUser, chatId) {
     if (!newCustomerId) return sendAdminReply(chatId, "❗️รูปแบบคำสั่งผิด\nต้องเป็น: /new [รหัสลูกค้าใหม่] [รหัสผู้แนะนำ (ถ้ามี)]");
     if (!isValidIdFormat(newCustomerId)) return sendAdminReply(chatId, `❌ รูปแบบรหัสลูกค้า '${newCustomerId}' ไม่ถูกต้อง (A-Z, 0-9)`);
     
-    const existing = await prisma.customer.findUnique({ where: { customerId: newCustomerId, isDeleted: false } });
-    if (existing) return sendAdminReply(chatId, `❌ รหัสลูกค้า '${newCustomerId}' นี้มีอยู่ในระบบแล้ว`);
+    // ⭐️ FIX: การเช็คซ้ำ (ต้องค้นหาด้วย ID ตรงๆ แล้วค่อยเช็ค isDeleted)
+    const existing = await prisma.customer.findUnique({ 
+        where: { customerId: newCustomerId } 
+    });
+
+    // ถ้ามีข้อมูล และยังไม่ถูกลบ -> แจ้งเตือนซ้ำ
+    if (existing && !existing.isDeleted) {
+        return sendAdminReply(chatId, `❌ รหัสลูกค้า '${newCustomerId}' นี้มีอยู่ในระบบแล้ว`);
+    }
+    // ถ้ามีข้อมูล แต่ถูกลบไปแล้ว (กรณีหายากเพราะเรา Rename แล้ว) -> แจ้งเตือนเช่นกันเพื่อความชัวร์
+    if (existing && existing.isDeleted) {
+        return sendAdminReply(chatId, `⚠️ รหัส '${newCustomerId}' เคยถูกใช้แล้ว (แต่ถูกลบ) กรุณาใช้รหัสอื่น`);
+    }
 
     if (isReferrerSpecified) {
-        const refUser = await prisma.customer.findUnique({ where: { customerId: referrerId, isDeleted: false } });
-        if (!refUser) return sendAdminReply(chatId, `❌ ไม่พบข้อมูลรหัสผู้แนะนำ '${referrerId}'`);
+        const refUser = await prisma.customer.findUnique({ where: { customerId: referrerId } });
+        if (!refUser || refUser.isDeleted) return sendAdminReply(chatId, `❌ ไม่พบข้อมูลรหัสผู้แนะนำ '${referrerId}'`);
         if (newCustomerId === referrerId) return sendAdminReply(chatId, "❌ รหัสลูกค้าและผู้แนะนำต้องไม่เหมือนกัน");
     }
 
     // 2. Create Data
     const verificationCode = generateUniqueCode(4);
     const initialPoints = 0;
-    
-    // ⭐️ ใช้ getThaiNow() เพื่อเริ่มนับจากเวลาไทย
     const newExpiryDate = addDays(getThaiNow(), getConfig('expiryDaysNewCustomer') || 30);
 
     await prisma.customer.create({
@@ -259,11 +266,9 @@ async function handleNewCustomer(ctx, commandParts, adminUser, chatId) {
     const referralBonus = campaign?.baseReferral || campaign?.base || 50;
     const botLink = getConfig('customerBotLink') || "https://t.me/ONEHUBCustomer_Bot";
 
-    // กล่อง 1: แจ้งแอดมิน
     const adminMsg = `✅ สร้างลูกค้าใหม่ '${newCustomerId}' เรียบร้อยแล้ว\n\n` +
                      `👇 <b>กรุณาคัดลอกข้อความด้านล่างนี้ทั้งหมด\nแล้วส่งให้ลูกค้าได้เลยครับ</b> 👇`;
 
-    // กล่อง 2: ข้อความลูกค้า
     let promoText = "";
     if (campaign?.name && campaign?.name !== 'Standard') {
          if (campaign.endAt) {
@@ -297,12 +302,13 @@ async function handleNewCustomer(ctx, commandParts, adminUser, chatId) {
 
 async function checkCustomerInfo(customerId, adminUser) {
     const customer = await prisma.customer.findUnique({
-        where: { customerId: customerId.toUpperCase(), isDeleted: false }
+        where: { customerId: customerId.toUpperCase() }
     });
     
     await createAdminLog(adminUser, "CHECK_CUSTOMER", customerId.toUpperCase(), 0, "Checked info");
 
-    if (!customer) return `🔍 ไม่พบข้อมูลลูกค้า ${customerId}`;
+    if (!customer || customer.isDeleted) return `🔍 ไม่พบข้อมูลลูกค้า ${customerId}`;
+    
     const formattedDate = customer.expiryDate.toLocaleDateString('th-TH');
     return `👤 <b>ข้อมูลลูกค้า: ${customer.customerId}</b>\n` +
            `🤝 ผู้แนะนำ: ${customer.referrerId || 'N/A'}\n` +
@@ -316,10 +322,9 @@ async function handleAddPoints(ctx, commandParts, adminUser, chatId) {
 
     if (!customerId || isNaN(points)) return sendAdminReply(chatId, "❗️รูปแบบคำสั่งผิด\nต้องเป็น: /add [รหัสลูกค้า] [แต้ม]");
 
-    const customer = await prisma.customer.findUnique({ where: { customerId: customerId, isDeleted: false } });
-    if (!customer) return sendAdminReply(chatId, `🔍 ไม่พบข้อมูลลูกค้า ${customerId}`);
+    const customer = await prisma.customer.findUnique({ where: { customerId: customerId } });
+    if (!customer || customer.isDeleted) return sendAdminReply(chatId, `🔍 ไม่พบข้อมูลลูกค้า ${customerId}`);
 
-    // ⭐️ FIX: Cutoff Logic ที่ถูกต้อง (ใช้ getThaiNow เพื่อความแม่นยำเรื่อง Timezone)
     const today = getThaiNow(); 
     today.setHours(0,0,0,0); 
     
@@ -327,16 +332,9 @@ async function handleAddPoints(ctx, commandParts, adminUser, chatId) {
     const limitDays = getConfig('expiryDaysLimitMax') || 60;
     const extendDays = getConfig('expiryDaysAddPoints') || 30;
 
-    // 1. คำนวณวันที่ฐาน (เลือกวันที่ไกลกว่าระหว่าง วันหมดอายุเดิม กับ วันนี้)
     const baseDate = currentExpiry > today ? currentExpiry : today;
-    
-    // 2. วันหมดอายุใหม่ = วันที่ฐาน + 30 วัน
     const proposedExpiry = addDays(baseDate, extendDays);
-    
-    // 3. วันเพดานสูงสุด = วันนี้ + 60 วัน (นับจากวันนี้เสมอ)
     const limitDate = addDays(today, limitDays);
-    
-    // 4. เลือกวันที่ไม่เกินเพดาน
     let finalExpiryDate = proposedExpiry > limitDate ? limitDate : proposedExpiry;
 
     await prisma.customer.update({
@@ -363,8 +361,8 @@ async function handleRedeemReward(ctx, commandParts, adminUser, chatId) {
 
     if (!customerId || !rewardId) return sendAdminReply(chatId, "❗️รูปแบบคำสั่งผิด\nต้องเป็น: /redeem [รหัสลูกค้า] [รหัสรางวัล]");
 
-    const customer = await prisma.customer.findUnique({ where: { customerId: customerId, isDeleted: false } });
-    if (!customer) return sendAdminReply(chatId, `🔍 ไม่พบข้อมูลลูกค้า ${customerId}`);
+    const customer = await prisma.customer.findUnique({ where: { customerId: customerId } });
+    if (!customer || customer.isDeleted) return sendAdminReply(chatId, `🔍 ไม่พบข้อมูลลูกค้า ${customerId}`);
 
     const reward = await prisma.reward.findUnique({ where: { rewardId: rewardId } });
     if (!reward) return sendAdminReply(chatId, `🎁 ไม่พบของรางวัลรหัส '${rewardId}'`);
