@@ -9,16 +9,21 @@ export function runScheduler(timezone) {
     let cutoffTime = getConfig('expiryCutoffTime');
     let reminderTime = getConfig('reminderNotificationTime');
 
-    // ⭐️ การตรวจสอบความถูกต้อง (Validation) ⭐️
-    // ถ้าค่าที่ได้มาสั้นเกินไป (เช่น "5") หรือไม่มีค่า ให้ใช้ค่ามาตรฐานทันที
-    if (!cutoffTime || cutoffTime.length < 5) {
-        cutoffTime = '5 0 * * *'; // ตี 00:05 น.
+    console.log(`[Scheduler] Raw values from DB -> Cutoff: "${cutoffTime}", Reminder: "${reminderTime}"`);
+
+    // ⭐️ FIX: ตรวจสอบความยาวของ String (Cron ต้องยาวกว่า 5 ตัวอักษรแน่นอน)
+    // ถ้าใน DB เป็น "5" หรือ "0 9" หรือค่าว่าง -> บังคับใช้ค่า Default ทันที
+    if (!cutoffTime || typeof cutoffTime !== 'string' || cutoffTime.length < 9) {
+        console.warn(`⚠️ Invalid Cutoff Time in DB ("${cutoffTime}"). Using default "5 0 * * *"`);
+        cutoffTime = '5 0 * * *'; // 00:05 น.
     }
-    if (!reminderTime || reminderTime.length < 5) {
+
+    if (!reminderTime || typeof reminderTime !== 'string' || reminderTime.length < 9) {
+        console.warn(`⚠️ Invalid Reminder Time in DB ("${reminderTime}"). Using default "0 9 * * *"`);
         reminderTime = '0 9 * * *'; // 09:00 น.
     }
 
-    console.log(`[Scheduler] Starting jobs with times: Cutoff="${cutoffTime}", Reminder="${reminderTime}"`);
+    console.log(`[Scheduler] Final values -> Cutoff: "${cutoffTime}", Reminder: "${reminderTime}"`);
 
     try {
         cron.schedule(cutoffTime, runPointExpiryJob, {
