@@ -1,12 +1,17 @@
-// app.js (ฉบับเพิ่ม Health Check & Logger)
+// app.js (ฉบับสมบูรณ์ - เปิดใช้งานทุกระบบ)
 
 import 'dotenv/config'; 
 import { Telegraf } from 'telegraf';
 import express from 'express';
 import { loadConfig, getConfig } from './src/config/config.js';
 import { loadAdminCache } from './src/services/admin.service.js';
+
+// Import Handlers
 import { handleAdminCommand } from './src/handlers/admin.handlers.js'; 
 import { handleCustomerCommand } from './src/handlers/customer.handlers.js';
+
+// ⭐️ Import Scheduler (สำหรับงานตัดแต้มอัตโนมัติ)
+import { runScheduler } from './src/jobs/scheduler.js'; 
 
 const PORT = process.env.PORT || 3000;
 const app = express();
@@ -14,7 +19,7 @@ const app = express();
 async function startServer() {
     console.log("🚀 Starting Unified Server...");
     
-    // 1. โหลด Config
+    // 1. โหลด Config และ Cache
     await loadConfig();
     await loadAdminCache();
 
@@ -24,20 +29,23 @@ async function startServer() {
     // 2. ตั้งค่า Express
     app.use(express.json()); 
 
-    // ⭐️ เพิ่ม: Logger (ดูว่ามีใครส่งอะไรมาไหม)
+    // Logger
     app.use((req, res, next) => {
         console.log(`📥 [INCOMING] ${req.method} ${req.url}`);
         next();
     });
 
-    // ⭐️ เพิ่ม: Health Check (หน้าแรกสำหรับเปิดใน Browser)
+    // Health Check
     app.get('/', (req, res) => {
         res.send('✅ Loyalty Bot is online and running!');
     });
 
-    // 🤖 ADMIN BOT SETUP
+    // =========================================
+    // 🤖 ส่วนที่ 1: ADMIN BOT SETUP
+    // =========================================
     const adminToken = getConfig('adminBotToken');
     const adminBot = new Telegraf(adminToken);
+    
     adminBot.on('message', handleAdminCommand);
     
     app.post(`/webhook/admin`, (req, res) => {
@@ -46,11 +54,15 @@ async function startServer() {
     });
     
     await adminBot.telegram.setWebhook(`${PUBLIC_URL}/webhook/admin`);
-    console.log(`✅ Admin Bot Webhook set`);
+    console.log(`✅ Admin Bot Webhook Ready`);
 
-    // 👤 CUSTOMER BOT SETUP
+
+    // =========================================
+    // 👤 ส่วนที่ 2: CUSTOMER BOT SETUP
+    // =========================================
     const customerToken = getConfig('customerBotToken');
     const customerBot = new Telegraf(customerToken);
+    
     customerBot.on('message', handleCustomerCommand);
     
     app.post(`/webhook/customer`, (req, res) => {
@@ -59,9 +71,20 @@ async function startServer() {
     });
     
     await customerBot.telegram.setWebhook(`${PUBLIC_URL}/webhook/customer`);
-    console.log(`✅ Customer Bot Webhook set`);
+    console.log(`✅ Customer Bot Webhook Ready`);
 
-    // 3. เปิด Server (แบบใหม่ - รับแขกจากทุกทิศ)
+
+    // =========================================
+    // ⏰ ส่วนที่ 3: SCHEDULER (เปิดใช้งานแล้ว) ⭐️
+    // =========================================
+    const TIMEZONE = getConfig('systemTimezone');
+    
+    // เรียกใช้ Scheduler เพื่อเริ่มนับถอยหลังตัดแต้ม/แจ้งเตือน
+    runScheduler(TIMEZONE); 
+    console.log(`✅ Scheduler started for Timezone: ${TIMEZONE}`);
+
+
+    // 3. เปิดประตูรับแขก (Listen)
     app.listen(PORT, '0.0.0.0', () => {
         console.log(`⚡️ Server listening on port ${PORT}`);
     });
