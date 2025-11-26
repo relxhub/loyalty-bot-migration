@@ -1,12 +1,11 @@
-// src/handlers/admin.handlers.js (Final Version - Correct Cutoff & Timezone)
+// src/handlers/admin.handlers.js (Final Version)
 
 import { prisma } from '../db.js';
-import { getAdminRole } from '../services/admin.service.js';
+import { getAdminRole, loadAdminCache } from '../services/admin.service.js';
 import { sendAdminReply, sendAlertToSuperAdmin, sendNotificationToCustomer } from '../services/notification.service.js'; 
 import { listRewards, formatRewardsForAdmin } from '../services/reward.service.js';
 import { isValidIdFormat } from '../utils/validation.utils.js'; 
 import { generateUniqueCode } from '../utils/crypto.utils.js';
-// ⭐️ เพิ่ม getThaiNow เข้ามาเพื่อแก้ปัญหาเวลา
 import { addDays, getThaiNow } from '../utils/date.utils.js';
 import { getActiveCampaign } from '../services/campaign.service.js';
 import { getConfig } from '../config/config.js';
@@ -39,6 +38,10 @@ export async function handleAdminCommand(ctx) {
 
     // 3. Route คำสั่ง
     switch (command) {
+        case "/addadmin":
+            await handleAddAdmin(ctx, commandParts, chatId);
+            break;
+
         case "/new":
             await handleNewCustomer(ctx, commandParts, adminUser, chatId);
             break;
@@ -72,6 +75,7 @@ export async function handleAdminCommand(ctx) {
             "<b>คำสั่งทั้งหมด:</b>\n" +
             `ℹ️ /check [รหัสลูกค้า]\n` +
             (role === "SuperAdmin" ? "🪙 /add [รหัสลูกค้า] [แต้ม]\n" : "") +
+            (role === "SuperAdmin" ? "👮‍♂️ /addadmin [ID] [Role] [Name]\n" : "") +
             "👤 /new [ลูกค้าใหม่] [ผู้แนะนำ]\n" +
             "🎁 /reward\n" +
             "✨ /redeem [รหัสลูกค้า] [รหัสรางวัล]";
@@ -85,8 +89,34 @@ export async function handleAdminCommand(ctx) {
 }
 
 // ==================================================
-// 🛠️ HELPER FUNCTIONS (Logic)
+// 🛠️ HELPER FUNCTIONS
 // ==================================================
+
+async function handleAddAdmin(ctx, commandParts, chatId) {
+    if (commandParts.length < 3) {
+        return sendAdminReply(chatId, "❗️รูปแบบผิด\nต้องเป็น: /addadmin [TelegramID] [Role] [ชื่อ]");
+    }
+    const targetTgId = commandParts[1];
+    const targetRole = commandParts[2]; 
+    const targetName = commandParts.slice(3).join(" ") || "Unknown Staff"; 
+
+    if (!['Admin', 'SuperAdmin'].includes(targetRole)) {
+        return sendAdminReply(chatId, "⚠️ Role ต้องเป็น 'Admin' หรือ 'SuperAdmin'");
+    }
+
+    try {
+        await prisma.admin.upsert({
+            where: { telegramId: targetTgId },
+            update: { role: targetRole, name: targetName },
+            create: { telegramId: targetTgId, role: targetRole, name: targetName }
+        });
+        await loadAdminCache();
+        sendAdminReply(chatId, `✅ บันทึกข้อมูล Admin เรียบร้อย\nID: ${targetTgId}\nRole: ${targetRole}`);
+    } catch (e) {
+        console.error("Add Admin Error:", e);
+        sendAdminReply(chatId, "❌ เกิดข้อผิดพลาด");
+    }
+}
 
 async function handleNewCustomer(ctx, commandParts, adminUser, chatId) {
     const newCustomerId = commandParts[1]?.toUpperCase();
@@ -110,7 +140,7 @@ async function handleNewCustomer(ctx, commandParts, adminUser, chatId) {
     const verificationCode = generateUniqueCode(4);
     const initialPoints = 0;
     
-    // ⭐️ FIX: ใช้วันที่ไทยเป็นฐานในการนับวันหมดอายุ (Today + 30 days)
+    // ⭐️ ใช้ getThaiNow() เพื่อเริ่มนับจากเวลาไทย
     const newExpiryDate = addDays(getThaiNow(), getConfig('expiryDaysNewCustomer') || 30);
 
     await prisma.customer.create({
@@ -124,7 +154,7 @@ async function handleNewCustomer(ctx, commandParts, adminUser, chatId) {
         }
     });
 
-    // Log
+    // Log Creation
     await createAdminLog(adminUser, "CREATE_CUSTOMER", newCustomerId, 0, `Referred by: ${referrerId || 'N/A'}`);
 
     // 3. Give Referral Bonus
