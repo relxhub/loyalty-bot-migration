@@ -1,11 +1,13 @@
-// src/handlers/admin.handlers.js (Final Version)
+// src/handlers/admin.handlers.js (Final Version - With Undo & Correct Timezone)
 
 import { prisma } from '../db.js';
+// ⭐️ เพิ่ม loadAdminCache สำหรับการรีเฟรชสิทธิ์
 import { getAdminRole, loadAdminCache } from '../services/admin.service.js';
 import { sendAdminReply, sendAlertToSuperAdmin, sendNotificationToCustomer } from '../services/notification.service.js'; 
 import { listRewards, formatRewardsForAdmin } from '../services/reward.service.js';
 import { isValidIdFormat } from '../utils/validation.utils.js'; 
 import { generateUniqueCode } from '../utils/crypto.utils.js';
+// ⭐️ ใช้ getThaiNow เพื่อแก้ปัญหาเวลา
 import { addDays, getThaiNow } from '../utils/date.utils.js';
 import { getActiveCampaign } from '../services/campaign.service.js';
 import { getConfig } from '../config/config.js';
@@ -31,13 +33,18 @@ export async function handleAdminCommand(ctx) {
         return sendAdminReply(chatId, "⛔️ คุณไม่มีสิทธิ์ใช้งานคำสั่งนี้");
     }
 
-    // 2. ตรวจสอบสิทธิ์เฉพาะคำสั่ง /add (Super Admin Only)
-    if (command === "/add" && role !== "SuperAdmin") {
-        return sendAdminReply(chatId, "⛔️ คุณไม่มีสิทธิ์ใช้งานคำสั่ง /add");
+    // 2. ตรวจสอบสิทธิ์เฉพาะคำสั่ง (Super Admin Only)
+    if (["/add", "/addadmin"].includes(command) && role !== "SuperAdmin") {
+        return sendAdminReply(chatId, `⛔️ คุณไม่มีสิทธิ์ใช้งานคำสั่ง ${command}`);
     }
 
     // 3. Route คำสั่ง
     switch (command) {
+        // ⭐️ เพิ่มคำสั่ง UNDO
+        case "/undo":
+            await handleUndoLastAction(ctx, adminUser, chatId);
+            break;
+
         case "/addadmin":
             await handleAddAdmin(ctx, commandParts, chatId);
             break;
@@ -66,7 +73,7 @@ export async function handleAdminCommand(ctx) {
         case "/reward":
             const rewards = await listRewards();
             const result = formatRewardsForAdmin(rewards);
-            await createAdminLog(adminUser, "LIST_REWARDS", null, 0, "Requested reward list");
+            // ไม่ต้อง Log การดู reward เพื่อไม่ให้รก
             sendAdminReply(chatId, result);
             break;
             
@@ -74,6 +81,7 @@ export async function handleAdminCommand(ctx) {
             const welcomeMsg = `👋 สวัสดี ${adminUser}!\nบอทสำหรับแอดมินพร้อมใช้งาน\n\n` +
             "<b>คำสั่งทั้งหมด:</b>\n" +
             `ℹ️ /check [รหัสลูกค้า]\n` +
+            `↩️ /undo (ยกเลิกคำสั่งล่าสุด)\n` +
             (role === "SuperAdmin" ? "🪙 /add [รหัสลูกค้า] [แต้ม]\n" : "") +
             (role === "SuperAdmin" ? "👮‍♂️ /addadmin [ID] [Role] [Name]\n" : "") +
             "👤 /new [ลูกค้าใหม่] [ผู้แนะนำ]\n" +
@@ -92,17 +100,77 @@ export async function handleAdminCommand(ctx) {
 // 🛠️ HELPER FUNCTIONS
 // ==================================================
 
-async function handleAddAdmin(ctx, commandParts, chatId) {
-    if (commandParts.length < 3) {
-        return sendAdminReply(chatId, "❗️รูปแบบผิด\nต้องเป็น: /addadmin [TelegramID] [Role] [ชื่อ]");
+// ⭐️ ฟังก์ชันยกเลิกคำสั่งล่าสุด (/undo)
+async function handleUndoLastAction(ctx, adminUser, chatId) {
+    // 1. ค้นหา Log ล่าสุดของ Admin คนนี้ (ยกเว้นคำสั่งที่ไม่ได้เปลี่ยนค่า)
+    const lastLog = await prisma.adminLog.findFirst({
+        where: { 
+            admin: adminUser,
+            NOT: {
+                action: { in: ['CHECK_CUSTOMER', 'LIST_REWARDS', 'UNDO_ACTION', 'ADD_ADMIN'] }
+            }
+        },
+        orderBy: { createdAt: 'desc' }
+    });
+
+    if (!lastLog) {
+        return sendAdminReply(chatId, "⚠️ ไม่พบประวัติการทำรายการล่าสุดที่สามารถยกเลิกได้");
     }
+
+    const customerId = lastLog.customerId;
+    const actionType = lastLog.action;
+    const pointsDiff = lastLog.pointsChange; 
+
+    let resultMessage = "";
+
+    try {
+        // 2. ตรวจสอบประเภทและทำการย้อนกลับ (Revert)
+        if (actionType === 'ADD_POINTS' || actionType === 'REDEEM_POINTS') {
+            // ย้อนกลับแต้ม (กลับเครื่องหมาย +/-)
+            const revertPoints = pointsDiff * -1; 
+            
+            await prisma.customer.update({
+                where: { customerId: customerId },
+                data: { points: { increment: revertPoints } }
+            });
+
+            resultMessage = `✅ ยกเลิกรายการ ${actionType} สำเร็จ\n` +
+                            `ลูกค้า: ${customerId}\n` +
+                            `แต้มที่คืนค่า: ${revertPoints > 0 ? '+' + revertPoints : revertPoints}`;
+        } 
+        else if (actionType === 'CREATE_CUSTOMER') {
+            // ย้อนกลับการสร้างลูกค้า (Soft Delete)
+            await prisma.customer.update({
+                where: { customerId: customerId },
+                data: { 
+                    isDeleted: true,
+                    telegramUserId: null,
+                    verificationCode: null
+                }
+            });
+            resultMessage = `✅ ยกเลิกการสร้างลูกค้า ${customerId} สำเร็จ (ปิดใช้งานบัญชีนี้แล้ว)`;
+        }
+        else {
+            return sendAdminReply(chatId, `⚠️ ไม่รองรับการ Undo คำสั่งประเภท: ${actionType}`);
+        }
+
+        // 3. บันทึก Log การ Undo
+        await createAdminLog(adminUser, "UNDO_ACTION", customerId, 0, `Reverted action ID: ${lastLog.id} (${actionType})`);
+        sendAdminReply(chatId, resultMessage);
+
+    } catch (e) {
+        console.error("Undo Error:", e);
+        sendAdminReply(chatId, "❌ เกิดข้อผิดพลาดในการยกเลิกคำสั่ง");
+    }
+}
+
+async function handleAddAdmin(ctx, commandParts, chatId) {
+    if (commandParts.length < 3) return sendAdminReply(chatId, "❗️รูปแบบผิด: /addadmin [ID] [Role] [Name]");
     const targetTgId = commandParts[1];
     const targetRole = commandParts[2]; 
     const targetName = commandParts.slice(3).join(" ") || "Unknown Staff"; 
 
-    if (!['Admin', 'SuperAdmin'].includes(targetRole)) {
-        return sendAdminReply(chatId, "⚠️ Role ต้องเป็น 'Admin' หรือ 'SuperAdmin'");
-    }
+    if (!['Admin', 'SuperAdmin'].includes(targetRole)) return sendAdminReply(chatId, "⚠️ Role ต้องเป็น 'Admin' หรือ 'SuperAdmin'");
 
     try {
         await prisma.admin.upsert({
@@ -111,7 +179,7 @@ async function handleAddAdmin(ctx, commandParts, chatId) {
             create: { telegramId: targetTgId, role: targetRole, name: targetName }
         });
         await loadAdminCache();
-        sendAdminReply(chatId, `✅ บันทึกข้อมูล Admin เรียบร้อย\nID: ${targetTgId}\nRole: ${targetRole}`);
+        sendAdminReply(chatId, `✅ บันทึก Admin เรียบร้อย\nID: ${targetTgId}\nRole: ${targetRole}`);
     } catch (e) {
         console.error("Add Admin Error:", e);
         sendAdminReply(chatId, "❌ เกิดข้อผิดพลาด");
@@ -165,6 +233,7 @@ async function handleNewCustomer(ctx, commandParts, adminUser, chatId) {
     // 4. Prepare Messages
     const campaign = await getActiveCampaign();
     const linkBonus = campaign?.linkBonus || 50;
+    // ⭐️ แก้ไข: เช็คค่าจาก DB ก่อน (baseReferral) ถ้าไม่มีใช้ Default
     const referralBonus = campaign?.baseReferral || campaign?.base || 50;
     const botLink = getConfig('customerBotLink') || "https://t.me/ONEHUBCustomer_Bot";
 
@@ -178,9 +247,14 @@ async function handleNewCustomer(ctx, commandParts, adminUser, chatId) {
          if (campaign.endAt) {
              const endDate = new Date(campaign.endAt);
              const dateStr = endDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-             promoText = `\n💌 <i>(แคมเปญพิเศษถึง ${dateStr} | ปกติ 50 แต้ม)</i>`;
+             // แสดงข้อความโปรโมชั่นถ้าแต้มไม่เท่ากับปกติ
+             if (referralBonus !== 50) {
+                 promoText = `\n💌 <i>(แคมเปญพิเศษถึง ${dateStr} | ปกติ 50 แต้ม)</i>`;
+             }
          } else {
-             promoText = `\n💌 <i>(แคมเปญพิเศษ ${campaign.name} | ปกติ 50 แต้ม)</i>`;
+             if (referralBonus !== 50) {
+                 promoText = `\n💌 <i>(แคมเปญพิเศษ ${campaign.name} | ปกติ 50 แต้ม)</i>`;
+             }
          }
     }
 
