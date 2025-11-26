@@ -1,4 +1,4 @@
-// src/handlers/admin.handlers.js (Final Version)
+// src/handlers/admin.handlers.js (Final Version - Correct Cutoff & Timezone)
 
 import { prisma } from '../db.js';
 import { getAdminRole } from '../services/admin.service.js';
@@ -6,7 +6,8 @@ import { sendAdminReply, sendAlertToSuperAdmin, sendNotificationToCustomer } fro
 import { listRewards, formatRewardsForAdmin } from '../services/reward.service.js';
 import { isValidIdFormat } from '../utils/validation.utils.js'; 
 import { generateUniqueCode } from '../utils/crypto.utils.js';
-import { addDays } from '../utils/date.utils.js';
+// ⭐️ เพิ่ม getThaiNow เข้ามาเพื่อแก้ปัญหาเวลา
+import { addDays, getThaiNow } from '../utils/date.utils.js';
 import { getActiveCampaign } from '../services/campaign.service.js';
 import { getConfig } from '../config/config.js';
 import { giveReferralBonus } from '../services/customer.service.js';
@@ -84,7 +85,7 @@ export async function handleAdminCommand(ctx) {
 }
 
 // ==================================================
-// 🛠️ HELPER FUNCTIONS
+// 🛠️ HELPER FUNCTIONS (Logic)
 // ==================================================
 
 async function handleNewCustomer(ctx, commandParts, adminUser, chatId) {
@@ -94,7 +95,7 @@ async function handleNewCustomer(ctx, commandParts, adminUser, chatId) {
 
     // 1. Validation
     if (!newCustomerId) return sendAdminReply(chatId, "❗️รูปแบบคำสั่งผิด\nต้องเป็น: /new [รหัสลูกค้าใหม่] [รหัสผู้แนะนำ (ถ้ามี)]");
-    if (!isValidIdFormat(newCustomerId)) return sendAdminReply(chatId, `❌ รูปแบบรหัสลูกค้า '${newCustomerId}' ไม่ถูกต้อง (ต้องเป็น A-Z, 0-9)`);
+    if (!isValidIdFormat(newCustomerId)) return sendAdminReply(chatId, `❌ รูปแบบรหัสลูกค้า '${newCustomerId}' ไม่ถูกต้อง (A-Z, 0-9)`);
     
     const existing = await prisma.customer.findUnique({ where: { customerId: newCustomerId, isDeleted: false } });
     if (existing) return sendAdminReply(chatId, `❌ รหัสลูกค้า '${newCustomerId}' นี้มีอยู่ในระบบแล้ว`);
@@ -108,8 +109,9 @@ async function handleNewCustomer(ctx, commandParts, adminUser, chatId) {
     // 2. Create Data
     const verificationCode = generateUniqueCode(4);
     const initialPoints = 0;
-    // วันหมดอายุเริ่มต้นสำหรับลูกค้าใหม่: วันนี้ + 30 วัน (หรือตาม Config)
-    const newExpiryDate = addDays(new Date(), getConfig('expiryDaysNewCustomer') || 30);
+    
+    // ⭐️ FIX: ใช้วันที่ไทยเป็นฐานในการนับวันหมดอายุ (Today + 30 days)
+    const newExpiryDate = addDays(getThaiNow(), getConfig('expiryDaysNewCustomer') || 30);
 
     await prisma.customer.create({
         data: {
@@ -122,7 +124,7 @@ async function handleNewCustomer(ctx, commandParts, adminUser, chatId) {
         }
     });
 
-    // Log Creation
+    // Log
     await createAdminLog(adminUser, "CREATE_CUSTOMER", newCustomerId, 0, `Referred by: ${referrerId || 'N/A'}`);
 
     // 3. Give Referral Bonus
@@ -136,14 +138,13 @@ async function handleNewCustomer(ctx, commandParts, adminUser, chatId) {
     const referralBonus = campaign?.baseReferral || campaign?.base || 50;
     const botLink = getConfig('customerBotLink') || "https://t.me/ONEHUBCustomer_Bot";
 
-    // Message 1: แจ้งแอดมิน
+    // กล่อง 1: แจ้งแอดมิน
     const adminMsg = `✅ สร้างลูกค้าใหม่ '${newCustomerId}' เรียบร้อยแล้ว\n\n` +
                      `👇 <b>กรุณาคัดลอกข้อความด้านล่างนี้ทั้งหมด\nแล้วส่งให้ลูกค้าได้เลยครับ</b> 👇`;
 
-    // Message 2: Template ลูกค้า
+    // กล่อง 2: ข้อความลูกค้า
     let promoText = "";
     if (campaign?.name && campaign?.name !== 'Standard') {
-         // เพิ่มวันที่สิ้นสุดแคมเปญถ้ามี
          if (campaign.endAt) {
              const endDate = new Date(campaign.endAt);
              const dateStr = endDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -197,24 +198,25 @@ async function handleAddPoints(ctx, commandParts, adminUser, chatId) {
     const customer = await prisma.customer.findUnique({ where: { customerId: customerId, isDeleted: false } });
     if (!customer) return sendAdminReply(chatId, `🔍 ไม่พบข้อมูลลูกค้า ${customerId}`);
 
-    // ⭐️ Cutoff Logic ที่ถูกต้อง (MAX(วันเดิม, วันนี้) + 30 วัน แต่ไม่เกิน 60 วัน) ⭐️
-    const today = new Date(); 
-    today.setHours(0,0,0,0); // Reset เวลาให้เป็นเที่ยงคืนเพื่อความแม่นยำ
-    const currentExpiry = customer.expiryDate;
+    // ⭐️ FIX: Cutoff Logic ที่ถูกต้อง (ใช้ getThaiNow เพื่อความแม่นยำเรื่อง Timezone)
+    // สูตร: MAX(วันเดิม, วันนี้) + 30 วัน แต่ไม่เกิน 60 วัน
+    const today = getThaiNow(); 
+    today.setHours(0,0,0,0); // Reset เวลาให้เป็นเที่ยงคืนตามเวลาไทย
     
+    const currentExpiry = customer.expiryDate;
     const limitDays = getConfig('expiryDaysLimitMax') || 60;
     const extendDays = getConfig('expiryDaysAddPoints') || 30;
 
-    // คำนวณวันที่ฐาน (เลือกวันที่ไกลกว่าระหว่าง วันหมดอายุเดิม กับ วันนี้)
+    // 1. คำนวณวันที่ฐาน (เลือกวันที่ไกลกว่าระหว่าง วันหมดอายุเดิม กับ วันนี้)
     const baseDate = currentExpiry > today ? currentExpiry : today;
     
-    // วันหมดอายุใหม่ = วันที่ฐาน + 30 วัน
+    // 2. วันหมดอายุใหม่ = วันที่ฐาน + 30 วัน
     const proposedExpiry = addDays(baseDate, extendDays);
     
-    // วันเพดานสูงสุด = วันนี้ + 60 วัน
+    // 3. วันเพดานสูงสุด = วันนี้ + 60 วัน (นับจากวันนี้เสมอ)
     const limitDate = addDays(today, limitDays);
     
-    // เลือกวันที่ไม่เกินเพดาน
+    // 4. เลือกวันที่ไม่เกินเพดาน
     let finalExpiryDate = proposedExpiry > limitDate ? limitDate : proposedExpiry;
 
     await prisma.customer.update({
