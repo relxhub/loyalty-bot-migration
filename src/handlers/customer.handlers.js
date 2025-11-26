@@ -42,9 +42,7 @@ export async function handleCustomerCommand(ctx) {
             break;
 
         case "/start":
-             // 📝 เพิ่ม Log: กด Start
              await createCustomerLog(userTgId, null, "START_BOT", 0);
-             
              return ctx.reply(`👋 สวัสดีค่ะคุณ ${customerName}!\n\n` + 
                 `นี่คือบอทสำหรับตรวจสอบโปรแกรมสะสมแต้ม\n\n` +
                 `🔹 พิมพ์ /points เพื่อตรวจสอบแต้ม\n` +
@@ -59,9 +57,6 @@ export async function handleCustomerCommand(ctx) {
 // 🛠️ HELPER FUNCTIONS & LOGGING
 // ==================================================
 
-/**
- * 📝 ฟังก์ชันช่วยบันทึก Customer Log (ส่วนที่เพิ่มมา)
- */
 async function createCustomerLog(telegramUserId, customerId, action, pointsChange) {
     try {
         await prisma.customerLog.create({
@@ -72,9 +67,7 @@ async function createCustomerLog(telegramUserId, customerId, action, pointsChang
                 pointsChange: pointsChange || 0
             }
         });
-    } catch (e) {
-        console.error("Failed to create Customer Log:", e);
-    }
+    } catch (e) { console.error("Failed to create Customer Log:", e); }
 }
 
 async function handleLinkAccount(ctx, customerId, verificationCode, telegramUserId) {
@@ -88,7 +81,6 @@ async function handleLinkAccount(ctx, customerId, verificationCode, telegramUser
     if (customer.telegramUserId) return ctx.reply(`⚠️ รหัส ${searchId} ถูกเชื่อมไปแล้ว`);
 
     if (customer.verificationCode && String(customer.verificationCode) !== String(verificationCode)) {
-        // 📝 เพิ่ม Log: ใส่รหัสผิด
         await createCustomerLog(telegramUserId, searchId, "LINK_FAILED_WRONG_CODE", 0);
         return ctx.reply(`😥 รหัสยืนยันไม่ถูกต้อง`);
     }
@@ -97,8 +89,9 @@ async function handleLinkAccount(ctx, customerId, verificationCode, telegramUser
     const bonusPoints = campaign?.linkBonus || getConfig('standardLinkBonus') || 50;
     const daysToExtend = getConfig('expiryDaysLinkAccount') || 7;
 
+    // Cutoff Logic: MAX(วันเดิม, วันนี้) + 7 วัน
     const currentExpiry = customer.expiryDate;
-    const today = new Date();
+    const today = new Date(); today.setHours(0,0,0,0);
     const baseDate = currentExpiry > today ? currentExpiry : today;
     const newExpiryDate = addDays(baseDate, daysToExtend);
 
@@ -112,7 +105,6 @@ async function handleLinkAccount(ctx, customerId, verificationCode, telegramUser
         }
     });
 
-    // 📝 เพิ่ม Log: เชื่อมสำเร็จ + ได้โบนัส
     await createCustomerLog(telegramUserId, searchId, "LINK_ACCOUNT_SUCCESS", 0);
     await createCustomerLog(telegramUserId, searchId, "LINK_BONUS", bonusPoints);
 
@@ -124,7 +116,6 @@ async function checkPointsByTelegramId(ctx, telegramUserId) {
     const customer = await prisma.customer.findUnique({ where: { telegramUserId: telegramUserId, isDeleted: false } });
     if (!customer) return ctx.reply("🤔 ไม่พบบัญชีที่เชื่อมต่อ กรุณาพิมพ์ /link");
 
-    // 📝 เพิ่ม Log: เช็คแต้ม
     await createCustomerLog(telegramUserId, customer.customerId, "CHECK_POINTS", 0);
 
     const formattedDate = customer.expiryDate.toLocaleDateString('th-TH');
@@ -132,9 +123,7 @@ async function checkPointsByTelegramId(ctx, telegramUserId) {
 }
 
 async function listRewardsForCustomer(ctx, telegramUserId) {
-    // 📝 เพิ่ม Log: ดูของรางวัล
     await createCustomerLog(telegramUserId, null, "LIST_REWARDS", 0);
-
     const rewards = await listRewards();
     if (!rewards || rewards.length === 0) return ctx.reply("🎁 ยังไม่มีของรางวัลขณะนี้");
 
@@ -147,15 +136,11 @@ async function isChannelMember(userId) {
     const orderBotToken = getConfig('orderBotToken'); 
     const channelId = getConfig('channelId'); 
     if (!channelId) return true;
-
     try {
         const url = `https://api.telegram.org/bot${orderBotToken}/getChatMember?chat_id=${channelId}&user_id=${userId}`;
         const response = await fetch(url);
         const data = await response.json();
-        
         if (!data.ok) return false; 
         return ["creator", "administrator", "member", "restricted"].includes(data.result?.status);
-    } catch (e) {
-        return false; 
-    }
+    } catch (e) { return false; }
 }
