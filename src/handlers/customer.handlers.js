@@ -1,4 +1,4 @@
-// src/handlers/customer.handlers.js
+// src/handlers/customer.handlers.js (ฉบับปรับปรุงข้อความ Gating)
 
 import fetch from 'node-fetch';
 import { prisma } from '../db.js';
@@ -17,13 +17,24 @@ export async function handleCustomerCommand(ctx) {
     const commandParts = text.trim().split(/\s+/);
     const command = commandParts[0].toLowerCase();
 
-    // 1. Channel Gating
+    // 1. Channel Gating (ตรวจสอบการเข้าร่วม Channel)
     if (!(await isChannelMember(userTgId))) {
         const channelLink = getConfig('channelLink') || "https://t.me/relxhub";
-        return ctx.reply(`🔔 <b>กรุณาเข้าร่วม Channel ของเราก่อน</b>\n\n` +
-            `เพื่อรับสิทธิพิเศษและใช้งานบอทได้เต็มรูปแบบค่ะ\n` +
-            `👉 <a href="${channelLink}">กดที่นี่เพื่อเข้า Channel</a>`, 
-            { parse_mode: 'HTML' }
+        
+        // ⭐️ ปรับแก้: ข้อความชัดเจนขึ้น พร้อมปุ่มกด
+        return ctx.reply(`🔔 <b>ยังไม่ได้เข้าร่วม Channel ค่ะ</b>\n\n` +
+            `เพื่อให้บอททำงานได้สมบูรณ์ กรุณาทำตาม 2 ขั้นตอนนี้ค่ะ:\n\n` +
+            `1️⃣ กดปุ่มด้านล่างเพื่อไปที่ Channel\n` +
+            `2️⃣ <b>กดปุ่ม "JOIN" (เข้าร่วม) ที่ด้านล่างของหน้าจอ Channel</b>\n` +
+            `3️⃣ กลับมาที่นี่ แล้วพิมพ์คำสั่งอีกครั้งค่ะ`, 
+            { 
+                parse_mode: 'HTML',
+                reply_markup: {
+                    inline_keyboard: [[
+                        { text: "👉 กดปุ่มนี้ แล้วกด JOIN ใน Channel ✅", url: channelLink }
+                    ]]
+                }
+            }
         ); 
     }
 
@@ -89,7 +100,6 @@ async function handleLinkAccount(ctx, customerId, verificationCode, telegramUser
     const bonusPoints = campaign?.linkBonus || getConfig('standardLinkBonus') || 50;
     const daysToExtend = getConfig('expiryDaysLinkAccount') || 7;
 
-    // Cutoff Logic: MAX(วันเดิม, วันนี้) + 7 วัน
     const currentExpiry = customer.expiryDate;
     const today = new Date(); today.setHours(0,0,0,0);
     const baseDate = currentExpiry > today ? currentExpiry : today;
@@ -136,10 +146,12 @@ async function isChannelMember(userId) {
     const orderBotToken = getConfig('orderBotToken'); 
     const channelId = getConfig('channelId'); 
     if (!channelId) return true;
+
     try {
         const url = `https://api.telegram.org/bot${orderBotToken}/getChatMember?chat_id=${channelId}&user_id=${userId}`;
         const response = await fetch(url);
         const data = await response.json();
+        
         if (!data.ok) return false; 
         return ["creator", "administrator", "member", "restricted"].includes(data.result?.status);
     } catch (e) { return false; }
