@@ -196,4 +196,52 @@ router.post('/link', async (req, res) => {
     }
 });
 
+// ==================================================
+// 📜 ส่วนที่ 6: ดึงประวัติการได้แต้ม (History)
+// ==================================================
+router.get('/history/:telegramId', async (req, res) => {
+    try {
+        const { telegramId } = req.params;
+        
+        // ดึงข้อมูล 20 รายการล่าสุด
+        const logs = await prisma.customerLog.findMany({
+            where: { telegramUserId: telegramId },
+            orderBy: { createdAt: 'desc' },
+            take: 20,
+            select: {
+                action: true,
+                pointsChange: true,
+                createdAt: true
+            }
+        });
+
+        // จัด Format วันที่และ Action ให้สวยงามก่อนส่งกลับ
+        const formattedLogs = logs.map(log => ({
+            action: mapActionName(log.action), // แปลงชื่อ Action เป็นภาษาไทย
+            points: log.pointsChange > 0 ? `+${log.pointsChange}` : `${log.pointsChange}`,
+            date: new Date(log.createdAt).toLocaleDateString('th-TH', {
+                day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+            }),
+            isPositive: log.pointsChange > 0
+        }));
+
+        res.json({ success: true, logs: formattedLogs });
+
+    } catch (error) {
+        console.error("History API Error:", error);
+        res.status(500).json({ error: "ดึงข้อมูลประวัติไม่สำเร็จ" });
+    }
+});
+
+// ฟังก์ชันช่วยแปลชื่อ Action (ใส่ไว้ในไฟล์เดียวกันหรือแยก Utils ก็ได้)
+function mapActionName(action) {
+    const map = {
+        'LINK_ACCOUNT_API': 'เชื่อมบัญชีสมาชิก',
+        'LINK_BONUS': 'โบนัสเชื่อมบัญชี',
+        'REFERRAL_BONUS': 'แนะนำเพื่อน',
+        'ADMIN_ADJUST': 'Admin ปรับปรุงยอด'
+    };
+    return map[action] || action;
+}
+
 export default router;
