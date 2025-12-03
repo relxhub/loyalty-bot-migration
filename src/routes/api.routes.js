@@ -1,86 +1,70 @@
-// src/routes/api.routes.js
-
 import express from 'express';
-import crypto from 'crypto'; // ✅ ต้องใช้สำหรับตรวจสอบความปลอดภัย
+import crypto from 'crypto';
 import { prisma } from '../db.js';
 import { getActiveCampaign } from '../services/campaign.service.js';
 import { getConfig } from '../config/config.js';
 import { addDays } from '../utils/date.utils.js';
-import { getCustomerByTelegramId, createCustomer, updateCustomer } from '../services/customer.service.js'; // ✅ ต้อง import ฟังก์ชันพวกนี้
+// ❌ เอา createCustomer ออกตามที่ขอ (ห้ามสมัครเอง)
+import { getCustomerByTelegramId, updateCustomer } from '../services/customer.service.js'; 
 
 const router = express.Router();
 
-// ==================================================
-// 🔐 ส่วนที่ 1: HELPER FUNCTIONS (ความปลอดภัย)
-// ==================================================
+// ... (Helper function: verifyTelegramWebAppData เหมือนเดิม) ...
 function verifyTelegramWebAppData(telegramInitData) {
     if (!telegramInitData) return false;
-
     const encoded = decodeURIComponent(telegramInitData);
     const arr = encoded.split('&');
     const hashIndex = arr.findIndex(str => str.startsWith('hash='));
-    
     if (hashIndex === -1) return false;
-    
     const hash = arr.splice(hashIndex, 1)[0].split('=')[1];
-    
     arr.sort((a, b) => a.localeCompare(b));
     const dataCheckString = arr.join('\n');
-    
     const token = getConfig('customerBotToken'); 
     const secret = crypto.createHmac('sha256', 'WebAppData').update(token).digest();
     const _hash = crypto.createHmac('sha256', secret).update(dataCheckString).digest('hex');
-    
     return _hash === hash;
 }
 
 // ==================================================
-// 🚪 ส่วนที่ 2: LOGIN / AUTH (ที่หายไป)
+// 🚪 LOGIN / AUTH (ปรับปรุงใหม่: ห้ามสมัครเอง)
 // ==================================================
 router.post('/auth', async (req, res) => {
     try {
         const { initData } = req.body;
 
-        // 1. ตรวจสอบความถูกต้อง (Security Check)
-        // หมายเหตุ: ถ้าทดสอบ localhost อาจจะปิดบรรทัดนี้ชั่วคราวได้ แต่ขึ้น Production ต้องเปิดไว้
+        // 1. Verify (Production ควรเปิดใช้)
         const isValid = verifyTelegramWebAppData(initData);
-        if (!isValid) {
-             console.warn("⚠️ Invalid InitData Signature");
-             // return res.status(403).json({ error: 'Invalid authentication data' }); // เปิดใช้งานเมื่อ Production จริงจัง
-        }
+        if (!isValid) console.warn("⚠️ Invalid InitData Signature");
 
-        // 2. แกะข้อมูล User
+        // 2. แกะข้อมูล
         const urlParams = new URLSearchParams(initData);
         const userJson = urlParams.get('user');
-        
-        if (!userJson) {
-            return res.status(400).json({ error: "User data missing" });
-        }
+        if (!userJson) return res.status(400).json({ error: "User data missing" });
 
         const userData = JSON.parse(userJson);
         console.log(`👤 Login Request: ${userData.first_name} (${userData.id})`);
 
-        // 3. หาหรือสร้าง User ใหม่
+        // 3. ค้นหาลูกค้า
         let customer = await getCustomerByTelegramId(userData.id.toString());
         
         if (!customer) {
-            console.log("✨ New User Registering...");
-            customer = await createCustomer({
-                telegramId: userData.id.toString(),
-                firstName: userData.first_name,
-                lastName: userData.last_name || '',
-                username: userData.username || ''
+            // 🛑 ถ้าไม่เจอ -> ไม่สร้างใหม่ แต่ส่งสถานะ isMember: false
+            // หน้าบ้านจะรับค่านี้ไปเปิดหน้า "บังคับเชื่อมบัญชี"
+            console.log("⛔️ User not found (Registration Restricted)");
+            return res.json({ 
+                success: true, 
+                isMember: false, 
+                telegramId: userData.id.toString() 
             });
         } else {
-             // อัปเดตข้อมูลให้เป็นปัจจุบันเสมอ
+             // ✅ ถ้าเจอ -> อัปเดตชื่อและส่งข้อมูลกลับ (เข้า Dashboard ได้)
              await updateCustomer(customer.customerId, {
                 firstName: userData.first_name,
                 lastName: userData.last_name || '',
                 username: userData.username || ''
             });
+            return res.json({ success: true, isMember: true, customer });
         }
-
-        res.json({ success: true, customer });
 
     } catch (error) {
         console.error("Auth Error:", error);
@@ -104,7 +88,7 @@ router.get('/user/:telegramId', async (req, res) => {
         }
 
         const campaign = await getActiveCampaign();
-        const target = campaign?.milestoneTarget || 0; // ใส่ ? ป้องกัน error
+        const target = campaign?.milestoneTarget || 0;
         let progress = null;
 
         if (target > 0) {
@@ -139,7 +123,7 @@ router.get('/user/:telegramId', async (req, res) => {
 router.get('/rewards', async (req, res) => {
     try {
         const rewards = await prisma.reward.findMany({
-            where: { isDeleted: false }, // กรองเฉพาะที่ยังไม่ลบ
+            where: { isDeleted: false },
             orderBy: { points: 'asc' }
         });
         res.json(rewards);
