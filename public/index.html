@@ -334,18 +334,31 @@
                     })
                 });
 
+                // ตรวจสอบสถานะ Response ก่อนแปลง JSON
+                if (!response.ok) {
+                    throw new Error(`Server Error: ${response.status}`);
+                }
+
                 const result = await response.json();
                 document.getElementById('loading-screen').classList.add('hidden');
 
                 if (result.success) {
-                    // ✅ แก้ไข: แสดง Success Modal สวยๆ แทน Popup
                     showSuccessModal(result.bonus);
                 } else {
-                    tg.showPopup({ title: 'แจ้งเตือน', message: result.error || "ผิดพลาด", buttons: [{type: 'close'}] });
+                    // กรณี Server ตอบกลับมาว่าไม่สำเร็จ (เช่น รหัสผิด)
+                    tg.showPopup({ 
+                        title: 'แจ้งเตือน', 
+                        message: result.error || "ข้อมูลไม่ถูกต้อง", 
+                        buttons: [{type: 'close'}] 
+                    });
                     showLoginScreen();
                 }
             } catch (error) {
-                tg.showAlert("เชื่อมต่อ Server ไม่ได้");
+                console.error("Link Error:", error); // ดู Error จริงใน Console
+                document.getElementById('loading-screen').classList.add('hidden');
+                
+                // แจ้งเตือนลูกค้า
+                tg.showAlert("เกิดข้อผิดพลาด: " + (error.message || "เชื่อมต่อ Server ไม่ได้"));
                 showLoginScreen();
             }
         }
@@ -353,10 +366,22 @@
         // ฟังก์ชันควบคุม Success Modal
         function showSuccessModal(bonus) {
             document.getElementById('success-msg').innerText = `เชื่อมต่อบัญชีสำเร็จ!\nคุณได้รับ ${bonus} แต้ม`;
-            document.getElementById('login-screen').classList.add('hidden'); // ซ่อน Login
-            document.getElementById('link-modal').classList.add('hidden');   // ซ่อน Manual Link (ถ้าเปิดอยู่)
-            document.getElementById('success-modal').classList.remove('hidden'); // โชว์ Success
-            tg.hapticFeedback.notificationOccurred('success');
+            
+            // ซ่อนหน้าอื่น ๆ
+            document.getElementById('login-screen').classList.add('hidden'); 
+            document.getElementById('link-modal').classList.add('hidden');   
+            
+            // โชว์ Success Modal
+            document.getElementById('success-modal').classList.remove('hidden'); 
+
+            // ✅ FIX: ใส่ Try-Catch ป้องกันแอป Crash ถ้าเครื่องไม่รองรับ Haptic
+            try {
+                if (tg.hapticFeedback) {
+                    tg.hapticFeedback.notificationOccurred('success');
+                }
+            } catch (e) {
+                console.warn("Haptic feedback not supported or failed:", e);
+            }
         }
 
         // ✅ แก้ไข: ฟังก์ชันปิด Modal แล้วสลับหน้าจอทันที (ไม่ Reload)
