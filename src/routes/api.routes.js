@@ -246,4 +246,53 @@ function mapActionName(action) {
     return map[action] || action;
 }
 
+// --------------------------------------------------
+// 👥 ส่วนที่ 7: ดึงข้อมูลเครือข่ายเพื่อน (Referral Network)
+// --------------------------------------------------
+router.get('/referrals/:telegramId', async (req, res) => {
+    try {
+        const { telegramId } = req.params;
+
+        // 1. หาข้อมูลของตัว User เองก่อน เพื่อเอา ID
+        const user = await prisma.customer.findUnique({
+            where: { telegramUserId: telegramId },
+            select: { customerId: true }
+        });
+
+        if (!user) return res.json({ success: false, message: "User not found" });
+
+        // 2. ค้นหา "ลูกข่าย" (คนที่ User นี้เป็นคนแนะนำ)
+        const referrals = await prisma.customer.findMany({
+            where: { referrerId: user.customerId },
+            orderBy: { createdAt: 'desc' }, // เรียงตามวันที่ล่าสุด
+            select: {
+                customerId: true,
+                firstName: true,
+                lastName: true,
+                createdAt: true,     // วันที่สมัคร
+                referralCount: true, // ⭐ ทีเด็ด! ดูว่าเขาไปชวนต่ออีกกี่คน
+                points: true         // ดูแต้มปัจจุบันของเขา (เผื่ออยากโชว์ความเทพ)
+            }
+        });
+
+        // 3. จัด Format ข้อมูลให้สวยงามก่อนส่งกลับ
+        const formattedList = referrals.map(ref => ({
+            name: `${ref.firstName || 'Guest'} ${ref.lastName || ''}`.trim() || ref.customerId,
+            id: ref.customerId,
+            joinedAt: new Date(ref.createdAt).toLocaleDateString('th-TH', {
+                day: 'numeric', month: 'short', year: '2-digit',
+                hour: '2-digit', minute: '2-digit'
+            }),
+            tier2Count: ref.referralCount, // จำนวนคนที่เขาไปชวนต่อ
+            earned: 50 // (สมมติว่าได้ 50 แต้มต่อหัว หรือจะดึงจาก Config ก็ได้)
+        }));
+
+        res.json({ success: true, count: referrals.length, data: formattedList });
+
+    } catch (error) {
+        console.error("Referral API Error:", error);
+        res.status(500).json({ error: "ดึงข้อมูลเพื่อนไม่สำเร็จ" });
+    }
+});
+
 export default router;
