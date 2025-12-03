@@ -45,7 +45,7 @@ export async function createCustomer(data) {
 // 3. อัปเดตข้อมูลลูกค้า
 export async function updateCustomer(id, data) {
     return await prisma.customer.update({
-        where: { id: id }, // ใช้ id (Int) ที่เป็น Primary Key
+        where: { customerId: customerId }, // ใช้ id (Int) ที่เป็น Primary Key
         data: data
     });
 }
