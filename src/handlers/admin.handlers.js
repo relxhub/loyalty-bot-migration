@@ -318,6 +318,15 @@ async function handleAddPoints(ctx, commandParts, adminUser, chatId) {
     await createAdminLog(adminUser, "ADD_POINTS", customerId, points, "Manual Add");
 
     if (customer.telegramUserId) {
+        // 1. บันทึกประวัติ
+        await prisma.customerLog.create({
+            data: {
+                telegramUserId: customer.telegramUserId,
+                customerId: customerId,
+                action: "ADMIN_ADD_POINTS", // ชื่อ Action ที่จะไปโชว์
+                pointsChange: points
+            }
+        });
         await sendNotificationToCustomer(customer.telegramUserId, `🎉 คุณได้รับ ${points} แต้ม!\n💰 แต้มสะสมปัจจุบัน: ${newPoints} แต้ม`);
     }
     await sendAlertToSuperAdmin(`🔔 <b>Admin Alert: /add</b>\nUser: ${adminUser}\nCustomer: ${customerId}\nPoints: +${points}`);
@@ -347,6 +356,14 @@ async function handleRedeemReward(ctx, commandParts, adminUser, chatId) {
     await createAdminLog(adminUser, "REDEEM_POINTS", customerId, -reward.points, `Redeemed: ${reward.name}`);
 
     if (customer.telegramUserId) {
+        await prisma.customerLog.create({
+            data: {
+                telegramUserId: customer.telegramUserId,
+                customerId: customerId,
+                action: "ADMIN_REDEEM", // หรือใช้ชื่อรางวัลเลยก็ได้ ถ้าอยากให้ละเอียด
+                pointsChange: -reward.points
+            }
+        });
         await sendNotificationToCustomer(customer.telegramUserId, `🎁 คุณใช้ ${reward.points} แต้ม แลก '${reward.name}' สำเร็จ\n💰 แต้มคงเหลือ: ${newPoints}`);
     }
     sendAdminReply(chatId, `✅ แลก '${reward.name}' ให้ ${customerId} สำเร็จ\n💰 แต้มคงเหลือ: ${newPoints}`);

@@ -239,6 +239,8 @@ function mapActionName(action) {
         'LINK_ACCOUNT_API': 'เชื่อมบัญชีสมาชิก',
         'LINK_BONUS': 'โบนัสเชื่อมบัญชี',
         'REFERRAL_BONUS': 'แนะนำเพื่อน',
+        'ADMIN_ADD_POINTS': 'Admin เติมแต้มให้',   // ✅ เพิ่ม
+        'ADMIN_REDEEM': 'แลกของรางวัล (หน้าร้าน)', // ✅ เพิ่ม
         'ADMIN_ADJUST': 'Admin ปรับปรุงยอด'
     };
     return map[action] || action;
