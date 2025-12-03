@@ -1,9 +1,9 @@
-// app.js (ฉบับสมบูรณ์ - เปิดใช้งานทุกระบบ)
+// app.js (ฉบับรองรับ Mini App API)
 
-import apiRoutes from './src/routes/api.routes.js';
 import 'dotenv/config'; 
 import { Telegraf } from 'telegraf';
 import express from 'express';
+import cors from 'cors'; // (Optional: อาจต้องใช้ถ้าทำ Frontend แยก)
 import { loadConfig, getConfig } from './src/config/config.js';
 import { loadAdminCache } from './src/services/admin.service.js';
 
@@ -11,7 +11,10 @@ import { loadAdminCache } from './src/services/admin.service.js';
 import { handleAdminCommand } from './src/handlers/admin.handlers.js'; 
 import { handleCustomerCommand } from './src/handlers/customer.handlers.js';
 
-// ⭐️ Import Scheduler (สำหรับงานตัดแต้มอัตโนมัติ)
+// ⭐️ Import API Routes (สำหรับ Mini App)
+import apiRoutes from './src/routes/api.routes.js';
+
+// Import Scheduler
 import { runScheduler } from './src/jobs/scheduler.js'; 
 
 const PORT = process.env.PORT || 3000;
@@ -29,9 +32,13 @@ async function startServer() {
 
     // 2. ตั้งค่า Express
     app.use(express.json()); 
-
-    // ⭐️ เปิดใช้งาน API Routes (เข้าทาง /api/...)
-    app.use('/api', apiRoutes);
+    
+    // (Optional) เปิด CORS ให้หน้าเว็บเรียก API ได้
+    app.use((req, res, next) => {
+        res.header("Access-Control-Allow-Origin", "*");
+        res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+        next();
+    });
 
     // Logger
     app.use((req, res, next) => {
@@ -43,6 +50,9 @@ async function startServer() {
     app.get('/', (req, res) => {
         res.send('✅ Loyalty Bot is online and running!');
     });
+
+    // ⭐️ เชื่อมต่อ API Routes (เข้าทาง /api/...)
+    app.use('/api', apiRoutes);
 
     // =========================================
     // 🤖 ส่วนที่ 1: ADMIN BOT SETUP
@@ -79,11 +89,9 @@ async function startServer() {
 
 
     // =========================================
-    // ⏰ ส่วนที่ 3: SCHEDULER (เปิดใช้งานแล้ว) ⭐️
+    // ⏰ ส่วนที่ 3: SCHEDULER
     // =========================================
     const TIMEZONE = getConfig('systemTimezone');
-    
-    // เรียกใช้ Scheduler เพื่อเริ่มนับถอยหลังตัดแต้ม/แจ้งเตือน
     runScheduler(TIMEZONE); 
     console.log(`✅ Scheduler started for Timezone: ${TIMEZONE}`);
 
@@ -91,6 +99,7 @@ async function startServer() {
     // 3. เปิดประตูรับแขก (Listen)
     app.listen(PORT, '0.0.0.0', () => {
         console.log(`⚡️ Server listening on port ${PORT}`);
+        console.log(`   - API Endpoint: /api`);
     });
 }
 
