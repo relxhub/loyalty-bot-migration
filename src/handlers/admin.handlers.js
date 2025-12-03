@@ -140,13 +140,13 @@ async function handleNewCustomer(ctx, commandParts, adminUser, chatId) {
 
         // 4. Generate Magic Link 🔗
         // ใช้ username ของบอทตัวเองเพื่อสร้างลิงก์ที่ถูกต้อง
-        const botUsername = ctx.botInfo.username; 
+        const botUsername = 'ONEHUB_Customer_Backup_Bot';
         const magicLink = `https://t.me/${botUsername}/app?startapp=link_${newCustomerId}_${verificationCode}`;
 
-        const msg = `✅ <b>สร้างลูกค้าสำเร็จ!</b>\n` +
+        const msg = `✅ <b>รหัสสมาชิกของคุณลูกค้า!</b>\n` +
                     `👤 รหัส: <code>${newCustomerId}</code>\n` +
                     `🔑 รหัสยืนยัน: <code>${verificationCode}</code>\n\n` +
-                    `👇 <b>แตะลิงก์นี้เพื่อส่งให้ลูกค้าเชื่อมต่อทันที:</b>\n` +
+                    `👇 <b>คุณลูกค้าสามารถแตะที่ลิงค์นี่้ระบบจะเชื่อมต่อสมาชิกให้ทันที:</b>\n` +
                     `${magicLink}`;
 
         await sendAdminReply(chatId, msg);
