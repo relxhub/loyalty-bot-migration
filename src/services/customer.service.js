@@ -17,7 +17,7 @@ export async function getCustomerByTelegramId(telegramId) {
 
 // 2. สร้างลูกค้าใหม่ (Auto Register)
 export async function createCustomer(data) {
-    const { telegramId, firstName, lastName, username } = data;
+    const { telegramId, firstName, lastName, username } = data; // รับ telegramId เข้ามา (ซึ่งจะเป็น null จากแอดมิน)
 
     // สร้างรหัสสมาชิก (ตัวอย่าง: MEM-เลขสุ่ม)
     const randomSuffix = Math.floor(100000 + Math.random() * 900000); // เลข 6 หลัก
@@ -29,15 +29,17 @@ export async function createCustomer(data) {
 
     return await prisma.customer.create({
         data: {
-            customerId: newCustomerId,
-            telegramUserId: telegramId,
+            customerId: data.customerId || newCustomerId, // ใช้ ID ที่ส่งมา หรือสร้างใหม่
+            telegramUserId: telegramId, // ✅ Prisma รองรับ null ได้ถ้าใน schema ไม่ได้บังคับ (String?)
             firstName: firstName,
             lastName: lastName,
             username: username,
             points: 0,
             referralCount: 0,
-            expiryDate: expiryDate,
-            isDeleted: false
+            expiryDate: addDays(new Date(), 30),
+            isDeleted: false,
+            // ถ้า data มี verificationCode ให้ใช้ ถ้าไม่มีให้สร้างใหม่
+            verificationCode: data.verificationCode || Math.floor(1000 + Math.random() * 9000).toString()
         }
     });
 }

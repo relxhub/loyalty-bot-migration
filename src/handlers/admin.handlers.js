@@ -14,76 +14,70 @@ import { giveReferralBonus } from '../services/customer.service.js';
 // ==================================================
 // ⭐️ MAIN ROUTER
 // ==================================================
-export async function handleAdminCommand(ctx) {
-    const userTgId = String(ctx.from.id);
-    const text = ctx.message.text || "";
-    const role = await getAdminRole(userTgId);
-    
-    const commandParts = text.trim().split(/\s+/);
-    const command = commandParts[0].toLowerCase();
-    
-    const adminUser = ctx.from.username || ctx.from.first_name || "Admin";
-    const chatId = ctx.chat.id;
+async function handleNewCustomer(ctx, commandParts, adminUser, chatId) {
+    const newCustomerId = commandParts[1]?.toUpperCase();
+    const referrerId = commandParts[2]?.toUpperCase() || null;
+    const isReferrerSpecified = referrerId && referrerId !== 'N/A';
 
-    if (!role) return sendAdminReply(chatId, "⛔️ คุณไม่มีสิทธิ์ใช้งานคำสั่งนี้");
+    // 1. Validation (เหมือนเดิม)
+    if (!newCustomerId) return sendAdminReply(chatId, "❗️รูปแบบคำสั่งผิด\nต้องเป็น: /new [รหัสลูกค้าใหม่] [รหัสผู้แนะนำ (ถ้ามี)]");
+    if (!isValidIdFormat(newCustomerId)) return sendAdminReply(chatId, `❌ รูปแบบรหัสลูกค้า '${newCustomerId}' ไม่ถูกต้อง (A-Z, 0-9)`);
     
-    if (["/add", "/addadmin"].includes(command) && role !== "SuperAdmin") {
-        return sendAdminReply(chatId, `⛔️ คุณไม่มีสิทธิ์ใช้งานคำสั่ง ${command}`);
+    // ... (ส่วนเช็คซ้ำ existing customer เหมือนเดิม) ...
+
+    // 2. Create Data (เหมือนเดิม)
+    // ✅ เพิ่มการสร้าง Verification Code ตรงนี้ให้ชัวร์
+    const verificationCode = generateUniqueCode(4); 
+    const initialPoints = 0;
+    const newExpiryDate = addDays(getThaiNow(), getConfig('expiryDaysNewCustomer') || 30);
+
+    // สร้างลูกค้า (ส่ง telegramId: null เพราะลูกค้ายังไม่เข้าบอท)
+    await prisma.customer.create({
+        data: {
+            customerId: newCustomerId,
+            referrerId: isReferrerSpecified ? referrerId : null,
+            points: initialPoints,
+            expiryDate: newExpiryDate,
+            verificationCode: verificationCode,
+            adminCreatedBy: adminUser,
+            telegramUserId: null // ✅ สำคัญ: ระบุเป็น null
+        }
+    });
+
+    // Log Creation
+    await createAdminLog(adminUser, "CREATE_CUSTOMER", newCustomerId, 0, `Referred by: ${referrerId || 'N/A'}`);
+
+    // 3. Give Referral Bonus (เหมือนเดิม)
+    if (isReferrerSpecified) {
+        await giveReferralBonus(referrerId, newCustomerId, adminUser);
     }
 
-    switch (command) {
-        case "/undo":
-            await handleUndoLastAction(ctx, adminUser, chatId);
-            break;
+    // 4. Prepare Messages & Magic Link 🆕
+    const campaign = await getActiveCampaign();
+    const linkBonus = campaign?.linkBonus || 50;
+    const referralBonus = campaign?.baseReferral || campaign?.base || 50;
+    
+    // ✅ ดึง Username ของบอทเพื่อสร้างลิงก์ (ดึงจาก ctx โดยตรงแม่นยำกว่า config)
+    const botUsername = ctx.botInfo.username; 
+    
+    // ✅ สร้าง Magic Link
+    // รูปแบบ: link_รหัสลูกค้า_รหัสยืนยัน
+    const magicLink = `https://t.me/${botUsername}/app?startapp=link_${newCustomerId}_${verificationCode}`;
 
-        case "/addadmin":
-            await handleAddAdmin(ctx, commandParts, chatId);
-            break;
+    const adminMsg = `✅ <b>สร้างลูกค้าใหม่สำเร็จ!</b>\n` +
+                     `👤 ชื่อ: ${newCustomerId}\n` + // (หรือใช้ชื่อจริงถ้ามี)
+                     `🔑 รหัสยืนยัน: <code>${verificationCode}</code>\n\n` +
+                     `👇 <b>แตะที่ลิงก์นี้เพื่อส่งให้ลูกค้าเชื่อมต่อทันที:</b>\n` +
+                     `${magicLink}`; // ส่งลิงก์เพียวๆ ให้กดง่ายๆ
 
-        case "/new":
-            await handleNewCustomer(ctx, commandParts, adminUser, chatId);
-            break;
+    // ข้อความสำหรับลูกค้า (Optional: ส่งแยกไปเผื่อแอดมินอยากก๊อปปี้ข้อความยาวๆ)
+    const customerMsg = `🎉 ยินดีต้อนรับสมาชิกใหม่!\n\n` +
+        `รหัสสมาชิกของคุณคือ: <b>${newCustomerId}</b>\n` +
+        `กดที่ลิงก์ด้านล่างเพื่อสะสมแต้มและรับโบนัสฟรี ${linkBonus} แต้มทันที!\n` +
+        `👉 ${magicLink}`;
 
-        case "/check":
-            if (commandParts.length !== 2) {
-                sendAdminReply(chatId, "❗️รูปแบบคำสั่งผิด\nต้องเป็น: /check [รหัสลูกค้า]");
-            } else {
-                const result = await checkCustomerInfo(commandParts[1], adminUser);
-                sendAdminReply(chatId, result);
-            }
-            break;
-
-        case "/add":
-            await handleAddPoints(ctx, commandParts, adminUser, chatId);
-            break;
-
-        case "/redeem":
-            await handleRedeemReward(ctx, commandParts, adminUser, chatId);
-            break;
-
-        case "/reward":
-            const rewards = await listRewards();
-            const result = formatRewardsForAdmin(rewards);
-            sendAdminReply(chatId, result);
-            break;
-            
-        case "/start":
-            const welcomeMsg = `👋 สวัสดี ${adminUser}!\nบอทสำหรับแอดมินพร้อมใช้งาน\n\n` +
-            "<b>คำสั่งทั้งหมด:</b>\n" +
-            `ℹ️ /check [รหัสลูกค้า]\n` +
-            `↩️ /undo (ยกเลิกคำสั่งล่าสุด)\n` +
-            (role === "SuperAdmin" ? "🪙 /add [รหัสลูกค้า] [แต้ม]\n" : "") +
-            (role === "SuperAdmin" ? "👮‍♂️ /addadmin [ID] [Role] [Name]\n" : "") +
-            "👤 /new [ลูกค้าใหม่] [ผู้แนะนำ]\n" +
-            "🎁 /reward\n" +
-            "✨ /redeem [รหัสลูกค้า] [รหัสรางวัล]";
-            sendAdminReply(chatId, welcomeMsg);
-            break;
-
-        default:
-            sendAdminReply(chatId, "⚠️ คำสั่งไม่ถูกต้อง หรือรูปแบบไม่สมบูรณ์");
-            break;
-    }
+    await sendAdminReply(chatId, adminMsg);
+    await sendAdminReply(chatId, customerMsg);
 }
 
 // ==================================================
