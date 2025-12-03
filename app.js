@@ -1,6 +1,15 @@
 // app.js (ฉบับรองรับ Mini App API)
 
 import 'dotenv/config'; 
+// 🛡️ เพิ่มตัวดัก Error นี้ชั่วคราว
+process.on('uncaughtException', (err) => {
+  console.error('💥 CRITICAL ERROR:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('💥 UNHANDLED PROMISE:', reason);
+});
+
+console.log("🟢 App is starting..."); // เช็คว่าเริ่มทำงานไหม
 import { Telegraf } from 'telegraf';
 import express from 'express';
 // import cors from 'cors'; // (Optional: อาจต้องใช้ถ้าทำ Frontend แยก)
