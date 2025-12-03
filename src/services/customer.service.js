@@ -42,10 +42,10 @@ export async function createCustomer(data) {
     });
 }
 
-// 3. อัปเดตข้อมูลลูกค้า
-export async function updateCustomer(id, data) {
+// ✅ แบบที่ถูกต้อง (แก้เป็นแบบนี้)
+export async function updateCustomer(custID, data) { // ตั้งชื่อตัวแปรให้ชัดเจน (เช่น custID)
     return await prisma.customer.update({
-        where: { customerId: customerId }, // ใช้ id (Int) ที่เป็น Primary Key
+        where: { customerId: custID }, // เอาตัวแปร custID มาใส่ตรงนี้
         data: data
     });
 }
