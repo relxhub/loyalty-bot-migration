@@ -247,21 +247,21 @@ function mapActionName(action) {
 }
 
 // --------------------------------------------------
-// 👥 ส่วนที่ 7: ดึงข้อมูลเครือข่ายเพื่อน (Referral Network)
+// 👥 ส่วนที่ 7: ดึงข้อมูลประวัติการแนะนำสมาชิก
 // --------------------------------------------------
 router.get('/referrals/:telegramId', async (req, res) => {
     try {
         const { telegramId } = req.params;
 
-        // 1. หาข้อมูลของตัว User เองก่อน เพื่อเอา ID
+        // 1. หาข้อมูลของตัว User เองก่อน เพื่อเอา Customer ID
         const user = await prisma.customer.findUnique({
             where: { telegramUserId: telegramId },
-            select: { customerId: true }
+            select: { customerId: true, telegramUserId: true }
         });
 
         if (!user) return res.json({ success: false, message: "User not found" });
 
-        // 2. ค้นหา "ลูกข่าย" (คนที่ User นี้เป็นคนแนะนำ)
+        // 2. ค้นหา "ผู้ถูกแนะนำ" (คนที่ User นี้เป็นคนแนะนำ)
         const referrals = await prisma.customer.findMany({
             where: { referrerId: user.customerId },
             orderBy: { createdAt: 'desc' }, // เรียงตามวันที่ล่าสุด
@@ -269,29 +269,60 @@ router.get('/referrals/:telegramId', async (req, res) => {
                 customerId: true,
                 firstName: true,
                 lastName: true,
-                createdAt: true,     // วันที่สมัคร
-                referralCount: true, // ⭐ ทีเด็ด! ดูว่าเขาไปชวนต่ออีกกี่คน
-                points: true         // ดูแต้มปัจจุบันของเขา (เผื่ออยากโชว์ความเทพ)
+                createdAt: true,
+                referralCount: true, // นับ Tier 2
+                activeCampaignTag: true // ดึง Tag แคมเปญมาด้วย
             }
         });
 
-        // 3. จัด Format ข้อมูลให้สวยงามก่อนส่งกลับ
-        const formattedList = referrals.map(ref => ({
-            name: `${ref.firstName || 'Guest'} ${ref.lastName || ''}`.trim() || ref.customerId,
-            id: ref.customerId,
-            joinedAt: new Date(ref.createdAt).toLocaleDateString('th-TH', {
-                day: 'numeric', month: 'short', year: '2-digit',
-                hour: '2-digit', minute: '2-digit'
-            }),
-            tier2Count: ref.referralCount, // จำนวนคนที่เขาไปชวนต่อ
-            earned: 50 // (สมมติว่าได้ 50 แต้มต่อหัว หรือจะดึงจาก Config ก็ได้)
+        // 3. วิ่งค้นหา Log สำหรับแต่ละ Referral (การดึงข้อมูลเชิงลึก)
+        const formattedList = await Promise.all(referrals.map(async (ref) => {
+            
+            // 3.1 ค้นหา Log การให้ Bonus จากการชวนคนนี้
+            // Log นี้จะผูกกับ customerId ของ "ผู้ชวน" (user.customerId)
+            const bonusLog = await prisma.customerLog.findFirst({
+                where: {
+                    customerId: user.customerId,
+                    action: 'REFERRAL_BONUS',
+                    // หา Log ที่เกิดใกล้เคียงกับวันที่เพื่อนสมัคร (ref.createdAt)
+                    createdAt: {
+                        gte: new Date(ref.createdAt.getTime() - 1000 * 60 * 60 * 24 * 7), // 7 วันก่อน
+                        lte: new Date(ref.createdAt.getTime() + 1000 * 60 * 60 * 24 * 7)  // 7 วันหลัง
+                    }
+                },
+                orderBy: { createdAt: 'desc' },
+                select: { pointsChange: true, createdAt: true }
+            });
+
+            // 3.2 กำหนดค่าที่แสดง
+            const earnedPoints = bonusLog ? bonusLog.pointsChange : 0; // ถ้าไม่เจอ Log ให้เป็น 0
+            const bonusDate = bonusLog ? bonusLog.createdAt : ref.createdAt;
+            const campaignTag = ref.activeCampaignTag || 'Standard';
+
+            return {
+                name: `${ref.firstName || 'Guest'} ${ref.lastName || ''}`.trim() || ref.customerId,
+                id: ref.customerId,
+                // วันที่เพื่อนสมัคร
+                joinedAt: new Date(ref.createdAt).toLocaleDateString('th-TH', {
+                    day: 'numeric', month: 'short', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                }),
+                // วันที่ได้รับแต้ม
+                earnedAt: new Date(bonusDate).toLocaleDateString('th-TH', {
+                    day: 'numeric', month: 'short', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                }),
+                tier2Count: ref.referralCount,
+                earned: earnedPoints,
+                campaign: campaignTag
+            };
         }));
 
         res.json({ success: true, count: referrals.length, data: formattedList });
 
     } catch (error) {
         console.error("Referral API Error:", error);
-        res.status(500).json({ error: "ดึงข้อมูลเพื่อนไม่สำเร็จ" });
+        res.status(500).json({ error: "ดึงข้อมูลการแนะนำไม่สำเร็จ" });
     }
 });
 
