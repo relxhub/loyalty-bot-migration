@@ -335,7 +335,17 @@
 
     <script>
         const tg = window.Telegram.WebApp;
+
+        // 1. ขยายให้เต็มจอสุดก่อน
         tg.expand(); 
+
+        // 2. ล็อกไม่ให้ปัดลงเพื่อปิด (ต้องเช็คเวอร์ชัน เพราะฟีเจอร์นี้มาใหม่ใน v7.7)
+        if (tg.isVersionAtLeast('7.7')) {
+            tg.disableVerticalSwipes();
+        }
+
+        // 3. กันพลาด: ถ้าเผลอปัดหรือกดปิดจริงๆ ให้เด้งถามก่อน (Confirmation Dialog)
+        tg.enableClosingConfirmation();
 
         // --- [START] Helper Functions ---
 
