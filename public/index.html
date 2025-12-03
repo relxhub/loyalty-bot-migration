@@ -125,10 +125,11 @@
         @keyframes spin { 100% { transform: rotate(360deg); } }
         /* --- [END] CSS Notification Toast --- */
 
-        /* คลาสสำหรับล็อกไม่ให้หน้าหลังขยับ */
+        /* ล็อกหน้าจอไม่ให้เลื่อนเมื่อเปิด Modal */
         body.no-scroll {
             overflow: hidden !important;
-            height: 100vh;
+            position: fixed; /* บังคับล็อกให้อยู่กับที่ชัวร์ๆ */
+            width: 100%;
         }
 
         /* เพิ่มความลื่นให้ตัว Popup และกันทะลุด้วย CSS สมัยใหม่ */
@@ -273,7 +274,7 @@
                 <div class="text-xs text-gray-400">สมาชิกเก่า</div>
             </button>
 
-            <button onclick="Telegram.WebApp.openTelegramLink('https://t.me/SupportBot')" class="glass-card p-4 hover:bg-white/10 transition active:scale-95 text-left group">
+            <button onclick="Telegram.WebApp.openTelegramLink('https://t.me/ONEHUBorder_bot')" class="glass-card p-4 hover:bg-white/10 transition active:scale-95 text-left group">
                 <div class="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-400 mb-3 group-hover:scale-110 transition">
                     <i class="ri-customer-service-2-line text-xl"></i>
                 </div>
@@ -751,60 +752,67 @@
     }
 
         async function openHistoryModal() {
-        const modal = document.getElementById('history-modal');
-        const content = document.getElementById('history-content');
-        const list = document.getElementById('history-list');
+            const modal = document.getElementById('history-modal');
+            const content = document.getElementById('history-content');
+            const list = document.getElementById('history-list');
 
-        modal.classList.remove('hidden');
-        // Animation เปิด
-        setTimeout(() => {
-            modal.classList.remove('opacity-0');
-            content.classList.remove('translate-y-full');
-        }, 10);
+            // 1. ล็อกหน้าหลังทันที ห้ามขยับ
+            document.body.classList.add('no-scroll');
 
-        // เรียก API
-        try {
-            const telegramId = tg.initDataUnsafe?.user?.id;
-            const res = await fetch(`/api/history/${telegramId}`);
-            const data = await res.json();
+            modal.classList.remove('hidden');
+            
+            // Animation เปิด
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('translate-y-full');
+            }, 10);
 
-            if (data.logs && data.logs.length > 0) {
-                let html = '';
-                data.logs.forEach(item => {
-                    const colorClass = item.isPositive ? 'text-green-400' : 'text-red-400';
-                    const icon = item.isPositive ? 'ri-arrow-up-circle-fill' : 'ri-arrow-down-circle-fill';
-                    
-                    html += `
-                    <div class="bg-white/5 p-3 rounded-xl flex justify-between items-center">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center ${colorClass} text-xl">
-                                <i class="${icon}"></i>
-                            </div>
-                            <div>
-                                <div class="font-medium text-sm">${item.action}</div>
-                                <div class="text-xs text-gray-500">${item.date}</div>
-                            </div>
-                        </div>
-                        <div class="font-bold ${colorClass}">${item.points}</div>
-                    </div>`;
-                });
-                list.innerHTML = html;
-            } else {
-                list.innerHTML = '<div class="text-center text-gray-500 mt-10">ไม่พบประวัติรายการ</div>';
+            // ... (ส่วนเรียก API เหมือนเดิม ไม่ต้องแก้) ...
+            try {
+                const telegramId = tg.initDataUnsafe?.user?.id;
+                const res = await fetch(`/api/history/${telegramId}`);
+                const data = await res.json();
+                // ... (โค้ด Render HTML เดิม) ...
+                if (data.logs && data.logs.length > 0) {
+                    let html = '';
+                    data.logs.forEach(item => {
+                        // ... (โค้ด HTML เดิม) ...
+                        const colorClass = item.isPositive ? 'text-green-400' : 'text-red-400';
+                        const icon = item.isPositive ? 'ri-arrow-up-circle-fill' : 'ri-arrow-down-circle-fill';
+                        html += `
+                            <div class="bg-white/5 p-3 rounded-xl flex justify-between items-center">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center ${colorClass} text-xl">
+                                        <i class="${icon}"></i>
+                                    </div>
+                                    <div>
+                                        <div class="font-medium text-sm">${item.action}</div>
+                                        <div class="text-xs text-gray-500">${item.date}</div>
+                                    </div>
+                                </div>
+                                <div class="font-bold ${colorClass}">${item.points}</div>
+                            </div>`;
+                    });
+                    list.innerHTML = html;
+                } else {
+                    list.innerHTML = '<div class="text-center text-gray-500 mt-10">ไม่พบประวัติรายการ</div>';
+                }
+            } catch (e) {
+                list.innerHTML = '<div class="text-center text-red-400 mt-10">โหลดข้อมูลไม่สำเร็จ</div>';
             }
-        } catch (e) {
-            list.innerHTML = '<div class="text-center text-red-400 mt-10">โหลดข้อมูลไม่สำเร็จ</div>';
         }
-    }
 
-    function closeHistoryModal() {
-        const modal = document.getElementById('history-modal');
-        const content = document.getElementById('history-content');
-        
-        content.classList.add('translate-y-full');
-        modal.classList.add('opacity-0');
-        setTimeout(() => modal.classList.add('hidden'), 300);
-    }
+        function closeHistoryModal() {
+            const modal = document.getElementById('history-modal');
+            const content = document.getElementById('history-content');
+            
+            // 2. ปลดล็อกหน้าหลัง ให้กลับมาเลื่อนได้
+            document.body.classList.remove('no-scroll');
+
+            content.classList.add('translate-y-full');
+            modal.classList.add('opacity-0');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
 
     // --- [START] ระบบ Real-time (Auto Polling) ---
 
@@ -835,6 +843,17 @@
         // ถ้าจุดที่จิ้ม คือฉากหลัง (ไม่ได้จิ้มโดนกล่องเนื้อหาข้างใน)
         if (e.target === this) {
             closeHistory(); // สั่งปิดทันที
+        }
+    });
+
+    // --- [เพิ่มใหม่] สั่งปิดเมื่อจิ้มฉากหลัง ---
+    document.getElementById('history-modal').addEventListener('click', function(e) {
+        // e.target คือจุดที่นิ้วไปโดน
+        // this คือตัว history-modal (ฉากหลังสีดำ)
+        
+        // ถ้าจุดที่โดน == ฉากหลัง (แปลว่าไม่ได้จิ้มโดนกล่องเนื้อหาขาวๆ)
+        if (e.target === this) {
+            closeHistoryModal(); // สั่งปิดเลย
         }
     });
 
