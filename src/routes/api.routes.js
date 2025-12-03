@@ -26,117 +26,34 @@ function verifyTelegramWebAppData(telegramInitData) {
 }
 
 // ==================================================
-// 🚪 LOGIN / AUTH (ปรับปรุงใหม่: ดึงยอดแคมเปญ)
+// 🚪 LOGIN / AUTH (EXTREME TEST: ส่ง Response ทันที)
 // ==================================================
 router.post('/auth', async (req, res) => {
     try {
-        const { initData, user } = req.body;
-
-        if (!initData || !user) {
-            return res.status(400).json({ error: 'Invalid authentication data.' });
-        }
-
-        //if (!verifyTelegramWebAppData(initData, getConfig().CUSTOMER_BOT_TOKEN)) {
-        //    return res.status(403).json({ error: 'Data integrity check failed.' });
-        //}
-
-        // ✅ [FIXED] ถอดรหัส URL ก่อน JSON.parse เพื่อจัดการอักขระพิเศษ
-        const decodedUserJson = decodeURIComponent(user);
-        const userData = JSON.parse(decodedUserJson);
-
-        console.log(`👤 Login Request: ${userData.first_name} (${userData.id})`);
-
-        // -----------------------------------------------------------------
-        // 🚨 [FIX/DEBUG] ข้ามการดึงข้อมูล DB และใช้ MOCK DATA ชั่วคราว
-        // -----------------------------------------------------------------
+        // 🚨 [EXTREME TEST] ส่ง Response ทันทีที่เข้าถึง Route
+        console.log("🔥 EXTREME TEST: Sending immediate success response.");
         
-        // 🚨 ถ้าเป็น true จะข้ามการค้นหาลูกค้าจริง และใช้ข้อมูลจำลองแทน
-        const USE_MOCK_DATA = true; 
+        // ข้อมูลจำลองที่จำเป็นสำหรับการโหลดหน้า Dashboard
+        const dummyCustomer = {
+            customerId: 'TEST007',
+            firstName: 'Demo',
+            lastName: 'User',
+            points: 1234, // จะได้เห็นว่าตัวเลขวิ่ง
+            expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+            referralCount: 10,
+            telegramUserId: '0000',
+            campaignReferralCount: 3,
+            referralTarget: 5,
+            activeCampaignTag: 'Winter_Bonus'
+        };
         
-        if (USE_MOCK_DATA) {
-            
-            // ข้อมูลจำลอง (สมมติว่าเข้าสู่ระบบสำเร็จ)
-            const mockCustomerData = {
-                customerId: 'TEST007',
-                firstName: userData.first_name,
-                lastName: userData.last_name || 'Mock',
-                points: 1200, // ใส่แต้มเยอะๆ ให้ดูว่า UI โหลดได้
-                expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
-                referralCount: 8,
-                telegramUserId: userData.id.toString(),
-                campaignReferralCount: 3, // ข้อมูล Campaign จำลอง
-                referralTarget: 5,
-                activeCampaignTag: 'Winter_Bonus' // ชื่อแคมเปญ
-            };
-            
-            return res.json({ success: true, isMember: true, customer: mockCustomerData });
-            
-        } 
-        // -----------------------------------------------------------------
-        
-        // -----------------------------------------------------------------
-        // 🚨 ถ้า USE_MOCK_DATA เป็น false โค้ดส่วนนี้จะทำงาน (โค้ดจริง)
-        // -----------------------------------------------------------------
-        
-        // 3. ค้นหาลูกค้า
-        let customer = await getCustomerByTelegramId(userData.id.toString());
-        
-        if (!customer) {
-            // ... (ถ้าไม่เจอ ให้กลับไปหน้า Login เหมือนเดิม) ...
-            return res.json({ 
-                success: true, 
-                isMember: false, 
-                telegramId: userData.id.toString() 
-            });
-        } else {
-             // ✅ ถ้าเจอ -> อัปเดตชื่อ
-             await updateCustomer(customer.customerId, {
-                firstName: userData.first_name,
-                lastName: userData.last_name || '',
-                username: userData.username || ''
-            });
-            
-            // 4. [เพิ่มใหม่] ดึงข้อมูลแคมเปญ
-            /*const campaign = await getActiveCampaign();
-            let campaignReferralCount = 0;
-            let referralTarget = 0;
-            let activeCampaignTag = 'Standard';
-            
-            if (campaign && campaign.startAt) {
-                activeCampaignTag = campaign.campaignName || 'Active';
-                referralTarget = campaign.milestoneTarget;
-                
-                // คำนวณยอดที่ชวนได้จริงในช่วงแคมเปญ
-                campaignReferralCount = await countCampaignReferrals(customer.customerId, campaign.startAt);
-            }
-            */
-            
-            // 5. [ถ้าไม่ใช้ Mock] คำนวณแคมเปญ
-            const campaign = await getActiveCampaign();
-            let campaignReferralCount = 0;
-            let referralTarget = 0;
-            let activeCampaignTag = 'Standard';
-            
-            if (campaign && campaign.startAt) {
-                activeCampaignTag = campaign.campaignName || 'Active';
-                referralTarget = campaign.milestoneTarget;
-                campaignReferralCount = await countCampaignReferrals(customer.customerId, campaign.startAt);
-            }
-
-            const customerDataForFrontend = {
-                ...customer,
-                referralCount: customer.referralCount, 
-                campaignReferralCount: campaignReferralCount, 
-                referralTarget: referralTarget, 
-                activeCampaignTag: activeCampaignTag
-            };
-            
-            return res.json({ success: true, isMember: true, customer: customerDataForFrontend });
-        }
+        // ส่ง Response กลับไปทันที
+        return res.json({ success: true, isMember: true, customer: dummyCustomer });
 
     } catch (error) {
-        console.error("Auth Error:", error);
-        res.status(500).json({ error: 'Auth failed: ' + error.message });
+        // หากมี Error ใดๆ เกิดขึ้น (ไม่น่าจะมี) ให้ส่ง 500 กลับไปเสมอ
+        console.error("Auth Error (EXTREME):", error);
+        res.status(500).json({ error: 'Auth failed: Critical Internal Error' }); 
     }
 });
 
