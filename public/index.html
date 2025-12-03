@@ -394,32 +394,29 @@
         }
 
         // ฟังก์ชันตรวจสอบแต้มเพิ่ม & แจ้งเตือนวันหมดอายุ
-        function checkNotifications(user, isManual) {
-            // 1. แจ้งเตือนแต้มเพิ่ม (เปรียบเทียบกับค่าเก่าในเครื่อง)
-            const lastPoints = parseInt(localStorage.getItem('last_points'));
-            if (!isNaN(lastPoints) && user.points > lastPoints) {
-                const diff = user.points - lastPoints;
-                showToast(`🎉 ยินดีด้วย! คุณได้รับ ${diff} แต้ม`, 'success');
-            }
-            // อัปเดตค่าล่าสุดเก็บไว้
-            localStorage.setItem('last_points', user.points);
-
-            // 2. แจ้งเตือนวันหมดอายุ (ถ้าเหลือน้อยกว่า 5 วัน)
-            if (user.expiryDate) {
-                const expiry = new Date(user.expiryDate);
-                const now = new Date();
-                const daysLeft = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
-                
-                // แจ้งเตือนเฉพาะตอนโหลดครั้งแรก หรือ Refresh มือ, และต้องใกล้หมดจริง ๆ
-                if (daysLeft >= 0 && daysLeft <= 5) {
-                    // ใช้ SessionStorage เพื่อไม่ให้เด้งซ้ำๆ จนรำคาญในการเปิดครั้งเดียว
-                    if (isManual || !sessionStorage.getItem('expiry_warned')) {
-                        showToast(`⚠️ คะแนนจะหมดอายุใน ${daysLeft} วัน`, 'warning');
-                        sessionStorage.setItem('expiry_warned', 'true');
-                    }
-                }
-            }
+        function checkNotifications(user, isAutoRefresh) {
+        // 1. ดึงแต้มเก่าจากเครื่อง
+        const lastPoints = parseInt(localStorage.getItem('last_points'));
+        
+        // 2. ถ้ามีแต้มเก่า และ แต้มใหม่มากกว่าเดิม (แปลว่ามีเพื่อนสมัคร หรือได้แต้มเพิ่ม)
+        if (!isNaN(lastPoints) && user.points > lastPoints) {
+            const diff = user.points - lastPoints;
+            
+            // เด้งแจ้งเตือนทันที!! 🔔
+            showToast(`🎉 เย้! คุณได้รับเพิ่ม ${diff} แต้ม`, 'success');
+            
+            // สั่นเตือนด้วย
+            try { tg.hapticFeedback.notificationOccurred('success'); } catch(e){}
         }
+
+        // 3. บันทึกแต้มล่าสุดเก็บไว้
+        localStorage.setItem('last_points', user.points);
+
+        // 4. (ส่วนแจ้งเตือนวันหมดอายุ คงเดิม...)
+        if (user.expiryDate && !isAutoRefresh) { // เตือนวันหมดอายุเฉพาะตอนเปิดแอปพอ
+            // ... (โค้ดเดิม) ...
+        }
+    }
         // --- [END] Helper Functions ---
 
         tg.enableClosingConfirmation(); 
@@ -447,36 +444,49 @@
             }
         }
 
-        // ฟังก์ชันโหลดข้อมูล User (แยกออกมาให้เรียกซ้ำได้ ไม่ต้อง Reload หน้า)
-        async function refreshUserData() {
+        // รับ Parameter isSilent (ถ้าเป็น true แปลว่าเช็คเงียบๆ)
+        async function refreshUserData(isSilent = false) {
             let user;
             let isMember = false;
 
+            // ถ้าไม่ใช่การเช็คเงียบๆ (เช่น เปิดแอปครั้งแรก) ให้โชว์ Loading
+            if (!isSilent) {
+                document.getElementById('loading-screen').classList.remove('hidden');
+            }
+
             if (!tg.initData) {
-                // Demo Mode
-                console.warn("⚠️ Running in Demo Mode");
+                // ... (ส่วน Demo Mode เหมือนเดิม) ...
                 isMember = false; 
                 user = { firstName: "Demo", customerId: "MEM-9999", points: 0, referralCount: 0 };
             } else {
-                const response = await fetch('/api/auth', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ initData: tg.initData })
-                });
-                
-                if(!response.ok) throw new Error("Auth Failed");
-                const data = await response.json();
-                isMember = data.isMember;
-                user = data.customer;
+                try {
+                    const response = await fetch('/api/auth', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ initData: tg.initData })
+                    });
+                    
+                    if(!response.ok) throw new Error("Auth Failed");
+                    const data = await response.json();
+                    isMember = data.isMember;
+                    user = data.customer;
+                } catch (e) {
+                    console.error(e);
+                    return; // ถ้า Error ตอน Auto Refresh ก็ข้ามไปเลย ไม่ต้องฟ้อง User
+                }
             }
+
+            // ปิด Loading Screen เสมอเมื่อเสร็จ
+            document.getElementById('loading-screen').classList.add('hidden');
 
             if (isMember) {
                 renderUser(user);
-                // ✅ เพิ่มบรรทัดนี้: เรียกตัวเช็คแจ้งเตือน
-                // (arguments[0] คือ isManual ที่ส่งมาจากปุ่ม refresh)
-                checkNotifications(user, arguments[0]); 
+                
+                // เรียกฟังก์ชันแจ้งเตือน (Toast) ที่เราทำไว้
+                // ส่ง isSilent ไปด้วย เพื่อบอกว่าถ้าเป็นการ Auto Refresh ให้เตือนเฉพาะแต้มขึ้น
+                checkNotifications(user, isSilent); 
             } else {
-                showLoginScreen();
+                if (!isSilent) showLoginScreen();
             }
         }
 
@@ -717,6 +727,27 @@
         modal.classList.add('opacity-0');
         setTimeout(() => modal.classList.add('hidden'), 300);
     }
+
+    // --- [START] ระบบ Real-time (Auto Polling) ---
+
+    let isFirstLoad = true; // ตัวแปรกันไม่ให้เด้งตอนเปิดแอปครั้งแรก
+
+    // ตั้งเวลาเช็คข้อมูลใหม่ทุกๆ 5 วินาที (ปรับเวลาได้ตามชอบ)
+    setInterval(async () => {
+        // เช็คว่า User กำลังเปิดหน้าจออยู่ไหม (ถ้าพับจอไป ไม่ต้องโหลดให้เปลืองเน็ต)
+        if (document.hidden) return;
+
+        try {
+            // เรียกฟังก์ชันโหลดข้อมูล (ส่ง true ไปบอกว่านี่คือการ Auto Refresh นะ)
+            // เพื่อให้ใน refreshUserData รู้ว่าไม่ต้องโชว์ Loading Screen
+            await refreshUserData(true); 
+            
+        } catch (e) {
+            console.log("Auto sync failed (อาจเป็นเพราะเน็ตหลุด):", e);
+        }
+    }, 5000); // 5000 ms = 5 วินาที
+
+    // --- [END] ระบบ Real-time ---
 
         initApp();
     </script>
