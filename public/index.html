@@ -54,9 +54,90 @@
         @keyframes bounceIn { 0% { transform: scale(0); } 80% { transform: scale(1.1); } 100% { transform: scale(1); } }
 
         ::-webkit-scrollbar { width: 0px; background: transparent; }
+
+        /* --- [START] CSS Notification Toast --- */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 90%;
+            max-width: 350px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: rgba(30, 30, 30, 0.9);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: white;
+            padding: 14px 16px;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 0;
+            transform: translateY(-20px) scale(0.95);
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            pointer-events: auto;
+        }
+
+        .toast.show { opacity: 1; transform: translateY(0) scale(1); }
+
+        /* สีไอคอนแต่ละประเภท */
+        .toast-icon { font-size: 20px; }
+        .toast.success .toast-icon { color: #4ade80; text-shadow: 0 0 10px rgba(74,222,128,0.5); }
+        .toast.error .toast-icon { color: #f87171; text-shadow: 0 0 10px rgba(248,113,113,0.5); }
+        .toast.warning .toast-icon { color: #facc15; text-shadow: 0 0 10px rgba(250,204,21,0.5); }
+        .toast.info .toast-icon { color: #60a5fa; text-shadow: 0 0 10px rgba(96,165,250,0.5); }
+
+        /* ปุ่ม Refresh มุมขวาบน */
+        .header-actions {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+        .refresh-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        .refresh-btn:active { transform: scale(0.9) rotate(180deg); }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        /* --- [END] CSS Notification Toast --- */
+
     </style>
 </head>
 <body class="min-h-screen flex flex-col p-5 select-none overflow-x-hidden">
+
+    <div class="header-actions">
+        <button class="refresh-btn" onclick="manualRefresh(); Telegram.WebApp.hapticFeedback.impactOccurred('light');">
+            <i class="ri-refresh-line text-xl"></i>
+        </button>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <div id="toast-container"></div>
 
     <div id="loading-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#18181b]">
         <div class="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
@@ -255,6 +336,82 @@
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand(); 
+
+        // --- [START] Helper Functions ---
+
+        // ฟังก์ชันแสดง Toast
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            
+            // ไอคอนตามประเภท
+            let icon = '';
+            switch(type) {
+                case 'success': icon = '<i class="ri-checkbox-circle-fill"></i>'; break;
+                case 'error': icon = '<i class="ri-close-circle-fill"></i>'; break;
+                case 'warning': icon = '<i class="ri-alert-fill"></i>'; break;
+                default: icon = '<i class="ri-information-fill"></i>';
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<span class="toast-icon">${icon}</span><span>${message}</span>`;
+
+            container.appendChild(toast);
+            
+            // สั่นเบาๆ เมื่อแจ้งเตือน
+            try { tg.hapticFeedback.notificationOccurred(type === 'error' ? 'error' : 'success'); } catch(e){}
+
+            requestAnimationFrame(() => toast.classList.add('show'));
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 400);
+            }, 4000); // แสดงนาน 4 วินาที
+        }
+
+        // ฟังก์ชันสำหรับปุ่ม Refresh ด้านบน
+        async function manualRefresh() {
+            const btn = document.querySelector('.refresh-btn');
+            btn.style.animation = 'spin 1s linear infinite'; // หมุนติ้วๆ
+            try {
+                await refreshUserData(true); // ส่ง true บอกว่าเป็น manual refresh
+                showToast('อัปเดตข้อมูลล่าสุดแล้ว', 'success');
+            } catch (error) {
+                showToast('ไม่สามารถอัปเดตข้อมูลได้', 'error');
+            } finally {
+                btn.style.animation = 'none'; // หยุดหมุน
+            }
+        }
+
+        // ฟังก์ชันตรวจสอบแต้มเพิ่ม & แจ้งเตือนวันหมดอายุ
+        function checkNotifications(user, isManual) {
+            // 1. แจ้งเตือนแต้มเพิ่ม (เปรียบเทียบกับค่าเก่าในเครื่อง)
+            const lastPoints = parseInt(localStorage.getItem('last_points'));
+            if (!isNaN(lastPoints) && user.points > lastPoints) {
+                const diff = user.points - lastPoints;
+                showToast(`🎉 ยินดีด้วย! คุณได้รับ ${diff} แต้ม`, 'success');
+            }
+            // อัปเดตค่าล่าสุดเก็บไว้
+            localStorage.setItem('last_points', user.points);
+
+            // 2. แจ้งเตือนวันหมดอายุ (ถ้าเหลือน้อยกว่า 5 วัน)
+            if (user.expiryDate) {
+                const expiry = new Date(user.expiryDate);
+                const now = new Date();
+                const daysLeft = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
+                
+                // แจ้งเตือนเฉพาะตอนโหลดครั้งแรก หรือ Refresh มือ, และต้องใกล้หมดจริง ๆ
+                if (daysLeft >= 0 && daysLeft <= 5) {
+                    // ใช้ SessionStorage เพื่อไม่ให้เด้งซ้ำๆ จนรำคาญในการเปิดครั้งเดียว
+                    if (isManual || !sessionStorage.getItem('expiry_warned')) {
+                        showToast(`⚠️ คะแนนจะหมดอายุใน ${daysLeft} วัน`, 'warning');
+                        sessionStorage.setItem('expiry_warned', 'true');
+                    }
+                }
+            }
+        }
+        // --- [END] Helper Functions ---
+
         tg.enableClosingConfirmation(); 
 
         async function initApp() {
@@ -305,6 +462,9 @@
 
             if (isMember) {
                 renderUser(user);
+                // ✅ เพิ่มบรรทัดนี้: เรียกตัวเช็คแจ้งเตือน
+                // (arguments[0] คือ isManual ที่ส่งมาจากปุ่ม refresh)
+                checkNotifications(user, arguments[0]); 
             } else {
                 showLoginScreen();
             }
@@ -367,14 +527,12 @@
                 document.getElementById('loading-screen').classList.add('hidden');
 
                 if (result.success) {
+                    // ✅ เพิ่ม: แจ้งเตือน
+                    showToast(`เชื่อมต่อสำเร็จ! รับโบนัส ${result.bonus} แต้ม`, 'success');
                     showSuccessModal(result.bonus);
                 } else {
-                    // กรณี Server ตอบกลับมาว่าไม่สำเร็จ (เช่น รหัสผิด)
-                    tg.showPopup({ 
-                        title: 'แจ้งเตือน', 
-                        message: result.error || "ข้อมูลไม่ถูกต้อง", 
-                        buttons: [{type: 'close'}] 
-                    });
+                    // ❌ เปลี่ยนจาก tg.showPopup เป็น Toast สีแดง
+                    showToast(result.error || "รหัสไม่ถูกต้อง", 'error');
                     showLoginScreen();
                 }
             } catch (error) {
@@ -438,9 +596,22 @@
         function handleAction(type) {
             tg.hapticFeedback.impactOccurred('light');
             switch(type) {
-                case 'rewards': tg.showPopup({ title: '🎁 เร็วๆ นี้', message: 'Coming Soon!', buttons: [{type: 'ok'}] }); break;
-                case 'invite': tg.switchInlineQuery("ชวนเพื่อน", ["users", "groups"]); break;
-                case 'link': openLinkModal(); break;
+                case 'rewards': 
+                    // ✅ แจ้งเตือนว่า Coming Soon
+                    showToast('🎁 ระบบแลกของรางวัล จะเปิดให้บริการเร็วๆ นี้', 'info');
+                    break;
+                    
+                case 'invite': 
+                    // ✅ แจ้งเตือนก่อนเด้งไปหน้าชวน
+                    showToast('🚀 กำลังเปิดหน้าต่างชวนเพื่อน...', 'success');
+                    setTimeout(() => {
+                        tg.switchInlineQuery("ชวนเพื่อน", ["users", "groups"]);
+                    }, 500);
+                    break;
+                    
+                case 'link': 
+                    openLinkModal(); 
+                    break;
             }
         }
 
@@ -461,7 +632,10 @@
             modal.classList.add('opacity-0');
             content.classList.remove('scale-100');
             content.classList.add('scale-95');
-            setTimeout(() => modal.classList.add('hidden'), 300);
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                showToast('💡 อย่าลืมเชื่อมบัญชีเพื่อสะสมแต้มนะครับ', 'warning'); // เพิ่มบรรทัดนี้
+            }, 300);
         }
 
         function animateValue(id, start, end, duration) {
