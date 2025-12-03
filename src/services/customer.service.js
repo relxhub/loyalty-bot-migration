@@ -4,6 +4,29 @@ import { addDays, getThaiNow } from '../utils/date.utils.js';
 import { sendNotificationToCustomer } from './notification.service.js';
 import { getConfig } from '../config/config.js';
 
+// -----------------------------------------------------------------
+// คำนวณยอด Referral ที่เกิดขึ้นในช่วง Active Campaign (เพิ่ม Try-Catch ป้องกันค้าง)
+// -----------------------------------------------------------------
+export async function countCampaignReferrals(customerId, startDate) {
+    if (!startDate) return 0;
+
+    try {
+        const count = await prisma.customerLog.count({
+            where: {
+                customerId: customerId,
+                action: 'REFERRAL_BONUS',
+                createdAt: {
+                    gte: startDate 
+                }
+            }
+        });
+        return count;
+    } catch (e) {
+        console.error("Error counting campaign referrals:", e.message);
+        return 0; // คืน 0 ถ้ามีปัญหาในการ Query
+    }
+}
+
 // ==========================================
 // 🆕 ส่วนที่เพิ่มเข้ามา (เพื่อให้ API ทำงานได้)
 // ==========================================
@@ -50,27 +73,6 @@ export async function updateCustomer(custID, data) { // ตั้งชื่อ
         where: { customerId: custID }, // เอาตัวแปร custID มาใส่ตรงนี้
         data: data
     });
-}
-
-// -----------------------------------------------------------------
-// 🆕 [เพิ่มใหม่] คำนวณยอด Referral ที่เกิดขึ้นในช่วง Active Campaign
-// -----------------------------------------------------------------
-export async function countCampaignReferrals(customerId, startDate) {
-    if (!startDate) return 0;
-
-    // นับจำนวน Log ที่มีการให้โบนัสการแนะนำเพื่อน (REFERRAL_BONUS)
-    // โดยมีเงื่อนไขว่า Log นั้นต้องเกิดขึ้น "หลัง" วันที่แคมเปญเริ่มต้น
-    const count = await prisma.customerLog.count({
-        where: {
-            customerId: customerId,
-            action: 'REFERRAL_BONUS',
-            createdAt: {
-                gte: startDate // ต้องมากกว่าหรือเท่ากับวันเริ่มต้นแคมเปญ
-            }
-        }
-    });
-    
-    return count;
 }
 
 // ==========================================

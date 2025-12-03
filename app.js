@@ -26,26 +26,13 @@ import apiRoutes from './src/routes/api.routes.js';
 // Import Scheduler
 import { runScheduler } from './src/jobs/scheduler.js'; 
 
-// ⭐️ [เพิ่มใหม่] ต้อง Import Prisma Client มาใช้ (สมมติว่าชื่อ prisma)
-// ให้แน่ใจว่าชื่อไฟล์นี้ตรงกับที่คุณ Export ใน src/db.js
-import { prisma } from './src/db.js';
-
 const PORT = process.env.PORT || 3000;
 const app = express();
 
 async function startServer() {
     console.log("🚀 Starting Unified Server...");
     
-    // 0. 🚨 [สำคัญ] บังคับเชื่อมต่อ DB ก่อนทำสิ่งอื่น (แก้ปัญหา Hang)
-    try {
-        await prisma.$connect();
-        console.log("✅ Database connection pool established successfully.");
-    } catch (dbErr) {
-        console.error("❌ CRITICAL: Failed to connect to database at startup.", dbErr);
-        process.exit(1);
-    }
-
-    // 1. โหลด Config และ Cache (โค้ดเดิม)
+    // 1. โหลด Config และ Cache
     await loadConfig();
     await loadAdminCache();
 

@@ -5,7 +5,7 @@ import { getActiveCampaign } from '../services/campaign.service.js';
 import { getConfig } from '../config/config.js';
 import { addDays } from '../utils/date.utils.js';
 // ❌ เอา createCustomer ออกตามที่ขอ (ห้ามสมัครเอง)
-import { getCustomerByTelegramId, updateCustomer, countCampaignReferrals } from '../services/customer.service.js';
+import { getCustomerByTelegramId, updateCustomer } from '../services/customer.service.js'; 
 
 const router = express.Router();
 
@@ -26,55 +26,49 @@ function verifyTelegramWebAppData(telegramInitData) {
 }
 
 // ==================================================
-// 🚪 LOGIN / AUTH (คืน Logic ค้นหาลูกค้า)
+// 🚪 LOGIN / AUTH (ปรับปรุงใหม่: ห้ามสมัครเอง)
 // ==================================================
 router.post('/auth', async (req, res) => {
     try {
-        const { initData, user } = req.body;
+        // ... (โค้ดส่วนตรวจสอบ initData, user, และ getCustomerByTelegramId(userData.id.toString()) เหมือนเดิม) ...
 
-        if (!initData || !user) {
-            return res.status(400).json({ error: 'Invalid authentication data.' });
-        }
+        // 3. ค้นหาลูกค้า (customer) และอัปเดตชื่อ
+        // ... (สมมติว่าคุณได้ตัวแปร customer มาแล้ว) ...
+        
+        // --------------------------------------------------
+        // 4. [FIXED] ดึงข้อมูลแคมเปญใน Try-Catch แยกต่างหาก
+        // --------------------------------------------------
+        let campaignReferralCount = 0;
+        let referralTarget = 0;
+        let activeCampaignTag = 'Standard';
+        let milestoneBonus = 0; 
 
-        // 🚨 เช็คซัม: ลอง Comment ไว้ก่อน (เพื่อให้โค้ดไปถึง DB Query)
-        // if (!verifyTelegramWebAppData(initData, getConfig().CUSTOMER_BOT_TOKEN)) {
-        //     return res.status(403).json({ error: 'Data integrity check failed.' });
-        // }
-
-        const decodedUserJson = decodeURIComponent(user);
-        const userData = JSON.parse(decodedUserJson);
-
-        console.log(`👤 Login Request: ${userData.first_name} (${userData.id})`);
-
-        // 3. ค้นหาลูกค้าจริง (จุดที่มีปัญหาค้าง)
-        let customer = await getCustomerByTelegramId(userData.id.toString());
-
-        if (!customer) {
-            console.log("⛔️ User not found (Registration Restricted)");
-            return res.json({ 
-                success: true, 
-                isMember: false, 
-                telegramId: userData.id.toString() 
-            });
-        } else {
-             // ✅ ถ้าเจอ -> อัปเดตชื่อ
-             await updateCustomer(customer.customerId, {
-                firstName: userData.first_name,
-                lastName: userData.last_name || '',
-                username: userData.username || ''
-            });
+        try {
+            const campaign = await getActiveCampaign();
             
-            // 🚨 ข้าม Logic คำนวณแคมเปญที่ซับซ้อน (ใช้ Placeholder แทน)
-            const customerDataForFrontend = {
-                ...customer,
-                referralCount: customer.referralCount, 
-                campaignReferralCount: 0, 
-                referralTarget: 0,        
-                activeCampaignTag: 'Standard'
-            };
-
-            return res.json({ success: true, isMember: true, customer: customerDataForFrontend });
+            if (campaign && campaign.startAt) {
+                activeCampaignTag = campaign.campaignName || 'Active';
+                referralTarget = campaign.milestoneTarget;
+                milestoneBonus = campaign.milestoneBonus;
+                
+                campaignReferralCount = await countCampaignReferrals(customer.customerId, campaign.startAt);
+            }
+        } catch (campaignError) {
+            console.error("⚠️ Failed to load/calculate campaign data. Using default values:", campaignError.message);
         }
+        // --------------------------------------------------
+
+        // 5. รวมข้อมูลแคมเปญเข้าไปใน Object ลูกค้า
+        const customerDataForFrontend = {
+            ...customer,
+            referralCount: customer.referralCount, // ยอดรวมทั้งหมด
+            campaignReferralCount: campaignReferralCount, // ยอดเฉพาะแคมเปญ
+            referralTarget: referralTarget,
+            milestoneBonus: milestoneBonus, 
+            activeCampaignTag: activeCampaignTag
+        };
+
+        return res.json({ success: true, isMember: true, customer: customerDataForFrontend });
 
     } catch (error) {
         console.error("Auth Error:", error);

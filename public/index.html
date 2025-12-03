@@ -583,7 +583,7 @@
             const refreshBtn = document.querySelector('.refresh-btn');
             if (refreshBtn) refreshBtn.classList.remove('hidden');
             // -----------------------------------------------------
-            // ✅ [แก้ตรงนี้] เพิ่ม Log และตัวกันเหนียว
+            // ✅ [ส่วนที่ 1] อัปเดตแต้ม (Logic เดิม)
             // -----------------------------------------------------
             const pointsEl = document.getElementById("user-points");
             
@@ -618,48 +618,49 @@
             }
 
             // -----------------------------------------------------
-            // ✅ [แก้ตรงนี้] ปรับ Logic การแสดงผลภารกิจแนะนำเพื่อน
+            // 🚀 [ส่วนที่ 2] Logic ใหม่: การแสดงผลภารกิจแนะนำเพื่อน (แทนที่โค้ดเก่า)
             // -----------------------------------------------------
-
-            // Select Key DOM Elements
-            const referralCard = document.querySelector('#app-content .glass-card.p-5');
-            const headerSpan = referralCard.querySelector('.font-semibold');
-            const bonusSpan = document.getElementById('next-bonus');
-            const progressBar = document.getElementById('progress-bar');
-            const remainingP = document.querySelector('.glass-card.p-5 p.text-right'); // เลือก tag <p> ที่มีข้อความเหลืออีก...
             
-            // ดึงข้อมูลที่ส่งมาจาก API (เราได้เพิ่มใน src/routes/api.routes.js แล้ว)
+            // ดึงข้อมูลจาก API
             const target = user.referralTarget || 5; 
             const isCampaignActive = user.activeCampaignTag && user.activeCampaignTag !== 'Standard';
+            const milestoneBonus = user.milestoneBonus || 50;
             
-            const ytdCount = user.referralCount || 0; // ยอดรวมทั้งหมด (Year-to-Date)
-            const campaignCount = user.campaignReferralCount || 0; // ยอดเฉพาะแคมเปญ
+            const ytdCount = user.referralCount || 0; 
+            const campaignCount = user.campaignReferralCount || 0; 
 
             let displayCount;
             let percent;
             let remaining;
 
-            if (isCampaignActive) {
+            // Select Key DOM Elements (หากมีปัญหาให้เช็คว่า id/class เหล่านี้มีอยู่ใน HTML แล้ว)
+            const referralCard = document.querySelector('.glass-card.p-5');
+            const headerSpan = referralCard.querySelector('.font-semibold');
+            const bonusSpan = document.getElementById('next-bonus');
+            const progressBar = document.getElementById('progress-bar');
+            const remainingP = referralCard.querySelector('p.text-right'); 
+
+            if (isCampaignActive && target > 0) {
                 // --- 🎯 โหมดแคมเปญ (ภารกิจ) ---
-                displayCount = campaignCount; // ใช้ยอดเฉพาะแคมเปญ
+                displayCount = campaignCount; 
                 remaining = Math.max(0, target - displayCount);
                 percent = (displayCount / target) * 100;
                 
                 // อัปเดต Header/Text
                 headerSpan.innerHTML = `<i class="ri-trophy-line text-yellow-500"></i> ภารกิจแนะนำเพื่อน (${user.activeCampaignTag})`;
-                bonusSpan.innerText = `+${user.milestoneBonus || 50} แต้ม`;
+                bonusSpan.innerText = `+${milestoneBonus} แต้ม`;
                 
                 // อัปเดตข้อความ "เหลืออีก X คน"
                 remainingP.innerHTML = `เหลืออีก <span id="remaining-count" class="text-white font-bold">${remaining}</span> คน เพื่อรับโบนัส`;
                 
             } else {
                 // --- 📊 โหมด Standard (ยอดรวม) ---
-                displayCount = ytdCount; // ใช้ยอดรวมทั้งหมด
+                displayCount = ytdCount; 
                 percent = 100; // บังคับให้ Progress Bar เต็ม 100%
                 
                 // อัปเดต Header/Text
                 headerSpan.innerHTML = `<i class="ri-trophy-line text-yellow-500"></i> สถิติการแนะนำเพื่อน`;
-                bonusSpan.innerText = `ยอดรวม`; // เปลี่ยนเป็นข้อความสั้นๆ
+                bonusSpan.innerText = `ยอดรวม`; 
                 
                 // อัปเดตข้อความ "ยอดสะสม X คน"
                 remainingP.innerHTML = `ยอดสะสม <span id="remaining-count" class="text-white font-bold">${ytdCount}</span> คน`;
@@ -671,11 +672,7 @@
                     progressBar.style.width = `${Math.min(100, percent)}%`;
                 }, 100);
             }
-            
-            document.getElementById('remaining-count').innerText = remaining;
-            setTimeout(() => {
-                document.getElementById('progress-bar').style.width = `${percent}%`;
-            }, 100);
+            // -----------------------------------------------------
         }
 
         // --- Logic การเชื่อมต่อ (Link) ---
@@ -1046,7 +1043,7 @@
             
             // ถ้าจุดที่โดน == ฉากหลัง (แปลว่าไม่ได้จิ้มโดนกล่องเนื้อหาขาวๆ)
             if (e.target === this) {
-                closeHistoryModal(); // สั่งปิดเลย
+                closeHistoryModal(); // สั่งปิดเลย V2
             }
         });
 
