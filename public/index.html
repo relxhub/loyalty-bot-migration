@@ -109,7 +109,7 @@
                 <div class="absolute -bottom-1 -right-1 bg-green-500 w-4 h-4 rounded-full border-2 border-[#18181b]"></div>
             </div>
             <div>
-                <h2 id="user-name" class="text-xl font-bold leading-tight">...</h2>
+                <h2 id="user-name" class="text-xl font-bold leading-tight">Guest User</h2>
                 <p class="text-xs text-[var(--hint-color)]">ID: <span id="user-id">...</span></p>
             </div>
         </div>
@@ -171,13 +171,47 @@
                 <div class="text-xs text-gray-400">รับแต้มพิเศษ</div>
             </button>
 
-            <button onclick="Telegram.WebApp.openTelegramLink('https://t.me/SupportBot')" class="glass-card p-4 hover:bg-white/10 transition active:scale-95 text-left group col-span-2 flex items-center justify-center gap-3">
-                <i class="ri-customer-service-2-line text-xl text-orange-400"></i>
-                <div class="text-left">
-                    <div class="font-semibold">ติดต่อแอดมิน</div>
-                    <div class="text-xs text-gray-400">แจ้งปัญหาการใช้งาน</div>
+            <button id="btn-link" onclick="openLinkModal()" class="glass-card p-4 hover:bg-white/10 transition active:scale-95 text-left group hidden">
+                <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 mb-3 group-hover:scale-110 transition">
+                    <i class="ri-link-m text-xl"></i>
                 </div>
+                <div class="font-semibold">เชื่อมบัญชี</div>
+                <div class="text-xs text-gray-400">สมาชิกเก่า</div>
             </button>
+
+            <button onclick="Telegram.WebApp.openTelegramLink('https://t.me/SupportBot')" class="glass-card p-4 hover:bg-white/10 transition active:scale-95 text-left group">
+                <div class="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-400 mb-3 group-hover:scale-110 transition">
+                    <i class="ri-customer-service-2-line text-xl"></i>
+                </div>
+                <div class="font-semibold">ติดต่อเรา</div>
+                <div class="text-xs text-gray-400">แจ้งปัญหา</div>
+            </button>
+        </div>
+    </div>
+
+    <div id="link-modal" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 hidden opacity-0 transition-opacity duration-300">
+        <div class="glass-card p-6 w-[90%] max-w-sm scale-95 transition-transform duration-300 transform" id="link-modal-content">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">🔗</div>
+                <h3 class="text-xl font-bold mb-2">เชื่อมบัญชีสมาชิก</h3>
+                <p class="text-sm text-gray-400 mb-4">กรุณากรอกข้อมูลเพื่อดึงแต้มเดิมของคุณ</p>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="text-xs text-gray-500 ml-1">รหัสลูกค้า</label>
+                    <input type="text" id="link-code" placeholder="เช่น MEM-888888" class="w-full bg-black/30 border border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 text-center tracking-wider uppercase">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500 ml-1">รหัสยืนยัน 4 หลัก</label>
+                    <input type="tel" id="verify-code" maxlength="4" placeholder="XXXX" class="w-full bg-black/30 border border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 text-center tracking-[0.5em] text-lg">
+                </div>
+            </div>
+            
+            <div class="flex space-x-3 mt-8">
+                <button onclick="closeLinkModal()" class="flex-1 py-3 rounded-xl bg-gray-700 hover:bg-gray-600 transition text-sm">ไว้ทีหลัง</button>
+                <button onclick="submitLinkAccount()" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 font-bold transition shadow-lg shadow-blue-500/30">ยืนยัน</button>
+            </div>
         </div>
     </div>
 
@@ -208,42 +242,43 @@
 
                 // 2. ถ้าไม่มี Link ให้ Login ปกติ
                 let user;
+                let isMember = false;
+
                 if (!tg.initData) {
                     // Demo Mode (Browser Test)
                     console.warn("⚠️ Running in Demo Mode");
                     // จำลองว่ายังไม่เชื่อมบัญชี (isMember: false) เพื่อทดสอบหน้า Login
                     // หรือเปลี่ยนเป็น true เพื่อทดสอบ Dashboard
-                    handleLoginStatus({ isMember: false }); 
-                    return;
-                } 
+                    isMember = false; 
+                    user = { firstName: "Demo", customerId: "MEM-9999", points: 0, referralCount: 0, expiryDate: new Date() };
+                } else {
+                    // Real Login
+                    const response = await fetch('/api/auth', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ initData: tg.initData })
+                    });
+                    
+                    if(!response.ok) throw new Error("Auth Failed");
+                    const data = await response.json();
+                    
+                    isMember = data.isMember;
+                    user = data.customer;
+                }
 
-                // Real Login
-                const response = await fetch('/api/auth', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ initData: tg.initData })
-                });
-                
-                if(!response.ok) throw new Error("Auth Failed");
-                const data = await response.json();
-                
-                // 3. จัดการสถานะสมาชิก
-                handleLoginStatus(data);
+                // 3. ตรวจสอบสถานะสมาชิก
+                if (isMember) {
+                    // ✅ เป็นสมาชิก -> เข้า Dashboard
+                    renderUser(user);
+                } else {
+                    // ⛔️ ไม่ใช่สมาชิก -> บังคับหน้า Login (Force Link)
+                    showLoginScreen();
+                }
 
             } catch (error) {
                 console.error(error);
                 tg.showAlert("เกิดข้อผิดพลาด: " + error.message);
                 // ถ้า Error ให้แสดงหน้า Login กันไว้ก่อน
-                showLoginScreen();
-            }
-        }
-
-        function handleLoginStatus(data) {
-            if (data.isMember) {
-                // ✅ เป็นสมาชิก -> เข้า Dashboard
-                renderUser(data.customer);
-            } else {
-                // ⛔️ ไม่ใช่สมาชิก -> บังคับหน้า Login
                 showLoginScreen();
             }
         }
@@ -287,7 +322,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        telegramId: tg.initDataUnsafe.user.id.toString(),
+                        telegramId: tg.initDataUnsafe.user?.id.toString() || "DEMO",
                         customerId: customerId,
                         verificationCode: verificationCode
                     })
@@ -325,13 +360,44 @@
             tg.MainButton.hideProgress();
         }
 
+        // กดปุ่มยืนยันจาก Modal (กรณีมีปุ่มใน Dashboard)
+        async function submitLinkAccount() {
+            const id = document.getElementById('link-code').value.trim();
+            const code = document.getElementById('verify-code').value.trim();
+            if (!id || !code) return tg.showAlert("กรุณากรอกข้อมูลให้ครบถ้วน");
+            tg.MainButton.showProgress();
+            await performLink(id, code);
+            tg.MainButton.hideProgress();
+        }
+
         // UI Interactions
         function handleAction(type) {
             tg.hapticFeedback.impactOccurred('light');
             switch(type) {
                 case 'rewards': tg.showPopup({ title: '🎁 เร็วๆ นี้', message: 'Coming Soon!', buttons: [{type: 'ok'}] }); break;
                 case 'invite': tg.switchInlineQuery("ชวนเพื่อน", ["users", "groups"]); break;
+                case 'link': openLinkModal(); break;
             }
+        }
+
+        function openLinkModal() {
+            const modal = document.getElementById('link-modal');
+            const content = document.getElementById('link-modal-content');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+                content.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeLinkModal() {
+            const modal = document.getElementById('link-modal');
+            const content = document.getElementById('link-modal-content');
+            modal.classList.add('opacity-0');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
         }
 
         function animateValue(id, start, end, duration) {
