@@ -533,19 +533,34 @@
             document.getElementById('user-name').innerText = `${user.firstName} ${user.lastName || ''}`.trim();
             document.getElementById('user-id').innerText = user.customerId || 'N/A';
             // -----------------------------------------------------
-            // ✅ [แก้ตรงนี้] เปลี่ยน Logic การแสดงแต้ม
+            // ✅ [แก้ตรงนี้] เพิ่ม Log และตัวกันเหนียว
             // -----------------------------------------------------
             const pointsEl = document.getElementById("user-points");
             
-            // 1. ดึงค่าแต้มปัจจุบันที่โชว์อยู่บนหน้าจอ (เอาลูกน้ำออกก่อนแปลงเป็นตัวเลข)
-            const currentPoints = parseInt(pointsEl.innerText.replace(/,/g, '')) || 0;
-            
-            // 2. ถ้าแต้มเปลี่ยน ให้วิ่งจาก "ค่าเดิม" -> "ค่าใหม่"
-            if (currentPoints !== user.points) {
-                animateValue("user-points", currentPoints, user.points, 1000);
+            // Debug: ดูค่าใน Console (กด F12 ดูได้เลย)
+            console.log(`Points Debug -> Current: "${pointsEl.innerText}", API: ${user.points}`);
+
+            // 1. ดึงค่าปัจจุบัน (ถ้ามีปัญหาในการแปลง ให้ถือเป็น 0 ไว้ก่อน)
+            let currentPoints = 0;
+            try {
+                currentPoints = parseInt(pointsEl.innerText.replace(/,/g, '')) || 0;
+            } catch(e) {
+                currentPoints = 0;
             }
-            // (ถ้าแต้มเท่าเดิม Code จะไม่ทำอะไรเลย หน้าจอก็จะนิ่งสนิท)
-            // -----------------------------------------------------
+            
+            // 2. ถ้าแต้มเปลี่ยน ให้สั่ง Animation
+            if (currentPoints !== user.points) {
+                // เรียก Animation
+                animateValue("user-points", currentPoints, user.points, 1000);
+                
+                // 🔥 ตัวกันเหนียว: ถ้า Animation พัง หรือผ่านไป 1.1 วิ แล้วยังไม่ตรง ให้บังคับเปลี่ยนเลย
+                setTimeout(() => {
+                    const finalCheck = document.getElementById("user-points");
+                    if (finalCheck.innerText !== user.points.toLocaleString()) {
+                        finalCheck.innerText = user.points.toLocaleString();
+                    }
+                }, 1100);
+            }
             
             if(user.expiryDate) {
                 const date = new Date(user.expiryDate);
