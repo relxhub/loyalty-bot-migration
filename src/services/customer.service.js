@@ -85,6 +85,17 @@ export async function giveReferralBonus(referrerId, newCustomerId, adminUser) {
         }
     });
 
+    if (referrer.telegramUserId) {
+        await prisma.customerLog.create({
+            data: {
+                telegramUserId: referrer.telegramUserId,
+                customerId: referrer.customerId,
+                action: 'REFERRAL_BONUS',
+                pointsChange: bonusPoints // ใช้ตัวแปร bonusPoints ที่คำนวณไว้ด้านบน
+            }
+        });
+    }
+
     const newPoints = referrer.points + bonusPoints;
     const notificationMessage = `💌 ขอบคุณที่แนะนำเพื่อน!\n⭐️ คุณได้รับแต้มโบนัส ${bonusPoints} แต้ม จากการแนะนำคุณ ${newCustomerId}\n💰 แต้มสะสมปัจจุบัน: ${newPoints} แต้ม`;
     
