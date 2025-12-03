@@ -125,6 +125,17 @@
         @keyframes spin { 100% { transform: rotate(360deg); } }
         /* --- [END] CSS Notification Toast --- */
 
+        /* คลาสสำหรับล็อกไม่ให้หน้าหลังขยับ */
+        body.no-scroll {
+            overflow: hidden !important;
+            height: 100vh;
+        }
+
+        /* เพิ่มความลื่นให้ตัว Popup และกันทะลุด้วย CSS สมัยใหม่ */
+        #history-modal .overflow-y-auto {
+            overscroll-behavior: contain; /* สั่งว่าถ้าสุดขอบแล้ว "ห้าม" ส่งต่อการสไลด์ไปข้างหลัง */
+        }
+
     </style>
 </head>
 <body class="min-h-screen flex flex-col p-5 select-none overflow-x-hidden">
@@ -520,6 +531,9 @@
             document.getElementById('app-content').classList.add('hidden');
             document.getElementById('success-modal').classList.add('hidden'); // ซ่อน Modal ถ้ามี
             document.getElementById('login-screen').classList.remove('hidden');
+
+            const refreshBtn = document.querySelector('.refresh-btn');
+            if (refreshBtn) refreshBtn.classList.add('hidden');
         }
 
         function renderUser(user) {
@@ -532,6 +546,9 @@
             // Render Data
             document.getElementById('user-name').innerText = `${user.firstName} ${user.lastName || ''}`.trim();
             document.getElementById('user-id').innerText = user.customerId || 'N/A';
+
+            const refreshBtn = document.querySelector('.refresh-btn');
+            if (refreshBtn) refreshBtn.classList.remove('hidden');
             // -----------------------------------------------------
             // ✅ [แก้ตรงนี้] เพิ่ม Log และตัวกันเหนียว
             // -----------------------------------------------------
@@ -809,6 +826,17 @@
     }, 5000); // 5000 ms = 5 วินาที
 
     // --- [END] ระบบ Real-time ---
+
+    // ดักจับการคลิกที่ตัว Modal ใหญ่
+    document.getElementById('history-modal').addEventListener('click', function(e) {
+        // e.target คือจุดที่นิ้วไปจิ้ม
+        // this คือตัว history-modal (ฉากหลัง)
+        
+        // ถ้าจุดที่จิ้ม คือฉากหลัง (ไม่ได้จิ้มโดนกล่องเนื้อหาข้างใน)
+        if (e.target === this) {
+            closeHistory(); // สั่งปิดทันที
+        }
+    });
 
         initApp();
     </script>
