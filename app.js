@@ -3,7 +3,7 @@
 import 'dotenv/config'; 
 import { Telegraf } from 'telegraf';
 import express from 'express';
-import cors from 'cors'; // (Optional: อาจต้องใช้ถ้าทำ Frontend แยก)
+// import cors from 'cors'; // (Optional: อาจต้องใช้ถ้าทำ Frontend แยก)
 import { loadConfig, getConfig } from './src/config/config.js';
 import { loadAdminCache } from './src/services/admin.service.js';
 
