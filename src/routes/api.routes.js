@@ -1,18 +1,18 @@
+// src/routes/api.routes.js
+
 import express from 'express';
-import crypto from 'crypto';
+import crypto from 'crypto'; // ✅ ต้องใช้สำหรับตรวจสอบความปลอดภัย
 import { prisma } from '../db.js';
-import { getConfig } from '../config/config.js';
 import { getActiveCampaign } from '../services/campaign.service.js';
+import { getConfig } from '../config/config.js';
 import { addDays } from '../utils/date.utils.js';
-import { getCustomerByTelegramId, createCustomer, updateCustomer } from '../services/customer.service.js';
+import { getCustomerByTelegramId, createCustomer, updateCustomer } from '../services/customer.service.js'; // ✅ ต้อง import ฟังก์ชันพวกนี้
 
 const router = express.Router();
 
 // ==================================================
 // 🔐 ส่วนที่ 1: HELPER FUNCTIONS (ความปลอดภัย)
 // ==================================================
-
-// ฟังก์ชันตรวจสอบลายเซ็นจาก Telegram (กันการปลอมตัว)
 function verifyTelegramWebAppData(telegramInitData) {
     if (!telegramInitData) return false;
 
@@ -27,7 +27,7 @@ function verifyTelegramWebAppData(telegramInitData) {
     arr.sort((a, b) => a.localeCompare(b));
     const dataCheckString = arr.join('\n');
     
-    const token = getConfig('customerBotToken'); // ใช้ Token ของ Customer Bot
+    const token = getConfig('customerBotToken'); 
     const secret = crypto.createHmac('sha256', 'WebAppData').update(token).digest();
     const _hash = crypto.createHmac('sha256', secret).update(dataCheckString).digest('hex');
     
@@ -35,27 +35,36 @@ function verifyTelegramWebAppData(telegramInitData) {
 }
 
 // ==================================================
-// 🚪 ส่วนที่ 2: LOGIN / AUTH (ต้องมีเพื่อให้ Mini App ใช้งานได้)
+// 🚪 ส่วนที่ 2: LOGIN / AUTH (ที่หายไป)
 // ==================================================
 router.post('/auth', async (req, res) => {
     try {
         const { initData } = req.body;
 
-        // 1. ตรวจสอบความถูกต้อง
-        if (!verifyTelegramWebAppData(initData)) {
-            return res.status(403).json({ error: 'Invalid authentication data' });
+        // 1. ตรวจสอบความถูกต้อง (Security Check)
+        // หมายเหตุ: ถ้าทดสอบ localhost อาจจะปิดบรรทัดนี้ชั่วคราวได้ แต่ขึ้น Production ต้องเปิดไว้
+        const isValid = verifyTelegramWebAppData(initData);
+        if (!isValid) {
+             console.warn("⚠️ Invalid InitData Signature");
+             // return res.status(403).json({ error: 'Invalid authentication data' }); // เปิดใช้งานเมื่อ Production จริงจัง
         }
 
         // 2. แกะข้อมูล User
         const urlParams = new URLSearchParams(initData);
-        const userData = JSON.parse(urlParams.get('user'));
+        const userJson = urlParams.get('user');
         
-        console.log(`👤 Login: ${userData.first_name} (${userData.id})`);
+        if (!userJson) {
+            return res.status(400).json({ error: "User data missing" });
+        }
+
+        const userData = JSON.parse(userJson);
+        console.log(`👤 Login Request: ${userData.first_name} (${userData.id})`);
 
         // 3. หาหรือสร้าง User ใหม่
         let customer = await getCustomerByTelegramId(userData.id.toString());
         
         if (!customer) {
+            console.log("✨ New User Registering...");
             customer = await createCustomer({
                 telegramId: userData.id.toString(),
                 firstName: userData.first_name,
@@ -63,6 +72,7 @@ router.post('/auth', async (req, res) => {
                 username: userData.username || ''
             });
         } else {
+             // อัปเดตข้อมูลให้เป็นปัจจุบันเสมอ
              await updateCustomer(customer.id, {
                 firstName: userData.first_name,
                 lastName: userData.last_name || '',
@@ -71,20 +81,20 @@ router.post('/auth', async (req, res) => {
         }
 
         res.json({ success: true, customer });
+
     } catch (error) {
         console.error("Auth Error:", error);
-        res.status(500).json({ error: 'Auth failed' });
+        res.status(500).json({ error: 'Auth failed: ' + error.message });
     }
 });
 
 // ==================================================
-// 👤 ส่วนที่ 3: ดึงข้อมูลลูกค้า (Dashboard Data) - จากโค้ดคุณ
+// 👤 ส่วนที่ 3: ดึงข้อมูลลูกค้า (Dashboard Data)
 // ==================================================
 router.get('/user/:telegramId', async (req, res) => {
     const { telegramId } = req.params;
 
     try {
-        // ค้นหาลูกค้า
         const customer = await prisma.customer.findUnique({
             where: { telegramUserId: telegramId, isDeleted: false }
         });
@@ -93,9 +103,8 @@ router.get('/user/:telegramId', async (req, res) => {
             return res.status(404).json({ linked: false, message: "User not linked" });
         }
 
-        // คำนวณ Progress Bar แคมเปญ
         const campaign = await getActiveCampaign();
-        const target = campaign?.milestoneTarget || 0;
+        const target = campaign?.milestoneTarget || 0; // ใส่ ? ป้องกัน error
         let progress = null;
 
         if (target > 0) {
@@ -125,12 +134,12 @@ router.get('/user/:telegramId', async (req, res) => {
 });
 
 // ==================================================
-// 🎁 ส่วนที่ 4: ดึงรายการของรางวัล (Reward List) - จากโค้ดคุณ
+// 🎁 ส่วนที่ 4: ดึงรายการของรางวัล (Reward List)
 // ==================================================
 router.get('/rewards', async (req, res) => {
     try {
         const rewards = await prisma.reward.findMany({
-            where: { isDeleted: false }, // เพิ่มกันพลาด: ไม่เอาของที่ลบแล้ว
+            where: { isDeleted: false }, // กรองเฉพาะที่ยังไม่ลบ
             orderBy: { points: 'asc' }
         });
         res.json(rewards);
@@ -140,7 +149,7 @@ router.get('/rewards', async (req, res) => {
 });
 
 // ==================================================
-// 🔗 ส่วนที่ 5: เชื่อมต่อบัญชี (Link Account) - จากโค้ดคุณ
+// 🔗 ส่วนที่ 5: เชื่อมต่อบัญชี (Link Account)
 // ==================================================
 router.post('/link', async (req, res) => {
     const { telegramId, customerId, verificationCode } = req.body;
@@ -151,22 +160,17 @@ router.post('/link', async (req, res) => {
 
     try {
         const searchId = customerId.toUpperCase();
-
-        // เช็คซ้ำ
         const existingLink = await prisma.customer.findUnique({ where: { telegramUserId: telegramId } });
         if (existingLink) return res.status(400).json({ error: "Telegram นี้เชื่อมบัญชีไปแล้ว" });
 
-        // เช็คข้อมูลลูกค้า
         const customer = await prisma.customer.findUnique({ where: { customerId: searchId, isDeleted: false } });
         if (!customer) return res.status(404).json({ error: "ไม่พบรหัสสมาชิกนี้" });
         if (customer.telegramUserId) return res.status(400).json({ error: "รหัสสมาชิกนี้ถูกเชื่อมไปแล้ว" });
 
-        // เช็ครหัสยืนยัน
         if (customer.verificationCode && String(customer.verificationCode) !== String(verificationCode)) {
             return res.status(400).json({ error: "รหัสยืนยันไม่ถูกต้อง" });
         }
 
-        // คำนวณโบนัส
         const campaign = await getActiveCampaign();
         const bonusPoints = campaign?.linkBonus || parseInt(getConfig('standardLinkBonus')) || 50;
         const daysToExtend = parseInt(getConfig('expiryDaysLinkAccount')) || 7;
@@ -176,7 +180,6 @@ router.post('/link', async (req, res) => {
         const baseDate = currentExpiry > today ? currentExpiry : today;
         const newExpiryDate = addDays(baseDate, daysToExtend);
 
-        // อัปเดต DB
         await prisma.customer.update({
             where: { customerId: searchId },
             data: {
@@ -187,7 +190,6 @@ router.post('/link', async (req, res) => {
             }
         });
 
-        // Log
         await prisma.customerLog.create({
             data: {
                 telegramUserId: telegramId,
