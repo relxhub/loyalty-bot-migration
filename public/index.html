@@ -237,31 +237,89 @@
             }
         }
 
-        // ฟังก์ชันจัดการปุ่มกด
+        // แก้ไขฟังก์ชัน handleAction เดิม
         function handleAction(type) {
-            // สั่นเบาๆ เวลาแตะปุ่ม (Haptic Feedback)
             tg.hapticFeedback.impactOccurred('light');
 
             switch(type) {
                 case 'rewards':
-                    tg.showPopup({
-                        title: '🎁 แลกของรางวัล',
-                        message: 'ฟีเจอร์นี้กำลังมาเร็วๆ นี้!',
-                        buttons: [{type: 'ok'}]
-                    });
+                    tg.showPopup({ title: '🎁 เร็วๆ นี้', message: 'ระบบแลกของรางวัลกำลังมาครับ!', buttons: [{type: 'ok'}] });
                     break;
                 case 'invite':
-                    // ส่งข้อความชวนเพื่อนกลับไปที่ห้องแชท
+                    // ต้องเปิด Inline Mode ใน BotFather ก่อนถึงจะใช้ได้
                     tg.switchInlineQuery("ชวนเพื่อน", ["users", "groups"]); 
                     break;
                 case 'link':
-                    // เปิด Popup ให้กรอกโค้ด (หรือทำหน้าแยก)
-                    tg.showPopup({
-                        title: '🔗 เชื่อมบัญชี',
-                        message: 'กรุณากรอกรหัสสมาชิกเก่าของคุณ',
-                        buttons: [{id: 'cancel', type: 'cancel'}, {id: 'ok', type: 'ok', text: 'กรอกรหัส'}]
-                    });
+                    // ✅ เปลี่ยนมาเปิด Modal แทน
+                    openLinkModal();
                     break;
+            }
+        }
+
+        // --- ฟังก์ชันจัดการ Modal เชื่อมบัญชี ---
+        function openLinkModal() {
+            const modal = document.getElementById('link-modal');
+            const content = document.getElementById('link-modal-content');
+            modal.classList.remove('hidden');
+            // Animation เล็กน้อย
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+                content.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeLinkModal() {
+            const modal = document.getElementById('link-modal');
+            const content = document.getElementById('link-modal-content');
+            modal.classList.add('opacity-0');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        async function submitLinkAccount() {
+            const customerId = document.getElementById('link-code').value.trim();
+            const verificationCode = document.getElementById('verify-code').value.trim();
+
+            if (!customerId || !verificationCode) {
+                tg.showAlert("กรุณากรอกข้อมูลให้ครบ");
+                return;
+            }
+
+            // แสดง Loading
+            tg.MainButton.showProgress(); 
+            
+            try {
+                // ยิง API ไปหลังบ้าน
+                const response = await fetch('/api/link', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        telegramId: tg.initDataUnsafe.user.id.toString(), // ดึง ID จาก Telegram โดยตรง
+                        customerId: customerId,
+                        verificationCode: verificationCode
+                    })
+                });
+
+                const result = await response.json();
+                tg.MainButton.hideProgress();
+
+                if (result.success) {
+                    closeLinkModal();
+                    tg.showPopup({
+                        title: '✅ สำเร็จ!',
+                        message: `เชื่อมบัญชีเรียบร้อย คุณได้รับโบนัส ${result.bonus} แต้ม`,
+                        buttons: [{type: 'ok'}]
+                    });
+                    // โหลดข้อมูลใหม่เพื่ออัปเดตแต้มบนหน้าจอ
+                    loadData(); 
+                } else {
+                    tg.showAlert(result.error || "เกิดข้อผิดพลาด");
+                }
+            } catch (error) {
+                tg.MainButton.hideProgress();
+                tg.showAlert("เชื่อมต่อ Server ไม่ได้");
             }
         }
 
@@ -286,4 +344,18 @@
 
     </script>
 </body>
+<div id="link-modal" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 hidden opacity-0 transition-opacity duration-300">
+        <div class="glass-card p-6 w-[90%] max-w-sm scale-95 transition-transform duration-300 transform" id="link-modal-content">
+            <h3 class="text-xl font-bold mb-2">🔗 เชื่อมบัญชี</h3>
+            <p class="text-sm text-gray-400 mb-4">กรอกรหัสสมาชิกของคุณ (เช่น OT12345)</p>
+            
+            <input type="text" id="link-code" placeholder="MEM-XXXXXX" class="w-full bg-black/30 border border-gray-600 rounded-lg p-3 text-white mb-4 focus:outline-none focus:border-blue-500">
+            <input type="text" id="verify-code" placeholder="รหัสยืนยัน 4 หลัก (ถ้ามี)" class="w-full bg-black/30 border border-gray-600 rounded-lg p-3 text-white mb-6 focus:outline-none focus:border-blue-500">
+            
+            <div class="flex space-x-3">
+                <button onclick="closeLinkModal()" class="flex-1 py-3 rounded-xl bg-gray-700 hover:bg-gray-600 transition">ยกเลิก</button>
+                <button onclick="submitLinkAccount()" class="flex-1 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold transition">ยืนยัน</button>
+            </div>
+        </div>
+    </div>
 </html>
