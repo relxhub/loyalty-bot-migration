@@ -7,81 +7,85 @@ import { generateUniqueCode } from '../utils/crypto.utils.js';
 import { addDays, getThaiNow } from '../utils/date.utils.js';
 import { getActiveCampaign } from '../services/campaign.service.js';
 import { getConfig } from '../config/config.js';
-import { giveReferralBonus, createCustomer } from '../services/customer.service.js'; // ✅ Import ครบ
+import { giveReferralBonus } from '../services/customer.service.js';
 
 // ==================================================
 // ⭐️ MAIN ROUTER
 // ==================================================
 export async function handleAdminCommand(ctx) {
-    const userTgId = String(ctx.from.id);
-    const text = ctx.message.text || "";
-    const role = await getAdminRole(userTgId);
-    
-    const commandParts = text.trim().split(/\s+/);
-    const command = commandParts[0].toLowerCase();
-    
-    const adminUser = ctx.from.username || ctx.from.first_name || "Admin";
-    const chatId = ctx.chat.id;
+    try {
+        const userTgId = String(ctx.from.id);
+        const text = ctx.message.text || "";
+        const role = await getAdminRole(userTgId);
+        
+        const commandParts = text.trim().split(/\s+/);
+        const command = commandParts[0].toLowerCase();
+        
+        const adminUser = ctx.from.username || ctx.from.first_name || "Admin";
+        const chatId = ctx.chat.id;
 
-    if (!role) return sendAdminReply(chatId, "⛔️ คุณไม่มีสิทธิ์ใช้งานคำสั่งนี้");
-    
-    if (["/add", "/addadmin"].includes(command) && role !== "SuperAdmin") {
-        return sendAdminReply(chatId, `⛔️ คุณไม่มีสิทธิ์ใช้งานคำสั่ง ${command}`);
-    }
+        if (!role) return sendAdminReply(chatId, "⛔️ คุณไม่มีสิทธิ์ใช้งานคำสั่งนี้");
+        
+        if (["/add", "/addadmin"].includes(command) && role !== "SuperAdmin") {
+            return sendAdminReply(chatId, `⛔️ คุณไม่มีสิทธิ์ใช้งานคำสั่ง ${command}`);
+        }
 
-    switch (command) {
-        case "/undo":
-            await handleUndoLastAction(ctx, adminUser, chatId);
-            break;
+        switch (command) {
+            case "/undo":
+                await handleUndoLastAction(ctx, adminUser, chatId);
+                break;
 
-        case "/addadmin":
-            await handleAddAdmin(ctx, commandParts, chatId);
-            break;
+            case "/addadmin":
+                await handleAddAdmin(ctx, commandParts, chatId);
+                break;
 
-        case "/new":
-            // ✅ เรียกฟังก์ชันเดียวที่ถูกต้อง
-            await handleNewCustomer(ctx, commandParts, adminUser, chatId);
-            break;
+            case "/new":
+                await handleNewCustomer(ctx, commandParts, adminUser, chatId);
+                break;
 
-        case "/check":
-            if (commandParts.length !== 2) {
-                sendAdminReply(chatId, "❗️รูปแบบคำสั่งผิด\nต้องเป็น: /check [รหัสลูกค้า]");
-            } else {
-                const result = await checkCustomerInfo(commandParts[1], adminUser);
+            case "/check":
+                if (commandParts.length !== 2) {
+                    sendAdminReply(chatId, "❗️รูปแบบคำสั่งผิด\nต้องเป็น: /check [รหัสลูกค้า]");
+                } else {
+                    const result = await checkCustomerInfo(commandParts[1], adminUser);
+                    sendAdminReply(chatId, result);
+                }
+                break;
+
+            case "/add":
+                await handleAddPoints(ctx, commandParts, adminUser, chatId);
+                break;
+
+            case "/redeem":
+                await handleRedeemReward(ctx, commandParts, adminUser, chatId);
+                break;
+
+            case "/reward":
+                const rewards = await listRewards();
+                const result = formatRewardsForAdmin(rewards);
                 sendAdminReply(chatId, result);
-            }
-            break;
+                break;
+                
+            case "/start":
+                const welcomeMsg = `👋 สวัสดี ${adminUser}!\nบอทสำหรับแอดมินพร้อมใช้งาน\n\n` +
+                "<b>คำสั่งทั้งหมด:</b>\n" +
+                `ℹ️ /check [รหัสลูกค้า]\n` +
+                `↩️ /undo (ยกเลิกคำสั่งล่าสุด)\n` +
+                (role === "SuperAdmin" ? "🪙 /add [รหัสลูกค้า] [แต้ม]\n" : "") +
+                (role === "SuperAdmin" ? "👮‍♂️ /addadmin [ID] [Role] [Name]\n" : "") +
+                "👤 /new [ลูกค้าใหม่] [ผู้แนะนำ]\n" +
+                "🎁 /reward\n" +
+                "✨ /redeem [รหัสลูกค้า] [รหัสรางวัล]";
+                sendAdminReply(chatId, welcomeMsg);
+                break;
 
-        case "/add":
-            await handleAddPoints(ctx, commandParts, adminUser, chatId);
-            break;
-
-        case "/redeem":
-            await handleRedeemReward(ctx, commandParts, adminUser, chatId);
-            break;
-
-        case "/reward":
-            const rewards = await listRewards();
-            const result = formatRewardsForAdmin(rewards);
-            sendAdminReply(chatId, result);
-            break;
-            
-        case "/start":
-            const welcomeMsg = `👋 สวัสดี ${adminUser}!\nบอทสำหรับแอดมินพร้อมใช้งาน\n\n` +
-            "<b>คำสั่งทั้งหมด:</b>\n" +
-            `ℹ️ /check [รหัสลูกค้า]\n` +
-            `↩️ /undo (ยกเลิกคำสั่งล่าสุด)\n` +
-            (role === "SuperAdmin" ? "🪙 /add [รหัสลูกค้า] [แต้ม]\n" : "") +
-            (role === "SuperAdmin" ? "👮‍♂️ /addadmin [ID] [Role] [Name]\n" : "") +
-            "👤 /new [ลูกค้าใหม่] [ผู้แนะนำ]\n" +
-            "🎁 /reward\n" +
-            "✨ /redeem [รหัสลูกค้า] [รหัสรางวัล]";
-            sendAdminReply(chatId, welcomeMsg);
-            break;
-
-        default:
-            sendAdminReply(chatId, "⚠️ คำสั่งไม่ถูกต้อง หรือรูปแบบไม่สมบูรณ์");
-            break;
+            default:
+                // ไม่ต้องตอบกลับถ้าพิมพ์ผิดเล็กน้อย เพื่อลด Spam
+                break;
+        }
+    } catch (err) {
+        console.error("Critical Error in handleAdminCommand:", err);
+        ctx.reply(`❌ เกิดข้อผิดพลาดร้ายแรง: ${err.message}`);
     }
 }
 
@@ -89,79 +93,93 @@ export async function handleAdminCommand(ctx) {
 // 🛠️ HELPER FUNCTIONS
 // ==================================================
 
-// ✅ ฟังก์ชันสร้างลูกค้าใหม่ พร้อม Magic Link (อันใหม่ล่าสุด)
+// ฟังก์ชันสร้างลูกค้าใหม่ (พร้อม Magic Link)
 async function handleNewCustomer(ctx, commandParts, adminUser, chatId) {
-    const newCustomerId = commandParts[1]?.toUpperCase();
-    const referrerId = commandParts[2]?.toUpperCase() || null;
-    const isReferrerSpecified = referrerId && referrerId !== 'N/A';
+    try {
+        const newCustomerId = commandParts[1]?.toUpperCase();
+        const referrerId = commandParts[2]?.toUpperCase() || null;
+        const isReferrerSpecified = referrerId && referrerId !== 'N/A';
 
-    // 1. Validation
-    if (!newCustomerId) return sendAdminReply(chatId, "❗️รูปแบบคำสั่งผิด\nต้องเป็น: /new [รหัสลูกค้าใหม่] [รหัสผู้แนะนำ (ถ้ามี)]");
-    if (!isValidIdFormat(newCustomerId)) return sendAdminReply(chatId, `❌ รูปแบบรหัสลูกค้า '${newCustomerId}' ไม่ถูกต้อง (A-Z, 0-9)`);
-    
-    // เช็คซ้ำ
-    const existing = await prisma.customer.findUnique({ where: { customerId: newCustomerId } });
-    if (existing && !existing.isDeleted) return sendAdminReply(chatId, `❌ รหัสลูกค้า '${newCustomerId}' นี้มีอยู่ในระบบแล้ว`);
+        // 1. Validation
+        if (!newCustomerId) return sendAdminReply(chatId, "❗️รูปแบบคำสั่งผิด\nต้องเป็น: /new [รหัสลูกค้าใหม่] [รหัสผู้แนะนำ (ถ้ามี)]");
+        if (!isValidIdFormat(newCustomerId)) return sendAdminReply(chatId, `❌ รูปแบบรหัสลูกค้า '${newCustomerId}' ไม่ถูกต้อง (A-Z, 0-9)`);
+        
+        const existing = await prisma.customer.findUnique({ where: { customerId: newCustomerId } });
+        if (existing && !existing.isDeleted) return sendAdminReply(chatId, `❌ รหัสลูกค้า '${newCustomerId}' นี้มีอยู่ในระบบแล้ว`);
 
-    // 2. Create Data
-    const verificationCode = generateUniqueCode(4); 
-    const initialPoints = 0;
-    const newExpiryDate = addDays(getThaiNow(), getConfig('expiryDaysNewCustomer') || 30);
+        if (isReferrerSpecified) {
+            const refUser = await prisma.customer.findUnique({ where: { customerId: referrerId } });
+            if (!refUser || refUser.isDeleted) return sendAdminReply(chatId, `❌ ไม่พบข้อมูลรหัสผู้แนะนำ '${referrerId}'`);
+            if (newCustomerId === referrerId) return sendAdminReply(chatId, "❌ รหัสลูกค้าและผู้แนะนำต้องไม่เหมือนกัน");
+        }
 
-    // สร้างลูกค้าใหม่ (ยังไม่มี Telegram ID)
-    await createCustomer({
-        telegramId: null, 
-        customerId: newCustomerId, 
-        firstName: newCustomerId, 
-        lastName: '',
-        username: '',
-        verificationCode: verificationCode 
-    });
+        // 2. Create Data
+        const verificationCode = generateUniqueCode(4);
+        const initialPoints = 0;
+        const newExpiryDate = addDays(getThaiNow(), getConfig('expiryDaysNewCustomer') || 30);
 
-    // Log Creation
-    await createAdminLog(adminUser, "CREATE_CUSTOMER", newCustomerId, 0, `Referred by: ${referrerId || 'N/A'}`);
+        await prisma.customer.create({
+            data: {
+                customerId: newCustomerId,
+                referrerId: isReferrerSpecified ? referrerId : null,
+                points: initialPoints,
+                expiryDate: newExpiryDate,
+                verificationCode: verificationCode,
+                adminCreatedBy: adminUser,
+                telegramUserId: null // ยังไม่มี Telegram ID
+            }
+        });
 
-    // 3. Give Referral Bonus
-    if (isReferrerSpecified) {
-        await giveReferralBonus(referrerId, newCustomerId, adminUser);
+        // Log Creation
+        await createAdminLog(adminUser, "CREATE_CUSTOMER", newCustomerId, 0, `Referred by: ${referrerId || 'N/A'}`);
+
+        // 3. Give Referral Bonus
+        if (isReferrerSpecified) {
+            await giveReferralBonus(referrerId, newCustomerId, adminUser);
+        }
+
+        // 4. Generate Magic Link 🔗
+        // ใช้ username ของบอทตัวเองเพื่อสร้างลิงก์ที่ถูกต้อง
+        const botUsername = ctx.botInfo.username; 
+        const magicLink = `https://t.me/${botUsername}/app?startapp=link_${newCustomerId}_${verificationCode}`;
+
+        const msg = `✅ <b>สร้างลูกค้าสำเร็จ!</b>\n` +
+                    `👤 รหัส: <code>${newCustomerId}</code>\n` +
+                    `🔑 รหัสยืนยัน: <code>${verificationCode}</code>\n\n` +
+                    `👇 <b>แตะลิงก์นี้เพื่อส่งให้ลูกค้าเชื่อมต่อทันที:</b>\n` +
+                    `${magicLink}`;
+
+        await sendAdminReply(chatId, msg);
+
+    } catch (error) {
+        console.error("New Customer Error:", error);
+        sendAdminReply(chatId, `❌ สร้างลูกค้าไม่สำเร็จ: ${error.message}`);
     }
-
-    // 4. Generate Magic Link 🔗
-    const botUsername = ctx.botInfo.username; 
-    const magicLink = `https://t.me/${botUsername}/app?startapp=link_${newCustomerId}_${verificationCode}`;
-
-    const msg = `✅ <b>สร้างลูกค้าสำเร็จ!</b>\n` +
-                `👤 รหัส: <code>${newCustomerId}</code>\n` +
-                `🔑 รหัสยืนยัน: <code>${verificationCode}</code>\n\n` +
-                `👇 <b>แตะลิงก์นี้เพื่อส่งให้ลูกค้าเชื่อมต่อทันที:</b>\n` +
-                `${magicLink}`;
-
-    await sendAdminReply(chatId, msg);
 }
 
 // ฟังก์ชันยกเลิกคำสั่งล่าสุด (/undo)
 async function handleUndoLastAction(ctx, adminUser, chatId) {
-    const lastLog = await prisma.adminLog.findFirst({
-        where: { 
-            admin: adminUser,
-            NOT: {
-                action: { in: ['CHECK_CUSTOMER', 'LIST_REWARDS', 'UNDO_ACTION', 'ADD_ADMIN'] }
-            }
-        },
-        orderBy: { createdAt: 'desc' }
-    });
-
-    if (!lastLog) {
-        return sendAdminReply(chatId, "⚠️ ไม่พบประวัติการทำรายการล่าสุดที่สามารถยกเลิกได้");
-    }
-
-    const customerId = lastLog.customerId;
-    const actionType = lastLog.action;
-    const pointsDiff = lastLog.pointsChange; 
-
-    let resultMessage = "";
-
     try {
+        const lastLog = await prisma.adminLog.findFirst({
+            where: { 
+                admin: adminUser,
+                NOT: {
+                    action: { in: ['CHECK_CUSTOMER', 'LIST_REWARDS', 'UNDO_ACTION', 'ADD_ADMIN'] }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        if (!lastLog) {
+            return sendAdminReply(chatId, "⚠️ ไม่พบประวัติการทำรายการล่าสุดที่สามารถยกเลิกได้");
+        }
+
+        const customerId = lastLog.customerId;
+        const actionType = lastLog.action;
+        const pointsDiff = lastLog.pointsChange; 
+
+        let resultMessage = "";
+
         if (actionType === 'ADD_POINTS' || actionType === 'REDEEM_POINTS') {
             const revertPoints = pointsDiff * -1; 
             await prisma.customer.update({
