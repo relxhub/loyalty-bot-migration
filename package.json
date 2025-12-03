@@ -1,23 +1,24 @@
 {
   "name": "loyalty-bot",
   "version": "1.0.0",
-  "description": "Telegram Loyalty Bot migrated from Google Apps Script",
+  "description": "Telegram Loyalty Bot",
   "main": "app.js",
   "type": "module",
   "scripts": {
     "start": "node app.js",
     "dev": "node app.js",
-    "postinstall": "prisma generate",
     "prisma:migrate": "npx prisma migrate dev",
     "prisma:generate": "npx prisma generate",
     "prisma:studio": "npx prisma studio",
-    "prisma:seed": "node prisma/seed.js"
+    "prisma:seed": "node prisma/seed.js",
+    "postinstall": "prisma generate && prisma db push" 
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@prisma/client": "^5.9.1",
+    "cors": "^2.8.5",
     "dotenv": "^16.4.1",
     "express": "^4.18.2",
     "node-cron": "^3.0.3",

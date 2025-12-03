@@ -73,7 +73,7 @@ router.post('/auth', async (req, res) => {
             });
         } else {
              // อัปเดตข้อมูลให้เป็นปัจจุบันเสมอ
-             await updateCustomer(customer.id, {
+             await updateCustomer(customer.customerId, {
                 firstName: userData.first_name,
                 lastName: userData.last_name || '',
                 username: userData.username || ''

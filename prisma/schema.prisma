@@ -1,15 +1,13 @@
 // prisma/schema.prisma
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
 generator client {
   provider = "prisma-client-js"
 }
 
-// ------------------- โมเดลทั้งหมด -------------------
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
 
 model Customer {
   customerId        String    @id
@@ -21,11 +19,17 @@ model Customer {
   adminCreatedBy    String
   referralCount     Int       @default(0)
   activeCampaignTag String?
-  isDeleted         Boolean   @default(false) 
+  isDeleted         Boolean   @default(false)
+
+  // ✅ เพิ่ม 3 บรรทัดนี้
+  firstName         String?
+  lastName          String?
+  username          String?
 
   @@index([verificationCode])
 }
 
+// ... (Model อื่นๆ คงเดิม)
 model Admin {
   telegramId String  @id
   name       String?
