@@ -1,5 +1,6 @@
 // app.js (ฉบับสมบูรณ์ - เปิดใช้งานทุกระบบ)
 
+import apiRoutes from './src/routes/api.routes.js';
 import 'dotenv/config'; 
 import { Telegraf } from 'telegraf';
 import express from 'express';
@@ -28,6 +29,9 @@ async function startServer() {
 
     // 2. ตั้งค่า Express
     app.use(express.json()); 
+
+    // ⭐️ เปิดใช้งาน API Routes (เข้าทาง /api/...)
+    app.use('/api', apiRoutes);
 
     // Logger
     app.use((req, res, next) => {
