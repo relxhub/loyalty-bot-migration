@@ -45,6 +45,38 @@ router.post('/auth', async (req, res) => {
         const userData = JSON.parse(decodedUserJson);
 
         console.log(`👤 Login Request: ${userData.first_name} (${userData.id})`);
+
+        // -----------------------------------------------------------------
+        // 🚨 [FIX/DEBUG] ข้ามการดึงข้อมูล DB และใช้ MOCK DATA ชั่วคราว
+        // -----------------------------------------------------------------
+        
+        // 🚨 ถ้าเป็น true จะข้ามการค้นหาลูกค้าจริง และใช้ข้อมูลจำลองแทน
+        const USE_MOCK_DATA = true; 
+        
+        if (USE_MOCK_DATA) {
+            
+            // ข้อมูลจำลอง (สมมติว่าเข้าสู่ระบบสำเร็จ)
+            const mockCustomerData = {
+                customerId: 'TEST007',
+                firstName: userData.first_name,
+                lastName: userData.last_name || 'Mock',
+                points: 1200, // ใส่แต้มเยอะๆ ให้ดูว่า UI โหลดได้
+                expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+                referralCount: 8,
+                telegramUserId: userData.id.toString(),
+                campaignReferralCount: 3, // ข้อมูล Campaign จำลอง
+                referralTarget: 5,
+                activeCampaignTag: 'Winter_Bonus' // ชื่อแคมเปญ
+            };
+            
+            return res.json({ success: true, isMember: true, customer: mockCustomerData });
+            
+        } 
+        // -----------------------------------------------------------------
+        
+        // -----------------------------------------------------------------
+        // 🚨 ถ้า USE_MOCK_DATA เป็น false โค้ดส่วนนี้จะทำงาน (โค้ดจริง)
+        // -----------------------------------------------------------------
         
         // 3. ค้นหาลูกค้า
         let customer = await getCustomerByTelegramId(userData.id.toString());
@@ -79,15 +111,26 @@ router.post('/auth', async (req, res) => {
             }
             */
             
-            // 5. [ปรับปรุง] รวมข้อมูลแคมเปญเข้าไปใน Object ลูกค้าด้วยค่า Default
+            // 5. [ถ้าไม่ใช้ Mock] คำนวณแคมเปญ
+            const campaign = await getActiveCampaign();
+            let campaignReferralCount = 0;
+            let referralTarget = 0;
+            let activeCampaignTag = 'Standard';
+            
+            if (campaign && campaign.startAt) {
+                activeCampaignTag = campaign.campaignName || 'Active';
+                referralTarget = campaign.milestoneTarget;
+                campaignReferralCount = await countCampaignReferrals(customer.customerId, campaign.startAt);
+            }
+
             const customerDataForFrontend = {
                 ...customer,
                 referralCount: customer.referralCount, 
-                campaignReferralCount: 0,       // ค่า Default ชั่วคราว
-                referralTarget: 0,              // ค่า Default ชั่วคราว
-                activeCampaignTag: 'Standard'   // ค่า Default ชั่วคราว
+                campaignReferralCount: campaignReferralCount, 
+                referralTarget: referralTarget, 
+                activeCampaignTag: activeCampaignTag
             };
-
+            
             return res.json({ success: true, isMember: true, customer: customerDataForFrontend });
         }
 
