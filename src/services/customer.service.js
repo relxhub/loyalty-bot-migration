@@ -1,10 +1,58 @@
-// src/services/customer.service.js
-
 import { prisma } from '../db.js';
 import { getActiveCampaign } from './campaign.service.js';
-import { addDays, getThaiNow } from '../utils/date.utils.js'; // เพิ่ม getThaiNow
-import { sendNotificationToCustomer } from './notification.service.js'; 
+import { addDays, getThaiNow } from '../utils/date.utils.js';
+import { sendNotificationToCustomer } from './notification.service.js';
 import { getConfig } from '../config/config.js';
+
+// ==========================================
+// 🆕 ส่วนที่เพิ่มเข้ามา (เพื่อให้ API ทำงานได้)
+// ==========================================
+
+// 1. ค้นหาลูกค้าด้วย Telegram ID
+export async function getCustomerByTelegramId(telegramId) {
+    return await prisma.customer.findUnique({
+        where: { telegramUserId: telegramId.toString() }
+    });
+}
+
+// 2. สร้างลูกค้าใหม่ (Auto Register)
+export async function createCustomer(data) {
+    const { telegramId, firstName, lastName, username } = data;
+
+    // สร้างรหัสสมาชิก (ตัวอย่าง: MEM-เลขสุ่ม)
+    const randomSuffix = Math.floor(100000 + Math.random() * 900000); // เลข 6 หลัก
+    const newCustomerId = `MEM-${randomSuffix}`;
+
+    // กำหนดวันหมดอายุเริ่มต้น (เช่น 30 วัน)
+    const initialDays = parseInt(getConfig('expiryDaysNewMember')) || 30;
+    const expiryDate = addDays(new Date(), initialDays);
+
+    return await prisma.customer.create({
+        data: {
+            customerId: newCustomerId,
+            telegramUserId: telegramId,
+            firstName: firstName,
+            lastName: lastName,
+            username: username,
+            points: 0,
+            referralCount: 0,
+            expiryDate: expiryDate,
+            isDeleted: false
+        }
+    });
+}
+
+// 3. อัปเดตข้อมูลลูกค้า
+export async function updateCustomer(id, data) {
+    return await prisma.customer.update({
+        where: { id: id }, // ใช้ id (Int) ที่เป็น Primary Key
+        data: data
+    });
+}
+
+// ==========================================
+// ✅ ฟังก์ชันเดิมของคุณ (คงไว้เหมือนเดิม)
+// ==========================================
 
 export async function giveReferralBonus(referrerId, newCustomerId, adminUser) {
     const campaign = await getActiveCampaign();
