@@ -65,7 +65,7 @@ router.post('/auth', async (req, res) => {
             });
             
             // 4. [เพิ่มใหม่] ดึงข้อมูลแคมเปญ
-            const campaign = await getActiveCampaign();
+            /*const campaign = await getActiveCampaign();
             let campaignReferralCount = 0;
             let referralTarget = 0;
             let activeCampaignTag = 'Standard';
@@ -77,14 +77,15 @@ router.post('/auth', async (req, res) => {
                 // คำนวณยอดที่ชวนได้จริงในช่วงแคมเปญ
                 campaignReferralCount = await countCampaignReferrals(customer.customerId, campaign.startAt);
             }
+            */
             
-            // 5. [เพิ่มใหม่] รวมข้อมูลแคมเปญเข้าไปใน Object ลูกค้า
+            // 5. [ปรับปรุง] รวมข้อมูลแคมเปญเข้าไปใน Object ลูกค้าด้วยค่า Default
             const customerDataForFrontend = {
                 ...customer,
-                referralCount: customer.referralCount, // ยอดรวมทั้งหมด (ใช้แสดงใน Standard Mode)
-                campaignReferralCount: campaignReferralCount, // ยอดเฉพาะแคมเปญ
-                referralTarget: referralTarget, // เป้าหมายแคมเปญ
-                activeCampaignTag: activeCampaignTag
+                referralCount: customer.referralCount, 
+                campaignReferralCount: 0,       // ค่า Default ชั่วคราว
+                referralTarget: 0,              // ค่า Default ชั่วคราว
+                activeCampaignTag: 'Standard'   // ค่า Default ชั่วคราว
             };
 
             return res.json({ success: true, isMember: true, customer: customerDataForFrontend });
