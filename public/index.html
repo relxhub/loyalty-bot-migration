@@ -46,16 +46,12 @@
             background: rgba(0, 0, 0, 0.5);
         }
 
-        /* Gradient Animation */
-        .animate-gradient {
-            background-size: 200% 200%;
-            animation: gradient-shift 3s ease infinite;
-        }
-        @keyframes gradient-shift {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
+        /* Animation */
+        .fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        
+        .bounce-in { animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+        @keyframes bounceIn { 0% { transform: scale(0); } 80% { transform: scale(1.1); } 100% { transform: scale(1); } }
 
         ::-webkit-scrollbar { width: 0px; background: transparent; }
     </style>
@@ -68,7 +64,7 @@
     </div>
 
     <div id="login-screen" class="hidden fixed inset-0 z-40 bg-[#18181b] flex flex-col items-center justify-center p-6">
-        <div class="glass-card p-8 w-full max-w-sm text-center shadow-2xl relative overflow-hidden">
+        <div class="glass-card p-8 w-full max-w-sm text-center shadow-2xl relative overflow-hidden fade-in">
             <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl"></div>
             
             <div class="w-20 h-20 bg-gradient-to-tr from-blue-500 to-purple-600 text-white rounded-full flex items-center justify-center mx-auto mb-6 text-4xl shadow-lg relative z-10">
@@ -99,7 +95,7 @@
         </div>
     </div>
 
-    <div id="app-content" class="hidden w-full max-w-md mx-auto space-y-6 pb-20">
+    <div id="app-content" class="hidden w-full max-w-md mx-auto space-y-6 pb-20 fade-in">
         
         <div class="flex items-center space-x-4">
             <div class="relative">
@@ -109,7 +105,7 @@
                 <div class="absolute -bottom-1 -right-1 bg-green-500 w-4 h-4 rounded-full border-2 border-[#18181b]"></div>
             </div>
             <div>
-                <h2 id="user-name" class="text-xl font-bold leading-tight">Guest User</h2>
+                <h2 id="user-name" class="text-xl font-bold leading-tight">...</h2>
                 <p class="text-xs text-[var(--hint-color)]">ID: <span id="user-id">...</span></p>
             </div>
         </div>
@@ -215,70 +211,77 @@
         </div>
     </div>
 
+    <div id="success-modal" class="hidden fixed inset-0 z-[70] flex items-center justify-center bg-black/90 backdrop-blur-sm p-6">
+        <div class="glass-card p-8 w-full max-w-sm text-center shadow-2xl relative overflow-hidden fade-in">
+            <div class="absolute inset-0 bg-green-500/10"></div>
+            
+            <div class="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 text-5xl shadow-[0_0_30px_rgba(34,197,94,0.4)] relative z-10 bounce-in">
+                🎉
+            </div>
+            
+            <h2 class="text-3xl font-bold mb-2 text-white relative z-10">ยินดีต้อนรับ!</h2>
+            <p class="text-gray-300 mb-8 relative z-10" id="success-msg">เชื่อมต่อบัญชีสำเร็จเรียบร้อย</p>
+            
+            <button onclick="closeSuccessModal()" class="w-full py-4 bg-green-600 hover:bg-green-500 rounded-xl font-bold text-lg text-white shadow-lg transition active:scale-95 relative z-10">
+                เข้าสู่หน้าหลัก
+            </button>
+        </div>
+    </div>
+
     <script>
         const tg = window.Telegram.WebApp;
-        
-        // ตั้งค่าเริ่มต้น
         tg.expand(); 
         tg.enableClosingConfirmation(); 
 
-        // 🟢 ฟังก์ชันหลัก (Init)
         async function initApp() {
             try {
-                // 1. ตรวจสอบ Magic Link (start_param)
+                // 1. Magic Link Logic
                 const startParam = tg.initDataUnsafe?.start_param;
-                
-                // ถ้ามี start_param แบบ 'link_XXX_YYY' ให้ทำงานทันที
                 if (startParam && startParam.startsWith('link_')) {
                     document.getElementById('loading-text').innerText = "กำลังเชื่อมต่ออัตโนมัติ...";
                     const parts = startParam.split('_');
                     if (parts.length === 3) {
-                        const custId = parts[1];
-                        const vCode = parts[2];
-                        await performLink(custId, vCode); // เชื่อมต่อเลย
+                        await performLink(parts[1], parts[2]); 
                         return;
                     }
                 }
 
-                // 2. ถ้าไม่มี Link ให้ Login ปกติ
-                let user;
-                let isMember = false;
-
-                if (!tg.initData) {
-                    // Demo Mode (Browser Test)
-                    console.warn("⚠️ Running in Demo Mode");
-                    // จำลองว่ายังไม่เชื่อมบัญชี (isMember: false) เพื่อทดสอบหน้า Login
-                    // หรือเปลี่ยนเป็น true เพื่อทดสอบ Dashboard
-                    isMember = false; 
-                    user = { firstName: "Demo", customerId: "MEM-9999", points: 0, referralCount: 0, expiryDate: new Date() };
-                } else {
-                    // Real Login
-                    const response = await fetch('/api/auth', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ initData: tg.initData })
-                    });
-                    
-                    if(!response.ok) throw new Error("Auth Failed");
-                    const data = await response.json();
-                    
-                    isMember = data.isMember;
-                    user = data.customer;
-                }
-
-                // 3. ตรวจสอบสถานะสมาชิก
-                if (isMember) {
-                    // ✅ เป็นสมาชิก -> เข้า Dashboard
-                    renderUser(user);
-                } else {
-                    // ⛔️ ไม่ใช่สมาชิก -> บังคับหน้า Login (Force Link)
-                    showLoginScreen();
-                }
+                // 2. Normal Login (โหลดข้อมูลผู้ใช้)
+                await refreshUserData();
 
             } catch (error) {
                 console.error(error);
                 tg.showAlert("เกิดข้อผิดพลาด: " + error.message);
-                // ถ้า Error ให้แสดงหน้า Login กันไว้ก่อน
+                showLoginScreen();
+            }
+        }
+
+        // ฟังก์ชันโหลดข้อมูล User (แยกออกมาให้เรียกซ้ำได้ ไม่ต้อง Reload หน้า)
+        async function refreshUserData() {
+            let user;
+            let isMember = false;
+
+            if (!tg.initData) {
+                // Demo Mode
+                console.warn("⚠️ Running in Demo Mode");
+                isMember = false; 
+                user = { firstName: "Demo", customerId: "MEM-9999", points: 0, referralCount: 0 };
+            } else {
+                const response = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData })
+                });
+                
+                if(!response.ok) throw new Error("Auth Failed");
+                const data = await response.json();
+                isMember = data.isMember;
+                user = data.customer;
+            }
+
+            if (isMember) {
+                renderUser(user);
+            } else {
                 showLoginScreen();
             }
         }
@@ -286,14 +289,18 @@
         function showLoginScreen() {
             document.getElementById('loading-screen').classList.add('hidden');
             document.getElementById('app-content').classList.add('hidden');
+            document.getElementById('success-modal').classList.add('hidden'); // ซ่อน Modal ถ้ามี
             document.getElementById('login-screen').classList.remove('hidden');
         }
 
         function renderUser(user) {
+            // ปิดทุกหน้า เปิด Dashboard
             document.getElementById('loading-screen').classList.add('hidden');
             document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('success-modal').classList.add('hidden');
             document.getElementById('app-content').classList.remove('hidden');
 
+            // Render Data
             document.getElementById('user-name').innerText = `${user.firstName} ${user.lastName || ''}`.trim();
             document.getElementById('user-id').innerText = user.customerId || 'N/A';
             animateValue("user-points", 0, user.points, 1500);
@@ -303,7 +310,6 @@
                 document.getElementById('expiry-date').innerText = date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
             }
 
-            // Campaign Mockup
             const target = 5;
             const current = (user.referralCount || 0) % target;
             const percent = (current / target) * 100;
@@ -329,18 +335,14 @@
                 });
 
                 const result = await response.json();
-                
                 document.getElementById('loading-screen').classList.add('hidden');
 
                 if (result.success) {
-                    tg.showPopup({
-                        title: '✅ ยินดีต้อนรับ',
-                        message: `เชื่อมต่อบัญชีสำเร็จ!\nคุณได้รับ ${result.bonus} แต้ม`,
-                        buttons: [{type: 'ok', func: () => location.reload()}] // Reload เพื่อเข้า Dashboard
-                    });
+                    // ✅ แก้ไข: แสดง Success Modal สวยๆ แทน Popup
+                    showSuccessModal(result.bonus);
                 } else {
-                    tg.showPopup({ title: 'แจ้งเตือน', message: result.error || "เกิดข้อผิดพลาด", buttons: [{type: 'close'}] });
-                    showLoginScreen(); // กลับไปหน้า Login
+                    tg.showPopup({ title: 'แจ้งเตือน', message: result.error || "ผิดพลาด", buttons: [{type: 'close'}] });
+                    showLoginScreen();
                 }
             } catch (error) {
                 tg.showAlert("เชื่อมต่อ Server ไม่ได้");
@@ -348,11 +350,25 @@
             }
         }
 
-        // กดปุ่มยืนยันจากหน้า Login Screen
+        // ฟังก์ชันควบคุม Success Modal
+        function showSuccessModal(bonus) {
+            document.getElementById('success-msg').innerText = `เชื่อมต่อบัญชีสำเร็จ!\nคุณได้รับ ${bonus} แต้ม`;
+            document.getElementById('login-screen').classList.add('hidden'); // ซ่อน Login
+            document.getElementById('link-modal').classList.add('hidden');   // ซ่อน Manual Link (ถ้าเปิดอยู่)
+            document.getElementById('success-modal').classList.remove('hidden'); // โชว์ Success
+            tg.hapticFeedback.notificationOccurred('success');
+        }
+
+        // ✅ แก้ไข: ฟังก์ชันปิด Modal แล้วสลับหน้าจอทันที (ไม่ Reload)
+        function closeSuccessModal() {
+            document.getElementById('success-modal').classList.add('hidden');
+            document.getElementById('loading-screen').classList.remove('hidden'); // โชว์ loading แป๊บนึง
+            refreshUserData(); // โหลดข้อมูลใหม่แล้วเข้า Dashboard เลย
+        }
+
         async function submitLogin() {
             const id = document.getElementById('login-cust-id').value.trim();
             const code = document.getElementById('login-verify-code').value.trim();
-            
             if (!id || !code) return tg.showAlert("กรุณากรอกข้อมูลให้ครบถ้วน");
             
             tg.MainButton.showProgress();
@@ -360,17 +376,16 @@
             tg.MainButton.hideProgress();
         }
 
-        // กดปุ่มยืนยันจาก Modal (กรณีมีปุ่มใน Dashboard)
         async function submitLinkAccount() {
             const id = document.getElementById('link-code').value.trim();
             const code = document.getElementById('verify-code').value.trim();
             if (!id || !code) return tg.showAlert("กรุณากรอกข้อมูลให้ครบถ้วน");
+            
             tg.MainButton.showProgress();
             await performLink(id, code);
             tg.MainButton.hideProgress();
         }
 
-        // UI Interactions
         function handleAction(type) {
             tg.hapticFeedback.impactOccurred('light');
             switch(type) {
@@ -414,9 +429,7 @@
             window.requestAnimationFrame(step);
         }
 
-        // เริ่มทำงาน
         initApp();
-
     </script>
 </body>
 </html>
