@@ -30,8 +30,22 @@ function verifyTelegramWebAppData(telegramInitData) {
 // ==================================================
 router.post('/auth', async (req, res) => {
     try {
-        // ... (โค้ดส่วนตรวจสอบ initData เหมือนเดิม) ...
+        const { initData, user } = req.body;
 
+        if (!initData || !user) {
+            return res.status(400).json({ error: 'Invalid authentication data.' });
+        }
+
+        if (!verifyTelegramWebAppData(initData, getConfig().CUSTOMER_BOT_TOKEN)) {
+            return res.status(403).json({ error: 'Data integrity check failed.' });
+        }
+
+        // ✅ [FIXED] ถอดรหัส URL ก่อน JSON.parse เพื่อจัดการอักขระพิเศษ
+        const decodedUserJson = decodeURIComponent(user);
+        const userData = JSON.parse(decodedUserJson);
+
+        console.log(`👤 Login Request: ${userData.first_name} (${userData.id})`);
+        
         // 3. ค้นหาลูกค้า
         let customer = await getCustomerByTelegramId(userData.id.toString());
         
