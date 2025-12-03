@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Member Dashboard</title>
+    
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+
+    <style>
+        /* ตั้งค่าสีตาม Theme ของ Telegram อัตโนมัติ */
+        :root {
+            --bg-color: var(--tg-theme-bg-color, #18181b);
+            --text-color: var(--tg-theme-text-color, #ffffff);
+            --secondary-bg: var(--tg-theme-secondary-bg-color, #27272a);
+            --hint-color: var(--tg-theme-hint-color, #a1a1aa);
+            --button-color: var(--tg-theme-button-color, #3b82f6);
+            --button-text: var(--tg-theme-button-text-color, #ffffff);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Kanit', sans-serif;
+            -webkit-tap-highlight-color: transparent; /* ลบสีไฮไลท์เวลาแตะบนมือถือ */
+        }
+
+        /* Glassmorphism Effect */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+        }
+
+        /* Gradient Animation */
+        .animate-gradient {
+            background-size: 200% 200%;
+            animation: gradient-shift 3s ease infinite;
+        }
+        @keyframes gradient-shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col p-5 select-none overflow-x-hidden">
+
+    <div id="loading-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#18181b]">
+        <div class="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p class="text-gray-400 animate-pulse">กำลังเชื่อมต่อข้อมูล...</p>
+    </div>
+
+    <div id="app-content" class="hidden w-full max-w-md mx-auto space-y-6 pb-20">
+        
+        <div class="flex items-center space-x-4">
+            <div class="relative">
+                <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-blue-400 to-purple-500 flex items-center justify-center text-2xl shadow-lg shadow-blue-500/20">
+                    👤
+                </div>
+                <div class="absolute -bottom-1 -right-1 bg-green-500 w-4 h-4 rounded-full border-2 border-[#18181b]"></div>
+            </div>
+            <div>
+                <h2 id="user-name" class="text-xl font-bold leading-tight">Guest User</h2>
+                <p class="text-xs text-[var(--hint-color)]">ID: <span id="user-id">...</span></p>
+            </div>
+        </div>
+
+        <div class="glass-card p-6 relative overflow-hidden group">
+            <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition">
+                <i class="ri-vip-diamond-line text-9xl"></i>
+            </div>
+            
+            <p class="text-sm text-gray-300 mb-1">คะแนนสะสมของคุณ</p>
+            <div class="flex items-baseline space-x-2">
+                <h1 id="user-points" class="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 to-yellow-500">0</h1>
+                <span class="text-sm text-yellow-500 font-medium">Points</span>
+            </div>
+            
+            <div class="mt-4 flex justify-between items-end">
+                <div class="text-xs text-gray-400">
+                    หมดอายุ: <span id="expiry-date" class="text-white">...</span>
+                </div>
+                <button onclick="Telegram.WebApp.hapticFeedback.impactOccurred('medium')" class="bg-white/10 hover:bg-white/20 px-3 py-1 rounded-lg text-xs transition flex items-center gap-1">
+                    <i class="ri-history-line"></i> ประวัติ
+                </button>
+            </div>
+        </div>
+
+        <div class="glass-card p-5">
+            <div class="flex justify-between items-center mb-3">
+                <span class="font-semibold text-sm flex items-center gap-2">
+                    <i class="ri-trophy-line text-yellow-500"></i> ภารกิจแนะนำเพื่อน
+                </span>
+                <span id="next-bonus" class="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">
+                    +50 แต้ม
+                </span>
+            </div>
+            
+            <div class="w-full bg-gray-700/50 rounded-full h-3 mb-2 overflow-hidden">
+                <div id="progress-bar" class="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-1000 ease-out w-0 shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
+            </div>
+            
+            <p class="text-xs text-right text-gray-400">
+                เหลืออีก <span id="remaining-count" class="text-white font-bold">0</span> คน เพื่อรับโบนัส
+            </p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+            <button onclick="handleAction('rewards')" class="glass-card p-4 hover:bg-white/10 transition active:scale-95 text-left group">
+                <div class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 mb-3 group-hover:scale-110 transition">
+                    <i class="ri-gift-2-line text-xl"></i>
+                </div>
+                <div class="font-semibold">แลกของรางวัล</div>
+                <div class="text-xs text-gray-400">ใช้แต้มแลกเลย</div>
+            </button>
+
+            <button onclick="handleAction('invite')" class="glass-card p-4 hover:bg-white/10 transition active:scale-95 text-left group">
+                <div class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 mb-3 group-hover:scale-110 transition">
+                    <i class="ri-user-add-line text-xl"></i>
+                </div>
+                <div class="font-semibold">เชิญเพื่อน</div>
+                <div class="text-xs text-gray-400">รับแต้มพิเศษ</div>
+            </button>
+
+            <button onclick="handleAction('link')" class="glass-card p-4 hover:bg-white/10 transition active:scale-95 text-left group">
+                <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 mb-3 group-hover:scale-110 transition">
+                    <i class="ri-link-m text-xl"></i>
+                </div>
+                <div class="font-semibold">เชื่อมบัญชี</div>
+                <div class="text-xs text-gray-400">สมาชิกเก่า</div>
+            </button>
+
+            <button onclick="Telegram.WebApp.openTelegramLink('https://t.me/SupportBot')" class="glass-card p-4 hover:bg-white/10 transition active:scale-95 text-left group">
+                <div class="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-400 mb-3 group-hover:scale-110 transition">
+                    <i class="ri-customer-service-2-line text-xl"></i>
+                </div>
+                <div class="font-semibold">ติดต่อเรา</div>
+                <div class="text-xs text-gray-400">แจ้งปัญหา</div>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        
+        // ตั้งค่าเริ่มต้น
+        tg.expand(); // ขยายเต็มจอ
+        tg.enableClosingConfirmation(); // ถามก่อนปิด App
+
+        // ฟังก์ชันจำลองการโหลดข้อมูล (ใช้จริงต้องยิง API)
+        async function loadData() {
+            try {
+                // ถ้าเปิดใน Browser ธรรมดา (ไม่มี Telegram) ให้ใช้ Mock Data
+                let user;
+                if (!tg.initData) {
+                    console.warn("⚠️ Running in Demo Mode (No Telegram Context)");
+                    user = {
+                        firstName: "Demo",
+                        lastName: "User",
+                        customerId: "MEM-9999",
+                        points: 1250,
+                        expiryDate: new Date("2025-12-31"),
+                        referralCount: 3,
+                        target: 5
+                    };
+                    // Delay หลอกๆ ให้ดูเหมือนโหลด
+                    await new Promise(r => setTimeout(r, 1500));
+                } else {
+                    // ของจริง: ยิงไปที่ Backend ของเรา
+                    const response = await fetch('/api/auth', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ initData: tg.initData })
+                    });
+                    
+                    if(!response.ok) throw new Error("Auth Failed");
+                    const result = await response.json();
+                    user = result.customer;
+
+                    // ถ้าอยากได้ข้อมูล Campaign เพิ่ม ต้องยิง /api/user/:id อีกที (หรือรวมใน Auth เลยก็ได้)
+                    // ตรงนี้สมมติข้อมูล Campaign ไปก่อนเพื่อความสวยงาม
+                    user.target = 5; 
+                    user.referralCount = user.referralCount || 0;
+                }
+
+                // --- Render Data to UI ---
+                
+                // 1. Profile
+                document.getElementById('user-name').innerText = `${user.firstName} ${user.lastName || ''}`.trim();
+                document.getElementById('user-id').innerText = user.customerId || 'N/A';
+                
+                // 2. Points (Animation นับเลข)
+                animateValue("user-points", 0, user.points, 1500);
+                
+                // 3. Expiry
+                if(user.expiryDate) {
+                    const date = new Date(user.expiryDate);
+                    document.getElementById('expiry-date').innerText = date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+                }
+
+                // 4. Progress Bar
+                const current = user.referralCount % user.target;
+                const percent = (current / user.target) * 100;
+                const remaining = user.target - current;
+                
+                document.getElementById('remaining-count').innerText = remaining;
+                
+                // Trigger animation bar
+                setTimeout(() => {
+                    document.getElementById('progress-bar').style.width = `${percent}%`;
+                }, 100);
+
+                // สลับหน้าจอ
+                document.getElementById('loading-screen').classList.add('hidden');
+                document.getElementById('app-content').classList.remove('hidden');
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById('loading-screen').innerHTML = 
+                    `<div class="text-center px-4">
+                        <i class="ri-error-warning-line text-4xl text-red-500 mb-2"></i>
+                        <p class="text-white">เกิดข้อผิดพลาด</p>
+                        <p class="text-xs text-gray-500 mt-1">${error.message}</p>
+                        <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-white/10 rounded-lg text-sm">ลองใหม่</button>
+                    </div>`;
+            }
+        }
+
+        // ฟังก์ชันจัดการปุ่มกด
+        function handleAction(type) {
+            // สั่นเบาๆ เวลาแตะปุ่ม (Haptic Feedback)
+            tg.hapticFeedback.impactOccurred('light');
+
+            switch(type) {
+                case 'rewards':
+                    tg.showPopup({
+                        title: '🎁 แลกของรางวัล',
+                        message: 'ฟีเจอร์นี้กำลังมาเร็วๆ นี้!',
+                        buttons: [{type: 'ok'}]
+                    });
+                    break;
+                case 'invite':
+                    // ส่งข้อความชวนเพื่อนกลับไปที่ห้องแชท
+                    tg.switchInlineQuery("ชวนเพื่อน", ["users", "groups"]); 
+                    break;
+                case 'link':
+                    // เปิด Popup ให้กรอกโค้ด (หรือทำหน้าแยก)
+                    tg.showPopup({
+                        title: '🔗 เชื่อมบัญชี',
+                        message: 'กรุณากรอกรหัสสมาชิกเก่าของคุณ',
+                        buttons: [{id: 'cancel', type: 'cancel'}, {id: 'ok', type: 'ok', text: 'กรอกรหัส'}]
+                    });
+                    break;
+            }
+        }
+
+        // Utility: นับเลขวิ่งๆ
+        function animateValue(id, start, end, duration) {
+            if (start === end) return;
+            const range = end - start;
+            const obj = document.getElementById(id);
+            const startTime = new Date().getTime();
+            const step = () => {
+                const now = new Date().getTime();
+                const progress = Math.min((now - startTime) / duration, 1);
+                const value = Math.floor(progress * (range + start));
+                obj.innerHTML = value.toLocaleString();
+                if (progress < 1) window.requestAnimationFrame(step);
+            };
+            window.requestAnimationFrame(step);
+        }
+
+        // เริ่มทำงาน
+        loadData();
+
+    </script>
+</body>
+</html>

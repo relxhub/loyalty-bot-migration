@@ -32,6 +32,7 @@ async function startServer() {
 
     // 2. ตั้งค่า Express
     app.use(express.json()); 
+    app.use(express.static('public'));
     
     // (Optional) เปิด CORS ให้หน้าเว็บเรียก API ได้
     app.use((req, res, next) => {
