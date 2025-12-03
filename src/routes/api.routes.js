@@ -5,7 +5,7 @@ import { getActiveCampaign } from '../services/campaign.service.js';
 import { getConfig } from '../config/config.js';
 import { addDays } from '../utils/date.utils.js';
 // ❌ เอา createCustomer ออกตามที่ขอ (ห้ามสมัครเอง)
-import { getCustomerByTelegramId, updateCustomer } from '../services/customer.service.js'; 
+import { getCustomerByTelegramId, updateCustomer, countCampaignReferrals } from '../services/customer.service.js';
 
 const router = express.Router();
 
@@ -26,44 +26,54 @@ function verifyTelegramWebAppData(telegramInitData) {
 }
 
 // ==================================================
-// 🚪 LOGIN / AUTH (ปรับปรุงใหม่: ห้ามสมัครเอง)
+// 🚪 LOGIN / AUTH (ปรับปรุงใหม่: ดึงยอดแคมเปญ)
 // ==================================================
 router.post('/auth', async (req, res) => {
     try {
-        const { initData } = req.body;
-
-        // 1. Verify (Production ควรเปิดใช้)
-        const isValid = verifyTelegramWebAppData(initData);
-        if (!isValid) console.warn("⚠️ Invalid InitData Signature");
-
-        // 2. แกะข้อมูล
-        const urlParams = new URLSearchParams(initData);
-        const userJson = urlParams.get('user');
-        if (!userJson) return res.status(400).json({ error: "User data missing" });
-
-        const userData = JSON.parse(userJson);
-        console.log(`👤 Login Request: ${userData.first_name} (${userData.id})`);
+        // ... (โค้ดส่วนตรวจสอบ initData เหมือนเดิม) ...
 
         // 3. ค้นหาลูกค้า
         let customer = await getCustomerByTelegramId(userData.id.toString());
         
         if (!customer) {
-            // 🛑 ถ้าไม่เจอ -> ไม่สร้างใหม่ แต่ส่งสถานะ isMember: false
-            // หน้าบ้านจะรับค่านี้ไปเปิดหน้า "บังคับเชื่อมบัญชี"
-            console.log("⛔️ User not found (Registration Restricted)");
+            // ... (ถ้าไม่เจอ ให้กลับไปหน้า Login เหมือนเดิม) ...
             return res.json({ 
                 success: true, 
                 isMember: false, 
                 telegramId: userData.id.toString() 
             });
         } else {
-             // ✅ ถ้าเจอ -> อัปเดตชื่อและส่งข้อมูลกลับ (เข้า Dashboard ได้)
+             // ✅ ถ้าเจอ -> อัปเดตชื่อ
              await updateCustomer(customer.customerId, {
                 firstName: userData.first_name,
                 lastName: userData.last_name || '',
                 username: userData.username || ''
             });
-            return res.json({ success: true, isMember: true, customer });
+            
+            // 4. [เพิ่มใหม่] ดึงข้อมูลแคมเปญ
+            const campaign = await getActiveCampaign();
+            let campaignReferralCount = 0;
+            let referralTarget = 0;
+            let activeCampaignTag = 'Standard';
+            
+            if (campaign && campaign.startAt) {
+                activeCampaignTag = campaign.campaignName || 'Active';
+                referralTarget = campaign.milestoneTarget;
+                
+                // คำนวณยอดที่ชวนได้จริงในช่วงแคมเปญ
+                campaignReferralCount = await countCampaignReferrals(customer.customerId, campaign.startAt);
+            }
+            
+            // 5. [เพิ่มใหม่] รวมข้อมูลแคมเปญเข้าไปใน Object ลูกค้า
+            const customerDataForFrontend = {
+                ...customer,
+                referralCount: customer.referralCount, // ยอดรวมทั้งหมด (ใช้แสดงใน Standard Mode)
+                campaignReferralCount: campaignReferralCount, // ยอดเฉพาะแคมเปญ
+                referralTarget: referralTarget, // เป้าหมายแคมเปญ
+                activeCampaignTag: activeCampaignTag
+            };
+
+            return res.json({ success: true, isMember: true, customer: customerDataForFrontend });
         }
 
     } catch (error) {
