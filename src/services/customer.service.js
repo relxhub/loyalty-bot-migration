@@ -107,20 +107,40 @@ export async function giveReferralBonus(referrerId, newCustomerId, adminUser) {
     const limitDate = addDays(today, limitDays); 
     const finalExpiryDate = proposedExpiry > limitDate ? limitDate : proposedExpiry;
 
-    // 1. Update Referrer (Points & Total Referral Count)
+    // ---------------------------------------------------------
+    // 🆕 Milestone Bonus Logic (Recurring)
+    // ---------------------------------------------------------
+    let earnedMilestoneBonus = 0;
+
+    // Check if campaign has milestone configured
+    if (campaign && campaign.milestoneTarget > 0 && campaign.milestoneBonus > 0) {
+        // Calculate CURRENT campaign referrals (before this new one is counted)
+        // Note: countCampaignReferrals counts logs with action 'REFERRAL_BONUS'
+        const currentCampaignCount = await countCampaignReferrals(referrer.customerId, campaign.startAt);
+
+        // The new total including this one
+        const newCampaignCount = currentCampaignCount + 1;
+
+        // Check if milestone reached (Recurring: 3, 6, 9, ...)
+        if (newCampaignCount % campaign.milestoneTarget === 0) {
+            earnedMilestoneBonus = campaign.milestoneBonus;
+        }
+    }
+
+    // 1. Update Referrer (Points, Total Referral Count)
+    // Increment points by (Base + Milestone if any)
+    const totalPointsToAdd = bonusPoints + earnedMilestoneBonus;
+
     await prisma.customer.update({
         where: { customerId: referrerId },
         data: {
-            points: { increment: bonusPoints },
+            points: { increment: totalPointsToAdd },
             expiryDate: finalExpiryDate,
             referralCount: { increment: 1 }
-            // Note: We do NOT update activeCampaignTag on the referrer here,
-            // as that field should represent the campaign the user was acquired from, not the one they are promoting.
         }
     });
 
     // 2. Update Referee (New Customer) with Campaign Tag
-    // This allows us to track which campaign acquired this specific user.
     await prisma.customer.update({
         where: { customerId: newCustomerId },
         data: {
@@ -128,7 +148,8 @@ export async function giveReferralBonus(referrerId, newCustomerId, adminUser) {
         }
     });
 
-    // 3. Log System (Auto) in AdminLog (Restored as requested)
+    // 3. Log System (Auto) in AdminLog
+    // Base Log
     await prisma.adminLog.create({
         data: {
             admin: 'System (Auto)',
@@ -139,8 +160,22 @@ export async function giveReferralBonus(referrerId, newCustomerId, adminUser) {
         }
     });
 
-    // 4. Customer Log (For Campaign Counting)
+    // Milestone Log (if earned)
+    if (earnedMilestoneBonus > 0) {
+        await prisma.adminLog.create({
+            data: {
+                admin: 'System (Auto)',
+                action: 'CAMPAIGN_BONUS',
+                customerId: referrer.customerId,
+                pointsChange: earnedMilestoneBonus,
+                details: `Milestone reached! (${campaign.milestoneTarget} referrals)`
+            }
+        });
+    }
+
+    // 4. Customer Log (For Campaign Counting & User History)
     if (referrer.telegramUserId) {
+        // Base Log (Important: This is what countCampaignReferrals counts!)
         await prisma.customerLog.create({
             data: {
                 telegramUserId: referrer.telegramUserId,
@@ -149,10 +184,29 @@ export async function giveReferralBonus(referrerId, newCustomerId, adminUser) {
                 pointsChange: bonusPoints
             }
         });
+
+        // Milestone Log
+        if (earnedMilestoneBonus > 0) {
+            await prisma.customerLog.create({
+                data: {
+                    telegramUserId: referrer.telegramUserId,
+                    customerId: referrer.customerId,
+                    action: 'CAMPAIGN_BONUS', // Use different action to avoid double counting referrals
+                    pointsChange: earnedMilestoneBonus
+                }
+            });
+        }
     }
 
-    const newPoints = referrer.points + bonusPoints;
-    const notificationMessage = `💌 ขอบคุณที่แนะนำเพื่อน!\n⭐️ คุณได้รับแต้มโบนัส ${bonusPoints} แต้ม จากการแนะนำคุณ ${newCustomerId}\n💰 แต้มสะสมปัจจุบัน: ${newPoints} แต้ม`;
+    // 5. Notification
+    const newPoints = referrer.points + totalPointsToAdd;
+    let notificationMessage = `💌 ขอบคุณที่แนะนำเพื่อน!\n⭐️ คุณได้รับแต้มแนะนำ ${bonusPoints} แต้ม จากการแนะนำคุณ ${newCustomerId}`;
+
+    if (earnedMilestoneBonus > 0) {
+        notificationMessage += `\n🎉 และได้รับโบนัสพิเศษ ${earnedMilestoneBonus} แต้ม! (ครบตามเป้าหมาย)`;
+    }
+
+    notificationMessage += `\n💰 แต้มสะสมปัจจุบัน: ${newPoints} แต้ม`;
     
     if (referrer.telegramUserId) {
         await sendNotificationToCustomer(referrer.telegramUserId, notificationMessage);
