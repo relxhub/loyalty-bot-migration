@@ -963,6 +963,11 @@
                                         <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-white font-bold shadow-inner border border-white/5 text-sm">
                                             ${index + 1}
                                         </div>
+                                        ${item.tier2Count > 0 ?
+                                            `<div class="absolute -top-2 -right-2 bg-green-500 text-black text-[10px] font-bold px-1.5 rounded-full shadow-lg border border-[#18181b] animate-bounce">
+                                                +${item.tier2Count}
+                                            </div>`
+                                            : ''}
                                     </div>
 
                                     <div>
@@ -995,6 +1000,11 @@
                                 </div>
                             </div>
                             
+                            ${item.tier2Count > 0 ? `
+                            <div class="mt-3 pt-2 border-t border-white/5 flex items-center gap-2">
+                                <i class="ri-share-forward-line text-green-500 text-xs"></i>
+                                <span class="text-[10px] text-green-400">เพื่อนคนนี้ไปชวนต่ออีก <span class="font-bold text-white">${item.tier2Count}</span> คน</span>
+                            </div>` : ''}
                         </div>`;
                     });
                     list.innerHTML = html;
