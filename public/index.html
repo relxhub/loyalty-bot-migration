@@ -262,20 +262,30 @@
                 </div>
             </div>
             
-            <div class="relative z-10">
-                <div class="flex justify-between text-[10px] text-gray-400 mb-1">
-                    <span id="mission-desc">ชวนเพื่อน 5 คน รับโบนัส</span>
-                    <span id="mission-status">0/5</span>
-                </div>
-                <div class="w-full bg-gray-800/80 rounded-full h-3 overflow-hidden border border-white/5">
-                    <div id="mission-progress-bar" class="h-full bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-200 rounded-full transition-all duration-1000 ease-out w-0 shadow-[0_0_15px_rgba(250,204,21,0.6)] relative overflow-hidden">
-                        <!-- Shine effect inside bar -->
-                        <div class="absolute inset-0 bg-white/30 w-full h-full -skew-x-12 translate-x-[-100%] animate-[shimmer_2s_infinite]"></div>
+            <div class="relative z-10 pt-2">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex flex-col">
+                        <span class="text-[10px] text-gray-400">จำนวนที่ทำได้</span>
+                        <span id="mission-current" class="text-3xl font-bold text-white leading-none">0</span>
+                    </div>
+
+                    <div class="h-8 w-[1px] bg-white/10"></div>
+
+                    <div class="flex flex-col items-end">
+                        <span class="text-[10px] text-gray-400">เป้าหมายถัดไป</span>
+                        <span id="mission-target" class="text-3xl font-bold text-yellow-400 leading-none">5</span>
                     </div>
                 </div>
-                <p class="text-[10px] text-right text-yellow-500/80 mt-1.5 flex justify-end items-center gap-1">
-                    เหลืออีก <span id="mission-remaining" class="font-bold text-yellow-300">0</span> คน เพื่อรับรางวัล
-                </p>
+
+                <div class="bg-white/5 rounded-lg p-2 flex items-center justify-between border border-white/5">
+                    <div class="flex items-center gap-2">
+                        <div class="w-6 h-6 rounded-full bg-yellow-500/20 text-yellow-400 flex items-center justify-center text-xs">
+                            <i class="ri-gift-fill"></i>
+                        </div>
+                        <span id="mission-desc" class="text-[10px] text-gray-300">ชวนเพื่อนครบทุกๆ 5 คน รับโบนัส</span>
+                    </div>
+                    <span id="mission-status-text" class="text-[9px] text-yellow-500/80 font-mono">ON GOING</span>
+                </div>
             </div>
         </div>
         <!-- [END] Mission Box -->
@@ -821,29 +831,19 @@
 
                     if (isComingSoon) {
                          document.getElementById('mission-desc').innerText = 'เตรียมพบกับภารกิจพิเศษ';
-                         document.getElementById('mission-status').innerText = 'Coming Soon';
-                         document.getElementById('mission-remaining').innerText = '-';
-                         document.getElementById('mission-progress-bar').style.width = '0%';
+                         document.getElementById('mission-current').innerText = '-';
+                         document.getElementById('mission-target').innerText = '-';
                     } else {
-                         // Logic ใหม่: Recurring Target (Step แบบขั้นบันได)
-                         // ถ้า current = 4, target = 5 -> แสดง 4/5 (เหลือ 1)
-                         // ถ้า current = 5, target = 5 -> แสดง 5/10 (เหลือ 5) เพราะครบแล้ว ต้องเริ่ม Step ต่อไป
-                         // สูตร: effectiveTarget = (floor(current / baseTarget) + 1) * baseTarget
+                         // Logic Recurring:
+                         // Current = Campaign Specific Count (e.g. 7)
+                         // Target Base = 5
+                         // Effective Target = 10 (Next Milestone)
 
                          const effectiveTarget = (Math.floor(current / target) + 1) * target;
 
-                         document.getElementById('mission-desc').innerText = `ชวนเพื่อนครบ ${effectiveTarget} คน รับโบนัส`;
-                         document.getElementById('mission-status').innerText = `${current}/${effectiveTarget}`;
-
-                         const remaining = effectiveTarget - current;
-                         document.getElementById('mission-remaining').innerText = remaining;
-
-                         // Progress Bar: เทียบกับ effectiveTarget
-                         // เช่น 5/10 -> 50%
-                         const percent = Math.min(100, (current / effectiveTarget) * 100);
-                         setTimeout(() => {
-                             document.getElementById('mission-progress-bar').style.width = `${percent}%`;
-                         }, 100);
+                         document.getElementById('mission-current').innerText = current;
+                         document.getElementById('mission-target').innerText = effectiveTarget;
+                         document.getElementById('mission-desc').innerText = `ชวนเพื่อนครบทุกๆ ${target} คน รับโบนัส`;
                     }
 
                 } else {
@@ -941,10 +941,13 @@
             tg.MainButton.hideProgress();
         }
 
-        function handleAction(type) {
-            tg.hapticFeedback.impactOccurred('light');
+        window.handleAction = function(type) {
+            console.log("Action Triggered:", type);
+            try { tg.hapticFeedback.impactOccurred('light'); } catch(e){}
+
             switch(type) {
                 case 'rewards': 
+                    console.log("Opening Rewards Modal...");
                     openRewardsModal();
                     break;
                     
