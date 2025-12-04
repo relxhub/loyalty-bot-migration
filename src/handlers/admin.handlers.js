@@ -8,6 +8,8 @@ import { addDays, getThaiNow } from '../utils/date.utils.js';
 import { getActiveCampaign } from '../services/campaign.service.js';
 import { getConfig } from '../config/config.js';
 import { giveReferralBonus } from '../services/customer.service.js';
+import fs from 'fs';
+import path from 'path';
 
 // ==================================================
 // ⭐️ MAIN ROUTER
@@ -26,13 +28,17 @@ export async function handleAdminCommand(ctx) {
 
         if (!role) return sendAdminReply(chatId, "⛔️ คุณไม่มีสิทธิ์ใช้งานคำสั่งนี้");
         
-        if (["/add", "/addadmin"].includes(command) && role !== "SuperAdmin") {
+        if (["/add", "/addadmin", "/fixreferrals"].includes(command) && role !== "SuperAdmin") {
             return sendAdminReply(chatId, `⛔️ คุณไม่มีสิทธิ์ใช้งานคำสั่ง ${command}`);
         }
 
         switch (command) {
             case "/undo":
                 await handleUndoLastAction(ctx, adminUser, chatId);
+                break;
+
+            case "/fixreferrals":
+                await handleFixReferrals(ctx, adminUser, chatId);
                 break;
 
             case "/addadmin":
@@ -381,4 +387,71 @@ async function createAdminLog(admin, action, customerId, pointsChange, details) 
             }
         });
     } catch (e) { console.error("Failed to create Admin Log:", e); }
+}
+
+async function handleFixReferrals(ctx, adminUser, chatId) {
+    await sendAdminReply(chatId, "⏳ กำลังเริ่มกระบวนการซ่อมแซมข้อมูล... (อาจใช้เวลาสักครู่)");
+
+    try {
+        // 1. Parse Admin Logs to find lost links
+        const logPath = path.join(process.cwd(), 'admin_logs.csv');
+        let restoredLinks = 0;
+        const referralMap = new Map();
+
+        if (fs.existsSync(logPath)) {
+            const fileContent = fs.readFileSync(logPath, 'utf-8');
+            const lines = fileContent.split('\n');
+
+            for (const line of lines) {
+                // "Timestamp",Admin,Action,CustomerID,PointsChange,Details
+                // Look for CREATE_CUSTOMER and "Referred by:"
+                if (line.includes('CREATE_CUSTOMER') && line.includes('Referred by:')) {
+                    // Extract CustomerID (OTxxxx)
+                    // The line format is loosely CSV.
+                    // Example: "...",Telegran,CREATE_CUSTOMER,OT1117,0,Referred by: OT411
+
+                    const parts = line.split(',');
+                    // Note: Date/Time often contains comma inside quotes, so split might be unreliable if just by ','.
+                    // However, 'CREATE_CUSTOMER' is unique keyword.
+
+                    // Simple regex extraction is safer
+                    const createMatch = line.match(/CREATE_CUSTOMER,([A-Z0-9]+)/); // Matches OTxxxx
+                    const refMatch = line.match(/Referred by: ([A-Z0-9]+)/);
+
+                    if (createMatch && refMatch) {
+                        const childId = createMatch[1].trim().toUpperCase();
+                        const referrerId = refMatch[1].trim().toUpperCase();
+
+                        if (childId && referrerId && referrerId !== 'N/A') {
+                            referralMap.set(childId, referrerId);
+                        }
+                    }
+                }
+            }
+
+            // 2. Update DB with missing links
+            for (const [childId, referrerId] of referralMap) {
+                const child = await prisma.customer.findUnique({ where: { customerId: childId } });
+
+                // Only update if child exists AND referrerId is missing/null
+                if (child && !child.referrerId) {
+                    // Check if referrer exists
+                    const referrer = await prisma.customer.findUnique({ where: { customerId: referrerId } });
+                    if (referrer) {
+                        await prisma.customer.update({
+                            where: { customerId: childId },
+                            data: { referrerId: referrerId }
+                        });
+                        restoredLinks++;
+                    }
+                }
+            }
+        }
+
+        await sendAdminReply(chatId, `✅ ซ่อมแซมข้อมูลเสร็จสิ้น\n🔗 กู้คืนความสัมพันธ์: ${restoredLinks} รายการ`);
+
+    } catch (error) {
+        console.error("Fix Referrals Error:", error);
+        sendAdminReply(chatId, `❌ เกิดข้อผิดพลาด: ${error.message}`);
+    }
 }
