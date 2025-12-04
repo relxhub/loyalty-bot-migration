@@ -281,7 +281,7 @@
         <!-- [END] Mission Box -->
 
         <!-- [START] Friends You Referred Box (Always Visible) -->
-        <div onclick="openReferralModal()" class="glass-card p-5 active:scale-95 transition cursor-pointer hover:bg-white/5">
+        <div class="glass-card p-5">
             <div class="mb-4 font-semibold text-sm flex items-center gap-2 text-blue-100">
                 <i class="ri-team-fill text-blue-500"></i> เพื่อนที่คุณแนะนำ
             </div>
@@ -803,13 +803,22 @@
                          document.getElementById('mission-remaining').innerText = '-';
                          document.getElementById('mission-progress-bar').style.width = '0%';
                     } else {
-                         document.getElementById('mission-desc').innerText = `ชวนเพื่อนครบ ${target} คน รับโบนัส`;
-                         document.getElementById('mission-status').innerText = `${current}/${target}`;
+                         // Logic ใหม่: Recurring Target (Step แบบขั้นบันได)
+                         // ถ้า current = 4, target = 5 -> แสดง 4/5 (เหลือ 1)
+                         // ถ้า current = 5, target = 5 -> แสดง 5/10 (เหลือ 5) เพราะครบแล้ว ต้องเริ่ม Step ต่อไป
+                         // สูตร: effectiveTarget = (floor(current / baseTarget) + 1) * baseTarget
 
-                         const remaining = Math.max(0, target - current);
+                         const effectiveTarget = (Math.floor(current / target) + 1) * target;
+
+                         document.getElementById('mission-desc').innerText = `ชวนเพื่อนครบ ${effectiveTarget} คน รับโบนัส`;
+                         document.getElementById('mission-status').innerText = `${current}/${effectiveTarget}`;
+
+                         const remaining = effectiveTarget - current;
                          document.getElementById('mission-remaining').innerText = remaining;
 
-                         const percent = Math.min(100, (current / target) * 100);
+                         // Progress Bar: เทียบกับ effectiveTarget
+                         // เช่น 5/10 -> 50%
+                         const percent = Math.min(100, (current / effectiveTarget) * 100);
                          setTimeout(() => {
                              document.getElementById('mission-progress-bar').style.width = `${percent}%`;
                          }, 100);
