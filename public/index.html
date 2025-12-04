@@ -236,7 +236,7 @@
         </div>
 
         <!-- [START] Mission/Campaign Box (Conditional) -->
-        <div id="mission-box" onclick="openCampaignModal()" class="glass-card p-5 hidden relative overflow-hidden border border-yellow-500/50 shadow-[0_0_15px_rgba(234,179,8,0.15)] group transition active:scale-95 cursor-pointer">
+        <div id="mission-box" onclick="openReferralModal()" class="glass-card p-5 hidden relative overflow-hidden border border-yellow-500/50 shadow-[0_0_15px_rgba(234,179,8,0.15)] group transition active:scale-95 cursor-pointer">
             <!-- Sparkle Effect -->
             <div class="absolute -top-10 -right-10 w-20 h-20 bg-yellow-500/20 rounded-full blur-2xl animate-pulse"></div>
 
@@ -247,19 +247,9 @@
                     </div>
                     <div class="text-[10px] text-yellow-200/70 mt-0.5" id="mission-dates">...</div>
                 </div>
-
-                <div class="flex items-center gap-2">
-                    <!-- Silver Badge: Base Referral -->
-                    <span id="mission-base-badge" class="text-[10px] bg-slate-600/30 text-slate-200 border border-slate-400/30 px-2 py-1 rounded-lg backdrop-blur-sm shadow-sm">
-                        ชวนเพื่อน +50
-                    </span>
-
-                    <!-- Gold Badge: Bonus (Sparkling) -->
-                    <span id="mission-bonus-badge" class="relative text-[10px] bg-gradient-to-br from-yellow-500/30 to-yellow-600/10 text-yellow-200 border border-yellow-400/50 px-2 py-1 rounded-lg shadow-[0_0_15px_rgba(234,179,8,0.4)] overflow-hidden">
-                        <span class="relative z-10">โบนัส +50</span>
-                        <div class="absolute inset-0 bg-white/40 w-full h-full -skew-x-12 translate-x-[-150%] animate-[shimmer_3s_infinite]"></div>
-                    </span>
-                </div>
+                <span id="mission-bonus-badge" class="text-[10px] bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 px-2 py-1 rounded-lg shadow-[0_0_10px_rgba(234,179,8,0.2)]">
+                    โบนัส +50
+                </span>
             </div>
             
             <div class="relative z-10">
@@ -394,67 +384,6 @@
 
             <div id="history-list" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
                 <div class="text-center text-gray-500 mt-10">กำลังโหลด...</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Campaign Detail Modal -->
-    <div id="campaign-modal" class="hidden fixed inset-0 z-[65] flex items-center justify-center bg-black/90 backdrop-blur-md opacity-0 transition-opacity duration-300 p-6">
-        <div class="glass-card w-full max-w-md p-0 overflow-hidden transform scale-95 transition-transform duration-300 relative border border-yellow-500/30 shadow-[0_0_50px_rgba(234,179,8,0.2)]" id="campaign-content">
-
-            <!-- Close Button -->
-            <button onclick="closeCampaignModal()" class="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-black/50 text-white/70 flex items-center justify-center hover:bg-white/10 transition">
-                <i class="ri-close-line"></i>
-            </button>
-
-            <!-- Header Image/Gradient -->
-            <div class="h-32 bg-gradient-to-br from-yellow-700 via-yellow-600 to-yellow-900 relative flex items-center justify-center overflow-hidden">
-                <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-30"></div>
-                <div class="w-20 h-20 rounded-full bg-yellow-400/20 backdrop-blur-md flex items-center justify-center text-4xl shadow-[0_0_20px_rgba(250,204,21,0.5)] border border-yellow-300/50 animate-bounce">
-                    ⚡️
-                </div>
-            </div>
-
-            <!-- Body -->
-            <div class="p-6 pt-12 -mt-6 bg-[#18181b] rounded-t-3xl relative z-10">
-                <div class="text-center mb-6">
-                    <h3 class="text-2xl font-bold text-yellow-400 mb-1" id="modal-camp-name">Campaign Name</h3>
-                    <p class="text-xs text-gray-400 flex justify-center items-center gap-2">
-                        <i class="ri-calendar-event-line"></i> <span id="modal-camp-dates">... - ...</span>
-                    </p>
-                </div>
-
-                <div class="space-y-4">
-                    <!-- Rule 1: Per Person -->
-                    <div class="flex items-center gap-4 bg-white/5 p-4 rounded-xl border border-white/5">
-                        <div class="w-12 h-12 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xl">
-                            <i class="ri-user-add-line"></i>
-                        </div>
-                        <div>
-                            <div class="text-sm font-bold text-gray-200">แนะนำเพื่อน 1 คน</div>
-                            <div class="text-xs text-gray-400">รับทันที <span class="text-blue-400 font-bold text-sm" id="modal-camp-base">50</span> แต้ม</div>
-                        </div>
-                    </div>
-
-                    <!-- Rule 2: Milestone -->
-                    <div class="flex items-center gap-4 bg-gradient-to-r from-yellow-900/20 to-black p-4 rounded-xl border border-yellow-500/20 relative overflow-hidden">
-                        <div class="absolute right-0 top-0 bottom-0 w-1 bg-yellow-500"></div>
-                        <div class="w-12 h-12 rounded-full bg-yellow-500/20 text-yellow-400 flex items-center justify-center text-xl shadow-[0_0_15px_rgba(234,179,8,0.3)]">
-                            <i class="ri-gift-fill"></i>
-                        </div>
-                        <div>
-                            <div class="text-sm font-bold text-yellow-200" id="modal-camp-target-title">โบนัสพิเศษ!</div>
-                            <div class="text-xs text-yellow-200/70" id="modal-camp-bonus-desc">สะสมครบ 5 คน รับเพิ่ม 500 แต้ม</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="mt-8 text-center">
-                    <button onclick="closeCampaignModal(); handleAction('invite');" class="w-full py-3 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black font-bold rounded-xl shadow-lg shadow-yellow-500/20 transition active:scale-95">
-                        ลุยภารกิจเลย!
-                    </button>
-                    <p class="text-[10px] text-gray-500 mt-3">*เงื่อนไขเป็นไปตามที่บริษัทกำหนด</p>
-                </div>
             </div>
         </div>
     </div>
@@ -771,21 +700,11 @@
                     const campaignName = user.activeCampaignTag || 'Upcoming Event';
                     const target = user.referralTarget || 5;
                     const bonus = user.milestoneBonus || 0;
-                    const basePoints = user.referralBasePoints || 50;
                     const current = user.campaignReferralCount || 0;
 
                     // Set Texts
                     document.getElementById('mission-name').innerText = campaignName;
-                    // Note: bonus badge has internal structure now, better to update textContent carefully or innerHTML if simple
-                    // But here we have <span class="relative z-10">...</span> inside.
-                    const bonusBadge = document.getElementById('mission-bonus-badge');
-                    if (isComingSoon) {
-                        bonusBadge.querySelector('span.relative').innerText = 'เร็วๆ นี้';
-                    } else {
-                        bonusBadge.querySelector('span.relative').innerText = `โบนัส +${bonus}`;
-                    }
-
-                    document.getElementById('mission-base-badge').innerText = `ชวนเพื่อน +${basePoints}`;
+                    document.getElementById('mission-bonus-badge').innerText = isComingSoon ? 'เร็วๆ นี้' : `โบนัส +${bonus}`;
 
                     // Set Dates
                     if (user.campaignStartAt && user.campaignEndAt) {
@@ -1179,59 +1098,6 @@
         document.getElementById('referral-modal').addEventListener('click', function(e) {
             if (e.target === this) closeReferralModal();
         });
-        document.getElementById('campaign-modal').addEventListener('click', function(e) {
-            if (e.target === this) closeCampaignModal();
-        });
-
-        // --- Campaign Detail Modal Logic ---
-        function openCampaignModal() {
-            const user = window.currentUser;
-            if (!user) return;
-
-            const modal = document.getElementById('campaign-modal');
-            const content = document.getElementById('campaign-content');
-
-            // Populate Data
-            const campaignName = user.activeCampaignTag || 'Special Campaign';
-            const basePoints = user.referralBasePoints || 50;
-            const target = user.referralTarget || 5;
-            const bonus = user.milestoneBonus || 0;
-
-            document.getElementById('modal-camp-name').innerText = campaignName;
-            document.getElementById('modal-camp-base').innerText = basePoints;
-            document.getElementById('modal-camp-target-title').innerText = `ภารกิจสะสมครบ ${target} คน`;
-            document.getElementById('modal-camp-bonus-desc').innerText = `รับโบนัสเพิ่มทันที ${bonus} แต้ม`;
-
-            if (user.campaignStartAt && user.campaignEndAt) {
-                 const dStart = new Date(user.campaignStartAt);
-                 const dEnd = new Date(user.campaignEndAt);
-                 const fmt = { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' };
-                 document.getElementById('modal-camp-dates').innerText = `${dStart.toLocaleDateString('th-TH', fmt)} - ${dEnd.toLocaleDateString('th-TH', fmt)}`;
-            } else {
-                 document.getElementById('modal-camp-dates').innerText = 'ระยะเวลาจำกัด';
-            }
-
-            // Show
-            modal.classList.remove('hidden');
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                content.classList.remove('scale-95');
-                content.classList.add('scale-100');
-            }, 10);
-        }
-
-        function closeCampaignModal() {
-            const modal = document.getElementById('campaign-modal');
-            const content = document.getElementById('campaign-content');
-
-            content.classList.remove('scale-100');
-            content.classList.add('scale-95');
-            modal.classList.add('opacity-0');
-            setTimeout(() => {
-                modal.classList.add('hidden');
-            }, 300);
-        }
-
         // --- [END] Referral Logic ---
 
         // --- [START] ระบบ Real-time (Auto Polling) ---

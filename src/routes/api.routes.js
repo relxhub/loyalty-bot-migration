@@ -82,7 +82,6 @@ router.post('/auth', async (req, res) => {
         let referralCountMonth = 0; // ยอดเดือนนี้
         let campaignStartAt = null;
         let campaignEndAt = null;
-        let referralBasePoints = parseInt(getConfig('standardReferralPoints')) || 50; // Default
 
         try {
             // นับยอดรวมตลอดชีพจากฐานข้อมูลจริง
@@ -95,11 +94,6 @@ router.post('/auth', async (req, res) => {
 
             const campaign = await getActiveCampaign();
             
-            // อัปเดต Base Points จากแคมเปญ (ถ้ามี) หรือใช้ค่า Default ที่ getActiveCampaign ส่งมา
-            if (campaign) {
-                 referralBasePoints = campaign.baseReferral || campaign.base || referralBasePoints;
-            }
-
             if (campaign && campaign.startAt) {
                 activeCampaignTag = campaign.campaignName || 'Active';
                 referralTarget = campaign.milestoneTarget;
@@ -125,8 +119,7 @@ router.post('/auth', async (req, res) => {
             milestoneBonus: milestoneBonus, 
             activeCampaignTag: activeCampaignTag,
             campaignStartAt: campaignStartAt,
-            campaignEndAt: campaignEndAt,
-            referralBasePoints: referralBasePoints // ✅ ส่งค่า Base Points ไปให้ Frontend
+            campaignEndAt: campaignEndAt
         };
 
         return res.json({ success: true, isMember: true, customer: customerDataForFrontend });
