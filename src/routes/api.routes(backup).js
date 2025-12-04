@@ -5,8 +5,7 @@ import { getActiveCampaign } from '../services/campaign.service.js';
 import { getConfig } from '../config/config.js';
 import { addDays } from '../utils/date.utils.js';
 // ❌ เอา createCustomer ออกตามที่ขอ (ห้ามสมัครเอง)
-import { getCustomerByTelegramId, updateCustomer, countCampaignReferrals } from '../services/customer.service.js';
-import { countMonthlyReferrals } from '../services/referral.service.js';
+import { getCustomerByTelegramId, updateCustomer } from '../services/customer.service.js'; 
 
 const router = express.Router();
 
@@ -33,103 +32,39 @@ router.post('/auth', async (req, res) => {
     try {
         const { initData } = req.body;
 
-        // 1. ตรวจสอบความถูกต้องของ initData (Validate Telegram Hash)
-        if (!verifyTelegramWebAppData(initData)) {
-            return res.status(401).json({ error: "Invalid Telegram Data" });
-        }
+        // 1. Verify (Production ควรเปิดใช้)
+        const isValid = verifyTelegramWebAppData(initData);
+        if (!isValid) console.warn("⚠️ Invalid InitData Signature");
 
-        // 2. แปลงข้อมูล initData กลับเป็น Object
+        // 2. แกะข้อมูล
         const urlParams = new URLSearchParams(initData);
-        const userDataStr = urlParams.get('user');
+        const userJson = urlParams.get('user');
+        if (!userJson) return res.status(400).json({ error: "User data missing" });
 
-        if (!userDataStr) {
-            return res.status(400).json({ error: "User data missing" });
-        }
+        const userData = JSON.parse(userJson);
+        console.log(`👤 Login Request: ${userData.first_name} (${userData.id})`);
 
-        const userData = JSON.parse(userDataStr);
-        const telegramId = userData.id.toString();
-
-        // 3. ค้นหาลูกค้า (customer)
-        let customer = await getCustomerByTelegramId(telegramId);
+        // 3. ค้นหาลูกค้า
+        let customer = await getCustomerByTelegramId(userData.id.toString());
         
-        // ถ้าไม่เจอลูกค้าในระบบ (ยังไม่ Link Account)
         if (!customer) {
-            // กรณีนี้ Front-end จะได้รับ isMember: false และไปแสดงหน้า Login/Link
-            return res.json({ success: true, isMember: false });
-        }
-
-        // อัปเดตชื่อ-นามสกุล ถ้ามีการเปลี่ยนแปลง (Optional)
-        if (customer.firstName !== userData.first_name || customer.lastName !== userData.last_name || customer.username !== userData.username) {
+            // 🛑 ถ้าไม่เจอ -> ไม่สร้างใหม่ แต่ส่งสถานะ isMember: false
+            // หน้าบ้านจะรับค่านี้ไปเปิดหน้า "บังคับเชื่อมบัญชี"
+            console.log("⛔️ User not found (Registration Restricted)");
+            return res.json({ 
+                success: true, 
+                isMember: false, 
+                telegramId: userData.id.toString() 
+            });
+        } else {
+             // ✅ ถ้าเจอ -> อัปเดตชื่อและส่งข้อมูลกลับ (เข้า Dashboard ได้)
              await updateCustomer(customer.customerId, {
                 firstName: userData.first_name,
                 lastName: userData.last_name || '',
                 username: userData.username || ''
-             });
-             // อัปเดตตัวแปร local
-             customer.firstName = userData.first_name;
-             customer.lastName = userData.last_name;
-             customer.username = userData.username;
-        }
-
-        // --------------------------------------------------
-        // 4. [FIXED] ดึงข้อมูลแคมเปญใน Try-Catch แยกต่างหาก
-        // --------------------------------------------------
-        let campaignReferralCount = 0;
-        let referralTarget = 0;
-        let activeCampaignTag = 'Standard';
-        let milestoneBonus = 0; 
-        let totalReferrals = 0; // ยอดรวมทั้งหมด (Lifetime)
-        let referralCountMonth = 0; // ยอดเดือนนี้
-        let campaignStartAt = null;
-        let campaignEndAt = null;
-        let referralBasePoints = parseInt(getConfig('standardReferralPoints')) || 50; // Default
-
-        try {
-            // นับยอดรวมตลอดชีพจากฐานข้อมูลจริง
-            totalReferrals = await prisma.customer.count({
-                where: { referrerId: customer.customerId }
             });
-
-            // นับยอดเดือนนี้
-            referralCountMonth = await countMonthlyReferrals(customer.customerId);
-
-            const campaign = await getActiveCampaign();
-            
-            // อัปเดต Base Points จากแคมเปญ (ถ้ามี) หรือใช้ค่า Default ที่ getActiveCampaign ส่งมา
-            if (campaign) {
-                 referralBasePoints = campaign.baseReferral || campaign.base || referralBasePoints;
-            }
-
-            if (campaign && campaign.startAt) {
-                activeCampaignTag = campaign.campaignName || 'Active';
-                referralTarget = campaign.milestoneTarget;
-                milestoneBonus = campaign.milestoneBonus;
-                campaignStartAt = campaign.startAt;
-                campaignEndAt = campaign.endAt;
-                
-                campaignReferralCount = await countCampaignReferrals(customer.customerId, campaign.startAt);
-            }
-        } catch (campaignError) {
-            console.error("⚠️ Failed to load/calculate campaign data. Using default values:", campaignError.message);
+            return res.json({ success: true, isMember: true, customer });
         }
-        // --------------------------------------------------
-
-        // 5. รวมข้อมูลแคมเปญเข้าไปใน Object ลูกค้า
-        const customerDataForFrontend = {
-            ...customer,
-            referralCount: customer.referralCount, // นี่คือยอดของแคมเปญปัจจุบัน (ตามที่ลูกค้าแจ้ง)
-            totalReferrals: totalReferrals, // ✅ เพิ่มยอดรวมตลอดชีพ
-            referralCountMonth: referralCountMonth, // ✅ ยอดเดือนนี้
-            campaignReferralCount: campaignReferralCount, // ยอดเฉพาะแคมเปญ (จากการคำนวณ log)
-            referralTarget: referralTarget,
-            milestoneBonus: milestoneBonus, 
-            activeCampaignTag: activeCampaignTag,
-            campaignStartAt: campaignStartAt,
-            campaignEndAt: campaignEndAt,
-            referralBasePoints: referralBasePoints // ✅ ส่งค่า Base Points ไปให้ Frontend
-        };
-
-        return res.json({ success: true, isMember: true, customer: customerDataForFrontend });
 
     } catch (error) {
         console.error("Auth Error:", error);
@@ -154,12 +89,6 @@ router.get('/user/:telegramId', async (req, res) => {
 
         const campaign = await getActiveCampaign();
         const target = campaign?.milestoneTarget || 0;
-
-        // นับยอดรวมตลอดชีพจากฐานข้อมูลจริง
-        const totalReferrals = await prisma.customer.count({
-            where: { referrerId: customer.customerId }
-        });
-
         let progress = null;
 
         if (target > 0) {
@@ -178,8 +107,7 @@ router.get('/user/:telegramId', async (req, res) => {
             customerId: customer.customerId,
             points: customer.points,
             expiryDate: customer.expiryDate,
-            referralCount: customer.referralCount, // Active Campaign Count
-            totalReferrals: totalReferrals,       // Lifetime Total
+            referralCount: customer.referralCount,
             campaignProgress: progress
         });
 
@@ -371,11 +299,6 @@ router.get('/referrals/:telegramId', async (req, res) => {
             const bonusDate = bonusLog ? bonusLog.createdAt : ref.createdAt;
             const campaignTag = ref.activeCampaignTag || 'Standard';
 
-            // 3.3 นับ Tier 2 (จำนวนคนที่คนนี้ชวนต่อ)
-            const tier2Count = await prisma.customer.count({
-                 where: { referrerId: ref.customerId }
-            });
-
             return {
                 name: `${ref.firstName || 'Guest'} ${ref.lastName || ''}`.trim() || ref.customerId,
                 id: ref.customerId,
@@ -389,7 +312,7 @@ router.get('/referrals/:telegramId', async (req, res) => {
                     day: 'numeric', month: 'short', year: 'numeric',
                     hour: '2-digit', minute: '2-digit'
                 }),
-                tier2Count: tier2Count,
+                tier2Count: ref.referralCount,
                 earned: earnedPoints,
                 campaign: campaignTag
             };
