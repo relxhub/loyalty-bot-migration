@@ -11,19 +11,25 @@ export async function countCampaignReferrals(customerId, startDate) {
     if (!startDate) return 0;
 
     try {
-        const count = await prisma.customerLog.count({
+        // Update: Count from Customer table directly for robustness.
+        // We count users who list this 'customerId' as their referrer
+        // AND were referred during the active campaign period (using 'activeCampaignTag' on the referee).
+
+        const campaign = await getActiveCampaign();
+        const currentTagName = campaign?.campaignName || 'Active';
+
+        const count = await prisma.customer.count({
             where: {
-                customerId: customerId,
-                action: 'REFERRAL_BONUS',
-                createdAt: {
-                    gte: startDate 
-                }
+                referrerId: customerId,
+                activeCampaignTag: currentTagName
             }
         });
+
         return count;
+
     } catch (e) {
         console.error("Error counting campaign referrals:", e.message);
-        return 0; // คืน 0 ถ้ามีปัญหาในการ Query
+        return 0;
     }
 }
 
@@ -98,23 +104,48 @@ export async function giveReferralBonus(referrerId, newCustomerId, adminUser) {
     const limitDate = addDays(today, limitDays); 
     const finalExpiryDate = proposedExpiry > limitDate ? limitDate : proposedExpiry;
 
+    // 1. Update Referrer (Points & Total Referral Count)
     await prisma.customer.update({
         where: { customerId: referrerId },
         data: {
             points: { increment: bonusPoints },
             expiryDate: finalExpiryDate,
-            referralCount: { increment: 1 },
+            referralCount: { increment: 1 }
+            // Note: We do NOT update activeCampaignTag on the referrer here,
+            // as that field should represent the campaign the user was acquired from, not the one they are promoting.
+        }
+    });
+
+    // 2. Update Referee (New Customer) with Campaign Tag & Ensure Link
+    // This allows us to track which campaign acquired this specific user.
+    // Also ensures referrerId is linked, solving the "Ghost Referral" issue.
+    await prisma.customer.update({
+        where: { customerId: newCustomerId },
+        data: {
+            referrerId: referrerId, // ✅ Force link to Referrer
             activeCampaignTag: campaign?.campaignName || campaign?.name || 'Standard'
         }
     });
 
+    // 3. Log System (Auto) in AdminLog (Restored as requested)
+    await prisma.adminLog.create({
+        data: {
+            admin: 'System (Auto)',
+            action: 'REFERRAL_BONUS',
+            customerId: referrer.customerId,
+            pointsChange: bonusPoints,
+            details: `From ${newCustomerId}.`
+        }
+    });
+
+    // 4. Customer Log (For Campaign Counting)
     if (referrer.telegramUserId) {
         await prisma.customerLog.create({
             data: {
                 telegramUserId: referrer.telegramUserId,
                 customerId: referrer.customerId,
                 action: 'REFERRAL_BONUS',
-                pointsChange: bonusPoints // ใช้ตัวแปร bonusPoints ที่คำนวณไว้ด้านบน
+                pointsChange: bonusPoints
             }
         });
     }

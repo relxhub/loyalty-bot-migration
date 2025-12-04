@@ -30,11 +30,46 @@ function verifyTelegramWebAppData(telegramInitData) {
 // ==================================================
 router.post('/auth', async (req, res) => {
     try {
-        // ... (โค้ดส่วนตรวจสอบ initData, user, และ getCustomerByTelegramId(userData.id.toString()) เหมือนเดิม) ...
+        const { initData } = req.body;
 
-        // 3. ค้นหาลูกค้า (customer) และอัปเดตชื่อ
-        // ... (สมมติว่าคุณได้ตัวแปร customer มาแล้ว) ...
+        // 1. ตรวจสอบความถูกต้องของ initData (Validate Telegram Hash)
+        if (!verifyTelegramWebAppData(initData)) {
+            return res.status(401).json({ error: "Invalid Telegram Data" });
+        }
+
+        // 2. แปลงข้อมูล initData กลับเป็น Object
+        const urlParams = new URLSearchParams(initData);
+        const userDataStr = urlParams.get('user');
         
+        if (!userDataStr) {
+            return res.status(400).json({ error: "User data missing" });
+        }
+
+        const userData = JSON.parse(userDataStr);
+        const telegramId = userData.id.toString();
+
+        // 3. ค้นหาลูกค้า (customer)
+        let customer = await getCustomerByTelegramId(telegramId);
+
+        // ถ้าไม่เจอลูกค้าในระบบ (ยังไม่ Link Account)
+        if (!customer) {
+            // กรณีนี้ Front-end จะได้รับ isMember: false และไปแสดงหน้า Login/Link
+            return res.json({ success: true, isMember: false });
+        }
+
+        // อัปเดตชื่อ-นามสกุล ถ้ามีการเปลี่ยนแปลง (Optional)
+        if (customer.firstName !== userData.first_name || customer.lastName !== userData.last_name || customer.username !== userData.username) {
+             await updateCustomer(customer.customerId, {
+                firstName: userData.first_name,
+                lastName: userData.last_name || '',
+                username: userData.username || ''
+             });
+             // อัปเดตตัวแปร local
+             customer.firstName = userData.first_name;
+             customer.lastName = userData.last_name;
+             customer.username = userData.username;
+        }
+
         // --------------------------------------------------
         // 4. [FIXED] ดึงข้อมูลแคมเปญใน Try-Catch แยกต่างหาก
         // --------------------------------------------------
@@ -42,8 +77,14 @@ router.post('/auth', async (req, res) => {
         let referralTarget = 0;
         let activeCampaignTag = 'Standard';
         let milestoneBonus = 0; 
+        let totalReferrals = 0; // ยอดรวมทั้งหมด (Lifetime)
 
         try {
+            // นับยอดรวมตลอดชีพจากฐานข้อมูลจริง
+            totalReferrals = await prisma.customer.count({
+                where: { referrerId: customer.customerId }
+            });
+
             const campaign = await getActiveCampaign();
             
             if (campaign && campaign.startAt) {
@@ -61,8 +102,9 @@ router.post('/auth', async (req, res) => {
         // 5. รวมข้อมูลแคมเปญเข้าไปใน Object ลูกค้า
         const customerDataForFrontend = {
             ...customer,
-            referralCount: customer.referralCount, // ยอดรวมทั้งหมด
-            campaignReferralCount: campaignReferralCount, // ยอดเฉพาะแคมเปญ
+            referralCount: customer.referralCount, // นี่คือยอดของแคมเปญปัจจุบัน (ตามที่ลูกค้าแจ้ง)
+            totalReferrals: totalReferrals, // ✅ เพิ่มยอดรวมตลอดชีพ
+            campaignReferralCount: campaignReferralCount, // ยอดเฉพาะแคมเปญ (จากการคำนวณ log)
             referralTarget: referralTarget,
             milestoneBonus: milestoneBonus, 
             activeCampaignTag: activeCampaignTag
@@ -93,6 +135,12 @@ router.get('/user/:telegramId', async (req, res) => {
 
         const campaign = await getActiveCampaign();
         const target = campaign?.milestoneTarget || 0;
+
+        // นับยอดรวมตลอดชีพจากฐานข้อมูลจริง
+        const totalReferrals = await prisma.customer.count({
+            where: { referrerId: customer.customerId }
+        });
+
         let progress = null;
 
         if (target > 0) {
@@ -111,7 +159,8 @@ router.get('/user/:telegramId', async (req, res) => {
             customerId: customer.customerId,
             points: customer.points,
             expiryDate: customer.expiryDate,
-            referralCount: customer.referralCount,
+            referralCount: customer.referralCount, // Active Campaign Count
+            totalReferrals: totalReferrals,       // Lifetime Total
             campaignProgress: progress
         });
 
@@ -316,7 +365,6 @@ router.get('/referrals/:telegramId', async (req, res) => {
                     day: 'numeric', month: 'short', year: 'numeric',
                     hour: '2-digit', minute: '2-digit'
                 }),
-                tier2Count: ref.referralCount,
                 earned: earnedPoints,
                 campaign: campaignTag
             };

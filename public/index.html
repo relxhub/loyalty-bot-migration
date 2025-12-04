@@ -393,6 +393,9 @@
 
         // --- [START] Helper Functions ---
 
+        // Global User Cache
+        window.currentUser = null;
+
         // ฟังก์ชันแสดง Toast
         function showToast(message, type = 'info') {
             const container = document.getElementById('toast-container');
@@ -549,6 +552,7 @@
             document.getElementById('loading-screen').classList.add('hidden');
 
             if (isMember) {
+                window.currentUser = user; // Cache User Data
                 renderUser(user);
                 
                 // เรียกฟังก์ชันแจ้งเตือน (Toast) ที่เราทำไว้
@@ -626,7 +630,10 @@
             const isCampaignActive = user.activeCampaignTag && user.activeCampaignTag !== 'Standard';
             const milestoneBonus = user.milestoneBonus || 50;
             
-            const ytdCount = user.referralCount || 0; 
+            // Use totalReferrals (Lifetime) for Standard Mode, fallback to referralCount if missing
+            const ytdCount = (user.totalReferrals !== undefined) ? user.totalReferrals : (user.referralCount || 0);
+
+            // For Campaign Mode, use the campaign specific count
             const campaignCount = user.campaignReferralCount || 0; 
 
             let displayCount;
@@ -656,14 +663,15 @@
             } else {
                 // --- 📊 โหมด Standard (ยอดรวม) ---
                 displayCount = ytdCount; 
-                percent = 100; // บังคับให้ Progress Bar เต็ม 100%
+                percent = 100; // บังคับให้ Progress Bar เต็ม 100% (ตามที่ลูกค้าต้องการ)
                 
-                // อัปเดต Header/Text
-                headerSpan.innerHTML = `<i class="ri-trophy-line text-yellow-500"></i> สถิติการแนะนำเพื่อน`;
-                bonusSpan.innerText = `ยอดรวม`; 
+                // อัปเดต Header/Text ให้ดูเป็น "ข้อมูลทั่วไป"
+                headerSpan.innerHTML = `<i class="ri-information-line text-blue-400"></i> ข้อมูลการแนะนำเพื่อน`;
+                bonusSpan.innerText = `Standard`;
+                bonusSpan.className = "text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full"; // ปรับสีให้ดู Neutral
                 
-                // อัปเดตข้อความ "ยอดสะสม X คน"
-                remainingP.innerHTML = `ยอดสะสม <span id="remaining-count" class="text-white font-bold">${ytdCount}</span> คน`;
+                // อัปเดตข้อความเน้นยอดรวม
+                remainingP.innerHTML = `เพื่อนที่ชวนแล้ว <span id="remaining-count" class="text-white font-bold text-lg">${ytdCount}</span> คน`;
             }
             
             // อัปเดต Progress Bar
@@ -911,9 +919,14 @@
             // Initial loading state
             list.innerHTML = '<div class="text-center text-gray-500 mt-10 animate-pulse">กำลังวิเคราะห์ข้อมูลการแนะนำ...</div>';
 
-
             try {
-                const telegramId = tg.initDataUnsafe?.user?.id;
+                // Use cached user ID if available (fixes browser testing issues)
+                const telegramId = window.currentUser?.telegramUserId || tg.initDataUnsafe?.user?.id;
+
+                if (!telegramId) {
+                    throw new Error("User ID not found");
+                }
+
                 const res = await fetch(`/api/referrals/${telegramId}`);
                 const result = await res.json();
 
@@ -925,48 +938,63 @@
                     let html = '';
                     result.data.forEach((item, index) => {
                         
-                        // Logic การแสดงผล "ผู้ถูกแนะนำต่อ" (Tier 2 Data)
-                        let tier2Badge = '';
-                        if (item.tier2Count > 0) {
-                            tier2Badge = `
-                                <div class="flex items-center gap-1 text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full border border-green-500/30">
-                                    <i class="ri-user-add-line"></i> ผู้ถูกแนะนำต่อ +${item.tier2Count}
-                                </div>
-                            `;
-                        } else {
-                            tier2Badge = `<div class="text-[10px] text-gray-600">ยังไม่มีการแนะนำต่อ</div>`;
-                        }
-                        
-                        // คำนวณสีตามแคมเปญ (Optional)
-                        const campaignColor = item.campaign.includes('Standard') ? 'text-gray-400' : 'text-purple-400';
-                        
+                        // แปลงวันที่ String ให้เป็น Array เพื่อแยกแสดงผล (สมมติ: "25 ต.ค. 2023 14:30")
+                        const dateParts = item.joinedAt.split(' ');
+                        const dateStr = dateParts.slice(0, 3).join(' '); // 25 ต.ค. 2023
+                        const timeStr = dateParts.length > 3 ? dateParts[3] : ''; // 14:30
+
+                        // Campaign Style
+                        const isStandard = item.campaign.includes('Standard');
+                        const campaignBadge = isStandard
+                            ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-700/50 text-gray-400 text-[9px] border border-gray-600/30"><i class="ri-flag-line"></i> ${item.campaign}</span>`
+                            : `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 text-[9px] border border-purple-500/30"><i class="ri-flashlight-fill"></i> ${item.campaign}</span>`;
+
                         html += `
-                        <div class="bg-white/5 hover:bg-white/10 transition p-4 rounded-xl border border-white/5 flex items-center justify-between group">
-                            <div class="flex items-center gap-4">
-                                <div class="relative">
-                                    <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg">
-                                        ${index + 1}
+                        <div class="bg-white/5 hover:bg-white/10 transition p-4 rounded-xl border border-white/10 relative overflow-hidden group">
+                            <!-- Background Decoration -->
+                            <div class="absolute -top-2 -right-2 opacity-5 text-6xl pointer-events-none transition group-hover:scale-110 duration-500">
+                                <i class="ri-user-star-line"></i>
+                            </div>
+
+                            <div class="flex justify-between items-start relative z-10">
+                                <!-- Left: User Info -->
+                                <div class="flex items-start gap-3">
+                                    <div class="relative">
+                                        <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-white font-bold shadow-inner border border-white/5 text-sm">
+                                            ${index + 1}
+                                        </div>
                                     </div>
-                                    ${item.tier2Count > 0 ? '<div class="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-[#18181b]"></div>' : ''}
+
+                                    <div>
+                                        <div class="font-bold text-sm text-blue-100 leading-tight">
+                                            ${item.name}
+                                        </div>
+                                        <div class="text-[10px] text-blue-400/70 font-mono mt-0.5 mb-1">
+                                            ID: ${item.id}
+                                        </div>
+                                        ${campaignBadge}
+                                    </div>
                                 </div>
-                                <div>
-                                    <div class="font-bold text-sm text-gray-200">${item.name} (${item.id})</div>
-                                    <div class="text-xs text-gray-500 flex items-center gap-1">
-                                        <i class="ri-calendar-line"></i> สมัคร: ${item.joinedAt}
+
+                                <!-- Right: Stats & Date -->
+                                <div class="text-right">
+                                    <div class="flex flex-col items-end">
+                                        <span class="text-lg font-bold text-yellow-500 flex items-center gap-1 leading-none">
+                                            +${item.earned} <span class="text-[10px] text-yellow-500/50 font-normal">PTS</span>
+                                        </span>
                                     </div>
-                                    <div class="text-xs ${campaignColor}">
-                                        <i class="ri-trophy-line"></i> แคมเปญ: ${item.campaign}
+
+                                    <div class="mt-2 text-[10px] text-gray-500 border-r-2 border-gray-700 pr-2">
+                                        <div class="flex items-center justify-end gap-1">
+                                            <span class="text-gray-400">${dateStr}</span> <i class="ri-calendar-line"></i>
+                                        </div>
+                                        <div class="flex items-center justify-end gap-1 mt-0.5">
+                                            <span class="text-gray-500 font-mono">${timeStr}</span> <i class="ri-time-line"></i>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                             
-                            <div class="flex flex-col items-end gap-1">
-                                <span class="text-yellow-500 font-bold text-sm">+${item.earned} Pts</span>
-                                <div class="text-xs text-gray-500">
-                                    โบนัสเข้า: ${item.earnedAt}
-                                </div>
-                                ${tier2Badge}
-                            </div>
                         </div>`;
                     });
                     list.innerHTML = html;
