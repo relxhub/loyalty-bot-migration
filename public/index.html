@@ -281,7 +281,7 @@
         <!-- [END] Mission Box -->
 
         <!-- [START] Friends You Referred Box (Always Visible) -->
-        <div onclick="openReferralModal()" class="glass-card p-5 active:scale-95 transition cursor-pointer hover:bg-white/5">
+        <div class="glass-card p-5">
             <div class="mb-4 font-semibold text-sm flex items-center gap-2 text-blue-100">
                 <i class="ri-team-fill text-blue-500"></i> เพื่อนที่คุณแนะนำ
             </div>
@@ -307,8 +307,8 @@
                 <div class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 mb-3 group-hover:scale-110 transition">
                     <i class="ri-gift-2-line text-xl"></i>
                 </div>
-                <div class="font-semibold">แลกของรางวัล</div>
-                <div class="text-xs text-gray-400">ใช้แต้มแลกเลย</div>
+                <div class="font-semibold">ของรางวัล</div>
+                <div class="text-xs text-gray-400">สะสมแต้มแลกรางวัล</div>
             </button>
 
             <button onclick="handleAction('invite')" class="glass-card p-4 hover:bg-white/10 transition active:scale-95 text-left group">
@@ -359,6 +359,28 @@
             <div class="flex space-x-3 mt-8">
                 <button onclick="closeLinkModal()" class="flex-1 py-3 rounded-xl bg-gray-700 hover:bg-gray-600 transition text-sm">ไว้ทีหลัง</button>
                 <button onclick="submitLinkAccount()" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 font-bold transition shadow-lg shadow-blue-500/30">ยืนยัน</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rewards Modal -->
+    <div id="rewards-modal" class="hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/90 backdrop-blur-md opacity-0 transition-opacity duration-300">
+        <div class="glass-card w-full max-w-md h-[85vh] sm:h-[650px] rounded-t-3xl sm:rounded-2xl flex flex-col transform translate-y-full transition-transform duration-300" id="rewards-content">
+
+            <div class="p-6 border-b border-gray-700 bg-gradient-to-r from-purple-900/50 to-pink-900/50 rounded-t-3xl sm:rounded-t-2xl">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-xl font-bold flex items-center gap-2 text-white">
+                        <i class="ri-gift-line text-purple-400"></i> ของรางวัล
+                    </h3>
+                    <button onclick="closeRewardsModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition text-white">
+                        <i class="ri-close-line"></i>
+                    </button>
+                </div>
+                <p class="text-xs text-gray-400">รายการของรางวัลที่สามารถแลกได้ด้วยแต้มของคุณ</p>
+            </div>
+
+            <div id="rewards-list" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                <div class="text-center text-gray-500 mt-10 animate-pulse">กำลังโหลดรายการของรางวัล...</div>
             </div>
         </div>
     </div>
@@ -803,13 +825,22 @@
                          document.getElementById('mission-remaining').innerText = '-';
                          document.getElementById('mission-progress-bar').style.width = '0%';
                     } else {
-                         document.getElementById('mission-desc').innerText = `ชวนเพื่อนครบ ${target} คน รับโบนัส`;
-                         document.getElementById('mission-status').innerText = `${current}/${target}`;
+                         // Logic ใหม่: Recurring Target (Step แบบขั้นบันได)
+                         // ถ้า current = 4, target = 5 -> แสดง 4/5 (เหลือ 1)
+                         // ถ้า current = 5, target = 5 -> แสดง 5/10 (เหลือ 5) เพราะครบแล้ว ต้องเริ่ม Step ต่อไป
+                         // สูตร: effectiveTarget = (floor(current / baseTarget) + 1) * baseTarget
 
-                         const remaining = Math.max(0, target - current);
+                         const effectiveTarget = (Math.floor(current / target) + 1) * target;
+
+                         document.getElementById('mission-desc').innerText = `ชวนเพื่อนครบ ${effectiveTarget} คน รับโบนัส`;
+                         document.getElementById('mission-status').innerText = `${current}/${effectiveTarget}`;
+
+                         const remaining = effectiveTarget - current;
                          document.getElementById('mission-remaining').innerText = remaining;
 
-                         const percent = Math.min(100, (current / target) * 100);
+                         // Progress Bar: เทียบกับ effectiveTarget
+                         // เช่น 5/10 -> 50%
+                         const percent = Math.min(100, (current / effectiveTarget) * 100);
                          setTimeout(() => {
                              document.getElementById('mission-progress-bar').style.width = `${percent}%`;
                          }, 100);
@@ -914,8 +945,7 @@
             tg.hapticFeedback.impactOccurred('light');
             switch(type) {
                 case 'rewards': 
-                    // ✅ แจ้งเตือนว่า Coming Soon
-                    showToast('🎁 ระบบแลกของรางวัล จะเปิดให้บริการเร็วๆ นี้', 'info');
+                    openRewardsModal();
                     break;
                     
                 case 'invite': 
@@ -1039,6 +1069,63 @@
             modal.classList.add('opacity-0');
             setTimeout(() => modal.classList.add('hidden'), 300);
         }
+
+        // --- [START] Rewards Logic ---
+        async function openRewardsModal() {
+            const modal = document.getElementById('rewards-modal');
+            const content = document.getElementById('rewards-content');
+            const list = document.getElementById('rewards-list');
+
+            document.body.classList.add('no-scroll');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('translate-y-full');
+            }, 10);
+
+            try {
+                const res = await fetch('/api/rewards');
+                const rewards = await res.json();
+
+                if (rewards && rewards.length > 0) {
+                    let html = '<div class="grid grid-cols-2 gap-3">';
+                    rewards.forEach(item => {
+                        html += `
+                        <div class="bg-white/5 p-4 rounded-xl border border-white/10 flex flex-col items-center text-center group hover:bg-white/10 transition">
+                            <div class="w-16 h-16 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center text-3xl mb-3 shadow-[0_0_15px_rgba(168,85,247,0.3)] group-hover:scale-110 transition">
+                                <i class="ri-gift-2-fill"></i>
+                            </div>
+                            <div class="font-bold text-sm text-white mb-1 line-clamp-2 min-h-[2.5em]">${item.name}</div>
+                            <div class="text-yellow-400 font-bold text-sm bg-yellow-500/10 px-3 py-1 rounded-full border border-yellow-500/20">
+                                ${item.points.toLocaleString()} pts
+                            </div>
+                        </div>`;
+                    });
+                    html += '</div>';
+                    list.innerHTML = html;
+                } else {
+                    list.innerHTML = `
+                        <div class="flex flex-col items-center justify-center h-full text-gray-500 opacity-60">
+                            <i class="ri-gift-line text-6xl mb-4"></i>
+                            <p>ยังไม่มีของรางวัลในขณะนี้</p>
+                        </div>`;
+                }
+            } catch (e) {
+                console.error(e);
+                list.innerHTML = '<div class="text-center text-red-400 mt-10">โหลดข้อมูลไม่สำเร็จ</div>';
+            }
+        }
+
+        function closeRewardsModal() {
+            const modal = document.getElementById('rewards-modal');
+            const content = document.getElementById('rewards-content');
+
+            document.body.classList.remove('no-scroll');
+            content.classList.add('translate-y-full');
+            modal.classList.add('opacity-0');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+        // --- [END] Rewards Logic ---
 
         // --- [START] Referral Logic ---
 
@@ -1181,6 +1268,9 @@
         });
         document.getElementById('campaign-modal').addEventListener('click', function(e) {
             if (e.target === this) closeCampaignModal();
+        });
+        document.getElementById('rewards-modal').addEventListener('click', function(e) {
+            if (e.target === this) closeRewardsModal();
         });
 
         // --- Campaign Detail Modal Logic ---
