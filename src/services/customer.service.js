@@ -128,13 +128,25 @@ export async function giveReferralBonus(referrerId, newCustomerId, adminUser) {
         }
     });
 
+    // 3. Log System (Auto) in AdminLog (Restored as requested)
+    await prisma.adminLog.create({
+        data: {
+            admin: 'System (Auto)',
+            action: 'REFERRAL_BONUS',
+            customerId: referrer.customerId,
+            pointsChange: bonusPoints,
+            details: `From ${newCustomerId}.`
+        }
+    });
+
+    // 4. Customer Log (For Campaign Counting)
     if (referrer.telegramUserId) {
         await prisma.customerLog.create({
             data: {
                 telegramUserId: referrer.telegramUserId,
                 customerId: referrer.customerId,
                 action: 'REFERRAL_BONUS',
-                pointsChange: bonusPoints // ใช้ตัวแปร bonusPoints ที่คำนวณไว้ด้านบน
+                pointsChange: bonusPoints
             }
         });
     }
