@@ -11,21 +11,24 @@ export async function countCampaignReferrals(customerId, startDate) {
     if (!startDate) return 0;
 
     try {
-        // Update: Count from Customer table directly for robustness.
-        // We count users who list this 'customerId' as their referrer
-        // AND were referred during the active campaign period (using 'activeCampaignTag' on the referee).
-
-        const campaign = await getActiveCampaign();
-        const currentTagName = campaign?.campaignName || 'Active';
-
-        const count = await prisma.customer.count({
+        // Count referrals based on the 'REFERRAL_BONUS' log.
+        // This is the primary method used to determine how many bonuses have been awarded
+        // within the campaign period (startDate onwards).
+        const logCount = await prisma.customerLog.count({
             where: {
-                referrerId: customerId,
-                activeCampaignTag: currentTagName
+                customerId: customerId,
+                action: 'REFERRAL_BONUS',
+                createdAt: { gte: startDate }
             }
         });
 
-        return count;
+        // Note: Ideally, we should count directly from the Customer table using 'activeCampaignTag'
+        // on the Referee to separate campaign stats cleanly.
+        // However, we rely on logs for now to maintain backward compatibility with the current
+        // function signature that accepts 'startDate'. Future improvements may involve
+        // querying by 'activeCampaignTag' directly.
+
+        return logCount;
 
     } catch (e) {
         console.error("Error counting campaign referrals:", e.message);
@@ -116,13 +119,11 @@ export async function giveReferralBonus(referrerId, newCustomerId, adminUser) {
         }
     });
 
-    // 2. Update Referee (New Customer) with Campaign Tag & Ensure Link
+    // 2. Update Referee (New Customer) with Campaign Tag
     // This allows us to track which campaign acquired this specific user.
-    // Also ensures referrerId is linked, solving the "Ghost Referral" issue.
     await prisma.customer.update({
         where: { customerId: newCustomerId },
         data: {
-            referrerId: referrerId, // ✅ Force link to Referrer
             activeCampaignTag: campaign?.campaignName || campaign?.name || 'Standard'
         }
     });

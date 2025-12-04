@@ -40,7 +40,7 @@ router.post('/auth', async (req, res) => {
         // 2. แปลงข้อมูล initData กลับเป็น Object
         const urlParams = new URLSearchParams(initData);
         const userDataStr = urlParams.get('user');
-        
+
         if (!userDataStr) {
             return res.status(400).json({ error: "User data missing" });
         }
@@ -50,7 +50,7 @@ router.post('/auth', async (req, res) => {
 
         // 3. ค้นหาลูกค้า (customer)
         let customer = await getCustomerByTelegramId(telegramId);
-
+        
         // ถ้าไม่เจอลูกค้าในระบบ (ยังไม่ Link Account)
         if (!customer) {
             // กรณีนี้ Front-end จะได้รับ isMember: false และไปแสดงหน้า Login/Link
@@ -352,6 +352,11 @@ router.get('/referrals/:telegramId', async (req, res) => {
             const bonusDate = bonusLog ? bonusLog.createdAt : ref.createdAt;
             const campaignTag = ref.activeCampaignTag || 'Standard';
 
+            // 3.3 นับ Tier 2 (จำนวนคนที่คนนี้ชวนต่อ)
+            const tier2Count = await prisma.customer.count({
+                 where: { referrerId: ref.customerId }
+            });
+
             return {
                 name: `${ref.firstName || 'Guest'} ${ref.lastName || ''}`.trim() || ref.customerId,
                 id: ref.customerId,
@@ -365,6 +370,7 @@ router.get('/referrals/:telegramId', async (req, res) => {
                     day: 'numeric', month: 'short', year: 'numeric',
                     hour: '2-digit', minute: '2-digit'
                 }),
+                tier2Count: tier2Count,
                 earned: earnedPoints,
                 campaign: campaignTag
             };
