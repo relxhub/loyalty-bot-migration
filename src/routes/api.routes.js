@@ -77,8 +77,14 @@ router.post('/auth', async (req, res) => {
         let referralTarget = 0;
         let activeCampaignTag = 'Standard';
         let milestoneBonus = 0; 
+        let totalReferrals = 0; // ยอดรวมทั้งหมด (Lifetime)
 
         try {
+            // นับยอดรวมตลอดชีพจากฐานข้อมูลจริง
+            totalReferrals = await prisma.customer.count({
+                where: { referrerId: customer.customerId }
+            });
+
             const campaign = await getActiveCampaign();
             
             if (campaign && campaign.startAt) {
@@ -96,8 +102,9 @@ router.post('/auth', async (req, res) => {
         // 5. รวมข้อมูลแคมเปญเข้าไปใน Object ลูกค้า
         const customerDataForFrontend = {
             ...customer,
-            referralCount: customer.referralCount, // ยอดรวมทั้งหมด
-            campaignReferralCount: campaignReferralCount, // ยอดเฉพาะแคมเปญ
+            referralCount: customer.referralCount, // นี่คือยอดของแคมเปญปัจจุบัน (ตามที่ลูกค้าแจ้ง)
+            totalReferrals: totalReferrals, // ✅ เพิ่มยอดรวมตลอดชีพ
+            campaignReferralCount: campaignReferralCount, // ยอดเฉพาะแคมเปญ (จากการคำนวณ log)
             referralTarget: referralTarget,
             milestoneBonus: milestoneBonus, 
             activeCampaignTag: activeCampaignTag
@@ -128,6 +135,12 @@ router.get('/user/:telegramId', async (req, res) => {
 
         const campaign = await getActiveCampaign();
         const target = campaign?.milestoneTarget || 0;
+
+        // นับยอดรวมตลอดชีพจากฐานข้อมูลจริง
+        const totalReferrals = await prisma.customer.count({
+            where: { referrerId: customer.customerId }
+        });
+
         let progress = null;
 
         if (target > 0) {
@@ -146,7 +159,8 @@ router.get('/user/:telegramId', async (req, res) => {
             customerId: customer.customerId,
             points: customer.points,
             expiryDate: customer.expiryDate,
-            referralCount: customer.referralCount,
+            referralCount: customer.referralCount, // Active Campaign Count
+            totalReferrals: totalReferrals,       // Lifetime Total
             campaignProgress: progress
         });
 
@@ -338,6 +352,11 @@ router.get('/referrals/:telegramId', async (req, res) => {
             const bonusDate = bonusLog ? bonusLog.createdAt : ref.createdAt;
             const campaignTag = ref.activeCampaignTag || 'Standard';
 
+            // 3.3 นับ Tier 2 (จำนวนคนที่คนนี้ชวนต่อ)
+            const tier2Count = await prisma.customer.count({
+                 where: { referrerId: ref.customerId }
+            });
+
             return {
                 name: `${ref.firstName || 'Guest'} ${ref.lastName || ''}`.trim() || ref.customerId,
                 id: ref.customerId,
@@ -351,7 +370,7 @@ router.get('/referrals/:telegramId', async (req, res) => {
                     day: 'numeric', month: 'short', year: 'numeric',
                     hour: '2-digit', minute: '2-digit'
                 }),
-                tier2Count: ref.referralCount,
+                tier2Count: tier2Count,
                 earned: earnedPoints,
                 campaign: campaignTag
             };

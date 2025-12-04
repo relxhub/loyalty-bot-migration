@@ -626,7 +626,10 @@
             const isCampaignActive = user.activeCampaignTag && user.activeCampaignTag !== 'Standard';
             const milestoneBonus = user.milestoneBonus || 50;
             
-            const ytdCount = user.referralCount || 0; 
+            // Use totalReferrals (Lifetime) for Standard Mode, fallback to referralCount if missing
+            const ytdCount = (user.totalReferrals !== undefined) ? user.totalReferrals : (user.referralCount || 0);
+
+            // For Campaign Mode, use the campaign specific count
             const campaignCount = user.campaignReferralCount || 0; 
 
             let displayCount;
