@@ -5,8 +5,7 @@ import { getActiveCampaign } from '../services/campaign.service.js';
 import { getConfig } from '../config/config.js';
 import { addDays } from '../utils/date.utils.js';
 // ❌ เอา createCustomer ออกตามที่ขอ (ห้ามสมัครเอง)
-import { getCustomerByTelegramId, updateCustomer, countCampaignReferrals } from '../services/customer.service.js';
-import { countMonthlyReferrals } from '../services/referral.service.js';
+import { getCustomerByTelegramId, updateCustomer } from '../services/customer.service.js'; 
 
 const router = express.Router();
 
@@ -79,9 +78,6 @@ router.post('/auth', async (req, res) => {
         let activeCampaignTag = 'Standard';
         let milestoneBonus = 0; 
         let totalReferrals = 0; // ยอดรวมทั้งหมด (Lifetime)
-        let referralCountMonth = 0; // ยอดเดือนนี้
-        let campaignStartAt = null;
-        let campaignEndAt = null;
 
         try {
             // นับยอดรวมตลอดชีพจากฐานข้อมูลจริง
@@ -89,17 +85,12 @@ router.post('/auth', async (req, res) => {
                 where: { referrerId: customer.customerId }
             });
 
-            // นับยอดเดือนนี้
-            referralCountMonth = await countMonthlyReferrals(customer.customerId);
-
             const campaign = await getActiveCampaign();
             
             if (campaign && campaign.startAt) {
                 activeCampaignTag = campaign.campaignName || 'Active';
                 referralTarget = campaign.milestoneTarget;
                 milestoneBonus = campaign.milestoneBonus;
-                campaignStartAt = campaign.startAt;
-                campaignEndAt = campaign.endAt;
                 
                 campaignReferralCount = await countCampaignReferrals(customer.customerId, campaign.startAt);
             }
@@ -113,13 +104,10 @@ router.post('/auth', async (req, res) => {
             ...customer,
             referralCount: customer.referralCount, // นี่คือยอดของแคมเปญปัจจุบัน (ตามที่ลูกค้าแจ้ง)
             totalReferrals: totalReferrals, // ✅ เพิ่มยอดรวมตลอดชีพ
-            referralCountMonth: referralCountMonth, // ✅ ยอดเดือนนี้
             campaignReferralCount: campaignReferralCount, // ยอดเฉพาะแคมเปญ (จากการคำนวณ log)
             referralTarget: referralTarget,
             milestoneBonus: milestoneBonus, 
-            activeCampaignTag: activeCampaignTag,
-            campaignStartAt: campaignStartAt,
-            campaignEndAt: campaignEndAt
+            activeCampaignTag: activeCampaignTag
         };
 
         return res.json({ success: true, isMember: true, customer: customerDataForFrontend });
