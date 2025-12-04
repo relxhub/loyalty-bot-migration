@@ -53,6 +53,11 @@
         .bounce-in { animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
         @keyframes bounceIn { 0% { transform: scale(0); } 80% { transform: scale(1.1); } 100% { transform: scale(1); } }
 
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) skewX(-12deg); }
+            100% { transform: translateX(100%) skewX(-12deg); }
+        }
+
         ::-webkit-scrollbar { width: 0px; background: transparent; }
 
         /* --- [START] CSS Notification Toast --- */
@@ -230,24 +235,62 @@
             </div>
         </div>
 
-        <div onclick="openReferralModal()" class="glass-card p-5">
-            <div class="flex justify-between items-center mb-3">
-                <span class="font-semibold text-sm flex items-center gap-2">
-                    <i class="ri-trophy-line text-yellow-500"></i> ภารกิจแนะนำเพื่อน
-                </span>
-                <span id="next-bonus" class="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">
-                    +50 แต้ม
+        <!-- [START] Mission/Campaign Box (Conditional) -->
+        <div id="mission-box" onclick="openReferralModal()" class="glass-card p-5 hidden relative overflow-hidden border border-yellow-500/50 shadow-[0_0_15px_rgba(234,179,8,0.15)] group transition active:scale-95 cursor-pointer">
+            <!-- Sparkle Effect -->
+            <div class="absolute -top-10 -right-10 w-20 h-20 bg-yellow-500/20 rounded-full blur-2xl animate-pulse"></div>
+
+            <div class="flex justify-between items-start mb-3 relative z-10">
+                <div>
+                    <div class="font-bold text-sm text-yellow-400 flex items-center gap-2">
+                        <i class="ri-flashlight-fill animate-pulse"></i> <span id="mission-name">ภารกิจพิเศษ</span>
+                    </div>
+                    <div class="text-[10px] text-yellow-200/70 mt-0.5" id="mission-dates">...</div>
+                </div>
+                <span id="mission-bonus-badge" class="text-[10px] bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 px-2 py-1 rounded-lg shadow-[0_0_10px_rgba(234,179,8,0.2)]">
+                    โบนัส +50
                 </span>
             </div>
             
-            <div class="w-full bg-gray-700/50 rounded-full h-3 mb-2 overflow-hidden">
-                <div id="progress-bar" class="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-1000 ease-out w-0 shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
+            <div class="relative z-10">
+                <div class="flex justify-between text-[10px] text-gray-400 mb-1">
+                    <span id="mission-desc">ชวนเพื่อน 5 คน รับโบนัส</span>
+                    <span id="mission-status">0/5</span>
+                </div>
+                <div class="w-full bg-gray-800/80 rounded-full h-3 overflow-hidden border border-white/5">
+                    <div id="mission-progress-bar" class="h-full bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-200 rounded-full transition-all duration-1000 ease-out w-0 shadow-[0_0_15px_rgba(250,204,21,0.6)] relative overflow-hidden">
+                        <!-- Shine effect inside bar -->
+                        <div class="absolute inset-0 bg-white/30 w-full h-full -skew-x-12 translate-x-[-100%] animate-[shimmer_2s_infinite]"></div>
+                    </div>
+                </div>
+                <p class="text-[10px] text-right text-yellow-500/80 mt-1.5 flex justify-end items-center gap-1">
+                    เหลืออีก <span id="mission-remaining" class="font-bold text-yellow-300">0</span> คน เพื่อรับรางวัล
+                </p>
             </div>
-            
-            <p class="text-xs text-right text-gray-400">
-                เหลืออีก <span id="remaining-count" class="text-white font-bold">0</span> คน เพื่อรับโบนัส
-            </p>
         </div>
+        <!-- [END] Mission Box -->
+
+        <!-- [START] Friends You Referred Box (Always Visible) -->
+        <div onclick="openReferralModal()" class="glass-card p-5 active:scale-95 transition cursor-pointer hover:bg-white/5">
+            <div class="mb-4 font-semibold text-sm flex items-center gap-2 text-blue-100">
+                <i class="ri-team-fill text-blue-500"></i> เพื่อนที่คุณแนะนำ
+            </div>
+            <div class="grid grid-cols-2 gap-4 relative">
+                <!-- Vertical Divider -->
+                <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[1px] h-8 bg-white/10"></div>
+
+                <div class="text-center group">
+                    <div class="text-[10px] text-gray-400 mb-1 group-hover:text-blue-300 transition">ทั้งหมด</div>
+                    <div class="text-2xl font-bold text-white tracking-wide" id="referral-total-all">0</div>
+                </div>
+
+                <div class="text-center group">
+                    <div class="text-[10px] text-gray-400 mb-1 group-hover:text-green-300 transition">ในเดือนนี้</div>
+                    <div class="text-2xl font-bold text-green-400 tracking-wide" id="referral-total-month">0</div>
+                </div>
+            </div>
+        </div>
+        <!-- [END] Friends Box -->
 
         <div class="grid grid-cols-2 gap-4">
             <button onclick="handleAction('rewards')" class="glass-card p-4 hover:bg-white/10 transition active:scale-95 text-left group">
@@ -622,63 +665,78 @@
             }
 
             // -----------------------------------------------------
-            // 🚀 [ส่วนที่ 2] Logic ใหม่: การแสดงผลภารกิจแนะนำเพื่อน (แทนที่โค้ดเก่า)
+            // 🚀 [ส่วนที่ 2] Logic ใหม่ V2: แยกกล่องภารกิจกับกล่องเพื่อน
             // -----------------------------------------------------
-            
-            // ดึงข้อมูลจาก API
-            const target = user.referralTarget || 5; 
-            const isCampaignActive = user.activeCampaignTag && user.activeCampaignTag !== 'Standard';
-            const milestoneBonus = user.milestoneBonus || 50;
-            
-            // Use totalReferrals (Lifetime) for Standard Mode, fallback to referralCount if missing
-            const ytdCount = (user.totalReferrals !== undefined) ? user.totalReferrals : (user.referralCount || 0);
 
-            // For Campaign Mode, use the campaign specific count
-            const campaignCount = user.campaignReferralCount || 0; 
+            // 1. อัปเดตกล่อง "เพื่อนที่คุณแนะนำ" (แสดงตลอดเวลา)
+            const totalRefs = (user.totalReferrals !== undefined) ? user.totalReferrals : (user.referralCount || 0);
+            const monthRefs = user.referralCountMonth || 0; // ต้องส่งมาจาก API
 
-            let displayCount;
-            let percent;
-            let remaining;
+            const elTotalAll = document.getElementById('referral-total-all');
+            if(elTotalAll) elTotalAll.innerText = totalRefs.toLocaleString();
 
-            // Select Key DOM Elements (หากมีปัญหาให้เช็คว่า id/class เหล่านี้มีอยู่ใน HTML แล้ว)
-            const referralCard = document.querySelector('.glass-card.p-5');
-            const headerSpan = referralCard.querySelector('.font-semibold');
-            const bonusSpan = document.getElementById('next-bonus');
-            const progressBar = document.getElementById('progress-bar');
-            const remainingP = referralCard.querySelector('p.text-right'); 
+            const elTotalMonth = document.getElementById('referral-total-month');
+            if(elTotalMonth) elTotalMonth.innerText = monthRefs.toLocaleString();
 
-            if (isCampaignActive && target > 0) {
-                // --- 🎯 โหมดแคมเปญ (ภารกิจ) ---
-                displayCount = campaignCount; 
-                remaining = Math.max(0, target - displayCount);
-                percent = (displayCount / target) * 100;
-                
-                // อัปเดต Header/Text
-                headerSpan.innerHTML = `<i class="ri-trophy-line text-yellow-500"></i> ภารกิจแนะนำเพื่อน (${user.activeCampaignTag})`;
-                bonusSpan.innerText = `+${milestoneBonus} แต้ม`;
-                
-                // อัปเดตข้อความ "เหลืออีก X คน"
-                remainingP.innerHTML = `เหลืออีก <span id="remaining-count" class="text-white font-bold">${remaining}</span> คน เพื่อรับโบนัส`;
-                
-            } else {
-                // --- 📊 โหมด Standard (ยอดรวม) ---
-                displayCount = ytdCount; 
-                percent = 100; // บังคับให้ Progress Bar เต็ม 100% (ตามที่ลูกค้าต้องการ)
-                
-                // อัปเดต Header/Text ให้ดูเป็น "ข้อมูลทั่วไป"
-                headerSpan.innerHTML = `<i class="ri-information-line text-blue-400"></i> ข้อมูลการแนะนำเพื่อน`;
-                bonusSpan.innerText = `Standard`;
-                bonusSpan.className = "text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full"; // ปรับสีให้ดู Neutral
-                
-                // อัปเดตข้อความเน้นยอดรวม
-                remainingP.innerHTML = `เพื่อนที่ชวนแล้ว <span id="remaining-count" class="text-white font-bold text-lg">${ytdCount}</span> คน`;
+            // 2. อัปเดตกล่อง "ภารกิจแนะนำเพื่อน" (Mission Box)
+            const missionBox = document.getElementById('mission-box');
+            const isCampaign = user.activeCampaignTag && user.activeCampaignTag !== 'Standard';
+
+            // เช็คว่าใกล้จะเริ่มหรือยัง (Pre-active 3 days)
+            let isComingSoon = false;
+            let startTime = null;
+            if (user.campaignStartAt) {
+                startTime = new Date(user.campaignStartAt).getTime();
+                const now = new Date().getTime();
+                const diffDays = (startTime - now) / (1000 * 60 * 60 * 24);
+                if (diffDays > 0 && diffDays <= 3) isComingSoon = true;
             }
             
-            // อัปเดต Progress Bar
-            if (progressBar) {
-                setTimeout(() => {
-                    progressBar.style.width = `${Math.min(100, percent)}%`;
-                }, 100);
+            // แสดงกล่องถ้า: เป็น Campaign Active หรือ ใกล้จะเริ่ม (Coming Soon)
+            if (missionBox) {
+                if ((isCampaign && user.referralTarget > 0) || isComingSoon) {
+                    missionBox.classList.remove('hidden');
+
+                    const campaignName = user.activeCampaignTag || 'Upcoming Event';
+                    const target = user.referralTarget || 5;
+                    const bonus = user.milestoneBonus || 0;
+                    const current = user.campaignReferralCount || 0;
+
+                    // Set Texts
+                    document.getElementById('mission-name').innerText = campaignName;
+                    document.getElementById('mission-bonus-badge').innerText = isComingSoon ? 'เร็วๆ นี้' : `โบนัส +${bonus}`;
+
+                    // Set Dates
+                    if (user.campaignStartAt && user.campaignEndAt) {
+                         const dStart = new Date(user.campaignStartAt);
+                         const dEnd = new Date(user.campaignEndAt);
+                         const fmt = { day: 'numeric', month: 'short' };
+                         document.getElementById('mission-dates').innerText = `${dStart.toLocaleDateString('th-TH', fmt)} - ${dEnd.toLocaleDateString('th-TH', fmt)}`;
+                    } else {
+                         document.getElementById('mission-dates').innerText = 'ระยะเวลาจำกัด';
+                    }
+
+                    if (isComingSoon) {
+                         document.getElementById('mission-desc').innerText = 'เตรียมพบกับภารกิจพิเศษ';
+                         document.getElementById('mission-status').innerText = 'Coming Soon';
+                         document.getElementById('mission-remaining').innerText = '-';
+                         document.getElementById('mission-progress-bar').style.width = '0%';
+                    } else {
+                         document.getElementById('mission-desc').innerText = `ชวนเพื่อนครบ ${target} คน รับโบนัส`;
+                         document.getElementById('mission-status').innerText = `${current}/${target}`;
+
+                         const remaining = Math.max(0, target - current);
+                         document.getElementById('mission-remaining').innerText = remaining;
+
+                         const percent = Math.min(100, (current / target) * 100);
+                         setTimeout(() => {
+                             document.getElementById('mission-progress-bar').style.width = `${percent}%`;
+                         }, 100);
+                    }
+
+                } else {
+                    missionBox.classList.add('hidden');
+                }
             }
             // -----------------------------------------------------
         }
