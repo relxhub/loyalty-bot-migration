@@ -11,19 +11,28 @@ export async function countCampaignReferrals(customerId, startDate) {
     if (!startDate) return 0;
 
     try {
-        const count = await prisma.customerLog.count({
+        // Count referrals based on the 'REFERRAL_BONUS' log.
+        // This is the primary method used to determine how many bonuses have been awarded
+        // within the campaign period (startDate onwards).
+        const logCount = await prisma.customerLog.count({
             where: {
                 customerId: customerId,
                 action: 'REFERRAL_BONUS',
-                createdAt: {
-                    gte: startDate 
-                }
+                createdAt: { gte: startDate }
             }
         });
-        return count;
+
+        // Note: Ideally, we should count directly from the Customer table using 'activeCampaignTag'
+        // on the Referee to separate campaign stats cleanly.
+        // However, we rely on logs for now to maintain backward compatibility with the current
+        // function signature that accepts 'startDate'. Future improvements may involve
+        // querying by 'activeCampaignTag' directly.
+
+        return logCount;
+
     } catch (e) {
         console.error("Error counting campaign referrals:", e.message);
-        return 0; // คืน 0 ถ้ามีปัญหาในการ Query
+        return 0;
     }
 }
 
@@ -98,12 +107,23 @@ export async function giveReferralBonus(referrerId, newCustomerId, adminUser) {
     const limitDate = addDays(today, limitDays); 
     const finalExpiryDate = proposedExpiry > limitDate ? limitDate : proposedExpiry;
 
+    // 1. Update Referrer (Points & Total Referral Count)
     await prisma.customer.update({
         where: { customerId: referrerId },
         data: {
             points: { increment: bonusPoints },
             expiryDate: finalExpiryDate,
-            referralCount: { increment: 1 },
+            referralCount: { increment: 1 }
+            // Note: We do NOT update activeCampaignTag on the referrer here,
+            // as that field should represent the campaign the user was acquired from, not the one they are promoting.
+        }
+    });
+
+    // 2. Update Referee (New Customer) with Campaign Tag
+    // This allows us to track which campaign acquired this specific user.
+    await prisma.customer.update({
+        where: { customerId: newCustomerId },
+        data: {
             activeCampaignTag: campaign?.campaignName || campaign?.name || 'Standard'
         }
     });
