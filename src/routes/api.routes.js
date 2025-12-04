@@ -30,11 +30,46 @@ function verifyTelegramWebAppData(telegramInitData) {
 // ==================================================
 router.post('/auth', async (req, res) => {
     try {
-        // ... (โค้ดส่วนตรวจสอบ initData, user, และ getCustomerByTelegramId(userData.id.toString()) เหมือนเดิม) ...
+        const { initData } = req.body;
 
-        // 3. ค้นหาลูกค้า (customer) และอัปเดตชื่อ
-        // ... (สมมติว่าคุณได้ตัวแปร customer มาแล้ว) ...
+        // 1. ตรวจสอบความถูกต้องของ initData (Validate Telegram Hash)
+        if (!verifyTelegramWebAppData(initData)) {
+            return res.status(401).json({ error: "Invalid Telegram Data" });
+        }
+
+        // 2. แปลงข้อมูล initData กลับเป็น Object
+        const urlParams = new URLSearchParams(initData);
+        const userDataStr = urlParams.get('user');
+
+        if (!userDataStr) {
+            return res.status(400).json({ error: "User data missing" });
+        }
+
+        const userData = JSON.parse(userDataStr);
+        const telegramId = userData.id.toString();
+
+        // 3. ค้นหาลูกค้า (customer)
+        let customer = await getCustomerByTelegramId(telegramId);
         
+        // ถ้าไม่เจอลูกค้าในระบบ (ยังไม่ Link Account)
+        if (!customer) {
+            // กรณีนี้ Front-end จะได้รับ isMember: false และไปแสดงหน้า Login/Link
+            return res.json({ success: true, isMember: false });
+        }
+
+        // อัปเดตชื่อ-นามสกุล ถ้ามีการเปลี่ยนแปลง (Optional)
+        if (customer.firstName !== userData.first_name || customer.lastName !== userData.last_name || customer.username !== userData.username) {
+             await updateCustomer(customer.customerId, {
+                firstName: userData.first_name,
+                lastName: userData.last_name || '',
+                username: userData.username || ''
+             });
+             // อัปเดตตัวแปร local
+             customer.firstName = userData.first_name;
+             customer.lastName = userData.last_name;
+             customer.username = userData.username;
+        }
+
         // --------------------------------------------------
         // 4. [FIXED] ดึงข้อมูลแคมเปญใน Try-Catch แยกต่างหาก
         // --------------------------------------------------
