@@ -393,6 +393,9 @@
 
         // --- [START] Helper Functions ---
 
+        // Global User Cache
+        window.currentUser = null;
+
         // ฟังก์ชันแสดง Toast
         function showToast(message, type = 'info') {
             const container = document.getElementById('toast-container');
@@ -549,6 +552,7 @@
             document.getElementById('loading-screen').classList.add('hidden');
 
             if (isMember) {
+                window.currentUser = user; // Cache User Data
                 renderUser(user);
                 
                 // เรียกฟังก์ชันแจ้งเตือน (Toast) ที่เราทำไว้
@@ -915,9 +919,14 @@
             // Initial loading state
             list.innerHTML = '<div class="text-center text-gray-500 mt-10 animate-pulse">กำลังวิเคราะห์ข้อมูลการแนะนำ...</div>';
 
-
             try {
-                const telegramId = tg.initDataUnsafe?.user?.id;
+                // Use cached user ID if available (fixes browser testing issues)
+                const telegramId = window.currentUser?.telegramUserId || tg.initDataUnsafe?.user?.id;
+
+                if (!telegramId) {
+                    throw new Error("User ID not found");
+                }
+
                 const res = await fetch(`/api/referrals/${telegramId}`);
                 const result = await res.json();
 
