@@ -40,7 +40,7 @@ router.post('/auth', async (req, res) => {
         // 2. แปลงข้อมูล initData กลับเป็น Object
         const urlParams = new URLSearchParams(initData);
         const userDataStr = urlParams.get('user');
-        
+
         if (!userDataStr) {
             return res.status(400).json({ error: "User data missing" });
         }
@@ -50,7 +50,7 @@ router.post('/auth', async (req, res) => {
 
         // 3. ค้นหาลูกค้า (customer)
         let customer = await getCustomerByTelegramId(telegramId);
-
+        
         // ถ้าไม่เจอลูกค้าในระบบ (ยังไม่ Link Account)
         if (!customer) {
             // กรณีนี้ Front-end จะได้รับ isMember: false และไปแสดงหน้า Login/Link

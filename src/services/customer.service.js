@@ -119,13 +119,11 @@ export async function giveReferralBonus(referrerId, newCustomerId, adminUser) {
         }
     });
 
-    // 2. Update Referee (New Customer) with Campaign Tag & Ensure Link
+    // 2. Update Referee (New Customer) with Campaign Tag
     // This allows us to track which campaign acquired this specific user.
-    // Also ensures referrerId is linked, solving the "Ghost Referral" issue.
     await prisma.customer.update({
         where: { customerId: newCustomerId },
         data: {
-            referrerId: referrerId, // ✅ Force link to Referrer
             activeCampaignTag: campaign?.campaignName || campaign?.name || 'Standard'
         }
     });
