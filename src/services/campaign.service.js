@@ -2,10 +2,10 @@
 
 import { prisma } from '../db.js';
 import { getConfig } from '../config/config.js';
-import { getThaiNow } from '../utils/date.utils.js';
+
 
 export async function getActiveCampaign() {
-    const now = getThaiNow();
+    const now = new Date();
     
     // ✅ แก้ไข: เปลี่ยน startAt -> startDate และ endAt -> endDate
     const campaign = await prisma.campaign.findFirst({
