@@ -49,6 +49,7 @@ async function startServer() {
     app.use(express.json()); 
     // ✅ Serve ไฟล์ Static (รูป, css, js)
     app.use(express.static(path.join(__dirname, 'public')));
+    app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
     
     // CORS
     app.use((req, res, next) => {
