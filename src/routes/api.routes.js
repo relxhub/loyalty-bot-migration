@@ -195,12 +195,21 @@ router.get('/user/:telegramId', async (req, res) => {
 // ==================================================
 router.get('/rewards', async (req, res) => {
     try {
+        // ✅ แก้ไข: ใช้ isActive: true และ orderBy pointsCost
         const rewards = await prisma.reward.findMany({
             where: { isActive: true }, 
-            orderBy: { pointsCost: 'asc' } // เช็ค schema ดีๆ ว่าใช้ points หรือ pointsCost (ใน schema คุณเขียน pointsCost)
+            orderBy: { pointsCost: 'asc' }
         });
-        res.json(rewards);
+
+        // ✅ แก้ไข: แปลงชื่อ field ให้ตรงกับที่ Frontend รอรับ (pointsCost -> points)
+        const formattedRewards = rewards.map(r => ({
+            ...r,
+            points: r.pointsCost // Frontend รอตัวแปรชื่อ points
+        }));
+
+        res.json(formattedRewards);
     } catch (error) {
+        console.error("Reward API Error:", error);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
@@ -276,30 +285,31 @@ router.get('/history/:telegramId', async (req, res) => {
     try {
         const { telegramId } = req.params;
         
-        // ของใหม่ (ถูกต้อง ใช้ PointTransaction)
-        // 1. ต้องหา customerId จาก telegramId ก่อน เพราะ PointTransaction ผูกกับ customerId
+        // 1. ✅ แก้ไข: ต้องหา Customer ID ก่อน เพราะ PointTransaction ผูกกับ Customer ID
         const customer = await prisma.customer.findUnique({
             where: { telegramUserId: telegramId }
         });
 
-        if (!customer) return res.json({ success: true, logs: [] });
+        if (!customer) {
+            return res.json({ success: true, logs: [] });
+        }
 
-        // 2. ดึงข้อมูลจาก PointTransaction
+        // 2. ✅ แก้ไข: ดึงจาก PointTransaction แทน CustomerLog
         const logs = await prisma.pointTransaction.findMany({
             where: { customerId: customer.customerId },
             orderBy: { createdAt: 'desc' },
             take: 20,
             select: {
-                type: true,      // เปลี่ยนจาก action เป็น type
-                amount: true,    // เปลี่ยนจาก pointsChange เป็น amount
+                type: true,     // ใน Schema ใหม่ใช้ type
+                amount: true,   // ใน Schema ใหม่ใช้ amount
                 createdAt: true
             }
         });
 
-        // 3. ปรับการ map ข้อมูลให้ตรงกับ Frontend
+        // 3. จัด Format
         const formattedLogs = logs.map(log => ({
-            action: mapActionName(log.type), // ส่ง type ไปแปลงเป็นชื่อไทย
-            points: log.amount > 0 ? `+${log.amount}` : `${log.amount}`,
+            action: mapActionName(log.type), // แปลงชื่อ Action (รับค่า type)
+            points: log.amount > 0 ? `+${log.amount}` : `${log.amount}`, // ใช้ amount
             date: new Date(log.createdAt).toLocaleDateString('th-TH', {
                 day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
             }),
@@ -317,12 +327,15 @@ router.get('/history/:telegramId', async (req, res) => {
 // ฟังก์ชันช่วยแปลชื่อ Action (ใส่ไว้ในไฟล์เดียวกันหรือแยก Utils ก็ได้)
 function mapActionName(action) {
     const map = {
-        'LINK_ACCOUNT_API': 'เชื่อมบัญชีสมาชิก',
-        'LINK_BONUS': 'โบนัสเชื่อมบัญชี',
         'REFERRAL_BONUS': 'แนะนำเพื่อน',
-        'ADMIN_ADD_POINTS': 'Admin เติมแต้มให้',   // ✅ เพิ่ม
-        'ADMIN_REDEEM': 'แลกของรางวัล (หน้าร้าน)', // ✅ เพิ่ม
-        'ADMIN_ADJUST': 'Admin ปรับปรุงยอด'
+        'LINK_BONUS': 'โบนัสผูกบัญชี',
+        'LINK_ACCOUNT_API': 'โบนัสผูกบัญชี', // เผื่อของเก่า
+        'REDEEM_REWARD': 'แลกของรางวัล',
+        'ADMIN_ADJUST': 'Admin ปรับปรุงยอด',
+        'SYSTEM_ADJUST': 'ระบบปรับปรุงยอด',
+        'CAMPAIGN_BONUS': 'โบนัสแคมเปญ',
+        'ADMIN_ADD_POINTS': 'Admin เติมแต้ม',
+        'OTHER': 'อื่นๆ'
     };
     return map[action] || action;
 }
