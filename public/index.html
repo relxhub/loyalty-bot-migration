@@ -897,14 +897,26 @@
                 });
 
                 // ตรวจสอบสถานะ Response ก่อนแปลง JSON
-                if (!response.ok) {
-                    throw new Error(`Server Error: ${response.status}`);
+                // แก้ไข: อ่าน JSON ก่อนเช็ค status เพื่อนำ Error Message มาแสดง
+                let result;
+                try {
+                    result = await response.json();
+                } catch (e) {
+                    if (!response.ok) throw new Error(`Server Error: ${response.status}`);
                 }
 
-                const result = await response.json();
+                if (!response.ok) {
+                    // ถ้า Server ส่ง Error กลับมาเป็น JSON
+                    const errorMsg = result?.error || `Server Error: ${response.status}`;
+                    document.getElementById('loading-screen').classList.add('hidden');
+                    showToast(errorMsg, 'error');
+                    showLoginScreen();
+                    return;
+                }
+
                 document.getElementById('loading-screen').classList.add('hidden');
 
-                if (result.success) {
+                if (result && result.success) {
                     // ✅ เพิ่ม: แจ้งเตือน
                     showToast(`เชื่อมต่อสำเร็จ! รับโบนัส ${result.bonus} แต้ม`, 'success');
                     showSuccessModal(result.bonus);
