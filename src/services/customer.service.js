@@ -52,30 +52,62 @@ export async function getCustomerByTelegramId(telegramId) {
     });
 }
 
+/**
+ * Generates the next sequential customer ID with the prefix "OT".
+ * It finds the highest existing number from IDs like "OT1", "OT999", etc.,
+ * and returns the next ID in the sequence (e.g., "OT1000").
+ * @returns {Promise<string>} The next customer ID.
+ */
+async function generateNextCustomerId() {
+    // 1. Find all customers with IDs starting with "OT"
+    const otCustomers = await prisma.customer.findMany({
+        where: {
+            customerId: {
+                startsWith: 'OT'
+            }
+        },
+        select: {
+            customerId: true
+        }
+    });
+
+    let maxId = 0;
+    // 2. Loop through them to find the highest number
+    otCustomers.forEach(customer => {
+        // Extract the numeric part of the ID
+        const numericPart = parseInt(customer.customerId.substring(2), 10);
+        if (!isNaN(numericPart) && numericPart > maxId) {
+            maxId = numericPart;
+        }
+    });
+
+    // 3. The next ID is the max found + 1
+    const nextId = maxId + 1;
+    return `OT${nextId}`;
+}
+
 // 2. สร้างลูกค้าใหม่ (Auto Register)
 export async function createCustomer(data) {
-    const { telegramId, firstName, lastName, username } = data; // รับ telegramId เข้ามา (ซึ่งจะเป็น null จากแอดมิน)
+    const { telegramId, firstName, lastName, username } = data;
 
-    // สร้างรหัสสมาชิก (ตัวอย่าง: MEM-เลขสุ่ม)
-    const randomSuffix = Math.floor(100000 + Math.random() * 900000); // เลข 6 หลัก
-    const newCustomerId = `MEM-${randomSuffix}`;
+    // Generate the next sequential customer ID (e.g., "OT1001")
+    const newCustomerId = await generateNextCustomerId();
 
-    // กำหนดวันหมดอายุเริ่มต้น (เช่น 30 วัน)
+    // Set default expiry date (e.g., 30 days)
     const initialDays = parseInt(getConfig('expiryDaysNewMember')) || 30;
     const expiryDate = addDays(new Date(), initialDays);
 
     return await prisma.customer.create({
         data: {
-            customerId: data.customerId || newCustomerId, // ใช้ ID ที่ส่งมา หรือสร้างใหม่
-            telegramUserId: telegramId, // ✅ Prisma รองรับ null ได้ถ้าใน schema ไม่ได้บังคับ (String?)
+            customerId: newCustomerId, // Use the new sequential ID
+            telegramUserId: telegramId,
             firstName: firstName,
             lastName: lastName,
             username: username,
             points: 0,
             referralCount: 0,
-            expiryDate: addDays(new Date(), 30),
+            expiryDate: expiryDate,
             isDeleted: false,
-            // ถ้า data มี verificationCode ให้ใช้ ถ้าไม่มีให้สร้างใหม่
             verificationCode: data.verificationCode || Math.floor(1000 + Math.random() * 9000).toString()
         }
     });
