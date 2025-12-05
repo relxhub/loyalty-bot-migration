@@ -1,10 +1,10 @@
-// app.js (ฉบับรองรับ Mini App API)
+// app.js (ฉบับแก้ไข: รองรับ Magic Link ทุกรูปแบบ)
 
 import 'dotenv/config'; 
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// 🛡️ เพิ่มตัวดัก Error นี้ชั่วคราว
+// 🛡️ เพิ่มตัวดัก Error
 process.on('uncaughtException', (err) => {
   console.error('💥 CRITICAL ERROR:', err);
 });
@@ -12,10 +12,9 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('💥 UNHANDLED PROMISE:', reason);
 });
 
-console.log("🟢 App is starting..."); // เช็คว่าเริ่มทำงานไหม
+console.log("🟢 App is starting...");
 import { Telegraf } from 'telegraf';
 import express from 'express';
-// import cors from 'cors'; // (Optional: อาจต้องใช้ถ้าทำ Frontend แยก)
 import { loadConfig, getConfig } from './src/config/config.js';
 import { loadAdminCache } from './src/services/admin.service.js';
 
@@ -23,13 +22,13 @@ import { loadAdminCache } from './src/services/admin.service.js';
 import { handleAdminCommand } from './src/handlers/admin.handlers.js'; 
 import { handleCustomerCommand } from './src/handlers/customer.handlers.js';
 
-// ⭐️ Import API Routes (สำหรับ Mini App)
+// Import API Routes
 import apiRoutes from './src/routes/api.routes.js';
 
 // Import Scheduler
 import { runScheduler } from './src/jobs/scheduler.js'; 
 
-// ✅ กำหนด Path ปัจจุบัน (จำเป็นสำหรับ ES Modules)
+// ✅ กำหนด Path ปัจจุบัน
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -48,10 +47,10 @@ async function startServer() {
 
     // 2. ตั้งค่า Express
     app.use(express.json()); 
-    // ✅ แก้ไข: ระบุ Path เต็มเพื่อความชัวร์
+    // ✅ Serve ไฟล์ Static (รูป, css, js)
     app.use(express.static(path.join(__dirname, 'public')));
     
-    // (Optional) เปิด CORS ให้หน้าเว็บเรียก API ได้
+    // CORS
     app.use((req, res, next) => {
         res.header("Access-Control-Allow-Origin", "*");
         res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
@@ -60,69 +59,67 @@ async function startServer() {
 
     // Logger
     app.use((req, res, next) => {
-        console.log(`📥 [INCOMING] ${req.method} ${req.url}`);
+        if (!req.url.includes('.')) { // ไม่ต้อง Log พวกไฟล์รูปภาพ/js ให้รก
+            console.log(`📥 [INCOMING] ${req.method} ${req.url}`);
+        }
         next();
     });
 
-    // Health Check
-    app.get('/', (req, res) => {
+    // Health Check (ย้ายไปไว้ที่ /health แทน)
+    app.get('/health', (req, res) => {
         res.send('✅ Loyalty Bot is online and running!');
     });
 
-    // ⭐️ เชื่อมต่อ API Routes (เข้าทาง /api/...)
+    // ⭐️ เชื่อมต่อ API Routes
     app.use('/api', apiRoutes);
 
-    // ✅ เพิ่ม Route สำหรับ Magic Link (แก้ปัญหา 404)
-    app.get('/login', (req, res) => {
-        res.sendFile(path.join(__dirname, 'public', 'index.html'));
-    });
-
     // =========================================
-    // 🤖 ส่วนที่ 1: ADMIN BOT SETUP
+    // 🤖 ADMIN & CUSTOMER BOT SETUP
     // =========================================
     const adminToken = getConfig('adminBotToken');
     const adminBot = new Telegraf(adminToken);
-    
     adminBot.on('message', handleAdminCommand);
-    
     app.post(`/webhook/admin`, (req, res) => {
         adminBot.handleUpdate(req.body);
         res.sendStatus(200);
     });
-    
     await adminBot.telegram.setWebhook(`${PUBLIC_URL}/webhook/admin`);
     console.log(`✅ Admin Bot Webhook Ready`);
 
-
-    // =========================================
-    // 👤 ส่วนที่ 2: CUSTOMER BOT SETUP
-    // =========================================
     const customerToken = getConfig('customerBotToken');
     const customerBot = new Telegraf(customerToken);
-    
     customerBot.on('message', handleCustomerCommand);
-    
     app.post(`/webhook/customer`, (req, res) => {
         customerBot.handleUpdate(req.body);
         res.sendStatus(200);
     });
-    
     await customerBot.telegram.setWebhook(`${PUBLIC_URL}/webhook/customer`);
     console.log(`✅ Customer Bot Webhook Ready`);
 
-
     // =========================================
-    // ⏰ ส่วนที่ 3: SCHEDULER
+    // ⏰ SCHEDULER
     // =========================================
     const TIMEZONE = getConfig('systemTimezone');
     runScheduler(TIMEZONE); 
-    console.log(`✅ Scheduler started for Timezone: ${TIMEZONE}`);
+    console.log(`✅ Scheduler started`);
 
+    // =========================================
+    // 🌐 [สำคัญ] FRONTEND ROUTING (SPA Fallback)
+    // =========================================
+    // ดักจับทุก Route ที่ไม่ใช่ API และไม่ใช่ Webhook ให้ส่งหน้า index.html ไปแสดง
+    // วิธีนี้จะแก้ปัญหา 404 ไม่ว่าจะเข้าผ่าน /, /app, หรือ /login
+    app.get('*', (req, res) => {
+        // ถ้าเป็น API หรือ Webhook แต่หลุดมาถึงตรงนี้ ให้ตอบ 404 จริงๆ
+        if (req.url.startsWith('/api') || req.url.startsWith('/webhook')) {
+             return res.status(404).json({ error: 'Not Found' });
+        }
+        // นอกนั้นส่งหน้าเว็บไปให้หมด
+        res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    });
 
-    // 3. เปิดประตูรับแขก (Listen)
+    // 3. เริ่ม Server
     app.listen(PORT, '0.0.0.0', () => {
         console.log(`⚡️ Server listening on port ${PORT}`);
-        console.log(`   - API Endpoint: /api`);
     });
 }
 
