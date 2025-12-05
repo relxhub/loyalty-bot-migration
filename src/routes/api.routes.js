@@ -6,6 +6,7 @@ import { getConfig } from '../config/config.js';
 import { addDays, formatToBangkok } from '../utils/date.utils.js';
 import { getCustomerByTelegramId, updateCustomer, countCampaignReferralsByTag } from '../services/customer.service.js';
 import { countMonthlyReferrals } from '../services/referral.service.js';
+import * as referralService from '../services/referral.service'; // Import the new referral service
 
 const router = express.Router();
 
@@ -114,6 +115,51 @@ router.post('/auth', async (req, res) => {
     } catch (error) {
         console.error("Auth Error:", error);
         res.status(500).json({ error: 'Auth failed: ' + error.message });
+    }
+});
+
+// ==================================================
+// 🔗 REFERRAL REGISTER (New user joins via referrer's link)
+// ==================================================
+router.post('/referral/register', async (req, res) => {
+    const { referrerId, telegramId, firstName, lastName, username } = req.body;
+
+    if (!referrerId || !telegramId || !firstName) {
+        return res.status(400).json({ error: "ข้อมูลไม่ครบถ้วน: referrerId, telegramId, firstName เป็นค่าที่จำเป็น" });
+    }
+
+    try {
+        // Validate referrerId exists
+        const referrer = await prisma.customer.findUnique({ where: { customerId: referrerId } });
+        if (!referrer || referrer.isDeleted) {
+            return res.status(404).json({ error: "ไม่พบรหัสผู้แนะนำ (referrerId) นี้" });
+        }
+
+        // Check if this telegramId is already linked
+        const existingCustomer = await prisma.customer.findUnique({ where: { telegramUserId: telegramId.toString() } });
+        if (existingCustomer) {
+            return res.status(400).json({ error: "บัญชี Telegram นี้ถูกผูกกับลูกค้าอื่นไปแล้ว" });
+        }
+
+        const refereeData = {
+            telegramId: telegramId.toString(),
+            firstName,
+            lastName: lastName || null,
+            username: username || null
+        };
+
+        const newReferral = await referralService.createPendingReferral(referrerId, refereeData);
+
+        res.json({
+            success: true,
+            message: "ลงทะเบียนสำเร็จและสร้างการแนะนำรอไว้",
+            refereeCustomerId: newReferral.refereeId,
+            status: newReferral.status
+        });
+
+    } catch (error) {
+        console.error("Referral Register API Error:", error);
+        res.status(500).json({ error: `เกิดข้อผิดพลาดในการลงทะเบียน: ${error.message}` });
     }
 });
 
@@ -328,45 +374,36 @@ router.get('/referrals/:telegramId', async (req, res) => {
 
         console.log(`[2] ✅ Found user. CustomerID is: ${user.customerId}`);
 
-        const referrals = await prisma.customer.findMany({
+        // Fetch referral records from the new Referral table
+        const referrals = await prisma.referral.findMany({
             where: { referrerId: user.customerId },
-            orderBy: { joinDate: 'desc' },
-            select: {
-                customerId: true,
-                firstName: true,
-                lastName: true,
-                joinDate: true,
-                referralCount: true,
-                activeCampaignTag: true
+            orderBy: { createdAt: 'desc' }, // Order by when the referral was created (link clicked)
+            include: {
+                referee: { // Include the actual customer data for the referred person
+                    select: {
+                        customerId: true,
+                        firstName: true,
+                        lastName: true,
+                        joinDate: true,
+                        referralCount: true, // This is referrer's referralCount
+                        activeCampaignTag: true
+                    }
+                }
             }
         });
 
-        console.log(`[3] Found ${referrals.length} referrals for customerId: ${user.customerId}`);
+        console.log(`[3] Found ${referrals.length} referral records for customerId: ${user.customerId}`);
 
         const formattedList = await Promise.all(referrals.map(async (ref) => {
-            const bonusLog = await prisma.pointTransaction.findFirst({
-                where: {
-                    customerId: user.customerId,
-                    type: 'REFERRAL_BONUS',
-                    // Use ref.joinDate for date comparison
-                    createdAt: {
-                        gte: new Date(ref.joinDate.getTime() - 86400000), 
-                        lte: new Date(ref.joinDate.getTime() + 86400000)
-                    },
-                    detail: {
-                        contains: ref.customerId // Link bonus log to specific referred customer
-                    }
-                },
-                orderBy: { createdAt: 'desc' }
-            });
+            const referee = ref.referee; // The customer who was referred
 
-            // --- New Tier-2 Logic ---
+            // --- New Tier-2 Logic (remains mostly same, queries customer table for referee's referrals) ---
             let tier2Referrals = [];
-            const tier2Count = await prisma.customer.count({ where: { referrerId: ref.customerId } });
+            const tier2Count = await prisma.customer.count({ where: { referrerId: referee.customerId } });
 
             if (tier2Count > 0) {
                 const tier2Customers = await prisma.customer.findMany({
-                    where: { referrerId: ref.customerId },
+                    where: { referrerId: referee.customerId },
                     orderBy: { joinDate: 'desc' },
                     select: {
                         customerId: true,
@@ -390,13 +427,14 @@ router.get('/referrals/:telegramId', async (req, res) => {
             // --- End New Logic ---
 
             return {
-                name: `${ref.firstName || 'Guest'} ${ref.lastName || ''}`.trim() || ref.customerId,
-                id: ref.customerId,
-                joinedAt: formatToBangkok(ref.joinDate), // Use ref.joinDate
-                earnedAt: bonusLog ? formatToBangkok(bonusLog.createdAt) : '-',
+                name: `${referee.firstName || 'Guest'} ${referee.lastName || ''}`.trim() || referee.customerId,
+                id: referee.customerId,
+                joinedAt: formatToBangkok(referee.joinDate), // Use referee's joinDate
+                earnedAt: ref.status === 'COMPLETED' ? formatToBangkok(ref.completedAt) : '-',
                 tier2Count: tier2Count,
-                earned: bonusLog ? bonusLog.amount : 0,
-                campaign: ref.activeCampaignTag || 'Standard',
+                earned: ref.status === 'COMPLETED' ? ref.bonusAwarded : 0, // Use bonusAwarded from Referral table
+                status: ref.status, // Add referral status
+                campaign: referee.activeCampaignTag || 'Standard', // Use referee's campaign tag
                 tier2Referrals: tier2Referrals // Add the new array
             };
         }));

@@ -57,9 +57,29 @@ model Customer {
   // Relations (ความสัมพันธ์กับตารางอื่น)
   transactions      PointTransaction[]
   auditLogs         AdminAuditLog[]
+  referralsMade     Referral[] @relation("ReferredBy") // People this customer has referred
+  referredBy        Referral?  @relation("Referred")   // The referral record for how this customer joined
 
   @@index([verificationCode])
   @@index([referrerId])
+}
+
+model Referral {
+  id              Int      @id @default(autoincrement())
+  referrerId      String   // Customer ID of the person who refers
+  refereeId       String   @unique // Customer ID of the new person who was referred
+  status          String   // PENDING_PURCHASE, COMPLETED
+  purchaseAmount  Float?   // The amount of the first purchase
+  bonusAwarded    Int?     // How many points the referrer received
+  createdAt       DateTime @default(now())
+  completedAt     DateTime?
+
+  // Relations
+  referrer        Customer @relation("ReferredBy", fields: [referrerId], references: [customerId])
+  referee         Customer @relation("Referred", fields: [refereeId], references: [customerId])
+
+  @@index([referrerId])
+  @@index([refereeId])
 }
 
 model Admin {

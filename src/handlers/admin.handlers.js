@@ -8,6 +8,7 @@ import { addDays } from '../utils/date.utils.js';
 import { getActiveCampaign } from '../services/campaign.service.js';
 import { getConfig } from '../config/config.js';
 import { giveReferralBonus } from '../services/customer.service.js';
+import * as referralService from '../services/referral.service'; // Import the new referral service
 import fs from 'fs';
 import path from 'path';
 
@@ -48,6 +49,10 @@ export async function handleAdminCommand(ctx) {
             case "/new":
                 await handleNewCustomer(ctx, commandParts, adminUser, chatId);
                 break;
+            
+            case "/refer": // New case for /refer command
+                await handleReferCommand(ctx, commandParts, adminUser, chatId);
+                break;
 
             case "/check":
                 if (commandParts.length !== 2) {
@@ -80,6 +85,7 @@ export async function handleAdminCommand(ctx) {
                 (role === "SuperAdmin" ? "🪙 /add [รหัสลูกค้า] [แต้ม]\n" : "") +
                 (role === "SuperAdmin" ? "👮‍♂️ /addadmin [ID] [Role] [Name]\n" : "") +
                 "👤 /new [ลูกค้าใหม่] [ผู้แนะนำ]\n" +
+                "✨ /refer [รหัสลูกค้าที่ถูกแนะนำ] [ยอดซื้อ]\n" + // Add new command to start message
                 "🎁 /reward\n" +
                 "✨ /redeem [รหัสลูกค้า] [รหัสรางวัล]";
                 sendAdminReply(chatId, welcomeMsg);
@@ -99,59 +105,69 @@ export async function handleAdminCommand(ctx) {
 // 🛠️ HELPER FUNCTIONS
 // ==================================================
 
+// Function for /refer command
+async function handleReferCommand(ctx, commandParts, adminUser, chatId) {
+    try {
+        const refereeId = commandParts[1]?.toUpperCase();
+        const purchaseAmount = parseFloat(commandParts[2]);
+
+        // 1. Validation
+        if (!refereeId || isNaN(purchaseAmount)) {
+            return sendAdminReply(chatId, "❗️รูปแบบคำสั่งผิด\nต้องเป็น: /refer [รหัสลูกค้าที่ถูกแนะนำ] [ยอดซื้อ]");
+        }
+        if (!isValidIdFormat(refereeId)) {
+            return sendAdminReply(chatId, `❌ รูปแบบรหัสลูกค้า '${refereeId}' ไม่ถูกต้อง (A-Z, 0-9)`);
+        }
+
+        // 2. Call referralService.completeReferral
+        const result = await referralService.completeReferral(refereeId, purchaseAmount);
+
+        // 3. Provide feedback to admin
+        if (result.success) {
+            await createAdminLog(adminUser, "COMPLETE_REFERRAL", refereeId, result.bonus, `Purchase: ${purchaseAmount}`);
+            sendAdminReply(chatId, result.message);
+        } else {
+            sendAdminReply(chatId, `❌ ${result.message}`);
+        }
+
+    } catch (error) {
+        console.error("Refer Command Error:", error);
+        sendAdminReply(chatId, `❌ เกิดข้อผิดพลาดในการทำรายการ: ${error.message}`);
+    }
+}
+
 // ฟังก์ชันสร้างลูกค้าใหม่ (พร้อม Magic Link)
 async function handleNewCustomer(ctx, commandParts, adminUser, chatId) {
     try {
-        const newCustomerId = commandParts[1]?.toUpperCase();
-        const referrerId = commandParts[2]?.toUpperCase() || null;
-        const isReferrerSpecified = referrerId && referrerId !== 'N/A';
+        // No longer takes customer ID from commandParts. It's auto-generated.
+        // No longer takes referrerId.
 
-        // 1. Validation
-        if (!newCustomerId) return sendAdminReply(chatId, "❗️รูปแบบคำสั่งผิด\nต้องเป็น: /new [รหัสลูกค้าใหม่] [รหัสผู้แนะนำ (ถ้ามี)]");
-        if (!isValidIdFormat(newCustomerId)) return sendAdminReply(chatId, `❌ รูปแบบรหัสลูกค้า '${newCustomerId}' ไม่ถูกต้อง (A-Z, 0-9)`);
-        
-        const existing = await prisma.customer.findUnique({ where: { customerId: newCustomerId } });
-        if (existing && !existing.isDeleted) return sendAdminReply(chatId, `❌ รหัสลูกค้า '${newCustomerId}' นี้มีอยู่ในระบบแล้ว`);
-
-        if (isReferrerSpecified) {
-            const refUser = await prisma.customer.findUnique({ where: { customerId: referrerId } });
-            if (!refUser || refUser.isDeleted) return sendAdminReply(chatId, `❌ ไม่พบข้อมูลรหัสผู้แนะนำ '${referrerId}'`);
-            if (newCustomerId === referrerId) return sendAdminReply(chatId, "❌ รหัสลูกค้าและผู้แนะนำต้องไม่เหมือนกัน");
+        // 1. Validation (only check if any extra params are passed, which shouldn't be)
+        if (commandParts.length > 1) { // If anything other than just "/new" is present
+            return sendAdminReply(chatId, "❗️รูปแบบคำสั่งผิด\nต้องเป็น: /new (สร้างรหัสลูกค้าใหม่)");
         }
 
-        // 2. Create Data
-        const verificationCode = generateUniqueCode(4);
-        const initialPoints = 0;
-        const newExpiryDate = addDays(new Date(), getConfig('expiryDaysNewCustomer') || 30);
-
-        await prisma.customer.create({
-            data: {
-                customerId: newCustomerId,
-                referrerId: isReferrerSpecified ? referrerId : null,
-                points: initialPoints,
-                expiryDate: newExpiryDate,
-                verificationCode: verificationCode,
-                adminCreatedBy: adminUser,
-                telegramUserId: null // ยังไม่มี Telegram ID
-            }
-        });
+        // 2. Create Data - delegate to customerService.createCustomer for ID generation
+        // customerService.createCustomer generates customerId and verificationCode
+        const newCustomerData = {
+            telegramUserId: null, // Admin command doesn't provide telegramId initially
+            firstName: null,
+            lastName: null,
+            username: null,
+            adminCreatedBy: adminUser
+        };
+        const customer = await customerService.createCustomer(newCustomerData); // customer.service.js creates the customerId and verificationCode
 
         // Log Creation
-        await createAdminLog(adminUser, "CREATE_CUSTOMER", newCustomerId, 0, `Referred by: ${referrerId || 'N/A'}`);
+        await createAdminLog(adminUser, "CREATE_CUSTOMER", customer.customerId, 0, `Auto-generated customer via /new`);
 
-        // 3. Give Referral Bonus
-        if (isReferrerSpecified) {
-            await giveReferralBonus(referrerId, newCustomerId, adminUser);
-        }
-
-        // 4. Generate Magic Link 🔗
-        // ใช้ username ของบอทตัวเองเพื่อสร้างลิงก์ที่ถูกต้อง
-        const botUsername = 'ONEHUB_Customer_Backup_Bot';
-        const magicLink = `https://t.me/${botUsername}/app?startapp=link_${newCustomerId}_${verificationCode}`;
+        // 3. Generate Magic Link 🔗
+        const botUsername = 'ONEHUB_Customer_Backup_Bot'; // Or from config
+        const magicLink = `https://t.me/${botUsername}/app?startapp=link_${customer.customerId}_${customer.verificationCode}`;
 
         const msg = `✅ <b>รหัสสมาชิกของคุณลูกค้า!</b>\n` +
-                    `👤 รหัส: <code>${newCustomerId}</code>\n` +
-                    `🔑 รหัสยืนยัน: <code>${verificationCode}</code>\n\n` +
+                    `👤 รหัส: <code>${customer.customerId}</code>\n` +
+                    `🔑 รหัสยืนยัน: <code>${customer.verificationCode}</code>\n\n` +
                     `👇 <b>คุณลูกค้าสามารถแตะที่ลิงค์นี่้ระบบจะเชื่อมต่อสมาชิกให้ทันที:</b>\n` +
                     `${magicLink}`;
 
