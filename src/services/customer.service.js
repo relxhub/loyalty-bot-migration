@@ -1,6 +1,6 @@
 import { prisma } from '../db.js';
 import { getActiveCampaign } from './campaign.service.js';
-import { addDays, getThaiNow } from '../utils/date.utils.js';
+import { addDays } from '../utils/date.utils.js';
 import { sendNotificationToCustomer } from './notification.service.js';
 import { getConfig } from '../config/config.js';
 
@@ -29,10 +29,10 @@ export async function countCampaignReferrals(customerId, startDate) {
     // Legacy support: still counts logs by date
     if (!startDate) return 0;
     try {
-        return await prisma.customerLog.count({
+        return await prisma.PointTransaction.count({
             where: {
                 customerId: customerId,
-                action: 'REFERRAL_BONUS',
+                type: 'REFERRAL_BONUS',
                 createdAt: { gte: startDate }
             }
         });
@@ -103,11 +103,14 @@ export async function giveReferralBonus(referrerId, newCustomerId, adminUser) {
     const referrer = await prisma.customer.findUnique({ where: { customerId: referrerId } });
     if (!referrer) return;
 
-    // ⭐️ ใช้เวลาไทยเที่ยงคืน
-    const today = getThaiNow();
-    today.setHours(0, 0, 0, 0);
+    // Get the start of today in Bangkok, represented as a UTC timestamp for accurate comparison
+    const now = new Date();
+    const year = Number(now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok', year: 'numeric' }));
+    const month = Number(now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok', month: 'numeric' }));
+    const day = Number(now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok', day: 'numeric' }));
+    const today = new Date(Date.UTC(year, month - 1, day));
 
-    const baseDate = referrer.expiryDate > today ? referrer.expiryDate : today;
+    const baseDate = (referrer.expiryDate && referrer.expiryDate > today) ? referrer.expiryDate : today;
     const proposedExpiry = addDays(baseDate, daysToExtend);
     const limitDate = addDays(today, limitDays); 
     const finalExpiryDate = proposedExpiry > limitDate ? limitDate : proposedExpiry;
