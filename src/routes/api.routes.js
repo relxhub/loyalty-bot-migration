@@ -196,8 +196,8 @@ router.get('/user/:telegramId', async (req, res) => {
 router.get('/rewards', async (req, res) => {
     try {
         const rewards = await prisma.reward.findMany({
-            where: { isDeleted: false },
-            orderBy: { points: 'asc' }
+            where: { isActive: true }, 
+            orderBy: { pointsCost: 'asc' } // เช็ค schema ดีๆ ว่าใช้ points หรือ pointsCost (ใน schema คุณเขียน pointsCost)
         });
         res.json(rewards);
     } catch (error) {
@@ -276,26 +276,34 @@ router.get('/history/:telegramId', async (req, res) => {
     try {
         const { telegramId } = req.params;
         
-        // ดึงข้อมูล 20 รายการล่าสุด
-        const logs = await prisma.customerLog.findMany({
-            where: { telegramUserId: telegramId },
+        // ของใหม่ (ถูกต้อง ใช้ PointTransaction)
+        // 1. ต้องหา customerId จาก telegramId ก่อน เพราะ PointTransaction ผูกกับ customerId
+        const customer = await prisma.customer.findUnique({
+            where: { telegramUserId: telegramId }
+        });
+
+        if (!customer) return res.json({ success: true, logs: [] });
+
+        // 2. ดึงข้อมูลจาก PointTransaction
+        const logs = await prisma.pointTransaction.findMany({
+            where: { customerId: customer.customerId },
             orderBy: { createdAt: 'desc' },
             take: 20,
             select: {
-                action: true,
-                pointsChange: true,
+                type: true,      // เปลี่ยนจาก action เป็น type
+                amount: true,    // เปลี่ยนจาก pointsChange เป็น amount
                 createdAt: true
             }
         });
 
-        // จัด Format วันที่และ Action ให้สวยงามก่อนส่งกลับ
+        // 3. ปรับการ map ข้อมูลให้ตรงกับ Frontend
         const formattedLogs = logs.map(log => ({
-            action: mapActionName(log.action), // แปลงชื่อ Action เป็นภาษาไทย
-            points: log.pointsChange > 0 ? `+${log.pointsChange}` : `${log.pointsChange}`,
+            action: mapActionName(log.type), // ส่ง type ไปแปลงเป็นชื่อไทย
+            points: log.amount > 0 ? `+${log.amount}` : `${log.amount}`,
             date: new Date(log.createdAt).toLocaleDateString('th-TH', {
                 day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
             }),
-            isPositive: log.pointsChange > 0
+            isPositive: log.amount > 0
         }));
 
         res.json({ success: true, logs: formattedLogs });
