@@ -1,6 +1,9 @@
 // app.js (ฉบับรองรับ Mini App API)
 
 import 'dotenv/config'; 
+import path from 'path';
+import { fileURLToPath } from 'url';
+
 // 🛡️ เพิ่มตัวดัก Error นี้ชั่วคราว
 process.on('uncaughtException', (err) => {
   console.error('💥 CRITICAL ERROR:', err);
@@ -26,6 +29,10 @@ import apiRoutes from './src/routes/api.routes.js';
 // Import Scheduler
 import { runScheduler } from './src/jobs/scheduler.js'; 
 
+// ✅ กำหนด Path ปัจจุบัน (จำเป็นสำหรับ ES Modules)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const PORT = process.env.PORT || 3000;
 const app = express();
 
@@ -41,7 +48,8 @@ async function startServer() {
 
     // 2. ตั้งค่า Express
     app.use(express.json()); 
-    app.use(express.static('public'));
+    // ✅ แก้ไข: ระบุ Path เต็มเพื่อความชัวร์
+    app.use(express.static(path.join(__dirname, 'public')));
     
     // (Optional) เปิด CORS ให้หน้าเว็บเรียก API ได้
     app.use((req, res, next) => {
@@ -63,6 +71,11 @@ async function startServer() {
 
     // ⭐️ เชื่อมต่อ API Routes (เข้าทาง /api/...)
     app.use('/api', apiRoutes);
+
+    // ✅ เพิ่ม Route สำหรับ Magic Link (แก้ปัญหา 404)
+    app.get('/login', (req, res) => {
+        res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    });
 
     // =========================================
     // 🤖 ส่วนที่ 1: ADMIN BOT SETUP
