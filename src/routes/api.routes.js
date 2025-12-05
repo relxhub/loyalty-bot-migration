@@ -330,12 +330,12 @@ router.get('/referrals/:telegramId', async (req, res) => {
 
         const referrals = await prisma.customer.findMany({
             where: { referrerId: user.customerId },
-            orderBy: { createdAt: 'desc' },
+            orderBy: { joinDate: 'desc' },
             select: {
                 customerId: true,
                 firstName: true,
                 lastName: true,
-                createdAt: true,
+                joinDate: true,
                 referralCount: true,
                 activeCampaignTag: true
             }
