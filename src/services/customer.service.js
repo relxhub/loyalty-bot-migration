@@ -182,6 +182,17 @@ export async function giveReferralBonus(referrerId, newCustomerId, adminUser) {
         }
     });
 
+    // 2. IMPORTANT: Update Referee with referrerId and Campaign Tag
+    const campaignTag = campaign?.name || 'Standard';
+    await prisma.customer.update({
+        where: { customerId: newCustomerId },
+        data: {
+            referrerId: referrerId,
+            activeCampaignTag: campaignTag
+        }
+    });
+
+
     // 3. Log System (Auto) in AdminLog
     await prisma.AdminAuditLog.create({
         data: {
