@@ -3,28 +3,33 @@
 import { getConfig } from '../config/config.js';
 
 /**
- * 🇹🇭 สร้างวันที่ปัจจุบันโดยแปลงเป็นเวลาไทย (Fake UTC)
- * ใช้เพื่อให้การคำนวณวันตัดรอบ (00:00) ตรงกับเที่ยงคืนประเทศไทย
- * และเพื่อให้ตรงกับข้อมูลที่คุณกรอกใน DB (ซึ่งคุณกรอกเป็นเวลาไทย)
+ * Formats a Date object into a readable string for the Asia/Bangkok timezone.
+ * @param {Date | string} date The date object or string to format.
+ * @returns {string} The formatted date string (e.g., "5 ธ.ค. 2568, 11:03").
  */
-export function getThaiNow() {
-    const now = new Date();
-    // บวก 7 ชั่วโมง (7 * 60 * 60 * 1000)
-    const thaiOffset = 7 * 60 * 60 * 1000; 
-    return new Date(now.getTime() + thaiOffset);
+export function formatToBangkok(date) {
+    if (!date) return 'N/A';
+    return new Date(date).toLocaleString('th-TH', {
+        timeZone: 'Asia/Bangkok',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
 }
 
 export function addDays(date, days) {
     const result = new Date(date);
     result.setDate(result.getDate() + days);
-    // ปรับเวลาให้เป็น 00:00:00 
-    result.setHours(0, 0, 0, 0); 
+    // Set time to midnight UTC for consistency
+    result.setUTCHours(0, 0, 0, 0); 
     return result;
 }
 
-// ฟังก์ชันคำนวณวันหมดอายุ (ใช้ getThaiNow แทน new Date)
+// This function now correctly calculates a future expiry date in UTC
 export function calculateExpiryDate(pointType) {
-    const startDate = getThaiNow(); // ใช้วันที่ไทย
+    const startDate = new Date(); // Current time in UTC
     const DAYS_GENERAL_TOPUP = 365; 
     const DAYS_REFERRAL_BONUS = 90; 
     const DAYS_NEW_CUSTOMER = 30;

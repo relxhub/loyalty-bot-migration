@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { prisma } from '../db.js';
 import { getActiveCampaign } from '../services/campaign.service.js';
 import { getConfig } from '../config/config.js';
-import { addDays } from '../utils/date.utils.js';
+import { addDays, formatToBangkok } from '../utils/date.utils.js';
 import { getCustomerByTelegramId, updateCustomer, countCampaignReferralsByTag } from '../services/customer.service.js';
 import { countMonthlyReferrals } from '../services/referral.service.js';
 
@@ -279,9 +279,7 @@ router.get('/history/:telegramId', async (req, res) => {
         const formattedLogs = logs.map(log => ({
             action: mapActionName(log.type),
             points: log.amount > 0 ? `+${log.amount}` : `${log.amount}`,
-            date: new Date(log.createdAt).toLocaleDateString('th-TH', {
-                day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
-            }),
+            date: formatToBangkok(log.createdAt),
             isPositive: log.amount > 0
         }));
 
@@ -355,8 +353,8 @@ router.get('/referrals/:telegramId', async (req, res) => {
             return {
                 name: `${ref.firstName || 'Guest'} ${ref.lastName || ''}`.trim() || ref.customerId,
                 id: ref.customerId,
-                joinedAt: new Date(ref.createdAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }),
-                earnedAt: bonusLog ? new Date(bonusLog.createdAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) : '-',
+                joinedAt: formatToBangkok(ref.createdAt),
+                earnedAt: bonusLog ? formatToBangkok(bonusLog.createdAt) : '-',
                 tier2Count: tier2Count,
                 earned: bonusLog ? bonusLog.amount : 0,
                 campaign: ref.activeCampaignTag || 'Standard'
