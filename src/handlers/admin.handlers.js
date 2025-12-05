@@ -376,13 +376,17 @@ async function handleRedeemReward(ctx, commandParts, adminUser, chatId) {
 
 async function createAdminLog(admin, action, customerId, pointsChange, details) {
     try {
+        let combinedDetails = details || "";
+        if (pointsChange && pointsChange !== 0) {
+            const sign = pointsChange > 0 ? '+' : '';
+            combinedDetails += ` (Points: ${sign}${pointsChange})`;
+        }
         await prisma.AdminAuditLog.create({
             data: {
-                admin: admin,
+                adminName: admin,
                 action: action,
-                customerId: customerId || null,
-                pointsChange: pointsChange || 0,
-                details: details || ""
+                targetId: customerId || null,
+                details: combinedDetails
             }
         });
     } catch (e) { console.error("Failed to create Admin Log:", e); }

@@ -158,11 +158,10 @@ export async function giveReferralBonus(referrerId, newCustomerId, adminUser) {
     // 3. Log System (Auto) in AdminLog
     await prisma.AdminAuditLog.create({
         data: {
-            admin: 'System (Auto)',
+            adminName: 'System (Auto)',
             action: 'REFERRAL_BONUS',
-            customerId: referrer.customerId,
-            pointsChange: bonusPoints,
-            details: `From ${newCustomerId}.`
+            targetId: referrer.customerId,
+            details: `From ${newCustomerId}. Points: +${bonusPoints}`
         }
     });
 
@@ -170,11 +169,10 @@ export async function giveReferralBonus(referrerId, newCustomerId, adminUser) {
     if (earnedMilestoneBonus > 0) {
         await prisma.AdminAuditLog.create({
             data: {
-                admin: 'System (Auto)',
+                adminName: 'System (Auto)',
                 action: 'CAMPAIGN_BONUS',
-                customerId: referrer.customerId,
-                pointsChange: earnedMilestoneBonus,
-                details: `Milestone reached! (${campaign.milestoneTarget} referrals)`
+                targetId: referrer.customerId,
+                details: `Milestone reached! (${campaign.milestoneTarget} referrals). Points: +${earnedMilestoneBonus}`
             }
         });
     }
