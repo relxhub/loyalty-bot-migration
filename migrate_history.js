@@ -1,73 +1,178 @@
-// migrate_history.js
+import fs from 'fs';
+import readline from 'readline';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-async function migrateAdminLogs() {
-    console.log("🚀 เริ่มต้นย้ายข้อมูลประวัติเก่า...");
+// ฟังก์ชันแปลงวันที่ให้รองรับ format ใน CSV ของคุณ
+function parseDate(dateStr) {
+    if (!dateStr) return new Date();
+    const cleanStr = dateStr.replace(/"/g, '').trim();
+    
+    // แบบที่มี Slash: "5/9/2025, 14:32:15"
+    if (cleanStr.includes('/')) {
+        const [dPart, tPart] = cleanStr.split(', ');
+        if (!dPart) return new Date();
+        
+        const [day, month, year] = dPart.split('/').map(Number);
+        const [hour, min, sec] = tPart ? tPart.split(':').map(Number) : [0, 0, 0];
+        
+        // สร้าง Date object (Note: Month ใน JS เริ่มที่ 0)
+        return new Date(year, month - 1, day, hour, min, sec);
+    }
+    
+    // เผื่อกรณี format อื่น
+    return new Date(cleanStr);
+}
 
-    try {
-        // 1. ดึงข้อมูล AdminLog ที่เกี่ยวกับแต้มทั้งหมด
-        const adminLogs = await prisma.adminLog.findMany({
-            where: {
-                action: {
-                    in: ['ADD_POINTS', 'REDEEM_POINTS'] // เอาเฉพาะเติมแต้มกับแลกของ
-                }
-            }
-        });
+async function main() {
+    console.log("🚀 เริ่มต้นการย้ายประวัติ (History Migration)...");
 
-        console.log(`📦 พบรายการจาก Admin ทั้งหมด: ${adminLogs.length} รายการ`);
+    // ---------------------------------------------------------
+    // 1. ประวัติการแนะนำเพื่อน (จาก ProcessedReferrals.csv)
+    // ---------------------------------------------------------
+    if (fs.existsSync('ProcessedReferrals.csv')) {
+        console.log("👥 กำลังนำเข้าประวัติการแนะนำเพื่อน...");
+        const rs = fs.createReadStream('ProcessedReferrals.csv');
+        const rl = readline.createInterface({ input: rs, crlfDelay: Infinity });
+        let isHeader = true;
         let count = 0;
 
-        // 2. วนลูปตรวจสอบทีละรายการ
-        for (const log of adminLogs) {
-            if (!log.customerId) continue;
+        for await (const line of rl) {
+            if (isHeader) { isHeader = false; continue; }
+            // Format: Date,Invitee_ID,Admin_Closer,Inviter_ID,Admin_Recommender
+            const cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+            const timestamp = parseDate(cols[0]);
+            const inviteeId = cols[1]?.trim();
+            const inviterId = cols[3]?.trim();
 
-            // หาข้อมูลลูกค้าเพื่อเอา telegramUserId
-            const customer = await prisma.customer.findUnique({
-                where: { customerId: log.customerId }
-            });
-
-            // ถ้าลูกค้าคนนี้ผูก Telegram แล้ว -> สร้างประวัติให้เขาเห็น
-            if (customer && customer.telegramUserId) {
-                
-                // แปลงชื่อ Action ให้ตรงกับแบบใหม่
-                let newAction = log.action === 'ADD_POINTS' ? 'ADMIN_ADD_POINTS' : 'ADMIN_REDEEM';
-
-                // ตรวจสอบว่ามีประวัตินี้อยู่แล้วหรือยัง (กันซ้ำ)
-                const exists = await prisma.customerLog.findFirst({
-                    where: {
-                        telegramUserId: customer.telegramUserId,
-                        customerId: log.customerId,
-                        createdAt: log.createdAt, // เช็คจากเวลาเดียวกันเป๊ะๆ
-                        action: newAction
-                    }
-                });
-
-                if (!exists) {
-                    await prisma.customerLog.create({
+            if (inviterId && inviterId !== 'N/A') {
+                try {
+                    await prisma.pointTransaction.create({
                         data: {
-                            telegramUserId: customer.telegramUserId,
-                            customerId: log.customerId,
-                            action: newAction,
-                            pointsChange: log.pointsChange,
-                            createdAt: log.createdAt // ✅ สำคัญ! ใช้วันที่เดิมจากอดีต
+                            customerId: inviterId,
+                            amount: 100, // สมมติ 100 แต้มตามแคมเปญ
+                            type: 'REFERRAL_BONUS',
+                            relatedId: inviteeId,
+                            detail: `แนะนำเพื่อนสำเร็จ: ${inviteeId}`,
+                            createdAt: timestamp
                         }
                     });
-                    process.stdout.write("."); // แสดงจุดเมื่อทำสำเร็จ
                     count++;
+                } catch (e) { 
+                    // อาจ error ถ้าไม่มีลูกค้าคนนี้ในระบบใหม่ (ข้ามไป)
                 }
             }
         }
-
-        console.log(`\n\n✅ เสร็จสิ้น! ย้ายข้อมูลสำเร็จ ${count} รายการ`);
-        console.log(`(รายการที่เหลือคือลูกค้าที่ยังไม่ได้ผูก Telegram หรือย้ายไปแล้ว)`);
-
-    } catch (error) {
-        console.error("\n❌ เกิดข้อผิดพลาด:", error);
-    } finally {
-        await prisma.$disconnect();
+        console.log(`   -> เพิ่มประวัติแนะนำเพื่อน ${count} รายการ`);
     }
+
+    // ---------------------------------------------------------
+    // 2. ประวัติการผูกบัญชี (จาก CustomerLogs.csv)
+    // ---------------------------------------------------------
+    if (fs.existsSync('CustomerLogs.csv')) {
+        console.log("🎁 กำลังนำเข้าประวัติ Customer Logs...");
+        const rs = fs.createReadStream('CustomerLogs.csv');
+        const rl = readline.createInterface({ input: rs, crlfDelay: Infinity });
+        let isHeader = true;
+        let count = 0;
+
+        for await (const line of rl) {
+            if (isHeader) { isHeader = false; continue; }
+            // Format: Timestamp,TelegramUserID,CustomerID,Action,PointsChange...
+            const cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+            const timestamp = parseDate(cols[0]);
+            const customerId = cols[2]?.trim();
+            const action = cols[3]?.trim();
+            
+            // หาแต้มถ้ามี
+            let points = 0;
+            if (cols[4]) points = parseInt(cols[4].replace(/"/g, '')) || 0;
+
+            if (customerId && customerId !== '-' && action === 'LINK_BONUS') {
+                try {
+                    await prisma.pointTransaction.create({
+                        data: {
+                            customerId,
+                            amount: points || 50, // Default 50 ถ้าไม่มีระบุ
+                            type: 'LINK_BONUS',
+                            detail: 'รับโบนัสผูกบัญชี',
+                            createdAt: timestamp
+                        }
+                    });
+                    count++;
+                } catch (e) {}
+            }
+        }
+        console.log(`   -> เพิ่มประวัติ Link Bonus ${count} รายการ`);
+    }
+
+    // ---------------------------------------------------------
+    // 3. ประวัติ Admin & การแลกของ (จาก Logs.csv)
+    // ---------------------------------------------------------
+    if (fs.existsSync('Logs.csv')) {
+        console.log("👮 กำลังนำเข้า Admin Logs & Redemptions...");
+        const rs = fs.createReadStream('Logs.csv');
+        const rl = readline.createInterface({ input: rs, crlfDelay: Infinity });
+        let isHeader = true;
+        let countAudit = 0;
+        let countTrans = 0;
+
+        for await (const line of rl) {
+            if (isHeader) { isHeader = false; continue; }
+            // Format: Timestamp,Admin,Action,CustomerID,PointsChange,Details
+            const cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+            const timestamp = parseDate(cols[0]);
+            const adminName = cols[1]?.trim();
+            const action = cols[2]?.trim();
+            const targetId = cols[3]?.trim();
+            const pointsChange = parseInt(cols[4]?.trim()) || 0;
+            const details = cols[5]?.replace(/"/g, '').trim();
+
+            try {
+                // 3.1 บันทึกลง AdminAuditLog (เก็บไว้ตรวจสอบแอดมิน)
+                await prisma.adminAuditLog.create({
+                    data: {
+                        adminName: adminName,
+                        action: action,
+                        targetId: (targetId && targetId !== 'N/A') ? targetId : null,
+                        details: `Points: ${pointsChange}, Info: ${details}`,
+                        createdAt: timestamp
+                    }
+                });
+                countAudit++;
+
+                // 3.2 ถ้ามีการเปลี่ยนแต้ม -> สร้าง PointTransaction ให้ลูกค้าด้วย
+                // รองรับทั้ง ADD_POINTS (เพิ่มแต้ม) และ REDEEM_POINTS (แลกของ/ตัดแต้ม)
+                if (pointsChange !== 0 && targetId && targetId !== 'N/A') {
+                    let type = 'ADMIN_ADJUST';
+                    let detailMsg = `แก้ไขโดย Admin (${adminName})`;
+
+                    if (action === 'REDEEM_POINTS') {
+                        type = 'REDEEM_REWARD';
+                        detailMsg = details || 'แลกของรางวัล';
+                    }
+
+                    await prisma.pointTransaction.create({
+                        data: {
+                            customerId: targetId,
+                            amount: pointsChange,
+                            type: type,
+                            detail: detailMsg,
+                            createdAt: timestamp
+                        }
+                    });
+                    countTrans++;
+                }
+            } catch (e) { /* ข้าม Error เช่น หา user ไม่เจอ */ }
+        }
+        console.log(`   -> เพิ่ม Admin Audit ${countAudit} รายการ`);
+        console.log(`   -> เพิ่ม Transaction จาก Admin ${countTrans} รายการ`);
+    }
+
+    console.log("✅ ย้ายประวัติทั้งหมดเสร็จสิ้น!");
 }
 
-migrateAdminLogs();
+main()
+    .catch(e => console.error(e))
+    .finally(async () => { await prisma.$disconnect(); });

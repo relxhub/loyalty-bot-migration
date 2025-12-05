@@ -27,7 +27,7 @@ function parseDate(dateStr) {
 async function main() {
     console.log("🚀 เริ่มต้นการย้ายข้อมูลลูกค้า...");
 
-    const fileStream = fs.createReadStream('customers.csv');
+    const fileStream = fs.createReadStream('CustomerData.csv');
     const rl = readline.createInterface({
         input: fileStream,
         crlfDelay: Infinity

@@ -9,53 +9,86 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Customer {
-  customerId        String    @id
-  referrerId        String?
-  points            Int       @default(0)
-  expiryDate        DateTime
-  telegramUserId    String?   @unique
-  verificationCode  String?
-  adminCreatedBy    String
-  referralCount     Int       @default(0)
-  activeCampaignTag String?
-  isDeleted         Boolean   @default(false)
-
-  // ✅ เพิ่ม 3 บรรทัดนี้
-  firstName         String?
-  lastName          String?
-  username          String?
-
-  @@index([verificationCode])
-}
-
-// ... (Model อื่นๆ คงเดิม)
-model Admin {
-  telegramId String  @id
-  name       String?
-  role       Role    @default(Admin)
-}
+// ---------------------------------------------------------
+// ENUMS (ตัวเลือกคงที่)
+// ---------------------------------------------------------
 
 enum Role {
   SuperAdmin
   Admin
 }
 
+enum TransactionType {
+  REFERRAL_BONUS    // ได้แต้มจากการชวนเพื่อน
+  LINK_BONUS        // ได้แต้มจากการผูกบัญชี Telegram
+  REDEEM_REWARD     // แลกของรางวัล (แต้มลด)
+  ADMIN_ADJUST      // แอดมินแก้ไขแต้ม (เพิ่ม/ลด)
+  SYSTEM_ADJUST     // ระบบแก้ไข (เช่น แต้มหมดอายุ)
+  CAMPAIGN_BONUS    // โบนัสพิเศษจากแคมเปญ (เช่น ครบ 5 คน)
+  OTHER             // อื่นๆ
+}
+
+// ---------------------------------------------------------
+// CORE MODELS
+// ---------------------------------------------------------
+
+model Customer {
+  customerId        String    @id // รหัสสมาชิก (เช่น OTxxxx)
+  referrerId        String?   // รหัสผู้แนะนำ (Upline)
+  points            Int       @default(0)
+  expiryDate        DateTime? // วันหมดอายุแต้ม (ปรับเป็น Nullable เผื่อไม่มีวันหมดอายุ)
+  
+  // Telegram Info
+  telegramUserId    String?   @unique
+  username          String?
+  firstName         String?
+  lastName          String?
+  
+  // Verification
+  verificationCode  String?
+  
+  // Management Info
+  joinDate          DateTime  @default(now()) // วันที่เริ่มเป็นสมาชิก (migrate มาใส่ได้)
+  adminCreatedBy    String?   // admin คนไหนสร้าง (Nullable เผื่อสมัครเอง)
+  referralCount     Int       @default(0)
+  activeCampaignTag String?   // แท็กแคมเปญปัจจุบันที่เข้าร่วม
+  isDeleted         Boolean   @default(false)
+
+  // Relations (ความสัมพันธ์กับตารางอื่น)
+  transactions      PointTransaction[]
+  auditLogs         AdminAuditLog[]
+
+  @@index([verificationCode])
+  @@index([referrerId])
+}
+
+model Admin {
+  telegramId String  @id
+  name       String?
+  role       Role    @default(Admin)
+}
+
 model Reward {
-  rewardId String  @id
-  name     String
-  points   Int
+  rewardId    String   @id // เช่น R50, R100
+  name        String
+  pointsCost  Int      // ใช้ points แทน pointsCost ก็ได้ แต่ pointsCost สื่อความหมายดีกว่า
+  description String?
+  isActive    Boolean  @default(true) // เปิด/ปิด การแลกรางวัลนี้
 }
 
 model Campaign {
   id              Int      @id @default(autoincrement())
-  campaignName    String   @unique
-  startAt         DateTime
-  endAt           DateTime
-  baseReferral    Int      @default(50)
-  milestoneTarget Int      @default(0)
-  milestoneBonus  Int      @default(0)
-  linkBonus       Int      @default(50)
+  name            String   @unique // เปลี่ยนจาก campaignName เป็น name ให้สั้นกระชับ
+  startDate       DateTime // เปลี่ยนจาก startAt
+  endDate         DateTime // เปลี่ยนจาก endAt
+  
+  // Configuration
+  baseReferral    Int      @default(50) // แต้มพื้นฐานต่อการชวน 1 คน
+  milestoneTarget Int      @default(0)  // เป้าหมายโบนัส (เช่น ครบ 5 คน)
+  milestoneBonus  Int      @default(0)  // แต้มโบนัสเมื่อครบเป้า
+  linkBonus       Int      @default(50) // แต้มเมื่อผูกบัญชี
+  
+  isActive        Boolean  @default(true)
 }
 
 model SystemConfig {
@@ -63,21 +96,46 @@ model SystemConfig {
   value String
 }
 
-model AdminLog {
-  id           Int      @id @default(autoincrement())
-  createdAt    DateTime @default(now())
-  admin        String
-  action       String
-  customerId   String?
-  pointsChange Int      @default(0)
-  details      String?
+// ---------------------------------------------------------
+// LOGGING & HISTORY MODELS (ของใหม่ ไฉไลกว่าเดิม)
+// ---------------------------------------------------------
+
+// เก็บประวัติการได้/เสียแต้ม ทุกกรณี (ใช้แสดงผลหน้า Frontend ได้เลย)
+model PointTransaction {
+  id          Int             @id @default(autoincrement())
+  customerId  String
+  amount      Int             // จำนวนแต้ม (+ คือได้, - คือเสีย/แลก)
+  type        TransactionType // ประเภทรายการ
+  relatedId   String?         // ID ที่เกี่ยวข้อง (เช่น ID เพื่อนที่แนะนำ หรือ ID ของรางวัล)
+  detail      String?         // รายละเอียดเพิ่มเติม (เช่น "แนะนำเพื่อน OT1234", "แลกส่วนลด 50บ.")
+  createdAt   DateTime        @default(now())
+
+  // เชื่อมกับลูกค้า
+  customer    Customer        @relation(fields: [customerId], references: [customerId])
+
+  @@index([customerId])
+  @@index([type])
+  @@index([createdAt])
 }
 
-model CustomerLog {
-  id             Int      @id @default(autoincrement())
-  createdAt      DateTime @default(now())
-  telegramUserId String
-  customerId     String?
-  action         String
-  pointsChange   Int      @default(0)
+// เก็บประวัติการกระทำของ Admin (ใคร ทำอะไร กับใคร)
+model AdminAuditLog {
+  id          Int      @id @default(autoincrement())
+  adminName   String   // ชื่อ Admin หรือ Telegram ID ที่ทำรายการ
+  action      String   // สิ่งที่ทำ (เช่น EDIT_POINTS, BAN_USER, CREATE_CUSTOMER)
+  targetId    String?  // ID ของลูกค้าที่ถูกกระทำ (ถ้ามี)
+  details     String?  // รายละเอียด JSON หรือ Text (เช่น "แก้แต้มจาก 100 -> 200")
+  createdAt   DateTime @default(now())
+
+  // เชื่อมกับลูกค้า (Optional)
+  targetCustomer Customer? @relation(fields: [targetId], references: [customerId])
+}
+
+// เก็บ Logs ของระบบ (Error, Cron Job)
+model SystemLog {
+  id        Int      @id @default(autoincrement())
+  level     String   // INFO, WARN, ERROR
+  source    String   // CRON, API, SYSTEM
+  message   String
+  createdAt DateTime @default(now())
 }

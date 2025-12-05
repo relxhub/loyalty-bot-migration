@@ -5,7 +5,7 @@ import { getActiveCampaign } from '../services/campaign.service.js';
 import { getConfig } from '../config/config.js';
 import { addDays } from '../utils/date.utils.js';
 // ❌ เอา createCustomer ออกตามที่ขอ (ห้ามสมัครเอง)
-import { getCustomerByTelegramId, updateCustomer, countCampaignReferrals } from '../services/customer.service.js';
+import { getCustomerByTelegramId, updateCustomer, countCampaignReferralsByTag } from '../services/customer.service.js';
 import { countMonthlyReferrals } from '../services/referral.service.js';
 
 const router = express.Router();
@@ -107,7 +107,8 @@ router.post('/auth', async (req, res) => {
                 campaignStartAt = campaign.startAt;
                 campaignEndAt = campaign.endAt;
                 
-                campaignReferralCount = await countCampaignReferrals(customer.customerId, campaign.startAt);
+                // Use Tag-based counting for precise stats
+                campaignReferralCount = await countCampaignReferralsByTag(customer.customerId, activeCampaignTag);
             }
         } catch (campaignError) {
             console.error("⚠️ Failed to load/calculate campaign data. Using default values:", campaignError.message);

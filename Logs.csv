@@ -7360,7 +7360,8 @@ Timestamp,Admin,Action,CustomerID,PointsChange,Details
 "21/11/2025, 16:34:44",T,CREATE_CUSTOMER,OT3930,0,Referred by: N/A
 "21/11/2025, 17:04:22",JK,CREATE_CUSTOMER,OT3931,0,Referred by: OT3710
 "21/11/2025, 17:04:25",System (Auto),REFERRAL_BONUS,OT3710,100,From OT3931. (Campaign: Nov 2025 Campaign)
-"21/11/2025, 17:12:18",P,CREATE_CUSTOMER,OT3932,0,Referred by: N/A
+"21/11/2025, 17:12:18",P,CREATE_CUSTOMER,OT3932,0,Referred by: OT80
+"21/11/2025, 17:12:50",System (Auto),REFERRAL_BONUS,OT80,100,From OT3932. (Campaign: Nov 2025 Campaign)
 "21/11/2025, 17:43:20",g.,CREATE_CUSTOMER,OT3933,0,Referred by: OT383
 "21/11/2025, 17:43:21",System (Auto),REFERRAL_BONUS,OT383,100,From OT3933. (Campaign: Nov 2025 Campaign)
 "21/11/2025, 18:24:13",KR,CREATE_CUSTOMER,OT3934,0,Referred by: N/A
@@ -8037,3 +8038,1178 @@ Timestamp,Admin,Action,CustomerID,PointsChange,Details
 "27/11/2025, 13:09:38",N,CHECK_CUSTOMER,OT3279,0,Checked customer info
 "27/11/2025, 13:22:37",T,CREATE_CUSTOMER,OT4164,0,Referred by: N/A
 "27/11/2025, 13:30:53",N,CHECK_CUSTOMER,OT1548,0,Checked customer info
+"27/11/2025, 13:33:16",N,CREATE_CUSTOMER,OT4165,0,Referred by: N/A
+"27/11/2025, 13:39:33",N,CHECK_CUSTOMER,OT2153,0,Checked customer info
+"27/11/2025, 13:51:23",Aa🍀,CHECK_CUSTOMER,OT740,0,Checked customer info
+"27/11/2025, 14:01:46",N,CHECK_CUSTOMER,OT627,0,Checked customer info
+"27/11/2025, 14:53:56",g.,CREATE_CUSTOMER,OT4167,0,Referred by: N/A
+"27/11/2025, 14:55:40",N,CREATE_CUSTOMER,OT4168,0,Referred by: N/A
+"27/11/2025, 15:01:43",N,CHECK_CUSTOMER,OT1943,0,Checked customer info
+"27/11/2025, 15:08:48",Aa🍀,CHECK_CUSTOMER,OT2628,0,Checked customer info
+"27/11/2025, 15:29:03",g.,CREATE_CUSTOMER,OT4169,0,Referred by: N/A
+"27/11/2025, 15:38:05",Aa🍀,CREATE_CUSTOMER,OT4170,0,Referred by: N/A
+"27/11/2025, 15:49:52",Aa🍀,CHECK_CUSTOMER,OT932,0,Checked customer info
+"27/11/2025, 15:50:48",JK,CREATE_CUSTOMER,OT4171,0,Referred by: N/A
+"27/11/2025, 15:51:41",N,CREATE_CUSTOMER,OT4172,0,Referred by: OT2590
+"27/11/2025, 15:51:43",System (Auto),REFERRAL_BONUS,OT2590,100,From OT4172. (Campaign: Nov 2025 Campaign)
+"27/11/2025, 15:54:06",JK,CREATE_CUSTOMER,OT4173,0,Referred by: N/A
+"27/11/2025, 15:58:48",JK,CREATE_CUSTOMER,OT4174,0,Referred by: OT4163
+"27/11/2025, 15:58:50",System (Auto),REFERRAL_BONUS,OT4163,100,From OT4174. (Campaign: Nov 2025 Campaign)
+"27/11/2025, 16:01:47",g.,CREATE_CUSTOMER,OT4175,0,Referred by: OT2938
+"27/11/2025, 16:01:49",System (Auto),REFERRAL_BONUS,OT2938,100,From OT4175. (Campaign: Nov 2025 Campaign)
+"27/11/2025, 16:16:35",Aa🍀,CHECK_CUSTOMER,OT3096,0,Checked customer info
+"27/11/2025, 17:33:03",g.,CREATE_CUSTOMER,OT4176,0,Referred by: OT3480
+"27/11/2025, 17:33:05",System (Auto),REFERRAL_BONUS,OT3480,100,From OT4176. (Campaign: Nov 2025 Campaign)
+"27/11/2025, 17:43:48",T,CREATE_CUSTOMER,OT4177,0,Referred by: N/A
+"27/11/2025, 18:07:24",JK,CREATE_CUSTOMER,OT4178,0,Referred by: N/A
+"27/11/2025, 18:22:53",JK,CREATE_CUSTOMER,OT4179,0,Referred by: N/A
+"27/11/2025, 18:30:59",T,CREATE_CUSTOMER,OT4180,0,Referred by: N/A
+"27/11/2025, 18:58:44",N,CREATE_CUSTOMER,OT4181,0,Referred by: OT2542
+"27/11/2025, 18:58:46",System (Auto),REFERRAL_BONUS,OT2542,100,From OT4181. (Campaign: Nov 2025 Campaign)
+"27/11/2025, 19:37:09",g.,CREATE_CUSTOMER,OT362,0,Referred by: N/A
+"27/11/2025, 19:47:49",g.,CREATE_CUSTOMER,OT4182,0,Referred by: OT2503
+"27/11/2025, 19:47:51",System (Auto),REFERRAL_BONUS,OT2503,100,From OT4182. (Campaign: Nov 2025 Campaign)
+"27/11/2025, 20:18:17",Aa🍀,CHECK_CUSTOMER,OT80,0,Checked customer info
+"27/11/2025, 21:05:14",Kethie246,CREATE_CUSTOMER,OT4183,0,Referred by: N/A
+"27/11/2025, 21:31:32",Kethie246,CREATE_CUSTOMER,OT4184,0,Referred by: N/A
+"27/11/2025, 21:51:26",JK,CREATE_CUSTOMER,OT4185,0,Referred by: OT3252
+"27/11/2025, 21:51:30",System (Auto),REFERRAL_BONUS,OT3252,100,From OT4185. (Campaign: Nov 2025 Campaign)
+"27/11/2025, 22:00:59",T,CREATE_CUSTOMER,OT4186,0,Referred by: N/A
+"28/11/2025, 0:28:22",System (Auto),EXPIRE_POINTS,OT1321,-100,Points reset from 100 to 0
+"28/11/2025, 0:28:23",System (Auto),EXPIRE_POINTS,OT1718,-100,Points reset from 100 to 0
+"28/11/2025, 0:28:25",System (Auto),EXPIRE_POINTS,OT1801,-100,Points reset from 100 to 0
+"28/11/2025, 0:28:26",System (Auto),EXPIRE_POINTS,OT194,-100,Points reset from 100 to 0
+"28/11/2025, 0:28:27",System (Auto),EXPIRE_POINTS,OT1979,-100,Points reset from 100 to 0
+"28/11/2025, 0:28:28",System (Auto),EXPIRE_POINTS,OT2463,-100,Points reset from 100 to 0
+"28/11/2025, 0:28:29",System (Auto),EXPIRE_POINTS,OT2707,-50,Points reset from 50 to 0
+"28/11/2025, 0:28:30",System (Auto),EXPIRE_POINTS,OT2703,-100,Points reset from 100 to 0
+"28/11/2025, 0:28:31",System (Auto),EXPIRE_POINTS,OT2705,-50,Points reset from 50 to 0
+"28/11/2025, 0:28:33",System (Auto),EXPIRE_POINTS,OT2713,-50,Points reset from 50 to 0
+"28/11/2025, 0:28:34",System (Auto),EXPIRE_POINTS,OT660,-50,Points reset from 50 to 0
+"28/11/2025, 0:28:36",System (Auto),EXPIRE_POINTS,OT2612,-50,Points reset from 50 to 0
+"28/11/2025, 0:28:37",System (Auto),EXPIRE_POINTS,OT2622,-50,Points reset from 50 to 0
+"28/11/2025, 0:28:38",System (Auto),EXPIRE_POINTS,OT2623,-50,Points reset from 50 to 0
+"28/11/2025, 0:28:39",System (Auto),EXPIRE_POINTS,OT2632,-50,Points reset from 50 to 0
+"28/11/2025, 0:28:40",System (Auto),EXPIRE_POINTS,OT2636,-50,Points reset from 50 to 0
+"28/11/2025, 0:28:42",System (Auto),EXPIRE_POINTS,OT2659,-50,Points reset from 50 to 0
+"28/11/2025, 0:28:43",System (Auto),EXPIRE_POINTS,OT2635,-50,Points reset from 50 to 0
+"28/11/2025, 0:28:44",System (Auto),EXPIRE_POINTS,OT2675,-50,Points reset from 50 to 0
+"28/11/2025, 0:28:45",System (Auto),EXPIRE_POINTS,OT2663,-50,Points reset from 50 to 0
+"28/11/2025, 0:28:47",System (Auto),EXPIRE_POINTS,OT2665,-50,Points reset from 50 to 0
+"28/11/2025, 0:28:48",System (Auto),EXPIRE_POINTS,OT2690,-50,Points reset from 50 to 0
+"28/11/2025, 0:28:50",System (Auto),EXPIRE_POINTS,OT930,-50,Points reset from 50 to 0
+"28/11/2025, 0:28:51",System (Auto),EXPIRE_POINTS,OT2717,-50,Points reset from 50 to 0
+"28/11/2025, 0:28:52",System (Auto),EXPIRE_POINTS,OT674,-50,Points reset from 50 to 0
+"28/11/2025, 0:28:53",System (Auto),EXPIRE_POINTS,OT2720,-100,Points reset from 100 to 0
+"28/11/2025, 0:28:54",System (Auto),EXPIRE_POINTS,OT2732,-50,Points reset from 50 to 0
+"28/11/2025, 0:28:57",System (Auto),EXPIRE_POINTS,OT2637,-50,Points reset from 50 to 0
+"28/11/2025, 0:28:57",System (Auto),EXPIRE_POINTS,OT614,-50,Points reset from 50 to 0
+"28/11/2025, 0:28:59",System (Auto),EXPIRE_POINTS,OT2735,-50,Points reset from 50 to 0
+"28/11/2025, 0:29:00",System (Auto),EXPIRE_POINTS,OT2737,-50,Points reset from 50 to 0
+"28/11/2025, 0:29:02",System (Auto),EXPIRE_POINTS,OT2740,-50,Points reset from 50 to 0
+"28/11/2025, 0:29:03",System (Auto),EXPIRE_POINTS,OT2741,-50,Points reset from 50 to 0
+"28/11/2025, 0:29:04",System (Auto),EXPIRE_POINTS,OT2742,-50,Points reset from 50 to 0
+"28/11/2025, 0:29:05",System (Auto),EXPIRE_POINTS,OT2743,-50,Points reset from 50 to 0
+"28/11/2025, 0:29:07",System (Auto),EXPIRE_POINTS,OT2746,-50,Points reset from 50 to 0
+"28/11/2025, 0:29:08",System (Auto),EXPIRE_POINTS,OT2747,-50,Points reset from 50 to 0
+"28/11/2025, 0:41:57",Kethie246,CREATE_CUSTOMER,OT4187,0,Referred by: N/A
+"28/11/2025, 5:08:06",Kethie246,CREATE_CUSTOMER,OT4188,0,Referred by: N/A
+"28/11/2025, 8:36:48",System (Auto),EXPIRY_REMINDER,OT236,0,Sent expiry reminder (0 days left)
+"28/11/2025, 8:36:49",System (Auto),EXPIRY_REMINDER,OT2552,0,Sent expiry reminder (1 days left)
+"28/11/2025, 8:36:51",System (Auto),EXPIRY_REMINDER,OT2559,0,Sent expiry reminder (1 days left)
+"28/11/2025, 8:36:52",System (Auto),EXPIRY_REMINDER,OT2583,0,Sent expiry reminder (2 days left)
+"28/11/2025, 8:36:55",System (Auto),EXPIRY_REMINDER,OT2754,0,Sent expiry reminder (0 days left)
+"28/11/2025, 8:36:56",System (Auto),EXPIRY_REMINDER,OT2756,0,Sent expiry reminder (0 days left)
+"28/11/2025, 8:36:57",System (Auto),EXPIRY_REMINDER,OT2759,0,Sent expiry reminder (0 days left)
+"28/11/2025, 8:36:58",System (Auto),EXPIRY_REMINDER,OT2760,0,Sent expiry reminder (0 days left)
+"28/11/2025, 8:36:59",System (Auto),EXPIRY_REMINDER,OT2762,0,Sent expiry reminder (0 days left)
+"28/11/2025, 8:37:00",System (Auto),EXPIRY_REMINDER,OT2763,0,Sent expiry reminder (0 days left)
+"28/11/2025, 8:37:01",System (Auto),EXPIRY_REMINDER,OT2764,0,Sent expiry reminder (0 days left)
+"28/11/2025, 8:37:02",System (Auto),EXPIRY_REMINDER,OT2766,0,Sent expiry reminder (0 days left)
+"28/11/2025, 8:37:03",System (Auto),EXPIRY_REMINDER,OT758,0,Sent expiry reminder (0 days left)
+"28/11/2025, 8:37:04",System (Auto),EXPIRY_REMINDER,OT2770,0,Sent expiry reminder (0 days left)
+"28/11/2025, 8:37:06",System (Auto),EXPIRY_REMINDER,OT2771,0,Sent expiry reminder (0 days left)
+"28/11/2025, 8:37:07",System (Auto),EXPIRY_REMINDER,OT2774,0,Sent expiry reminder (0 days left)
+"28/11/2025, 8:37:08",System (Auto),EXPIRY_REMINDER,OT2775,0,Sent expiry reminder (0 days left)
+"28/11/2025, 8:37:09",System (Auto),EXPIRY_REMINDER,OT2779,0,Sent expiry reminder (0 days left)
+"28/11/2025, 8:37:10",System (Auto),EXPIRY_REMINDER,OT2783,0,Sent expiry reminder (1 days left)
+"28/11/2025, 8:37:11",System (Auto),EXPIRY_REMINDER,OT2784,0,Sent expiry reminder (1 days left)
+"28/11/2025, 8:37:13",System (Auto),EXPIRY_REMINDER,OT2785,0,Sent expiry reminder (1 days left)
+"28/11/2025, 8:37:14",System (Auto),EXPIRY_REMINDER,OT2789,0,Sent expiry reminder (1 days left)
+"28/11/2025, 8:37:15",System (Auto),EXPIRY_REMINDER,OT2794,0,Sent expiry reminder (1 days left)
+"28/11/2025, 8:37:16",System (Auto),EXPIRY_REMINDER,OT2801,0,Sent expiry reminder (1 days left)
+"28/11/2025, 8:37:17",System (Auto),EXPIRY_REMINDER,OT2806,0,Sent expiry reminder (1 days left)
+"28/11/2025, 8:37:18",System (Auto),EXPIRY_REMINDER,OT2807,0,Sent expiry reminder (1 days left)
+"28/11/2025, 8:37:19",System (Auto),EXPIRY_REMINDER,OT2808,0,Sent expiry reminder (1 days left)
+"28/11/2025, 8:37:20",System (Auto),EXPIRY_REMINDER,OT2810,0,Sent expiry reminder (1 days left)
+"28/11/2025, 8:37:22",System (Auto),EXPIRY_REMINDER,OT2812,0,Sent expiry reminder (1 days left)
+"28/11/2025, 8:37:23",System (Auto),EXPIRY_REMINDER,OT71,0,Sent expiry reminder (1 days left)
+"28/11/2025, 8:37:24",System (Auto),EXPIRY_REMINDER,OT2816,0,Sent expiry reminder (1 days left)
+"28/11/2025, 8:37:25",System (Auto),EXPIRY_REMINDER,OT2817,0,Sent expiry reminder (1 days left)
+"28/11/2025, 8:37:26",System (Auto),EXPIRY_REMINDER,OT2818,0,Sent expiry reminder (1 days left)
+"28/11/2025, 8:37:27",System (Auto),EXPIRY_REMINDER,OT2821,0,Sent expiry reminder (2 days left)
+"28/11/2025, 8:37:29",System (Auto),EXPIRY_REMINDER,OT2824,0,Sent expiry reminder (2 days left)
+"28/11/2025, 8:37:30",System (Auto),EXPIRY_REMINDER,OT2825,0,Sent expiry reminder (2 days left)
+"28/11/2025, 8:37:31",System (Auto),EXPIRY_REMINDER,OT2826,0,Sent expiry reminder (2 days left)
+"28/11/2025, 8:37:32",System (Auto),EXPIRY_REMINDER,OT2828,0,Sent expiry reminder (2 days left)
+"28/11/2025, 8:37:33",System (Auto),EXPIRY_REMINDER,OT2832,0,Sent expiry reminder (2 days left)
+"28/11/2025, 8:37:34",System (Auto),EXPIRY_REMINDER,OT2833,0,Sent expiry reminder (2 days left)
+"28/11/2025, 8:37:35",System (Auto),EXPIRY_REMINDER,OT2838,0,Sent expiry reminder (2 days left)
+"28/11/2025, 8:37:37",System (Auto),EXPIRY_REMINDER,OT919,0,Sent expiry reminder (2 days left)
+"28/11/2025, 8:37:38",System (Auto),EXPIRY_REMINDER,OT2839,0,Sent expiry reminder (2 days left)
+"28/11/2025, 8:37:39",System (Auto),EXPIRY_REMINDER,OT2841,0,Sent expiry reminder (2 days left)
+"28/11/2025, 8:37:40",System (Auto),EXPIRY_REMINDER,OT2840,0,Sent expiry reminder (2 days left)
+"28/11/2025, 8:37:42",System (Auto),EXPIRY_REMINDER,OT2845,0,Sent expiry reminder (2 days left)
+"28/11/2025, 8:37:43",System (Auto),EXPIRY_REMINDER,OT2847,0,Sent expiry reminder (2 days left)
+"28/11/2025, 8:37:44",System (Auto),EXPIRY_REMINDER,OT2848,0,Sent expiry reminder (2 days left)
+"28/11/2025, 8:37:45",System (Auto),EXPIRY_REMINDER,OT2849,0,Sent expiry reminder (2 days left)
+"28/11/2025, 8:37:47",System (Auto),EXPIRY_REMINDER,OT2850,0,Sent expiry reminder (2 days left)
+"28/11/2025, 8:37:48",System (Auto),EXPIRY_REMINDER,OT2851,0,Sent expiry reminder (2 days left)
+"28/11/2025, 8:37:49",System (Auto),EXPIRY_REMINDER,OT2373,0,Sent expiry reminder (2 days left)
+"28/11/2025, 8:37:50",System (Auto),EXPIRY_REMINDER,OT2860,0,Sent expiry reminder (2 days left)
+"28/11/2025, 9:01:18",N,CHECK_CUSTOMER,OT2583,0,Checked customer info
+"28/11/2025, 9:02:29",N,CHECK_CUSTOMER,OT1123,0,Checked customer info
+"28/11/2025, 9:16:09",N,CREATE_CUSTOMER,OT4189,0,Referred by: N/A
+"28/11/2025, 10:00:12",Aa🍀,CREATE_CUSTOMER,OT4190,0,Referred by: N/A
+"28/11/2025, 10:16:30",Aa🍀,CREATE_CUSTOMER,OT4191,0,Referred by: N/A
+"28/11/2025, 10:18:29",g.,CHECK_CUSTOMER,OT2432,0,Checked customer info
+"28/11/2025, 10:22:49",g.,CREATE_CUSTOMER,OT4192,0,Referred by: N/A
+"28/11/2025, 10:31:50",g.,CREATE_CUSTOMER,OT4193,0,Referred by: OT2039
+"28/11/2025, 10:31:52",System (Auto),REFERRAL_BONUS,OT2039,100,From OT4193. (Campaign: Nov 2025 Campaign)
+"28/11/2025, 10:43:17",g.,CREATE_CUSTOMER,OT4195,0,Referred by: N/A
+"28/11/2025, 10:48:28",g.,CREATE_CUSTOMER,OT4194,0,Referred by: N/A
+"28/11/2025, 11:04:26",Aa🍀,CREATE_CUSTOMER,OT4197,0,Referred by: OT3111
+"28/11/2025, 11:04:28",System (Auto),REFERRAL_BONUS,OT3111,100,From OT4197. (Campaign: Nov 2025 Campaign)
+"28/11/2025, 11:20:24",Aa🍀,CREATE_CUSTOMER,OT4198,0,Referred by: N/A
+"28/11/2025, 11:46:46",g.,CREATE_CUSTOMER,OT4203,0,Referred by: N/A
+"28/11/2025, 12:32:26",g.,CREATE_CUSTOMER,OT4206,0,Referred by: N/A
+"28/11/2025, 13:24:06",N,CHECK_CUSTOMER,OT459,0,Checked customer info
+"28/11/2025, 13:25:52",g.,CREATE_CUSTOMER,OT4210,0,Referred by: N/A
+"28/11/2025, 13:57:08",JK,CHECK_CUSTOMER,OT4602,0,Checked customer info
+"28/11/2025, 13:57:23",JK,CHECK_CUSTOMER,OT3602,0,Checked customer info
+"28/11/2025, 14:12:29",JK,REDEEM_POINTS,OT3602,-100,Redeemed: ส่วนลด 100 บาท
+"28/11/2025, 14:12:36",JK,REDEEM_POINTS,OT3602,-50,Redeemed: ส่วนลด 50 บาท
+"28/11/2025, 14:12:38",N,CHECK_CUSTOMER,OT2999,0,Checked customer info
+"28/11/2025, 14:22:50",N,CREATE_CUSTOMER,OT4211,0,Referred by: N/A
+"28/11/2025, 14:26:37",JK,CREATE_CUSTOMER,OT4212,0,Referred by: N/A
+"28/11/2025, 14:27:17",N,CHECK_CUSTOMER,OT463,0,Checked customer info
+"28/11/2025, 14:34:18",JK,CREATE_CUSTOMER,OT4213,0,Referred by: N/A
+"28/11/2025, 14:35:49",N,CREATE_CUSTOMER,OT4214,0,Referred by: OT4112
+"28/11/2025, 14:35:51",System (Auto),REFERRAL_BONUS,OT4112,100,From OT4214. (Campaign: Nov 2025 Campaign)
+"28/11/2025, 14:44:13",g.,CREATE_CUSTOMER,OT4216,0,Referred by: N/A
+"28/11/2025, 14:54:14",T,REDEEM_POINTS,OT2432,-100,Redeemed: ส่วนลด 100 บาท
+"28/11/2025, 14:54:30",T,REDEEM_POINTS,OT2432,-100,Redeemed: ส่วนลด 100 บาท
+"28/11/2025, 15:00:09",T,CREATE_CUSTOMER,OT4204,0,Referred by: OT2821
+"28/11/2025, 15:00:11",System (Auto),REFERRAL_BONUS,OT2821,100,From OT4204. (Campaign: Nov 2025 Campaign)
+"28/11/2025, 15:04:00",T,CREATE_CUSTOMER,OT4196,0,Referred by: N/A
+"28/11/2025, 15:32:15",Aa🍀,CREATE_CUSTOMER,OT4217,0,Referred by: N/A
+"28/11/2025, 15:42:17",JK,CREATE_CUSTOMER,OT4218,0,Referred by: N/A
+"28/11/2025, 15:47:10",Aa🍀,CREATE_CUSTOMER,OT4207,0,Referred by: N/A
+"28/11/2025, 15:48:02",Aa🍀,CREATE_CUSTOMER,OT4208,0,Referred by: N/A
+"28/11/2025, 15:49:03",Aa🍀,CREATE_CUSTOMER,OT4209,0,Referred by: N/A
+"28/11/2025, 15:50:44",JK,CREATE_CUSTOMER,OT4205,0,Referred by: N/A
+"28/11/2025, 15:52:13",JK,CREATE_CUSTOMER,OT4202,0,Referred by: OT1302
+"28/11/2025, 15:52:15",System (Auto),REFERRAL_BONUS,OT1302,100,From OT4202. (Campaign: Nov 2025 Campaign)
+"28/11/2025, 15:56:05",JK,CREATE_CUSTOMER,OT4201,0,Referred by: N/A
+"28/11/2025, 15:56:24",g.,CREATE_CUSTOMER,OT4219,0,Referred by: N/A
+"28/11/2025, 15:58:39",JK,CREATE_CUSTOMER,OT4200,0,Referred by: N/A
+"28/11/2025, 16:03:29",JK,CREATE_CUSTOMER,OT4199,0,Referred by: OT2663
+"28/11/2025, 16:03:31",System (Auto),REFERRAL_BONUS,OT2663,100,From OT4199. (Campaign: Nov 2025 Campaign)
+"28/11/2025, 16:46:46",N,CREATE_CUSTOMER,OT4220,0,Referred by: N/A
+"28/11/2025, 17:50:14",N,CHECK_CUSTOMER,OT3127,0,Checked customer info
+"28/11/2025, 17:52:04",N,CHECK_CUSTOMER,OT454,0,Checked customer info
+"28/11/2025, 18:43:58",g.,CREATE_CUSTOMER,OT4221,0,Referred by: N/A
+"28/11/2025, 19:23:34",g.,CREATE_CUSTOMER,OT4222,0,Referred by: N/A
+"28/11/2025, 20:01:41",Aa🍀,CREATE_CUSTOMER,OT4224,0,Referred by: OT4014
+"28/11/2025, 20:01:43",System (Auto),REFERRAL_BONUS,OT4014,100,From OT4224. (Campaign: Nov 2025 Campaign)
+"28/11/2025, 20:16:57",g.,REDEEM_POINTS,OT2999,-50,Redeemed: ส่วนลด 50 บาท
+"28/11/2025, 20:18:39",g.,CREATE_CUSTOMER,OT4225,0,Referred by: OT1140
+"28/11/2025, 20:18:40",System (Auto),REFERRAL_BONUS,OT1140,100,From OT4225. (Campaign: Nov 2025 Campaign)
+"28/11/2025, 20:45:42",Kethie246,CREATE_CUSTOMER,OT4226,0,Referred by: OT60
+"28/11/2025, 20:45:43",System (Auto),REFERRAL_BONUS,OT60,100,From OT4226. (Campaign: Nov 2025 Campaign)
+"28/11/2025, 20:53:09",T,CREATE_CUSTOMER,OT4227,0,Referred by: N/A
+"28/11/2025, 21:01:54",JK,CREATE_CUSTOMER,OT4228,0,Referred by: OT4199
+"28/11/2025, 21:01:56",System (Auto),REFERRAL_BONUS,OT4199,100,From OT4228. (Campaign: Nov 2025 Campaign)
+"28/11/2025, 21:07:24",JK,CREATE_CUSTOMER,OT4229,0,Referred by: OT673
+"28/11/2025, 21:07:26",System (Auto),REFERRAL_BONUS,OT673,100,From OT4229. (Campaign: Nov 2025 Campaign)
+"28/11/2025, 21:46:20",JK,CREATE_CUSTOMER,OT4230,0,Referred by: N/A
+"28/11/2025, 22:21:44",Kethie246,CREATE_CUSTOMER,OT4231,0,Referred by: N/A
+"28/11/2025, 22:58:16",Kethie246,CREATE_CUSTOMER,OT4232,0,Referred by: N/A
+"28/11/2025, 23:17:19",Kethie246,CREATE_CUSTOMER,OT4233,0,Referred by: N/A
+"29/11/2025, 0:28:22",System (Auto),EXPIRE_POINTS,OT1608,-100,Points reset from 100 to 0
+"29/11/2025, 0:28:22",System (Auto),EXPIRE_POINTS,OT1028,-50,Points reset from 50 to 0
+"29/11/2025, 0:28:24",System (Auto),EXPIRE_POINTS,OT236,-100,Points reset from 100 to 0
+"29/11/2025, 0:28:25",System (Auto),EXPIRE_POINTS,OT2502,-100,Points reset from 100 to 0
+"29/11/2025, 0:28:26",System (Auto),EXPIRE_POINTS,OT2604,-50,Points reset from 50 to 0
+"29/11/2025, 0:28:27",System (Auto),EXPIRE_POINTS,OT2754,-50,Points reset from 50 to 0
+"29/11/2025, 0:28:28",System (Auto),EXPIRE_POINTS,OT2756,-50,Points reset from 50 to 0
+"29/11/2025, 0:28:29",System (Auto),EXPIRE_POINTS,OT2759,-50,Points reset from 50 to 0
+"29/11/2025, 0:28:30",System (Auto),EXPIRE_POINTS,OT2760,-50,Points reset from 50 to 0
+"29/11/2025, 0:28:31",System (Auto),EXPIRE_POINTS,OT2762,-50,Points reset from 50 to 0
+"29/11/2025, 0:28:32",System (Auto),EXPIRE_POINTS,OT2763,-50,Points reset from 50 to 0
+"29/11/2025, 0:28:34",System (Auto),EXPIRE_POINTS,OT2764,-50,Points reset from 50 to 0
+"29/11/2025, 0:28:35",System (Auto),EXPIRE_POINTS,OT2766,-50,Points reset from 50 to 0
+"29/11/2025, 0:28:37",System (Auto),EXPIRE_POINTS,OT758,-50,Points reset from 50 to 0
+"29/11/2025, 0:28:38",System (Auto),EXPIRE_POINTS,OT2770,-50,Points reset from 50 to 0
+"29/11/2025, 0:28:38",System (Auto),EXPIRE_POINTS,OT2771,-50,Points reset from 50 to 0
+"29/11/2025, 0:28:39",System (Auto),EXPIRE_POINTS,OT2774,-50,Points reset from 50 to 0
+"29/11/2025, 0:28:40",System (Auto),EXPIRE_POINTS,OT2775,-50,Points reset from 50 to 0
+"29/11/2025, 0:28:41",System (Auto),EXPIRE_POINTS,OT2779,-50,Points reset from 50 to 0
+"29/11/2025, 2:03:54",Kethie246,CREATE_CUSTOMER,OT4234,0,Referred by: N/A
+"29/11/2025, 2:39:01",Kethie246,CREATE_CUSTOMER,OT4235,0,Referred by: OT1903
+"29/11/2025, 2:39:03",System (Auto),REFERRAL_BONUS,OT1903,100,From OT4235. (Campaign: Nov 2025 Campaign)
+"29/11/2025, 3:28:02",Kethie246,CHECK_CUSTOMER,OT2677,0,Checked customer info
+"29/11/2025, 8:20:19",N,CREATE_CUSTOMER,OT4236,0,Referred by: N/A
+"29/11/2025, 8:36:45",System (Auto),EXPIRY_REMINDER,OT1213,0,Sent expiry reminder (2 days left)
+"29/11/2025, 8:36:46",System (Auto),EXPIRY_REMINDER,OT1282,0,Sent expiry reminder (2 days left)
+"29/11/2025, 8:36:48",System (Auto),EXPIRY_REMINDER,OT2552,0,Sent expiry reminder (0 days left)
+"29/11/2025, 8:36:49",System (Auto),EXPIRY_REMINDER,OT2559,0,Sent expiry reminder (0 days left)
+"29/11/2025, 8:36:50",System (Auto),EXPIRY_REMINDER,OT2583,0,Sent expiry reminder (1 days left)
+"29/11/2025, 8:36:51",System (Auto),EXPIRY_REMINDER,OT2783,0,Sent expiry reminder (0 days left)
+"29/11/2025, 8:36:53",System (Auto),EXPIRY_REMINDER,OT2784,0,Sent expiry reminder (0 days left)
+"29/11/2025, 8:36:54",System (Auto),EXPIRY_REMINDER,OT2785,0,Sent expiry reminder (0 days left)
+"29/11/2025, 8:36:55",System (Auto),EXPIRY_REMINDER,OT2789,0,Sent expiry reminder (0 days left)
+"29/11/2025, 8:36:56",System (Auto),EXPIRY_REMINDER,OT2794,0,Sent expiry reminder (0 days left)
+"29/11/2025, 8:36:57",System (Auto),EXPIRY_REMINDER,OT2801,0,Sent expiry reminder (0 days left)
+"29/11/2025, 8:36:58",System (Auto),EXPIRY_REMINDER,OT2667,0,Sent expiry reminder (0 days left)
+"29/11/2025, 8:36:59",System (Auto),EXPIRY_REMINDER,OT2806,0,Sent expiry reminder (0 days left)
+"29/11/2025, 8:37:01",System (Auto),EXPIRY_REMINDER,OT2807,0,Sent expiry reminder (0 days left)
+"29/11/2025, 8:37:02",System (Auto),EXPIRY_REMINDER,OT2808,0,Sent expiry reminder (0 days left)
+"29/11/2025, 8:37:03",System (Auto),EXPIRY_REMINDER,OT2810,0,Sent expiry reminder (0 days left)
+"29/11/2025, 8:37:05",System (Auto),EXPIRY_REMINDER,OT2812,0,Sent expiry reminder (0 days left)
+"29/11/2025, 8:37:06",System (Auto),EXPIRY_REMINDER,OT71,0,Sent expiry reminder (0 days left)
+"29/11/2025, 8:37:07",System (Auto),EXPIRY_REMINDER,OT2816,0,Sent expiry reminder (0 days left)
+"29/11/2025, 8:37:09",System (Auto),EXPIRY_REMINDER,OT2817,0,Sent expiry reminder (0 days left)
+"29/11/2025, 8:37:10",System (Auto),EXPIRY_REMINDER,OT2818,0,Sent expiry reminder (0 days left)
+"29/11/2025, 8:37:11",System (Auto),EXPIRY_REMINDER,OT2824,0,Sent expiry reminder (1 days left)
+"29/11/2025, 8:37:13",System (Auto),EXPIRY_REMINDER,OT2825,0,Sent expiry reminder (1 days left)
+"29/11/2025, 8:37:14",System (Auto),EXPIRY_REMINDER,OT2826,0,Sent expiry reminder (1 days left)
+"29/11/2025, 8:37:15",System (Auto),EXPIRY_REMINDER,OT2828,0,Sent expiry reminder (1 days left)
+"29/11/2025, 8:37:17",System (Auto),EXPIRY_REMINDER,OT2832,0,Sent expiry reminder (1 days left)
+"29/11/2025, 8:37:18",System (Auto),EXPIRY_REMINDER,OT2833,0,Sent expiry reminder (1 days left)
+"29/11/2025, 8:37:19",System (Auto),EXPIRY_REMINDER,OT2838,0,Sent expiry reminder (1 days left)
+"29/11/2025, 8:37:21",System (Auto),EXPIRY_REMINDER,OT919,0,Sent expiry reminder (1 days left)
+"29/11/2025, 8:37:22",System (Auto),EXPIRY_REMINDER,OT2839,0,Sent expiry reminder (1 days left)
+"29/11/2025, 8:37:23",System (Auto),EXPIRY_REMINDER,OT2841,0,Sent expiry reminder (1 days left)
+"29/11/2025, 8:37:25",System (Auto),EXPIRY_REMINDER,OT2840,0,Sent expiry reminder (1 days left)
+"29/11/2025, 8:37:26",System (Auto),EXPIRY_REMINDER,OT2845,0,Sent expiry reminder (1 days left)
+"29/11/2025, 8:37:28",System (Auto),EXPIRY_REMINDER,OT2847,0,Sent expiry reminder (1 days left)
+"29/11/2025, 8:37:29",System (Auto),EXPIRY_REMINDER,OT2848,0,Sent expiry reminder (1 days left)
+"29/11/2025, 8:37:30",System (Auto),EXPIRY_REMINDER,OT2849,0,Sent expiry reminder (1 days left)
+"29/11/2025, 8:37:32",System (Auto),EXPIRY_REMINDER,OT2850,0,Sent expiry reminder (1 days left)
+"29/11/2025, 8:37:33",System (Auto),EXPIRY_REMINDER,OT2851,0,Sent expiry reminder (1 days left)
+"29/11/2025, 8:37:34",System (Auto),EXPIRY_REMINDER,OT2373,0,Sent expiry reminder (1 days left)
+"29/11/2025, 8:37:36",System (Auto),EXPIRY_REMINDER,OT2860,0,Sent expiry reminder (1 days left)
+"29/11/2025, 8:37:37",System (Auto),EXPIRY_REMINDER,OT2862,0,Sent expiry reminder (2 days left)
+"29/11/2025, 8:37:38",System (Auto),EXPIRY_REMINDER,OT2863,0,Sent expiry reminder (2 days left)
+"29/11/2025, 8:37:40",System (Auto),EXPIRY_REMINDER,OT2864,0,Sent expiry reminder (2 days left)
+"29/11/2025, 8:37:41",System (Auto),EXPIRY_REMINDER,OT2867,0,Sent expiry reminder (2 days left)
+"29/11/2025, 8:37:42",System (Auto),EXPIRY_REMINDER,OT30,0,Sent expiry reminder (2 days left)
+"29/11/2025, 8:37:43",System (Auto),EXPIRY_REMINDER,OT2868,0,Sent expiry reminder (2 days left)
+"29/11/2025, 8:37:45",System (Auto),EXPIRY_REMINDER,OT2869,0,Sent expiry reminder (2 days left)
+"29/11/2025, 8:37:46",System (Auto),EXPIRY_REMINDER,OT2879,0,Sent expiry reminder (2 days left)
+"29/11/2025, 8:37:47",System (Auto),EXPIRY_REMINDER,OT916,0,Sent expiry reminder (2 days left)
+"29/11/2025, 8:37:49",System (Auto),EXPIRY_REMINDER,OT611,0,Sent expiry reminder (2 days left)
+"29/11/2025, 8:37:50",System (Auto),EXPIRY_REMINDER,OT2885,0,Sent expiry reminder (2 days left)
+"29/11/2025, 8:37:51",System (Auto),EXPIRY_REMINDER,OT2886,0,Sent expiry reminder (2 days left)
+"29/11/2025, 8:37:53",System (Auto),EXPIRY_REMINDER,OT2888,0,Sent expiry reminder (2 days left)
+"29/11/2025, 8:37:54",System (Auto),EXPIRY_REMINDER,OT2889,0,Sent expiry reminder (2 days left)
+"29/11/2025, 8:37:55",System (Auto),EXPIRY_REMINDER,OT2893,0,Sent expiry reminder (2 days left)
+"29/11/2025, 8:37:56",System (Auto),EXPIRY_REMINDER,OT2894,0,Sent expiry reminder (2 days left)
+"29/11/2025, 8:37:58",System (Auto),EXPIRY_REMINDER,OT2895,0,Sent expiry reminder (2 days left)
+"29/11/2025, 8:37:59",System (Auto),EXPIRY_REMINDER,OT2896,0,Sent expiry reminder (2 days left)
+"29/11/2025, 8:44:17",N,CREATE_CUSTOMER,OT4237,0,Referred by: OT1965
+"29/11/2025, 8:44:18",System (Auto),REFERRAL_BONUS,OT1965,100,From OT4237. (Campaign: Nov 2025 Campaign)
+"29/11/2025, 9:23:25",N,CREATE_CUSTOMER,OT4238,0,Referred by: N/A
+"29/11/2025, 9:24:24",Aa🍀,CREATE_CUSTOMER,OT4239,0,Referred by: N/A
+"29/11/2025, 10:07:10",g.,CREATE_CUSTOMER,OT4240,0,Referred by: N/A
+"29/11/2025, 10:28:57",T,CREATE_CUSTOMER,OT4241,0,Referred by: OT3134
+"29/11/2025, 10:29:00",System (Auto),REFERRAL_BONUS,OT3134,100,From OT4241. (Campaign: Nov 2025 Campaign)
+"29/11/2025, 11:02:42",g.,CREATE_CUSTOMER,OT4242,0,Referred by: N/A
+"29/11/2025, 11:03:48",T,CREATE_CUSTOMER,OT4215,0,Referred by: N/A
+"29/11/2025, 11:15:13",T,CHECK_CUSTOMER,OT728,0,Checked customer info
+"29/11/2025, 11:20:15",T,REDEEM_POINTS,OT728,-100,Redeemed: ส่วนลด 100 บาท
+"29/11/2025, 11:20:26",T,REDEEM_POINTS,OT728,-50,Redeemed: ส่วนลด 50 บาท
+"29/11/2025, 11:37:45",JK,CREATE_CUSTOMER,OT4243,0,Referred by: N/A
+"29/11/2025, 11:55:18",T,CREATE_CUSTOMER,OT4244,0,Referred by: N/A
+"29/11/2025, 12:27:38",g.,CREATE_CUSTOMER,OT4245,0,Referred by: N/A
+"29/11/2025, 12:42:05",JK,CREATE_CUSTOMER,OT4246,0,Referred by: N/A
+"29/11/2025, 12:48:28",g.,CREATE_CUSTOMER,OT4247,0,Referred by: N/A
+"29/11/2025, 12:50:00",N,CREATE_CUSTOMER,OT4249,0,Referred by: OT728
+"29/11/2025, 12:50:02",System (Auto),REFERRAL_BONUS,OT728,100,From OT4249. (Campaign: Nov 2025 Campaign)
+"29/11/2025, 13:12:23",g.,CREATE_CUSTOMER,OT4250,0,Referred by: OT3765
+"29/11/2025, 13:12:25",System (Auto),REFERRAL_BONUS,OT3765,100,From OT4250. (Campaign: Nov 2025 Campaign)
+"29/11/2025, 13:19:26",g.,CREATE_CUSTOMER,OT4251,0,Referred by: N/A
+"29/11/2025, 13:47:37",g.,CREATE_CUSTOMER,OT4252,0,Referred by: OT2070
+"29/11/2025, 13:47:39",System (Auto),REFERRAL_BONUS,OT2070,100,From OT4252. (Campaign: Nov 2025 Campaign)
+"29/11/2025, 14:03:41",JK,CREATE_CUSTOMER,OT4253,0,Referred by: N/A
+"29/11/2025, 14:29:36",T,CREATE_CUSTOMER,OT4248,0,Referred by: N/A
+"29/11/2025, 14:35:24",N,CREATE_CUSTOMER,OT4254,0,Referred by: OT1643
+"29/11/2025, 14:35:26",System (Auto),REFERRAL_BONUS,OT1643,100,From OT4254. (Campaign: Nov 2025 Campaign)
+"29/11/2025, 15:00:22",Aa🍀,CREATE_CUSTOMER,OT4255,0,Referred by: N/A
+"29/11/2025, 16:12:20",T,CREATE_CUSTOMER,OT4256,0,Referred by: N/A
+"29/11/2025, 16:16:43",T,CREATE_CUSTOMER,OT4257,0,Referred by: OT2926
+"29/11/2025, 16:16:45",System (Auto),REFERRAL_BONUS,OT2926,100,From OT4257. (Campaign: Nov 2025 Campaign)
+"29/11/2025, 16:26:49",JK,CREATE_CUSTOMER,OT4258,0,Referred by: N/A
+"29/11/2025, 16:45:56",T,CREATE_CUSTOMER,OT4259,0,Referred by: N/A
+"29/11/2025, 17:14:06",JK,CREATE_CUSTOMER,OT4260,0,Referred by: N/A
+"29/11/2025, 17:19:02",JK,CREATE_CUSTOMER,OT4261,0,Referred by: N/A
+"29/11/2025, 17:31:10",g.,CREATE_CUSTOMER,OT4262,0,Referred by: N/A
+"29/11/2025, 18:47:20",g.,CREATE_CUSTOMER,OT4263,0,Referred by: N/A
+"29/11/2025, 18:57:13",N,CREATE_CUSTOMER,OT4264,0,Referred by: N/A
+"29/11/2025, 19:35:06",T,CREATE_CUSTOMER,OT4265,0,Referred by: N/A
+"29/11/2025, 19:37:48",N,CREATE_CUSTOMER,OT4266,0,Referred by: N/A
+"29/11/2025, 20:02:31",g.,CREATE_CUSTOMER,OT4267,0,Referred by: N/A
+"29/11/2025, 20:05:49",T,CHECK_CUSTOMER,OT3387,0,Checked customer info
+"29/11/2025, 21:07:48",JK,REDEEM_POINTS,OT3387,-100,Redeemed: ส่วนลด 100 บาท
+"29/11/2025, 21:08:21",JK,REDEEM_POINTS,OT3387,-100,Redeemed: ส่วนลด 100 บาท
+"29/11/2025, 21:08:30",JK,REDEEM_POINTS,OT3387,-50,Redeemed: ส่วนลด 50 บาท
+"29/11/2025, 21:18:18",JK,CREATE_CUSTOMER,OT4268,0,Referred by: OT4070
+"29/11/2025, 21:18:20",System (Auto),REFERRAL_BONUS,OT4070,100,From OT4268. (Campaign: Nov 2025 Campaign)
+"29/11/2025, 21:40:01",T,CREATE_CUSTOMER,OT4269,0,Referred by: N/A
+"29/11/2025, 22:22:15",Kethie246,CHECK_CUSTOMER,OT2806,0,Checked customer info
+"29/11/2025, 22:39:41",Kethie246,CREATE_CUSTOMER,OT4270,0,Referred by: OT2530
+"29/11/2025, 22:39:43",System (Auto),REFERRAL_BONUS,OT2530,100,From OT4270. (Campaign: Nov 2025 Campaign)
+"29/11/2025, 22:49:04",Kethie246,CREATE_CUSTOMER,OT4271,0,Referred by: OT808
+"29/11/2025, 22:49:07",System (Auto),REFERRAL_BONUS,OT808,100,From OT4271. (Campaign: Nov 2025 Campaign)
+"29/11/2025, 23:04:10",Kethie246,CREATE_CUSTOMER,OT4272,0,Referred by: N/A
+"29/11/2025, 23:18:38",Kethie246,CREATE_CUSTOMER,OT4273,0,Referred by: N/A
+"29/11/2025, 23:27:49",Kethie246,REDEEM_POINTS,OT2806,-50,Redeemed: ส่วนลด 50 บาท
+"30/11/2025, 0:28:22",System (Auto),EXPIRE_POINTS,OT987,-100,Points reset from 100 to 0
+"30/11/2025, 0:28:22",System (Auto),EXPIRE_POINTS,OT182,-50,Points reset from 50 to 0
+"30/11/2025, 0:28:24",System (Auto),EXPIRE_POINTS,OT2552,-100,Points reset from 100 to 0
+"30/11/2025, 0:28:26",System (Auto),EXPIRE_POINTS,OT2559,-150,Points reset from 150 to 0
+"30/11/2025, 0:28:27",System (Auto),EXPIRE_POINTS,OT2783,-50,Points reset from 50 to 0
+"30/11/2025, 0:28:28",System (Auto),EXPIRE_POINTS,OT2784,-50,Points reset from 50 to 0
+"30/11/2025, 0:28:30",System (Auto),EXPIRE_POINTS,OT2785,-50,Points reset from 50 to 0
+"30/11/2025, 0:28:31",System (Auto),EXPIRE_POINTS,OT2789,-50,Points reset from 50 to 0
+"30/11/2025, 0:28:33",System (Auto),EXPIRE_POINTS,OT2794,-50,Points reset from 50 to 0
+"30/11/2025, 0:28:34",System (Auto),EXPIRE_POINTS,OT2801,-50,Points reset from 50 to 0
+"30/11/2025, 0:28:35",System (Auto),EXPIRE_POINTS,OT2667,-50,Points reset from 50 to 0
+"30/11/2025, 0:28:37",System (Auto),EXPIRE_POINTS,OT2803,-100,Points reset from 100 to 0
+"30/11/2025, 0:28:38",System (Auto),EXPIRE_POINTS,OT2807,-50,Points reset from 50 to 0
+"30/11/2025, 0:28:39",System (Auto),EXPIRE_POINTS,OT2808,-50,Points reset from 50 to 0
+"30/11/2025, 0:28:41",System (Auto),EXPIRE_POINTS,OT2810,-50,Points reset from 50 to 0
+"30/11/2025, 0:28:42",System (Auto),EXPIRE_POINTS,OT2812,-50,Points reset from 50 to 0
+"30/11/2025, 0:28:43",System (Auto),EXPIRE_POINTS,OT71,-50,Points reset from 50 to 0
+"30/11/2025, 0:28:45",System (Auto),EXPIRE_POINTS,OT2816,-50,Points reset from 50 to 0
+"30/11/2025, 0:28:46",System (Auto),EXPIRE_POINTS,OT2817,-50,Points reset from 50 to 0
+"30/11/2025, 0:28:48",System (Auto),EXPIRE_POINTS,OT2818,-50,Points reset from 50 to 0
+"30/11/2025, 0:51:27",Kethie246,CREATE_CUSTOMER,OT4275,0,Referred by: N/A
+"30/11/2025, 0:59:17",Kethie246,CREATE_CUSTOMER,OT4274,0,Referred by: N/A
+"30/11/2025, 1:15:42",Kethie246,CHECK_CUSTOMER,OT4275,0,Checked customer info
+"30/11/2025, 1:51:08",Kethie246,CREATE_CUSTOMER,OT4276,0,Referred by: N/A
+"30/11/2025, 1:53:54",Kethie246,CREATE_CUSTOMER,OT162,0,Referred by: N/A
+"30/11/2025, 2:07:56",Kethie246,CHECK_CUSTOMER,OT1302,0,Checked customer info
+"30/11/2025, 2:12:20",Kethie246,REDEEM_POINTS,OT1302,-100,Redeemed: ส่วนลด 100 บาท
+"30/11/2025, 2:12:32",Kethie246,REDEEM_POINTS,OT1302,-100,Redeemed: ส่วนลด 100 บาท
+"30/11/2025, 8:36:47",System (Auto),EXPIRY_REMINDER,OT1213,0,Sent expiry reminder (1 days left)
+"30/11/2025, 8:36:48",System (Auto),EXPIRY_REMINDER,OT1282,0,Sent expiry reminder (1 days left)
+"30/11/2025, 8:36:50",System (Auto),EXPIRY_REMINDER,OT2413,0,Sent expiry reminder (2 days left)
+"30/11/2025, 8:36:52",System (Auto),EXPIRY_REMINDER,OT2583,0,Sent expiry reminder (0 days left)
+"30/11/2025, 8:36:53",System (Auto),EXPIRY_REMINDER,OT2824,0,Sent expiry reminder (0 days left)
+"30/11/2025, 8:36:54",System (Auto),EXPIRY_REMINDER,OT2825,0,Sent expiry reminder (0 days left)
+"30/11/2025, 8:36:55",System (Auto),EXPIRY_REMINDER,OT2826,0,Sent expiry reminder (0 days left)
+"30/11/2025, 8:36:57",System (Auto),EXPIRY_REMINDER,OT2828,0,Sent expiry reminder (0 days left)
+"30/11/2025, 8:36:58",System (Auto),EXPIRY_REMINDER,OT2832,0,Sent expiry reminder (0 days left)
+"30/11/2025, 8:36:59",System (Auto),EXPIRY_REMINDER,OT2833,0,Sent expiry reminder (0 days left)
+"30/11/2025, 8:37:00",System (Auto),EXPIRY_REMINDER,OT2838,0,Sent expiry reminder (0 days left)
+"30/11/2025, 8:37:01",System (Auto),EXPIRY_REMINDER,OT919,0,Sent expiry reminder (0 days left)
+"30/11/2025, 8:37:03",System (Auto),EXPIRY_REMINDER,OT2839,0,Sent expiry reminder (0 days left)
+"30/11/2025, 8:37:06",System (Auto),EXPIRY_REMINDER,OT2841,0,Sent expiry reminder (0 days left)
+"30/11/2025, 8:37:08",System (Auto),EXPIRY_REMINDER,OT2840,0,Sent expiry reminder (0 days left)
+"30/11/2025, 8:37:10",System (Auto),EXPIRY_REMINDER,OT2845,0,Sent expiry reminder (0 days left)
+"30/11/2025, 8:37:11",System (Auto),EXPIRY_REMINDER,OT2847,0,Sent expiry reminder (0 days left)
+"30/11/2025, 8:37:13",System (Auto),EXPIRY_REMINDER,OT2848,0,Sent expiry reminder (0 days left)
+"30/11/2025, 8:37:14",System (Auto),EXPIRY_REMINDER,OT2849,0,Sent expiry reminder (0 days left)
+"30/11/2025, 8:37:15",System (Auto),EXPIRY_REMINDER,OT2850,0,Sent expiry reminder (0 days left)
+"30/11/2025, 8:37:17",System (Auto),EXPIRY_REMINDER,OT2851,0,Sent expiry reminder (0 days left)
+"30/11/2025, 8:37:18",System (Auto),EXPIRY_REMINDER,OT2373,0,Sent expiry reminder (0 days left)
+"30/11/2025, 8:37:20",System (Auto),EXPIRY_REMINDER,OT2860,0,Sent expiry reminder (0 days left)
+"30/11/2025, 8:37:21",System (Auto),EXPIRY_REMINDER,OT2862,0,Sent expiry reminder (1 days left)
+"30/11/2025, 8:37:22",System (Auto),EXPIRY_REMINDER,OT2863,0,Sent expiry reminder (1 days left)
+"30/11/2025, 8:37:24",System (Auto),EXPIRY_REMINDER,OT2864,0,Sent expiry reminder (1 days left)
+"30/11/2025, 8:37:25",System (Auto),EXPIRY_REMINDER,OT2867,0,Sent expiry reminder (1 days left)
+"30/11/2025, 8:37:26",System (Auto),EXPIRY_REMINDER,OT30,0,Sent expiry reminder (1 days left)
+"30/11/2025, 8:37:28",System (Auto),EXPIRY_REMINDER,OT2868,0,Sent expiry reminder (1 days left)
+"30/11/2025, 8:37:29",System (Auto),EXPIRY_REMINDER,OT2869,0,Sent expiry reminder (1 days left)
+"30/11/2025, 8:37:30",System (Auto),EXPIRY_REMINDER,OT2879,0,Sent expiry reminder (1 days left)
+"30/11/2025, 8:37:32",System (Auto),EXPIRY_REMINDER,OT916,0,Sent expiry reminder (1 days left)
+"30/11/2025, 8:37:33",System (Auto),EXPIRY_REMINDER,OT611,0,Sent expiry reminder (1 days left)
+"30/11/2025, 8:37:34",System (Auto),EXPIRY_REMINDER,OT2885,0,Sent expiry reminder (1 days left)
+"30/11/2025, 8:37:36",System (Auto),EXPIRY_REMINDER,OT2886,0,Sent expiry reminder (1 days left)
+"30/11/2025, 8:37:38",System (Auto),EXPIRY_REMINDER,OT2888,0,Sent expiry reminder (1 days left)
+"30/11/2025, 8:37:40",System (Auto),EXPIRY_REMINDER,OT2889,0,Sent expiry reminder (1 days left)
+"30/11/2025, 8:37:41",System (Auto),EXPIRY_REMINDER,OT2893,0,Sent expiry reminder (1 days left)
+"30/11/2025, 8:37:42",System (Auto),EXPIRY_REMINDER,OT2894,0,Sent expiry reminder (1 days left)
+"30/11/2025, 8:37:43",System (Auto),EXPIRY_REMINDER,OT2895,0,Sent expiry reminder (1 days left)
+"30/11/2025, 8:37:45",System (Auto),EXPIRY_REMINDER,OT2896,0,Sent expiry reminder (1 days left)
+"30/11/2025, 8:37:47",System (Auto),EXPIRY_REMINDER,OT2903,0,Sent expiry reminder (2 days left)
+"30/11/2025, 8:37:48",System (Auto),EXPIRY_REMINDER,OT502,0,Sent expiry reminder (2 days left)
+"30/11/2025, 8:37:49",System (Auto),EXPIRY_REMINDER,OT2907,0,Sent expiry reminder (2 days left)
+"30/11/2025, 8:37:51",System (Auto),EXPIRY_REMINDER,OT2908,0,Sent expiry reminder (2 days left)
+"30/11/2025, 8:37:52",System (Auto),EXPIRY_REMINDER,OT2911,0,Sent expiry reminder (2 days left)
+"30/11/2025, 9:03:39",N,CREATE_CUSTOMER,OT4277,0,Referred by: OT2858
+"30/11/2025, 9:03:42",System (Auto),REFERRAL_BONUS,OT2858,100,From OT4277. (Campaign: Nov 2025 Campaign)
+"30/11/2025, 10:25:22",N,CREATE_CUSTOMER,OT4278,0,Referred by: N/A
+"30/11/2025, 10:26:20",Aa🍀,CREATE_CUSTOMER,OT4279,0,Referred by: OT2779
+"30/11/2025, 10:26:21",System (Auto),REFERRAL_BONUS,OT2779,100,From OT4279. (Campaign: Nov 2025 Campaign)
+"30/11/2025, 10:42:45",g.,CREATE_CUSTOMER,OT4280,0,Referred by: N/A
+"30/11/2025, 10:50:34",Aa🍀,CREATE_CUSTOMER,OT4281,0,Referred by: N/A
+"30/11/2025, 10:57:00",Aa🍀,CREATE_CUSTOMER,OT4282,0,Referred by: N/A
+"30/11/2025, 12:05:15",T,CREATE_CUSTOMER,OT4283,0,Referred by: N/A
+"30/11/2025, 12:06:23",stevejob168,CREATE_CUSTOMER,TEST,0,Referred by: N/A
+"30/11/2025, 12:28:26",g.,CREATE_CUSTOMER,OT4284,0,Referred by: N/A
+"30/11/2025, 12:34:11",g.,CREATE_CUSTOMER,OT4286,0,Referred by: N/A
+"30/11/2025, 12:41:19",T,CREATE_CUSTOMER,OT4285,0,Referred by: N/A
+"30/11/2025, 13:05:29",g.,CREATE_CUSTOMER,OT4287,0,Referred by: OT1883
+"30/11/2025, 13:05:30",System (Auto),REFERRAL_BONUS,OT1883,100,From OT4287. (Campaign: Nov 2025 Campaign)
+"30/11/2025, 13:10:26",T,CREATE_CUSTOMER,OT4288,0,Referred by: N/A
+"30/11/2025, 13:11:23",N,CREATE_CUSTOMER,OT4289,0,Referred by: N/A
+"30/11/2025, 13:15:29",g.,CREATE_CUSTOMER,OT4290,0,Referred by: N/A
+"30/11/2025, 13:19:50",T,CREATE_CUSTOMER,OT4291,0,Referred by: N/A
+"30/11/2025, 13:25:51",g.,CREATE_CUSTOMER,OT4292,0,Referred by: N/A
+"30/11/2025, 14:03:53",N,CREATE_CUSTOMER,OT4293,0,Referred by: N/A
+"30/11/2025, 14:19:11",N,CREATE_CUSTOMER,OT4294,0,Referred by: N/A
+"30/11/2025, 14:37:30",Aa🍀,CREATE_CUSTOMER,OT4295,0,Referred by: N/A
+"30/11/2025, 15:26:00",T,CHECK_CUSTOMER,OT3850,0,Checked customer info
+"30/11/2025, 15:26:23",T,CHECK_CUSTOMER,OT3820,0,Checked customer info
+"30/11/2025, 15:41:37",g.,CREATE_CUSTOMER,OT4296,0,Referred by: N/A
+"30/11/2025, 16:02:40",T,CREATE_CUSTOMER,OT4297,0,Referred by: N/A
+"30/11/2025, 16:43:58",JK,CREATE_CUSTOMER,OT4298,0,Referred by: OT3286
+"30/11/2025, 16:44:00",System (Auto),REFERRAL_BONUS,OT3286,100,From OT4298. (Campaign: Nov 2025 Campaign)
+"30/11/2025, 17:09:31",Aa🍀,CREATE_CUSTOMER,OT4299,0,Referred by: N/A
+"30/11/2025, 17:14:30",JK,CREATE_CUSTOMER,OT4300,0,Referred by: N/A
+"30/11/2025, 17:37:28",JK,CREATE_CUSTOMER,OT4301,0,Referred by: N/A
+"30/11/2025, 17:43:35",JK,CREATE_CUSTOMER,OT4302,0,Referred by: N/A
+"30/11/2025, 17:55:06",N,CREATE_CUSTOMER,OT4303,0,Referred by: OT3820
+"30/11/2025, 17:55:08",System (Auto),REFERRAL_BONUS,OT3820,100,From OT4303. (Campaign: Nov 2025 Campaign)
+"30/11/2025, 18:13:55",N,CREATE_CUSTOMER,OT4304,0,Referred by: N/A
+"30/11/2025, 18:29:17",N,CHECK_CUSTOMER,OT2113,0,Checked customer info
+"30/11/2025, 18:47:44",Aa🍀,CREATE_CUSTOMER,OT4305,0,Referred by: OT3370
+"30/11/2025, 18:47:47",System (Auto),REFERRAL_BONUS,OT3370,100,From OT4305. (Campaign: Nov 2025 Campaign)
+"30/11/2025, 19:09:09",Aa🍀,CREATE_CUSTOMER,OT4306,0,Referred by: OT987
+"30/11/2025, 19:09:12",System (Auto),REFERRAL_BONUS,OT987,100,From OT4306. (Campaign: Nov 2025 Campaign)
+"30/11/2025, 19:48:03",g.,CREATE_CUSTOMER,OT4307,0,Referred by: N/A
+"30/11/2025, 19:52:29",Aa🍀,CHECK_CUSTOMER,OT977,0,Checked customer info
+"30/11/2025, 20:02:13",T,CHECK_CUSTOMER,OT977,0,Checked customer info
+"30/11/2025, 20:21:32",g.,CREATE_CUSTOMER,OT4308,0,Referred by: OT4299
+"30/11/2025, 20:21:35",System (Auto),REFERRAL_BONUS,OT4299,100,From OT4308. (Campaign: Nov 2025 Campaign)
+"30/11/2025, 20:46:17",T,CREATE_CUSTOMER,OT4309,0,Referred by: OT255
+"30/11/2025, 20:46:20",System (Auto),REFERRAL_BONUS,OT255,100,From OT4309. (Campaign: Nov 2025 Campaign)
+"30/11/2025, 20:52:16",T,CREATE_CUSTOMER,OT4310,0,Referred by: OT2979
+"30/11/2025, 20:52:18",System (Auto),REFERRAL_BONUS,OT2979,100,From OT4310. (Campaign: Nov 2025 Campaign)
+"30/11/2025, 21:15:22",T,CHECK_CUSTOMER,OT3681,0,Checked customer info
+"30/11/2025, 21:19:48",g.,CREATE_CUSTOMER,OT4311,0,Referred by: N/A
+"30/11/2025, 21:44:01",Kethie246,CREATE_CUSTOMER,OT4312,0,Referred by: N/A
+"30/11/2025, 21:56:54",g.,CREATE_CUSTOMER,OT4313,0,Referred by: N/A
+"30/11/2025, 22:06:33",Kethie246,CREATE_CUSTOMER,OT4314,0,Referred by: N/A
+"30/11/2025, 22:40:38",Kethie246,CREATE_CUSTOMER,OT4315,0,Referred by: N/A
+"1/12/2025, 0:03:32",Kethie246,CREATE_CUSTOMER,OT4316,0,Referred by: OT3417
+"1/12/2025, 0:03:34",System (Auto),REFERRAL_BONUS,OT3417,50,From OT4316. (Campaign: Standard)
+"1/12/2025, 0:28:23",System (Auto),EXPIRE_POINTS,OT1582,-100,Points reset from 100 to 0
+"1/12/2025, 0:28:23",System (Auto),EXPIRE_POINTS,OT1977,-50,Points reset from 50 to 0
+"1/12/2025, 0:28:25",System (Auto),EXPIRE_POINTS,OT2583,-150,Points reset from 150 to 0
+"1/12/2025, 0:28:27",System (Auto),EXPIRE_POINTS,OT2824,-50,Points reset from 50 to 0
+"1/12/2025, 0:28:28",System (Auto),EXPIRE_POINTS,OT2825,-50,Points reset from 50 to 0
+"1/12/2025, 0:28:30",System (Auto),EXPIRE_POINTS,OT2826,-50,Points reset from 50 to 0
+"1/12/2025, 0:28:31",System (Auto),EXPIRE_POINTS,OT2828,-50,Points reset from 50 to 0
+"1/12/2025, 0:28:33",System (Auto),EXPIRE_POINTS,OT2832,-50,Points reset from 50 to 0
+"1/12/2025, 0:28:35",System (Auto),EXPIRE_POINTS,OT2833,-50,Points reset from 50 to 0
+"1/12/2025, 0:28:36",System (Auto),EXPIRE_POINTS,OT2838,-50,Points reset from 50 to 0
+"1/12/2025, 0:28:38",System (Auto),EXPIRE_POINTS,OT919,-50,Points reset from 50 to 0
+"1/12/2025, 0:28:40",System (Auto),EXPIRE_POINTS,OT2839,-50,Points reset from 50 to 0
+"1/12/2025, 0:28:42",System (Auto),EXPIRE_POINTS,OT2841,-50,Points reset from 50 to 0
+"1/12/2025, 0:28:44",System (Auto),EXPIRE_POINTS,OT2840,-50,Points reset from 50 to 0
+"1/12/2025, 0:28:45",System (Auto),EXPIRE_POINTS,OT2845,-50,Points reset from 50 to 0
+"1/12/2025, 0:28:47",System (Auto),EXPIRE_POINTS,OT2847,-50,Points reset from 50 to 0
+"1/12/2025, 0:28:49",System (Auto),EXPIRE_POINTS,OT2848,-50,Points reset from 50 to 0
+"1/12/2025, 0:28:50",System (Auto),EXPIRE_POINTS,OT2849,-50,Points reset from 50 to 0
+"1/12/2025, 0:28:51",System (Auto),EXPIRE_POINTS,OT2850,-50,Points reset from 50 to 0
+"1/12/2025, 0:28:53",System (Auto),EXPIRE_POINTS,OT2851,-50,Points reset from 50 to 0
+"1/12/2025, 0:28:55",System (Auto),EXPIRE_POINTS,OT2373,-50,Points reset from 50 to 0
+"1/12/2025, 0:28:56",System (Auto),EXPIRE_POINTS,OT2860,-50,Points reset from 50 to 0
+"1/12/2025, 0:55:01",Kethie246,CREATE_CUSTOMER,OT4317,0,Referred by: N/A
+"1/12/2025, 8:16:58",N,CREATE_CUSTOMER,OT4318,0,Referred by: N/A
+"1/12/2025, 8:36:48",System (Auto),EXPIRY_REMINDER,OT1213,0,Sent expiry reminder (0 days left)
+"1/12/2025, 8:36:49",System (Auto),EXPIRY_REMINDER,OT1282,0,Sent expiry reminder (0 days left)
+"1/12/2025, 8:36:51",System (Auto),EXPIRY_REMINDER,OT1729,0,Sent expiry reminder (2 days left)
+"1/12/2025, 8:36:52",System (Auto),EXPIRY_REMINDER,OT2413,0,Sent expiry reminder (1 days left)
+"1/12/2025, 8:36:54",System (Auto),EXPIRY_REMINDER,OT2565,0,Sent expiry reminder (2 days left)
+"1/12/2025, 8:36:55",System (Auto),EXPIRY_REMINDER,OT2862,0,Sent expiry reminder (0 days left)
+"1/12/2025, 8:36:57",System (Auto),EXPIRY_REMINDER,OT2863,0,Sent expiry reminder (0 days left)
+"1/12/2025, 8:36:58",System (Auto),EXPIRY_REMINDER,OT2864,0,Sent expiry reminder (0 days left)
+"1/12/2025, 8:37:00",System (Auto),EXPIRY_REMINDER,OT2867,0,Sent expiry reminder (0 days left)
+"1/12/2025, 8:37:05",N,CREATE_CUSTOMER,OT4319,0,Referred by: OT2562
+"1/12/2025, 8:37:04",System (Auto),EXPIRY_REMINDER,OT30,0,Sent expiry reminder (0 days left)
+"1/12/2025, 8:37:07",System (Auto),EXPIRY_REMINDER,OT2868,0,Sent expiry reminder (0 days left)
+"1/12/2025, 8:37:09",System (Auto),EXPIRY_REMINDER,OT2869,0,Sent expiry reminder (0 days left)
+"1/12/2025, 8:37:09",System (Auto),REFERRAL_BONUS,OT2562,50,From OT4319. (Campaign: Standard)
+"1/12/2025, 8:37:11",System (Auto),EXPIRY_REMINDER,OT2879,0,Sent expiry reminder (0 days left)
+"1/12/2025, 8:37:14",System (Auto),EXPIRY_REMINDER,OT916,0,Sent expiry reminder (0 days left)
+"1/12/2025, 8:37:16",System (Auto),EXPIRY_REMINDER,OT611,0,Sent expiry reminder (0 days left)
+"1/12/2025, 8:37:17",System (Auto),EXPIRY_REMINDER,OT2885,0,Sent expiry reminder (0 days left)
+"1/12/2025, 8:37:19",System (Auto),EXPIRY_REMINDER,OT2886,0,Sent expiry reminder (0 days left)
+"1/12/2025, 8:37:20",System (Auto),EXPIRY_REMINDER,OT2888,0,Sent expiry reminder (0 days left)
+"1/12/2025, 8:37:22",System (Auto),EXPIRY_REMINDER,OT2889,0,Sent expiry reminder (0 days left)
+"1/12/2025, 8:37:23",System (Auto),EXPIRY_REMINDER,OT2893,0,Sent expiry reminder (0 days left)
+"1/12/2025, 8:37:25",System (Auto),EXPIRY_REMINDER,OT2894,0,Sent expiry reminder (0 days left)
+"1/12/2025, 8:37:27",System (Auto),EXPIRY_REMINDER,OT2895,0,Sent expiry reminder (0 days left)
+"1/12/2025, 8:37:28",System (Auto),EXPIRY_REMINDER,OT2896,0,Sent expiry reminder (0 days left)
+"1/12/2025, 8:37:30",System (Auto),EXPIRY_REMINDER,OT2903,0,Sent expiry reminder (1 days left)
+"1/12/2025, 8:37:32",System (Auto),EXPIRY_REMINDER,OT502,0,Sent expiry reminder (1 days left)
+"1/12/2025, 8:37:34",System (Auto),EXPIRY_REMINDER,OT2907,0,Sent expiry reminder (1 days left)
+"1/12/2025, 8:37:36",System (Auto),EXPIRY_REMINDER,OT2908,0,Sent expiry reminder (1 days left)
+"1/12/2025, 8:37:37",System (Auto),EXPIRY_REMINDER,OT2911,0,Sent expiry reminder (1 days left)
+"1/12/2025, 8:37:39",System (Auto),EXPIRY_REMINDER,OT2916,0,Sent expiry reminder (2 days left)
+"1/12/2025, 8:37:40",System (Auto),EXPIRY_REMINDER,OT2917,0,Sent expiry reminder (2 days left)
+"1/12/2025, 8:37:42",System (Auto),EXPIRY_REMINDER,OT2921,0,Sent expiry reminder (2 days left)
+"1/12/2025, 8:37:44",System (Auto),EXPIRY_REMINDER,OT2922,0,Sent expiry reminder (2 days left)
+"1/12/2025, 8:37:45",System (Auto),EXPIRY_REMINDER,OT2923,0,Sent expiry reminder (2 days left)
+"1/12/2025, 8:37:46",System (Auto),EXPIRY_REMINDER,OT2928,0,Sent expiry reminder (2 days left)
+"1/12/2025, 8:37:48",System (Auto),EXPIRY_REMINDER,OT2927,0,Sent expiry reminder (2 days left)
+"1/12/2025, 8:37:49",System (Auto),EXPIRY_REMINDER,OT2929,0,Sent expiry reminder (2 days left)
+"1/12/2025, 8:37:51",System (Auto),EXPIRY_REMINDER,OT2932,0,Sent expiry reminder (2 days left)
+"1/12/2025, 8:37:53",System (Auto),EXPIRY_REMINDER,OT69,0,Sent expiry reminder (2 days left)
+"1/12/2025, 8:37:54",System (Auto),EXPIRY_REMINDER,OT2934,0,Sent expiry reminder (2 days left)
+"1/12/2025, 8:37:56",System (Auto),EXPIRY_REMINDER,OT2941,0,Sent expiry reminder (2 days left)
+"1/12/2025, 8:37:57",System (Auto),EXPIRY_REMINDER,OT565,0,Sent expiry reminder (2 days left)
+"1/12/2025, 8:37:59",System (Auto),EXPIRY_REMINDER,OT2948,0,Sent expiry reminder (2 days left)
+"1/12/2025, 8:38:00",System (Auto),EXPIRY_REMINDER,OT2950,0,Sent expiry reminder (2 days left)
+"1/12/2025, 8:38:01",System (Auto),EXPIRY_REMINDER,OT2954,0,Sent expiry reminder (2 days left)
+"1/12/2025, 9:45:40",N,CREATE_CUSTOMER,OT4320,0,Referred by: N/A
+"1/12/2025, 10:16:38",N,CREATE_CUSTOMER,OT4322,0,Referred by: N/A
+"1/12/2025, 10:16:56",Aa🍀,CREATE_CUSTOMER,OT4321,0,Referred by: N/A
+"1/12/2025, 10:50:29",Aa🍀,CHECK_CUSTOMER,OT2677,0,Checked customer info
+"1/12/2025, 10:51:48",JK,CREATE_CUSTOMER,OT4323,0,Referred by: OT4320
+"1/12/2025, 10:51:50",System (Auto),REFERRAL_BONUS,OT4320,50,From OT4323. (Campaign: Standard)
+"1/12/2025, 11:07:22",T,CREATE_CUSTOMER,OT4324,0,Referred by: N/A
+"1/12/2025, 11:13:00",Aa🍀,REDEEM_POINTS,OT2677,-100,Redeemed: ส่วนลด 100 บาท
+"1/12/2025, 11:13:13",Aa🍀,REDEEM_POINTS,OT2677,-50,Redeemed: ส่วนลด 50 บาท
+"1/12/2025, 11:15:17",Aa🍀,CREATE_CUSTOMER,OT4325,0,Referred by: N/A
+"1/12/2025, 11:31:13",T,CREATE_CUSTOMER,OT4326,0,Referred by: N/A
+"1/12/2025, 11:46:40",g.,CREATE_CUSTOMER,OT4327,0,Referred by: N/A
+"1/12/2025, 12:23:47",T,CREATE_CUSTOMER,OT4328,0,Referred by: OT1534
+"1/12/2025, 12:23:49",System (Auto),REFERRAL_BONUS,OT1534,50,From OT4328. (Campaign: Standard)
+"1/12/2025, 12:31:29",Aa🍀,CREATE_CUSTOMER,OT4329,0,Referred by: N/A
+"1/12/2025, 12:48:18",g.,CHECK_CUSTOMER,OT2410,0,Checked customer info
+"1/12/2025, 12:51:52",g.,REDEEM_POINTS,OT2410,-200,Redeemed: ส่วนลด 200 บาท
+"1/12/2025, 13:11:18",g.,CREATE_CUSTOMER,OT108,0,Referred by: N/A
+"1/12/2025, 13:14:48",g.,CREATE_CUSTOMER,OT4330,0,Referred by: N/A
+"1/12/2025, 13:36:59",g.,CREATE_CUSTOMER,OT4331,0,Referred by: N/A
+"1/12/2025, 14:57:49",g.,CREATE_CUSTOMER,OT4333,0,Referred by: N/A
+"1/12/2025, 14:57:55",JK,CREATE_CUSTOMER,OT4332,0,Referred by: N/A
+"1/12/2025, 15:04:05",JK,CREATE_CUSTOMER,OT4334,0,Referred by: N/A
+"1/12/2025, 15:17:57",N,CREATE_CUSTOMER,OT4335,0,Referred by: N/A
+"1/12/2025, 15:58:49",g.,CREATE_CUSTOMER,OT4337,0,Referred by: N/A
+"1/12/2025, 15:59:41",T,CREATE_CUSTOMER,OT4336,0,Referred by: N/A
+"1/12/2025, 16:20:24",T,CHECK_CUSTOMER,OT1206,0,Checked customer info
+"1/12/2025, 16:32:48",T,CREATE_CUSTOMER,OT4338,0,Referred by: N/A
+"1/12/2025, 16:45:43",g.,CREATE_CUSTOMER,OT4339,0,Referred by: N/A
+"1/12/2025, 16:47:00",JK,CREATE_CUSTOMER,OT4340,0,Referred by: OT4161
+"1/12/2025, 16:47:02",System (Auto),REFERRAL_BONUS,OT4161,50,From OT4340. (Campaign: Standard)
+"1/12/2025, 17:11:37",JK,CREATE_CUSTOMER,OT4341,0,Referred by: N/A
+"1/12/2025, 17:35:13",g.,CREATE_CUSTOMER,OT4343,0,Referred by: N/A
+"1/12/2025, 17:45:14",T,CREATE_CUSTOMER,OT4342,0,Referred by: N/A
+"1/12/2025, 17:56:00",Aa🍀,CREATE_CUSTOMER,OT4344,0,Referred by: OT2941
+"1/12/2025, 17:56:02",System (Auto),REFERRAL_BONUS,OT2941,50,From OT4344. (Campaign: Standard)
+"1/12/2025, 18:11:57",T,CREATE_CUSTOMER,OT4345,0,Referred by: OT108
+"1/12/2025, 18:12:00",System (Auto),REFERRAL_BONUS,OT108,50,From OT4345. (Campaign: Standard)
+"1/12/2025, 18:21:19",T,CREATE_CUSTOMER,OT4346,0,Referred by: N/A
+"1/12/2025, 19:09:45",N,CREATE_CUSTOMER,OT4347,0,Referred by: N/A
+"1/12/2025, 20:01:19",g.,CREATE_CUSTOMER,OT4348,0,Referred by: N/A
+"1/12/2025, 20:15:30",Aa🍀,CHECK_CUSTOMER,OT2746,0,Checked customer info
+"1/12/2025, 20:35:42",T,CHECK_CUSTOMER,OT2746,0,Checked customer info
+"1/12/2025, 21:17:12",g.,CREATE_CUSTOMER,OT4349,0,Referred by: N/A
+"1/12/2025, 21:35:19",T,CREATE_CUSTOMER,OT4350,0,Referred by: N/A
+"1/12/2025, 21:40:05",T,CREATE_CUSTOMER,OT4351,0,Referred by: N/A
+"1/12/2025, 21:48:14",JK,CREATE_CUSTOMER,OT4352,0,Referred by: N/A
+"1/12/2025, 21:49:27",JK,CREATE_CUSTOMER,OT82,0,Referred by: N/A
+"1/12/2025, 22:31:17",Kethie246,CREATE_CUSTOMER,OT4353,0,Referred by: OT1734
+"1/12/2025, 22:31:19",System (Auto),REFERRAL_BONUS,OT1734,50,From OT4353. (Campaign: Standard)
+"1/12/2025, 23:05:00",Kethie246,CREATE_CUSTOMER,OT4354,0,Referred by: OT2994
+"1/12/2025, 23:05:02",System (Auto),REFERRAL_BONUS,OT2994,50,From OT4354. (Campaign: Standard)
+"2/12/2025, 0:28:21",System (Auto),EXPIRE_POINTS,OT1213,-100,Points reset from 100 to 0
+"2/12/2025, 0:28:22",System (Auto),EXPIRE_POINTS,OT1282,-100,Points reset from 100 to 0
+"2/12/2025, 0:28:24",System (Auto),EXPIRE_POINTS,OT1312,-100,Points reset from 100 to 0
+"2/12/2025, 0:28:26",System (Auto),EXPIRE_POINTS,OT1542,-50,Points reset from 50 to 0
+"2/12/2025, 0:28:28",System (Auto),EXPIRE_POINTS,OT2862,-50,Points reset from 50 to 0
+"2/12/2025, 0:28:30",System (Auto),EXPIRE_POINTS,OT2863,-50,Points reset from 50 to 0
+"2/12/2025, 0:28:32",System (Auto),EXPIRE_POINTS,OT2864,-50,Points reset from 50 to 0
+"2/12/2025, 0:28:34",System (Auto),EXPIRE_POINTS,OT2867,-50,Points reset from 50 to 0
+"2/12/2025, 0:28:35",System (Auto),EXPIRE_POINTS,OT30,-50,Points reset from 50 to 0
+"2/12/2025, 0:28:38",System (Auto),EXPIRE_POINTS,OT2868,-50,Points reset from 50 to 0
+"2/12/2025, 0:28:40",System (Auto),EXPIRE_POINTS,OT2869,-50,Points reset from 50 to 0
+"2/12/2025, 0:28:41",System (Auto),EXPIRE_POINTS,OT2879,-50,Points reset from 50 to 0
+"2/12/2025, 0:28:43",System (Auto),EXPIRE_POINTS,OT916,-50,Points reset from 50 to 0
+"2/12/2025, 0:28:45",System (Auto),EXPIRE_POINTS,OT611,-50,Points reset from 50 to 0
+"2/12/2025, 0:28:47",System (Auto),EXPIRE_POINTS,OT2885,-50,Points reset from 50 to 0
+"2/12/2025, 0:28:48",System (Auto),EXPIRE_POINTS,OT2886,-50,Points reset from 50 to 0
+"2/12/2025, 0:28:51",System (Auto),EXPIRE_POINTS,OT2888,-50,Points reset from 50 to 0
+"2/12/2025, 0:28:52",System (Auto),EXPIRE_POINTS,OT2889,-50,Points reset from 50 to 0
+"2/12/2025, 0:28:54",System (Auto),EXPIRE_POINTS,OT2893,-50,Points reset from 50 to 0
+"2/12/2025, 0:28:56",System (Auto),EXPIRE_POINTS,OT2894,-50,Points reset from 50 to 0
+"2/12/2025, 0:28:57",System (Auto),EXPIRE_POINTS,OT2895,-50,Points reset from 50 to 0
+"2/12/2025, 0:28:59",System (Auto),EXPIRE_POINTS,OT2896,-50,Points reset from 50 to 0
+"2/12/2025, 0:33:06",Kethie246,CREATE_CUSTOMER,OT4355,0,Referred by: N/A
+"2/12/2025, 0:43:58",Kethie246,CREATE_CUSTOMER,OT4356,0,Referred by: N/A
+"2/12/2025, 1:49:36",Kethie246,CREATE_CUSTOMER,OT4357,0,Referred by: N/A
+"2/12/2025, 8:37:03",System (Auto),EXPIRY_REMINDER,OT1729,0,Sent expiry reminder (1 days left)
+"2/12/2025, 8:37:04",System (Auto),EXPIRY_REMINDER,OT1786,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:37:09",System (Auto),EXPIRY_REMINDER,OT2413,0,Sent expiry reminder (0 days left)
+"2/12/2025, 8:37:11",System (Auto),EXPIRY_REMINDER,OT2565,0,Sent expiry reminder (1 days left)
+"2/12/2025, 8:37:13",System (Auto),EXPIRY_REMINDER,OT2590,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:37:14",System (Auto),EXPIRY_REMINDER,OT2701,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:37:16",System (Auto),EXPIRY_REMINDER,OT2721,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:37:17",System (Auto),EXPIRY_REMINDER,OT2723,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:37:18",System (Auto),EXPIRY_REMINDER,OT2731,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:37:21",System (Auto),EXPIRY_REMINDER,OT2751,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:37:22",System (Auto),EXPIRY_REMINDER,OT2903,0,Sent expiry reminder (0 days left)
+"2/12/2025, 8:37:23",System (Auto),EXPIRY_REMINDER,OT502,0,Sent expiry reminder (0 days left)
+"2/12/2025, 8:37:25",System (Auto),EXPIRY_REMINDER,OT2907,0,Sent expiry reminder (0 days left)
+"2/12/2025, 8:37:27",System (Auto),EXPIRY_REMINDER,OT2908,0,Sent expiry reminder (0 days left)
+"2/12/2025, 8:37:28",System (Auto),EXPIRY_REMINDER,OT2911,0,Sent expiry reminder (0 days left)
+"2/12/2025, 8:37:29",System (Auto),EXPIRY_REMINDER,OT2916,0,Sent expiry reminder (1 days left)
+"2/12/2025, 8:37:30",System (Auto),EXPIRY_REMINDER,OT2917,0,Sent expiry reminder (1 days left)
+"2/12/2025, 8:37:32",System (Auto),EXPIRY_REMINDER,OT2921,0,Sent expiry reminder (1 days left)
+"2/12/2025, 8:37:33",System (Auto),EXPIRY_REMINDER,OT2922,0,Sent expiry reminder (1 days left)
+"2/12/2025, 8:37:34",System (Auto),EXPIRY_REMINDER,OT2923,0,Sent expiry reminder (1 days left)
+"2/12/2025, 8:37:36",System (Auto),EXPIRY_REMINDER,OT2928,0,Sent expiry reminder (1 days left)
+"2/12/2025, 8:37:37",System (Auto),EXPIRY_REMINDER,OT2927,0,Sent expiry reminder (1 days left)
+"2/12/2025, 8:37:39",System (Auto),EXPIRY_REMINDER,OT2929,0,Sent expiry reminder (1 days left)
+"2/12/2025, 8:37:40",System (Auto),EXPIRY_REMINDER,OT2932,0,Sent expiry reminder (1 days left)
+"2/12/2025, 8:37:42",System (Auto),EXPIRY_REMINDER,OT69,0,Sent expiry reminder (1 days left)
+"2/12/2025, 8:37:43",System (Auto),EXPIRY_REMINDER,OT2934,0,Sent expiry reminder (1 days left)
+"2/12/2025, 8:37:44",System (Auto),EXPIRY_REMINDER,OT565,0,Sent expiry reminder (1 days left)
+"2/12/2025, 8:37:46",System (Auto),EXPIRY_REMINDER,OT2948,0,Sent expiry reminder (1 days left)
+"2/12/2025, 8:37:47",System (Auto),EXPIRY_REMINDER,OT2950,0,Sent expiry reminder (1 days left)
+"2/12/2025, 8:37:48",System (Auto),EXPIRY_REMINDER,OT2954,0,Sent expiry reminder (1 days left)
+"2/12/2025, 8:37:50",System (Auto),EXPIRY_REMINDER,OT2958,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:37:51",System (Auto),EXPIRY_REMINDER,OT2962,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:37:53",System (Auto),EXPIRY_REMINDER,OT2966,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:37:54",System (Auto),EXPIRY_REMINDER,OT33,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:37:55",System (Auto),EXPIRY_REMINDER,OT325,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:37:57",System (Auto),EXPIRY_REMINDER,OT2969,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:37:58",System (Auto),EXPIRY_REMINDER,OT2971,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:37:59",System (Auto),EXPIRY_REMINDER,OT2974,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:38:01",System (Auto),EXPIRY_REMINDER,OT2959,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:38:02",System (Auto),EXPIRY_REMINDER,OT2977,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:38:04",System (Auto),EXPIRY_REMINDER,OT2982,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:38:05",System (Auto),EXPIRY_REMINDER,OT2983,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:38:06",System (Auto),EXPIRY_REMINDER,OT2986,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:38:08",System (Auto),EXPIRY_REMINDER,OT2991,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:38:09",System (Auto),EXPIRY_REMINDER,OT2995,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:38:11",System (Auto),EXPIRY_REMINDER,OT2997,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:38:12",System (Auto),EXPIRY_REMINDER,OT2998,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:38:13",System (Auto),EXPIRY_REMINDER,OT3002,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:38:15",System (Auto),EXPIRY_REMINDER,OT3009,0,Sent expiry reminder (2 days left)
+"2/12/2025, 8:51:39",N,CREATE_CUSTOMER,OT4358,0,Referred by: N/A
+"2/12/2025, 10:04:45",Aa🍀,CREATE_CUSTOMER,OT4359,0,Referred by: N/A
+"2/12/2025, 10:18:58",N,CREATE_CUSTOMER,OT4360,0,Referred by: N/A
+"2/12/2025, 10:27:43",Aa🍀,CREATE_CUSTOMER,OT4362,0,Referred by: OT3055
+"2/12/2025, 10:27:46",System (Auto),REFERRAL_BONUS,OT3055,50,From OT4362. (Campaign: Standard)
+"2/12/2025, 10:28:32",N,CREATE_CUSTOMER,OT4361,0,Referred by: N/A
+"2/12/2025, 10:39:14",g.,CHECK_CUSTOMER,OT3333,0,Checked customer info
+"2/12/2025, 10:51:36",T,CREATE_CUSTOMER,OT4363,0,Referred by: N/A
+"2/12/2025, 11:03:23",JK,CREATE_CUSTOMER,OT4364,0,Referred by: N/A
+"2/12/2025, 11:06:19",JK,CREATE_CUSTOMER,OT4365,0,Referred by: N/A
+"2/12/2025, 11:17:22",T,CREATE_CUSTOMER,OT4366,0,Referred by: N/A
+"2/12/2025, 11:28:53",g.,CREATE_CUSTOMER,OT4367,0,Referred by: N/A
+"2/12/2025, 11:30:02",g.,CHECK_CUSTOMER,OT1765,0,Checked customer info
+"2/12/2025, 12:05:03",g.,CREATE_CUSTOMER,OT4369,0,Referred by: N/A
+"2/12/2025, 12:07:53",JK,CREATE_CUSTOMER,OT4370,0,Referred by: N/A
+"2/12/2025, 13:20:11",T,CREATE_CUSTOMER,OT4371,0,Referred by: N/A
+"2/12/2025, 13:25:23",g.,CREATE_CUSTOMER,OT4373,0,Referred by: N/A
+"2/12/2025, 13:29:25",g.,CREATE_CUSTOMER,OT4376,0,Referred by: N/A
+"2/12/2025, 13:30:56",T,CREATE_CUSTOMER,OT4375,0,Referred by: N/A
+"2/12/2025, 14:00:13",JK,CREATE_CUSTOMER,OT4377,0,Referred by: N/A
+"2/12/2025, 14:31:59",N,CREATE_CUSTOMER,OT4378,0,Referred by: N/A
+"2/12/2025, 14:51:52",T,CREATE_CUSTOMER,OT4372,0,Referred by: OT3529
+"2/12/2025, 14:51:55",System (Auto),REFERRAL_BONUS,OT3529,50,From OT4372. (Campaign: Standard)
+"2/12/2025, 14:56:48",T,CHECK_CUSTOMER,OT2924,0,Checked customer info
+"2/12/2025, 15:06:28",Aa🍀,CREATE_CUSTOMER,OT4380,0,Referred by: N/A
+"2/12/2025, 15:09:20",JK,CREATE_CUSTOMER,OT4381,0,Referred by: N/A
+"2/12/2025, 15:13:39",N,CREATE_CUSTOMER,OT4379,0,Referred by: N/A
+"2/12/2025, 15:22:19",g.,CREATE_CUSTOMER,OT4382,0,Referred by: N/A
+"2/12/2025, 15:27:07",T,CREATE_CUSTOMER,OT4383,0,Referred by: OT1874
+"2/12/2025, 15:27:09",System (Auto),REFERRAL_BONUS,OT1874,50,From OT4383. (Campaign: Standard)
+"2/12/2025, 15:47:15",g.,CREATE_CUSTOMER,OT4384,0,Referred by: N/A
+"2/12/2025, 15:59:58",N,CHECK_CUSTOMER,OT2924,0,Checked customer info
+"2/12/2025, 16:00:39",JK,CREATE_CUSTOMER,OT4385,0,Referred by: N/A
+"2/12/2025, 16:06:24",Aa🍀,CREATE_CUSTOMER,OT4386,0,Referred by: N/A
+"2/12/2025, 16:21:23",N,REDEEM_POINTS,OT2924,-100,Redeemed: ส่วนลด 100 บาท
+"2/12/2025, 16:21:38",N,REDEEM_POINTS,OT2924,-50,Redeemed: ส่วนลด 50 บาท
+"2/12/2025, 16:30:52",N,CREATE_CUSTOMER,OT4387,0,Referred by: N/A
+"2/12/2025, 16:49:16",Aa🍀,CREATE_CUSTOMER,OT4388,0,Referred by: OT577
+"2/12/2025, 16:49:18",System (Auto),REFERRAL_BONUS,OT577,50,From OT4388. (Campaign: Standard)
+"2/12/2025, 16:51:52",g.,CREATE_CUSTOMER,OT4389,0,Referred by: N/A
+"2/12/2025, 17:05:31",T,CREATE_CUSTOMER,OT4390,0,Referred by: N/A
+"2/12/2025, 17:11:17",T,CREATE_CUSTOMER,OT4391,0,Referred by: N/A
+"2/12/2025, 22:51:21",N,CREATE_CUSTOMER,OT4393,0,Referred by: N/A
+"2/12/2025, 22:51:24",Aa🍀,CHECK_CUSTOMER,OT4384,0,Checked customer info
+"2/12/2025, 22:51:29",g.,CREATE_CUSTOMER,OT4392,0,Referred by: N/A
+"2/12/2025, 22:51:32",Aa🍀,CREATE_CUSTOMER,OT4394,0,Referred by: N/A
+"2/12/2025, 22:51:38",g.,CREATE_CUSTOMER,OT4399,0,Referred by: N/A
+"2/12/2025, 23:42:25",Kethie246,CHECK_CUSTOMER,OT3371,0,Checked customer info
+"2/12/2025, 23:59:49",Kethie246,REDEEM_POINTS,OT3371,-100,Redeemed: ส่วนลด 100 บาท
+"3/12/2025, 0:00:02",Kethie246,REDEEM_POINTS,OT3371,-100,Redeemed: ส่วนลด 100 บาท
+"3/12/2025, 0:00:11",Kethie246,REDEEM_POINTS,OT3371,-100,Redeemed: ส่วนลด 100 บาท
+"3/12/2025, 0:00:25",Kethie246,REDEEM_POINTS,OT3371,-50,Redeemed: ส่วนลด 50 บาท
+"3/12/2025, 0:28:24",System (Auto),EXPIRE_POINTS,OT1219,-100,Points reset from 100 to 0
+"3/12/2025, 0:28:24",System (Auto),EXPIRE_POINTS,OT305,-100,Points reset from 100 to 0
+"3/12/2025, 0:28:26",System (Auto),EXPIRE_POINTS,OT2139,-100,Points reset from 100 to 0
+"3/12/2025, 0:28:28",System (Auto),EXPIRE_POINTS,OT2270,-100,Points reset from 100 to 0
+"3/12/2025, 0:28:29",System (Auto),EXPIRE_POINTS,OT2413,-150,Points reset from 150 to 0
+"3/12/2025, 0:28:31",System (Auto),EXPIRE_POINTS,OT2795,-100,Points reset from 100 to 0
+"3/12/2025, 0:28:32",System (Auto),EXPIRE_POINTS,OT2865,-100,Points reset from 100 to 0
+"3/12/2025, 0:28:34",System (Auto),EXPIRE_POINTS,OT2875,-100,Points reset from 100 to 0
+"3/12/2025, 0:28:35",System (Auto),EXPIRE_POINTS,OT2903,-50,Points reset from 50 to 0
+"3/12/2025, 0:28:37",System (Auto),EXPIRE_POINTS,OT502,-50,Points reset from 50 to 0
+"3/12/2025, 0:28:38",System (Auto),EXPIRE_POINTS,OT2907,-50,Points reset from 50 to 0
+"3/12/2025, 0:28:40",System (Auto),EXPIRE_POINTS,OT2908,-50,Points reset from 50 to 0
+"3/12/2025, 0:28:42",System (Auto),EXPIRE_POINTS,OT2911,-50,Points reset from 50 to 0
+"3/12/2025, 0:53:00",Kethie246,CREATE_CUSTOMER,OT4406,0,Referred by: N/A
+"3/12/2025, 1:06:06",Kethie246,CREATE_CUSTOMER,OT4407,0,Referred by: N/A
+"3/12/2025, 2:30:08",Kethie246,CREATE_CUSTOMER,OT4408,0,Referred by: N/A
+"3/12/2025, 2:49:03",Kethie246,CREATE_CUSTOMER,OT4409,0,Referred by: N/A
+"3/12/2025, 2:59:00",Kethie246,CREATE_CUSTOMER,OT4410,0,Referred by: N/A
+"3/12/2025, 8:36:47",System (Auto),EXPIRY_REMINDER,OT1140,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:36:48",System (Auto),EXPIRY_REMINDER,OT60,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:36:50",System (Auto),EXPIRY_REMINDER,OT1729,0,Sent expiry reminder (0 days left)
+"3/12/2025, 8:36:51",System (Auto),EXPIRY_REMINDER,OT1786,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:36:53",System (Auto),EXPIRY_REMINDER,OT673,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:36:54",System (Auto),EXPIRY_REMINDER,OT2565,0,Sent expiry reminder (0 days left)
+"3/12/2025, 8:36:55",System (Auto),EXPIRY_REMINDER,OT2590,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:36:57",System (Auto),EXPIRY_REMINDER,OT2701,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:36:58",System (Auto),EXPIRY_REMINDER,OT2663,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:36:59",System (Auto),EXPIRY_REMINDER,OT2721,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:37:01",System (Auto),EXPIRY_REMINDER,OT2723,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:37:03",System (Auto),EXPIRY_REMINDER,OT2731,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:37:04",System (Auto),EXPIRY_REMINDER,OT2751,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:37:05",System (Auto),EXPIRY_REMINDER,OT2916,0,Sent expiry reminder (0 days left)
+"3/12/2025, 8:37:07",System (Auto),EXPIRY_REMINDER,OT2917,0,Sent expiry reminder (0 days left)
+"3/12/2025, 8:37:08",System (Auto),EXPIRY_REMINDER,OT2921,0,Sent expiry reminder (0 days left)
+"3/12/2025, 8:37:09",System (Auto),EXPIRY_REMINDER,OT2922,0,Sent expiry reminder (0 days left)
+"3/12/2025, 8:37:11",System (Auto),EXPIRY_REMINDER,OT2923,0,Sent expiry reminder (0 days left)
+"3/12/2025, 8:37:12",System (Auto),EXPIRY_REMINDER,OT2928,0,Sent expiry reminder (0 days left)
+"3/12/2025, 8:37:14",System (Auto),EXPIRY_REMINDER,OT2927,0,Sent expiry reminder (0 days left)
+"3/12/2025, 8:37:15",System (Auto),EXPIRY_REMINDER,OT2929,0,Sent expiry reminder (0 days left)
+"3/12/2025, 8:37:17",System (Auto),EXPIRY_REMINDER,OT2932,0,Sent expiry reminder (0 days left)
+"3/12/2025, 8:37:18",System (Auto),EXPIRY_REMINDER,OT69,0,Sent expiry reminder (0 days left)
+"3/12/2025, 8:37:19",System (Auto),EXPIRY_REMINDER,OT2934,0,Sent expiry reminder (0 days left)
+"3/12/2025, 8:37:21",System (Auto),EXPIRY_REMINDER,OT565,0,Sent expiry reminder (0 days left)
+"3/12/2025, 8:37:23",System (Auto),EXPIRY_REMINDER,OT2948,0,Sent expiry reminder (0 days left)
+"3/12/2025, 8:37:24",System (Auto),EXPIRY_REMINDER,OT2950,0,Sent expiry reminder (0 days left)
+"3/12/2025, 8:37:25",System (Auto),EXPIRY_REMINDER,OT2954,0,Sent expiry reminder (0 days left)
+"3/12/2025, 8:37:27",System (Auto),EXPIRY_REMINDER,OT2958,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:37:28",System (Auto),EXPIRY_REMINDER,OT2962,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:37:29",System (Auto),EXPIRY_REMINDER,OT2966,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:37:31",System (Auto),EXPIRY_REMINDER,OT33,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:37:32",System (Auto),EXPIRY_REMINDER,OT325,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:37:33",System (Auto),EXPIRY_REMINDER,OT2969,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:37:35",System (Auto),EXPIRY_REMINDER,OT2971,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:37:37",System (Auto),EXPIRY_REMINDER,OT2974,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:37:38",System (Auto),EXPIRY_REMINDER,OT2959,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:37:40",System (Auto),EXPIRY_REMINDER,OT2977,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:37:41",System (Auto),EXPIRY_REMINDER,OT2982,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:37:42",System (Auto),EXPIRY_REMINDER,OT2983,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:37:44",System (Auto),EXPIRY_REMINDER,OT2986,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:37:45",System (Auto),EXPIRY_REMINDER,OT2991,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:37:46",System (Auto),EXPIRY_REMINDER,OT2995,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:37:48",System (Auto),EXPIRY_REMINDER,OT2997,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:37:49",System (Auto),EXPIRY_REMINDER,OT2998,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:37:50",System (Auto),EXPIRY_REMINDER,OT3002,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:37:52",System (Auto),EXPIRY_REMINDER,OT3009,0,Sent expiry reminder (1 days left)
+"3/12/2025, 8:37:53",System (Auto),EXPIRY_REMINDER,OT3013,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:37:55",System (Auto),EXPIRY_REMINDER,OT3014,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:37:56",System (Auto),EXPIRY_REMINDER,OT3015,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:37:58",System (Auto),EXPIRY_REMINDER,OT645,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:37:59",System (Auto),EXPIRY_REMINDER,OT683,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:38:00",System (Auto),EXPIRY_REMINDER,OT3018,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:38:04",System (Auto),EXPIRY_REMINDER,OT3021,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:38:06",System (Auto),EXPIRY_REMINDER,OT3023,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:38:07",System (Auto),EXPIRY_REMINDER,OT3022,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:38:09",System (Auto),EXPIRY_REMINDER,OT3025,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:38:10",System (Auto),EXPIRY_REMINDER,OT101,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:38:12",System (Auto),EXPIRY_REMINDER,OT3029,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:38:14",System (Auto),EXPIRY_REMINDER,OT3030,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:38:15",System (Auto),EXPIRY_REMINDER,OT3033,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:38:16",System (Auto),EXPIRY_REMINDER,OT90,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:38:18",System (Auto),EXPIRY_REMINDER,OT3041,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:38:20",System (Auto),EXPIRY_REMINDER,OT3042,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:38:22",System (Auto),EXPIRY_REMINDER,OT3046,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:38:23",System (Auto),EXPIRY_REMINDER,OT3044,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:38:24",System (Auto),EXPIRY_REMINDER,OT3049,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:38:26",System (Auto),EXPIRY_REMINDER,OT3050,0,Sent expiry reminder (2 days left)
+"3/12/2025, 8:47:21",N,CHECK_CUSTOMER,OT4025,0,Checked customer info
+"3/12/2025, 9:14:26",Aa🍀,CREATE_CUSTOMER,OT4395,0,Referred by: N/A
+"3/12/2025, 9:15:41",Aa🍀,CREATE_CUSTOMER,OT4397,0,Referred by: N/A
+"3/12/2025, 9:16:53",Aa🍀,CREATE_CUSTOMER,OT4400,0,Referred by: OT4349
+"3/12/2025, 9:16:55",System (Auto),REFERRAL_BONUS,OT4349,50,From OT4400. (Campaign: Standard)
+"3/12/2025, 9:41:46",N,CREATE_CUSTOMER,OT4411,0,Referred by: N/A
+"3/12/2025, 9:46:55",Aa🍀,CREATE_CUSTOMER,OT4412,0,Referred by: N/A
+"3/12/2025, 9:59:16",N,CREATE_CUSTOMER,OT4413,0,Referred by: N/A
+"3/12/2025, 10:32:45",T,CREATE_CUSTOMER,OT4398,0,Referred by: N/A
+"3/12/2025, 10:37:53",T,CREATE_CUSTOMER,OT4401,0,Referred by: OT3453
+"3/12/2025, 10:37:55",System (Auto),REFERRAL_BONUS,OT3453,50,From OT4401. (Campaign: Standard)
+"3/12/2025, 10:39:42",T,CREATE_CUSTOMER,OT4402,0,Referred by: OT4163
+"3/12/2025, 10:39:43",System (Auto),REFERRAL_BONUS,OT4163,50,From OT4402. (Campaign: Standard)
+"3/12/2025, 10:41:11",T,CREATE_CUSTOMER,OT4403,0,Referred by: OT2194
+"3/12/2025, 10:41:13",System (Auto),REFERRAL_BONUS,OT2194,50,From OT4403. (Campaign: Standard)
+"3/12/2025, 10:43:08",g.,CREATE_CUSTOMER,OT4415,0,Referred by: OT2638
+"3/12/2025, 10:43:09",System (Auto),REFERRAL_BONUS,OT2638,50,From OT4415. (Campaign: Standard)
+"3/12/2025, 10:43:58",T,CREATE_CUSTOMER,OT4405,0,Referred by: N/A
+"3/12/2025, 10:46:16",JK,CREATE_CUSTOMER,OT4396,0,Referred by: OT2131
+"3/12/2025, 10:46:18",System (Auto),REFERRAL_BONUS,OT2131,50,From OT4396. (Campaign: Standard)
+"3/12/2025, 10:47:40",JK,CREATE_CUSTOMER,OT4404,0,Referred by: OT3984
+"3/12/2025, 10:47:41",System (Auto),REFERRAL_BONUS,OT3984,50,From OT4404. (Campaign: Standard)
+"3/12/2025, 11:29:47",JK,CREATE_CUSTOMER,OT4417,0,Referred by: N/A
+"3/12/2025, 11:36:15",g.,CHECK_CUSTOMER,OT2932,0,Checked customer info
+"3/12/2025, 12:00:55",g.,CREATE_CUSTOMER,OT4418,0,Referred by: N/A
+"3/12/2025, 12:05:41",Aa🍀,CREATE_CUSTOMER,OT4419,0,Referred by: N/A
+"3/12/2025, 12:15:26",JK,CREATE_CUSTOMER,OT4420,0,Referred by: N/A
+"3/12/2025, 12:23:56",JK,CREATE_CUSTOMER,OT4421,0,Referred by: OT4204
+"3/12/2025, 12:23:59",System (Auto),REFERRAL_BONUS,OT4204,50,From OT4421. (Campaign: Standard)
+"3/12/2025, 12:39:10",Aa🍀,CREATE_CUSTOMER,OT4422,0,Referred by: N/A
+"3/12/2025, 12:43:14",g.,CREATE_CUSTOMER,OT4423,0,Referred by: N/A
+"3/12/2025, 12:54:36",g.,CREATE_CUSTOMER,OT4424,0,Referred by: OT4370
+"3/12/2025, 12:54:38",System (Auto),REFERRAL_BONUS,OT4370,50,From OT4424. (Campaign: Standard)
+"3/12/2025, 13:00:28",g.,CREATE_CUSTOMER,OT4425,0,Referred by: OT3421
+"3/12/2025, 13:00:31",System (Auto),REFERRAL_BONUS,OT3421,50,From OT4425. (Campaign: Standard)
+"3/12/2025, 13:13:46",T,CREATE_CUSTOMER,OT4426,0,Referred by: N/A
+"3/12/2025, 13:24:46",N,CREATE_CUSTOMER,OT4427,0,Referred by: N/A
+"3/12/2025, 13:36:10",N,CREATE_CUSTOMER,OT4428,0,Referred by: OT4052
+"3/12/2025, 13:36:13",System (Auto),REFERRAL_BONUS,OT4052,50,From OT4428. (Campaign: Standard)
+"3/12/2025, 13:54:58",N,CREATE_CUSTOMER,OT4429,0,Referred by: N/A
+"3/12/2025, 13:58:45",N,CREATE_CUSTOMER,OT4430,0,Referred by: N/A
+"3/12/2025, 14:00:35",JK,CREATE_CUSTOMER,OT4431,0,Referred by: N/A
+"3/12/2025, 16:06:33",g.,CREATE_CUSTOMER,OT4432,0,Referred by: N/A
+"3/12/2025, 16:14:52",g.,CREATE_CUSTOMER,OT4433,0,Referred by: N/A
+"3/12/2025, 16:32:19",T,CHECK_CUSTOMER,OT78,0,Checked customer info
+"3/12/2025, 16:49:53",g.,CHECK_CUSTOMER,OT215,0,Checked customer info
+"3/12/2025, 16:53:22",g.,CREATE_CUSTOMER,OT4434,0,Referred by: N/A
+"3/12/2025, 17:26:02",JK,CREATE_CUSTOMER,OT4435,0,Referred by: OT3859
+"3/12/2025, 17:26:05",System (Auto),REFERRAL_BONUS,OT3859,50,From OT4435. (Campaign: Standard)
+"3/12/2025, 17:36:23",g.,CREATE_CUSTOMER,OT4436,0,Referred by: N/A
+"3/12/2025, 17:41:28",Aa🍀,CREATE_CUSTOMER,OT4437,0,Referred by: N/A
+"3/12/2025, 17:43:40",g.,CHECK_CUSTOMER,OT90,0,Checked customer info
+"3/12/2025, 17:45:22",g.,CREATE_CUSTOMER,OT4438,0,Referred by: N/A
+"3/12/2025, 18:08:20",T,CREATE_CUSTOMER,OT4439,0,Referred by: N/A
+"3/12/2025, 18:24:23",JK,CREATE_CUSTOMER,OT4440,0,Referred by: N/A
+"3/12/2025, 18:25:45",N,CREATE_CUSTOMER,OT4441,0,Referred by: N/A
+"3/12/2025, 18:32:04",N,CREATE_CUSTOMER,OT4443,0,Referred by: N/A
+"3/12/2025, 18:33:03",T,CREATE_CUSTOMER,OT4442,0,Referred by: N/A
+"3/12/2025, 18:58:38",g.,CREATE_CUSTOMER,OT4445,0,Referred by: N/A
+"3/12/2025, 19:00:12",Aa🍀,CREATE_CUSTOMER,OT4444,0,Referred by: N/A
+"3/12/2025, 19:04:27",N,CREATE_CUSTOMER,OT4446,0,Referred by: N/A
+"3/12/2025, 19:09:43",N,CREATE_CUSTOMER,OT4447,0,Referred by: N/A
+"3/12/2025, 19:11:50",Aa🍀,CREATE_CUSTOMER,OT4448,0,Referred by: N/A
+"3/12/2025, 19:24:23",g.,CREATE_CUSTOMER,OT4449,0,Referred by: N/A
+"3/12/2025, 19:43:59",N,CHECK_CUSTOMER,OT1140,0,Checked customer info
+"3/12/2025, 20:00:18",g.,CHECK_CUSTOMER,OT1140,0,Checked customer info
+"3/12/2025, 20:26:41",g.,CREATE_CUSTOMER,OT4450,0,Referred by: N/A
+"3/12/2025, 20:38:51",T,CREATE_CUSTOMER,OT4451,0,Referred by: N/A
+"3/12/2025, 20:50:33",JK,CREATE_CUSTOMER,OT4452,0,Referred by: N/A
+"3/12/2025, 21:04:21",Kethie246,CREATE_CUSTOMER,OT4453,0,Referred by: N/A
+"3/12/2025, 21:15:50",g.,CREATE_CUSTOMER,OT4455,0,Referred by: N/A
+"3/12/2025, 21:24:07",JK,CREATE_CUSTOMER,OT4456,0,Referred by: OT1140
+"3/12/2025, 21:24:10",System (Auto),REFERRAL_BONUS,OT1140,50,From OT4456. (Campaign: Standard)
+"3/12/2025, 21:38:56",g.,CREATE_CUSTOMER,OT4457,0,Referred by: N/A
+"3/12/2025, 21:43:42",Kethie246,CREATE_CUSTOMER,OT4458,0,Referred by: N/A
+"3/12/2025, 21:49:33",T,CREATE_CUSTOMER,OT4459,0,Referred by: N/A
+"3/12/2025, 21:52:14",T,CREATE_CUSTOMER,OT4460,0,Referred by: OT3351
+"3/12/2025, 21:52:16",System (Auto),REFERRAL_BONUS,OT3351,50,From OT4460. (Campaign: Standard)
+"3/12/2025, 21:55:46",JK,CREATE_CUSTOMER,OT4461,0,Referred by: OT3294
+"3/12/2025, 21:55:48",System (Auto),REFERRAL_BONUS,OT3294,50,From OT4461. (Campaign: Standard)
+"3/12/2025, 22:18:28",Kethie246,CREATE_CUSTOMER,OT4462,0,Referred by: OT794
+"3/12/2025, 22:18:31",System (Auto),REFERRAL_BONUS,OT794,50,From OT4462. (Campaign: Standard)
+"3/12/2025, 22:42:42",Kethie246,CREATE_CUSTOMER,OT4454,0,Referred by: N/A
+"3/12/2025, 22:52:38",Kethie246,REDEEM_POINTS,OT3555,-100,Redeemed: ส่วนลด 100 บาท
+"3/12/2025, 22:52:55",Kethie246,REDEEM_POINTS,OT3555,-50,Redeemed: ส่วนลด 50 บาท
+"3/12/2025, 23:35:57",Kethie246,CREATE_CUSTOMER,OT4463,0,Referred by: N/A
+"3/12/2025, 23:42:43",Kethie246,CREATE_CUSTOMER,OT4464,0,Referred by: N/A
+"4/12/2025, 0:28:31",System (Auto),EXPIRE_POINTS,OT1729,-100,Points reset from 100 to 0
+"4/12/2025, 0:28:32",System (Auto),EXPIRE_POINTS,OT1906,-100,Points reset from 100 to 0
+"4/12/2025, 0:28:33",System (Auto),EXPIRE_POINTS,OT881,-200,Points reset from 200 to 0
+"4/12/2025, 0:28:34",System (Auto),EXPIRE_POINTS,OT2565,-100,Points reset from 100 to 0
+"4/12/2025, 0:28:36",System (Auto),EXPIRE_POINTS,OT2649,-200,Points reset from 200 to 0
+"4/12/2025, 0:28:37",System (Auto),EXPIRE_POINTS,OT2628,-100,Points reset from 100 to 0
+"4/12/2025, 0:28:39",System (Auto),EXPIRE_POINTS,OT2916,-50,Points reset from 50 to 0
+"4/12/2025, 0:28:40",System (Auto),EXPIRE_POINTS,OT2917,-50,Points reset from 50 to 0
+"4/12/2025, 0:28:42",System (Auto),EXPIRE_POINTS,OT2921,-50,Points reset from 50 to 0
+"4/12/2025, 0:28:43",System (Auto),EXPIRE_POINTS,OT2922,-50,Points reset from 50 to 0
+"4/12/2025, 0:28:44",System (Auto),EXPIRE_POINTS,OT2923,-50,Points reset from 50 to 0
+"4/12/2025, 0:28:46",System (Auto),EXPIRE_POINTS,OT2928,-50,Points reset from 50 to 0
+"4/12/2025, 0:28:47",System (Auto),EXPIRE_POINTS,OT2927,-50,Points reset from 50 to 0
+"4/12/2025, 0:28:48",System (Auto),EXPIRE_POINTS,OT2929,-50,Points reset from 50 to 0
+"4/12/2025, 0:28:50",System (Auto),EXPIRE_POINTS,OT2932,-50,Points reset from 50 to 0
+"4/12/2025, 0:28:51",System (Auto),EXPIRE_POINTS,OT69,-50,Points reset from 50 to 0
+"4/12/2025, 0:28:53",System (Auto),EXPIRE_POINTS,OT2934,-50,Points reset from 50 to 0
+"4/12/2025, 0:28:54",System (Auto),EXPIRE_POINTS,OT518,-50,Points reset from 50 to 0
+"4/12/2025, 0:28:55",System (Auto),EXPIRE_POINTS,OT565,-50,Points reset from 50 to 0
+"4/12/2025, 0:28:57",System (Auto),EXPIRE_POINTS,OT2948,-50,Points reset from 50 to 0
+"4/12/2025, 0:28:58",System (Auto),EXPIRE_POINTS,OT2950,-50,Points reset from 50 to 0
+"4/12/2025, 0:28:59",System (Auto),EXPIRE_POINTS,OT2954,-50,Points reset from 50 to 0
+"4/12/2025, 0:29:01",System (Auto),EXPIRE_POINTS,OT2956,-100,Points reset from 100 to 0
+"4/12/2025, 0:29:02",System (Auto),EXPIRE_POINTS,OT2957,-100,Points reset from 100 to 0
+"4/12/2025, 0:39:30",Kethie246,CREATE_CUSTOMER,OT4465,0,Referred by: N/A
+"4/12/2025, 1:11:23",Kethie246,CREATE_CUSTOMER,OT4466,0,Referred by: N/A
+"4/12/2025, 1:29:55",Kethie246,CREATE_CUSTOMER,OT4467,0,Referred by: OT1734
+"4/12/2025, 1:29:58",System (Auto),REFERRAL_BONUS,OT1734,50,From OT4467. (Campaign: Standard)
+"4/12/2025, 2:29:25",Kethie246,CREATE_CUSTOMER,OT4468,0,Referred by: OT1474
+"4/12/2025, 2:29:28",System (Auto),REFERRAL_BONUS,OT1474,50,From OT4468. (Campaign: Standard)
+"4/12/2025, 2:31:39",Kethie246,CHECK_CUSTOMER,OT2304,0,Checked customer info
+"4/12/2025, 2:41:05",Kethie246,CREATE_CUSTOMER,OT4469,0,Referred by: N/A
+"4/12/2025, 7:33:25",Kethie246,REDEEM_POINTS,OT531,-50,Redeemed: ส่วนลด 50 บาท
+"4/12/2025, 8:31:27",N,CREATE_CUSTOMER,OT4470,0,Referred by: N/A
+"4/12/2025, 8:36:46",System (Auto),EXPIRY_REMINDER,OT60,0,Sent expiry reminder (1 days left)
+"4/12/2025, 8:36:48",System (Auto),EXPIRY_REMINDER,OT1786,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:36:50",System (Auto),EXPIRY_REMINDER,OT808,0,Sent expiry reminder (2 days left)
+"4/12/2025, 8:36:51",System (Auto),EXPIRY_REMINDER,OT1903,0,Sent expiry reminder (2 days left)
+"4/12/2025, 8:36:53",System (Auto),EXPIRY_REMINDER,OT673,0,Sent expiry reminder (1 days left)
+"4/12/2025, 8:36:54",System (Auto),EXPIRY_REMINDER,OT2590,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:36:56",System (Auto),EXPIRY_REMINDER,OT2701,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:36:58",System (Auto),EXPIRY_REMINDER,OT2663,0,Sent expiry reminder (1 days left)
+"4/12/2025, 8:36:59",System (Auto),EXPIRY_REMINDER,OT2721,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:37:00",System (Auto),EXPIRY_REMINDER,OT2723,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:37:02",System (Auto),EXPIRY_REMINDER,OT2731,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:37:03",System (Auto),EXPIRY_REMINDER,OT2751,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:37:04",System (Auto),EXPIRY_REMINDER,OT2813,0,Sent expiry reminder (2 days left)
+"4/12/2025, 8:37:06",System (Auto),EXPIRY_REMINDER,OT2958,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:37:07",System (Auto),EXPIRY_REMINDER,OT2962,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:37:09",System (Auto),EXPIRY_REMINDER,OT2966,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:37:10",System (Auto),EXPIRY_REMINDER,OT33,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:37:12",System (Auto),EXPIRY_REMINDER,OT325,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:37:14",System (Auto),EXPIRY_REMINDER,OT2969,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:37:15",System (Auto),EXPIRY_REMINDER,OT2971,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:37:16",System (Auto),EXPIRY_REMINDER,OT2974,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:37:18",System (Auto),EXPIRY_REMINDER,OT2959,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:37:19",System (Auto),EXPIRY_REMINDER,OT2977,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:37:21",System (Auto),EXPIRY_REMINDER,OT2982,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:37:22",System (Auto),EXPIRY_REMINDER,OT2983,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:37:23",System (Auto),EXPIRY_REMINDER,OT2986,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:37:25",System (Auto),EXPIRY_REMINDER,OT2991,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:37:27",System (Auto),EXPIRY_REMINDER,OT2995,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:37:28",System (Auto),EXPIRY_REMINDER,OT2997,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:37:29",System (Auto),EXPIRY_REMINDER,OT2998,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:37:33",System (Auto),EXPIRY_REMINDER,OT3002,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:37:34",System (Auto),EXPIRY_REMINDER,OT3009,0,Sent expiry reminder (0 days left)
+"4/12/2025, 8:37:36",System (Auto),EXPIRY_REMINDER,OT3013,0,Sent expiry reminder (1 days left)
+"4/12/2025, 8:37:37",System (Auto),EXPIRY_REMINDER,OT3014,0,Sent expiry reminder (1 days left)
+"4/12/2025, 8:37:39",System (Auto),EXPIRY_REMINDER,OT3015,0,Sent expiry reminder (1 days left)
+"4/12/2025, 8:37:40",System (Auto),EXPIRY_REMINDER,OT645,0,Sent expiry reminder (1 days left)
+"4/12/2025, 8:37:42",System (Auto),EXPIRY_REMINDER,OT683,0,Sent expiry reminder (1 days left)
+"4/12/2025, 8:37:43",System (Auto),EXPIRY_REMINDER,OT3018,0,Sent expiry reminder (1 days left)
+"4/12/2025, 8:37:45",System (Auto),EXPIRY_REMINDER,OT3021,0,Sent expiry reminder (1 days left)
+"4/12/2025, 8:37:46",System (Auto),EXPIRY_REMINDER,OT3023,0,Sent expiry reminder (1 days left)
+"4/12/2025, 8:37:47",System (Auto),EXPIRY_REMINDER,OT3022,0,Sent expiry reminder (1 days left)
+"4/12/2025, 8:37:49",System (Auto),EXPIRY_REMINDER,OT3025,0,Sent expiry reminder (1 days left)
+"4/12/2025, 8:37:50",System (Auto),EXPIRY_REMINDER,OT101,0,Sent expiry reminder (1 days left)
+"4/12/2025, 8:37:52",System (Auto),EXPIRY_REMINDER,OT3029,0,Sent expiry reminder (1 days left)
+"4/12/2025, 8:37:54",System (Auto),EXPIRY_REMINDER,OT3030,0,Sent expiry reminder (1 days left)
+"4/12/2025, 8:37:55",System (Auto),EXPIRY_REMINDER,OT3033,0,Sent expiry reminder (1 days left)
+"4/12/2025, 8:37:57",System (Auto),EXPIRY_REMINDER,OT90,0,Sent expiry reminder (1 days left)
+"4/12/2025, 8:37:58",System (Auto),EXPIRY_REMINDER,OT3041,0,Sent expiry reminder (1 days left)
+"4/12/2025, 8:37:59",System (Auto),EXPIRY_REMINDER,OT3042,0,Sent expiry reminder (1 days left)
+"4/12/2025, 8:38:01",System (Auto),EXPIRY_REMINDER,OT3046,0,Sent expiry reminder (1 days left)
+"4/12/2025, 8:38:03",System (Auto),EXPIRY_REMINDER,OT3044,0,Sent expiry reminder (1 days left)
+"4/12/2025, 8:38:04",System (Auto),EXPIRY_REMINDER,OT3049,0,Sent expiry reminder (1 days left)
+"4/12/2025, 8:38:06",System (Auto),EXPIRY_REMINDER,OT3050,0,Sent expiry reminder (1 days left)
+"4/12/2025, 8:38:07",System (Auto),EXPIRY_REMINDER,OT3057,0,Sent expiry reminder (2 days left)
+"4/12/2025, 8:38:09",System (Auto),EXPIRY_REMINDER,OT3058,0,Sent expiry reminder (2 days left)
+"4/12/2025, 8:38:10",System (Auto),EXPIRY_REMINDER,OT3063,0,Sent expiry reminder (2 days left)
+"4/12/2025, 8:38:11",System (Auto),EXPIRY_REMINDER,OT3065,0,Sent expiry reminder (2 days left)
+"4/12/2025, 8:38:12",System (Auto),EXPIRY_REMINDER,OT3069,0,Sent expiry reminder (2 days left)
+"4/12/2025, 8:38:14",System (Auto),EXPIRY_REMINDER,OT3066,0,Sent expiry reminder (2 days left)
+"4/12/2025, 8:38:15",System (Auto),EXPIRY_REMINDER,OT3073,0,Sent expiry reminder (2 days left)
+"4/12/2025, 8:38:17",System (Auto),EXPIRY_REMINDER,OT3078,0,Sent expiry reminder (2 days left)
+"4/12/2025, 8:38:18",System (Auto),EXPIRY_REMINDER,OT3079,0,Sent expiry reminder (2 days left)
+"4/12/2025, 8:38:19",System (Auto),EXPIRY_REMINDER,OT3086,0,Sent expiry reminder (2 days left)
+"4/12/2025, 8:38:22",System (Auto),EXPIRY_REMINDER,OT3091,0,Sent expiry reminder (2 days left)
+"4/12/2025, 8:38:23",System (Auto),EXPIRY_REMINDER,OT3090,0,Sent expiry reminder (2 days left)
+"4/12/2025, 8:38:25",System (Auto),EXPIRY_REMINDER,OT3093,0,Sent expiry reminder (2 days left)
+"4/12/2025, 8:38:26",System (Auto),EXPIRY_REMINDER,OT875,0,Sent expiry reminder (2 days left)
+"4/12/2025, 9:18:49",N,CREATE_CUSTOMER,OT4471,0,Referred by: N/A
+"4/12/2025, 9:36:28",Aa🍀,CREATE_CUSTOMER,OT4472,0,Referred by: N/A
+"4/12/2025, 9:59:16",N,CREATE_CUSTOMER,OT4474,0,Referred by: OT4323
+"4/12/2025, 9:59:18",System (Auto),REFERRAL_BONUS,OT4323,50,From OT4474. (Campaign: Standard)
+"4/12/2025, 10:43:12",g.,CREATE_CUSTOMER,OT4475,0,Referred by: N/A
+"4/12/2025, 10:48:27",g.,CREATE_CUSTOMER,OT4476,0,Referred by: N/A
+"4/12/2025, 10:55:35",g.,CREATE_CUSTOMER,OT4477,0,Referred by: OT1623
+"4/12/2025, 10:55:37",System (Auto),REFERRAL_BONUS,OT1623,50,From OT4477. (Campaign: Standard)
+"4/12/2025, 10:57:28",JK,CREATE_CUSTOMER,OT4478,0,Referred by: N/A
+"4/12/2025, 11:21:47",N,CREATE_CUSTOMER,OT4480,0,Referred by: N/A
+"4/12/2025, 11:23:02",JK,CREATE_CUSTOMER,OT4479,0,Referred by: N/A
+"4/12/2025, 11:29:03",Aa🍀,CREATE_CUSTOMER,OT4482,0,Referred by: N/A
+"4/12/2025, 12:01:45",T,CREATE_CUSTOMER,OT4481,0,Referred by: N/A
+"4/12/2025, 12:01:50",Aa🍀,CREATE_CUSTOMER,OT4483,0,Referred by: N/A
+"4/12/2025, 12:13:56",Aa🍀,CREATE_CUSTOMER,OT4484,0,Referred by: N/A
+"4/12/2025, 12:14:16",g.,CREATE_CUSTOMER,OT4485,0,Referred by: N/A
+"4/12/2025, 12:29:29",T,CHECK_CUSTOMER,OT3522,0,Checked customer info
+"4/12/2025, 12:30:21",N,CREATE_CUSTOMER,OT4473,0,Referred by: OT1042
+"4/12/2025, 12:30:23",System (Auto),REFERRAL_BONUS,OT1042,50,From OT4473. (Campaign: Standard)
+"4/12/2025, 13:01:13",N,CHECK_CUSTOMER,OT1140,0,Checked customer info
+"4/12/2025, 13:02:23",g.,CREATE_CUSTOMER,OT4489,0,Referred by: OT2327
+"4/12/2025, 13:02:24",System (Auto),REFERRAL_BONUS,OT2327,50,From OT4489. (Campaign: Standard)
+"4/12/2025, 13:34:11",g.,CREATE_CUSTOMER,OT4490,0,Referred by: N/A
+"4/12/2025, 14:04:04",N,CREATE_CUSTOMER,OT4491,0,Referred by: N/A
+"4/12/2025, 14:19:07",N,CHECK_CUSTOMER,OT2971,0,Checked customer info
+"4/12/2025, 14:22:38",T,CREATE_CUSTOMER,OT4486,0,Referred by: OT4153
+"4/12/2025, 14:22:40",System (Auto),REFERRAL_BONUS,OT4153,50,From OT4486. (Campaign: Standard)
+"4/12/2025, 14:24:18",T,CREATE_CUSTOMER,OT4487,0,Referred by: N/A
+"4/12/2025, 14:31:47",N,REDEEM_POINTS,OT2971,-50,Redeemed: ส่วนลด 50 บาท
+"4/12/2025, 14:34:38",N,CREATE_CUSTOMER,OT4492,0,Referred by: OT3948
+"4/12/2025, 14:34:39",System (Auto),REFERRAL_BONUS,OT3948,50,From OT4492. (Campaign: Standard)
+"4/12/2025, 15:25:40",Aa🍀,CREATE_CUSTOMER,OT4493,0,Referred by: N/A
+"4/12/2025, 15:49:25",g.,CREATE_CUSTOMER,OT4494,0,Referred by: OT194
+"4/12/2025, 15:49:26",System (Auto),REFERRAL_BONUS,OT194,50,From OT4494. (Campaign: Standard)
+"4/12/2025, 16:36:34",JK,CREATE_CUSTOMER,OT4495,0,Referred by: N/A
+"4/12/2025, 16:40:50",N,CREATE_CUSTOMER,OT4496,0,Referred by: N/A
+"4/12/2025, 16:44:11",T,CREATE_CUSTOMER,OT4497,0,Referred by: N/A
+"4/12/2025, 17:01:27",JK,CHECK_CUSTOMER,OT1903,0,Checked customer info
+"4/12/2025, 17:02:37",T,CREATE_CUSTOMER,OT4498,0,Referred by: N/A
+"4/12/2025, 17:39:25",T,CREATE_CUSTOMER,OT4499,0,Referred by: N/A
+"4/12/2025, 17:57:46",T,CREATE_CUSTOMER,OT4500,0,Referred by: N/A
+"4/12/2025, 18:39:33",Aa🍀,CREATE_CUSTOMER,OT4501,0,Referred by: N/A
+"4/12/2025, 18:41:20",N,CREATE_CUSTOMER,OT4502,0,Referred by: OT3165
+"4/12/2025, 18:41:21",System (Auto),REFERRAL_BONUS,OT3165,50,From OT4502. (Campaign: Standard)
+"4/12/2025, 20:11:37",N,CREATE_CUSTOMER,OT4503,0,Referred by: N/A
+"4/12/2025, 20:17:33",T,CREATE_CUSTOMER,OT4504,0,Referred by: N/A
+"4/12/2025, 21:00:01",Aa🍀,CREATE_CUSTOMER,OT4505,0,Referred by: N/A
+"4/12/2025, 21:45:07",JK,CREATE_CUSTOMER,OT4506,0,Referred by: N/A
+"4/12/2025, 22:49:01",Kethie246,CREATE_CUSTOMER,OT4507,0,Referred by: OT2731
+"4/12/2025, 22:49:04",System (Auto),REFERRAL_BONUS,OT2731,50,From OT4507. (Campaign: Standard)
+"4/12/2025, 23:01:57",Kethie246,CREATE_CUSTOMER,OT4508,0,Referred by: N/A
+"5/12/2025, 0:06:48",Kethie246,CREATE_CUSTOMER,OT4509,0,Referred by: N/A
+"5/12/2025, 0:23:46",Kethie246,CREATE_CUSTOMER,OT4510,0,Referred by: N/A
+"5/12/2025, 0:28:22",System (Auto),EXPIRE_POINTS,OT1786,-100,Points reset from 100 to 0
+"5/12/2025, 0:28:23",System (Auto),EXPIRE_POINTS,OT2503,-100,Points reset from 100 to 0
+"5/12/2025, 0:28:25",System (Auto),EXPIRE_POINTS,OT2542,-100,Points reset from 100 to 0
+"5/12/2025, 0:28:26",System (Auto),EXPIRE_POINTS,OT527,-50,Points reset from 50 to 0
+"5/12/2025, 0:28:28",System (Auto),EXPIRE_POINTS,OT2590,-100,Points reset from 100 to 0
+"5/12/2025, 0:28:29",System (Auto),EXPIRE_POINTS,OT2701,-100,Points reset from 100 to 0
+"5/12/2025, 0:28:30",System (Auto),EXPIRE_POINTS,OT2721,-150,Points reset from 150 to 0
+"5/12/2025, 0:28:30",System (Auto),EXPIRE_POINTS,OT2723,-150,Points reset from 150 to 0
+"5/12/2025, 0:28:31",System (Auto),EXPIRE_POINTS,OT2751,-150,Points reset from 150 to 0
+"5/12/2025, 0:28:33",System (Auto),EXPIRE_POINTS,OT2958,-50,Points reset from 50 to 0
+"5/12/2025, 0:28:35",System (Auto),EXPIRE_POINTS,OT2962,-50,Points reset from 50 to 0
+"5/12/2025, 0:28:36",System (Auto),EXPIRE_POINTS,OT2966,-50,Points reset from 50 to 0
+"5/12/2025, 0:28:38",System (Auto),EXPIRE_POINTS,OT33,-50,Points reset from 50 to 0
+"5/12/2025, 0:28:39",System (Auto),EXPIRE_POINTS,OT325,-50,Points reset from 50 to 0
+"5/12/2025, 0:28:40",System (Auto),EXPIRE_POINTS,OT2969,-50,Points reset from 50 to 0
+"5/12/2025, 0:28:41",System (Auto),EXPIRE_POINTS,OT2974,-50,Points reset from 50 to 0
+"5/12/2025, 0:28:43",System (Auto),EXPIRE_POINTS,OT2959,-50,Points reset from 50 to 0
+"5/12/2025, 0:28:44",System (Auto),EXPIRE_POINTS,OT2977,-50,Points reset from 50 to 0
+"5/12/2025, 0:28:47",System (Auto),EXPIRE_POINTS,OT2982,-50,Points reset from 50 to 0
+"5/12/2025, 0:28:48",System (Auto),EXPIRE_POINTS,OT2983,-50,Points reset from 50 to 0
+"5/12/2025, 0:28:49",System (Auto),EXPIRE_POINTS,OT2986,-50,Points reset from 50 to 0
+"5/12/2025, 0:28:50",System (Auto),EXPIRE_POINTS,OT2991,-50,Points reset from 50 to 0
+"5/12/2025, 0:28:51",System (Auto),EXPIRE_POINTS,OT2995,-50,Points reset from 50 to 0
+"5/12/2025, 0:28:52",System (Auto),EXPIRE_POINTS,OT2997,-50,Points reset from 50 to 0
+"5/12/2025, 0:28:54",System (Auto),EXPIRE_POINTS,OT2998,-50,Points reset from 50 to 0
+"5/12/2025, 0:28:54",System (Auto),EXPIRE_POINTS,OT3002,-50,Points reset from 50 to 0
+"5/12/2025, 0:28:55",System (Auto),EXPIRE_POINTS,OT3009,-50,Points reset from 50 to 0
+"5/12/2025, 0:32:57",Kethie246,CREATE_CUSTOMER,OT4511,0,Referred by: N/A
+"5/12/2025, 1:32:38",Kethie246,CREATE_CUSTOMER,OT4512,0,Referred by: N/A
+"5/12/2025, 1:42:12",Kethie246,CREATE_CUSTOMER,OT4513,0,Referred by: N/A
+"5/12/2025, 3:27:36",Kethie246,CREATE_CUSTOMER,OT4514,0,Referred by: N/A
+"5/12/2025, 3:33:34",Kethie246,CREATE_CUSTOMER,OT4515,0,Referred by: N/A
+"5/12/2025, 8:36:47",System (Auto),EXPIRY_REMINDER,OT60,0,Sent expiry reminder (0 days left)
+"5/12/2025, 8:36:48",System (Auto),EXPIRY_REMINDER,OT808,0,Sent expiry reminder (1 days left)
+"5/12/2025, 8:36:50",System (Auto),EXPIRY_REMINDER,OT1883,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:36:52",System (Auto),EXPIRY_REMINDER,OT1903,0,Sent expiry reminder (1 days left)
+"5/12/2025, 8:36:53",System (Auto),EXPIRY_REMINDER,OT673,0,Sent expiry reminder (0 days left)
+"5/12/2025, 8:36:54",System (Auto),EXPIRY_REMINDER,OT2663,0,Sent expiry reminder (0 days left)
+"5/12/2025, 8:36:55",System (Auto),EXPIRY_REMINDER,OT2779,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:36:56",System (Auto),EXPIRY_REMINDER,OT2813,0,Sent expiry reminder (1 days left)
+"5/12/2025, 8:36:57",System (Auto),EXPIRY_REMINDER,OT2821,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:36:58",System (Auto),EXPIRY_REMINDER,OT3013,0,Sent expiry reminder (0 days left)
+"5/12/2025, 8:37:00",System (Auto),EXPIRY_REMINDER,OT3014,0,Sent expiry reminder (0 days left)
+"5/12/2025, 8:37:01",System (Auto),EXPIRY_REMINDER,OT3015,0,Sent expiry reminder (0 days left)
+"5/12/2025, 8:37:02",System (Auto),EXPIRY_REMINDER,OT645,0,Sent expiry reminder (0 days left)
+"5/12/2025, 8:37:03",System (Auto),EXPIRY_REMINDER,OT683,0,Sent expiry reminder (0 days left)
+"5/12/2025, 8:37:04",System (Auto),EXPIRY_REMINDER,OT3018,0,Sent expiry reminder (0 days left)
+"5/12/2025, 8:37:05",System (Auto),EXPIRY_REMINDER,OT3021,0,Sent expiry reminder (0 days left)
+"5/12/2025, 8:37:06",System (Auto),EXPIRY_REMINDER,OT3023,0,Sent expiry reminder (0 days left)
+"5/12/2025, 8:37:07",System (Auto),EXPIRY_REMINDER,OT3022,0,Sent expiry reminder (0 days left)
+"5/12/2025, 8:37:09",System (Auto),EXPIRY_REMINDER,OT3025,0,Sent expiry reminder (0 days left)
+"5/12/2025, 8:37:10",System (Auto),EXPIRY_REMINDER,OT101,0,Sent expiry reminder (0 days left)
+"5/12/2025, 8:37:11",System (Auto),EXPIRY_REMINDER,OT3029,0,Sent expiry reminder (0 days left)
+"5/12/2025, 8:37:12",System (Auto),EXPIRY_REMINDER,OT3030,0,Sent expiry reminder (0 days left)
+"5/12/2025, 8:37:13",System (Auto),EXPIRY_REMINDER,OT3033,0,Sent expiry reminder (0 days left)
+"5/12/2025, 8:37:14",System (Auto),EXPIRY_REMINDER,OT90,0,Sent expiry reminder (0 days left)
+"5/12/2025, 8:37:16",System (Auto),EXPIRY_REMINDER,OT3041,0,Sent expiry reminder (0 days left)
+"5/12/2025, 8:37:18",System (Auto),EXPIRY_REMINDER,OT3042,0,Sent expiry reminder (0 days left)
+"5/12/2025, 8:37:19",System (Auto),EXPIRY_REMINDER,OT3046,0,Sent expiry reminder (0 days left)
+"5/12/2025, 8:37:20",System (Auto),EXPIRY_REMINDER,OT3044,0,Sent expiry reminder (0 days left)
+"5/12/2025, 8:37:21",System (Auto),EXPIRY_REMINDER,OT3049,0,Sent expiry reminder (0 days left)
+"5/12/2025, 8:37:22",System (Auto),EXPIRY_REMINDER,OT3050,0,Sent expiry reminder (0 days left)
+"5/12/2025, 8:37:23",System (Auto),EXPIRY_REMINDER,OT3057,0,Sent expiry reminder (1 days left)
+"5/12/2025, 8:37:24",System (Auto),EXPIRY_REMINDER,OT3058,0,Sent expiry reminder (1 days left)
+"5/12/2025, 8:37:25",System (Auto),EXPIRY_REMINDER,OT3063,0,Sent expiry reminder (1 days left)
+"5/12/2025, 8:37:26",System (Auto),EXPIRY_REMINDER,OT3065,0,Sent expiry reminder (1 days left)
+"5/12/2025, 8:37:27",System (Auto),EXPIRY_REMINDER,OT3069,0,Sent expiry reminder (1 days left)
+"5/12/2025, 8:37:28",System (Auto),EXPIRY_REMINDER,OT3066,0,Sent expiry reminder (1 days left)
+"5/12/2025, 8:37:29",System (Auto),EXPIRY_REMINDER,OT3073,0,Sent expiry reminder (1 days left)
+"5/12/2025, 8:37:31",System (Auto),EXPIRY_REMINDER,OT3078,0,Sent expiry reminder (1 days left)
+"5/12/2025, 8:37:32",System (Auto),EXPIRY_REMINDER,OT3079,0,Sent expiry reminder (1 days left)
+"5/12/2025, 8:37:33",System (Auto),EXPIRY_REMINDER,OT3086,0,Sent expiry reminder (1 days left)
+"5/12/2025, 8:37:34",System (Auto),EXPIRY_REMINDER,OT3091,0,Sent expiry reminder (1 days left)
+"5/12/2025, 8:37:35",System (Auto),EXPIRY_REMINDER,OT3090,0,Sent expiry reminder (1 days left)
+"5/12/2025, 8:37:36",System (Auto),EXPIRY_REMINDER,OT3093,0,Sent expiry reminder (1 days left)
+"5/12/2025, 8:37:37",System (Auto),EXPIRY_REMINDER,OT875,0,Sent expiry reminder (1 days left)
+"5/12/2025, 8:37:39",System (Auto),EXPIRY_REMINDER,OT3095,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:37:40",System (Auto),EXPIRY_REMINDER,OT3098,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:37:41",System (Auto),EXPIRY_REMINDER,OT3099,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:37:42",System (Auto),EXPIRY_REMINDER,OT3101,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:37:43",System (Auto),EXPIRY_REMINDER,OT3103,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:37:44",System (Auto),EXPIRY_REMINDER,OT3106,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:37:45",System (Auto),EXPIRY_REMINDER,OT3109,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:37:46",System (Auto),EXPIRY_REMINDER,OT122,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:37:48",System (Auto),EXPIRY_REMINDER,OT3113,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:37:49",System (Auto),EXPIRY_REMINDER,OT3115,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:37:50",System (Auto),EXPIRY_REMINDER,OT3119,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:37:51",System (Auto),EXPIRY_REMINDER,OT3120,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:37:53",System (Auto),EXPIRY_REMINDER,OT643,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:37:55",System (Auto),EXPIRY_REMINDER,OT3126,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:37:56",System (Auto),EXPIRY_REMINDER,OT3129,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:37:57",System (Auto),EXPIRY_REMINDER,OT438,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:37:59",System (Auto),EXPIRY_REMINDER,OT3132,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:38:00",System (Auto),EXPIRY_REMINDER,OT3133,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:38:01",System (Auto),EXPIRY_REMINDER,OT3136,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:38:02",System (Auto),EXPIRY_REMINDER,OT3140,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:38:03",System (Auto),EXPIRY_REMINDER,OT3143,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:38:05",System (Auto),EXPIRY_REMINDER,OT3145,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:38:06",System (Auto),EXPIRY_REMINDER,OT3148,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:38:07",System (Auto),EXPIRY_REMINDER,OT3150,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:38:08",System (Auto),EXPIRY_REMINDER,OT3151,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:38:10",System (Auto),EXPIRY_REMINDER,OT3155,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:38:11",System (Auto),EXPIRY_REMINDER,OT3156,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:38:12",System (Auto),EXPIRY_REMINDER,OT3160,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:38:13",System (Auto),EXPIRY_REMINDER,OT3162,0,Sent expiry reminder (2 days left)
+"5/12/2025, 8:38:15",System (Auto),EXPIRY_REMINDER,OT3164,0,Sent expiry reminder (2 days left)
+"5/12/2025, 9:39:37",N,CREATE_CUSTOMER,OT4517,0,Referred by: N/A
+"5/12/2025, 10:03:02",N,CREATE_CUSTOMER,OT4518,0,Referred by: N/A
+"5/12/2025, 10:09:25",N,CREATE_CUSTOMER,OT4519,0,Referred by: N/A
+"5/12/2025, 10:12:05",Aa🍀,CREATE_CUSTOMER,OT4516,0,Referred by: N/A
+"5/12/2025, 10:18:39",N,CREATE_CUSTOMER,OT4520,0,Referred by: N/A
+"5/12/2025, 10:32:35",T,CREATE_CUSTOMER,OT4521,0,Referred by: N/A
+"5/12/2025, 10:57:29",JK,CHECK_CUSTOMER,OT1140,0,Checked customer info
+"5/12/2025, 11:03:15",N,CREATE_CUSTOMER,OT4523,0,Referred by: N/A
+"5/12/2025, 11:05:51",JK,CREATE_CUSTOMER,OT4522,0,Referred by: N/A
+"5/12/2025, 11:30:50",g.,CHECK_CUSTOMER,OT673,0,Checked customer info
+"5/12/2025, 11:31:24",Aa🍀,CREATE_CUSTOMER,OT4524,0,Referred by: N/A
+"5/12/2025, 11:32:05",JK,CREATE_CUSTOMER,OT4525,0,Referred by: N/A
+"5/12/2025, 11:39:56",g.,CREATE_CUSTOMER,OT4526,0,Referred by: N/A
+"5/12/2025, 11:41:19",T,CHECK_CUSTOMER,OT728,0,Checked customer info
+"5/12/2025, 11:45:59",T,REDEEM_POINTS,OT728,-100,Redeemed: ส่วนลด 100 บาท
+"5/12/2025, 12:07:51",g.,CREATE_CUSTOMER,OT4527,0,Referred by: N/A
+"5/12/2025, 12:08:51",JK,REDEEM_POINTS,OT1140,-100,Redeemed: ส่วนลด 100 บาท
+"5/12/2025, 12:08:58",JK,REDEEM_POINTS,OT1140,-50,Redeemed: ส่วนลด 50 บาท
+"5/12/2025, 12:11:24",g.,CREATE_CUSTOMER,OT4528,0,Referred by: N/A
+"5/12/2025, 12:30:20",g.,CREATE_CUSTOMER,OT4529,0,Referred by: N/A
+"5/12/2025, 12:41:01",T,CREATE_CUSTOMER,OT4530,0,Referred by: N/A
+"5/12/2025, 12:46:25",Aa🍀,CREATE_CUSTOMER,OT4531,0,Referred by: N/A
+"5/12/2025, 12:49:31",g.,CREATE_CUSTOMER,OT4532,0,Referred by: N/A
+"5/12/2025, 12:57:31",Aa🍀,CREATE_CUSTOMER,OT4533,0,Referred by: OT1643
+"5/12/2025, 12:57:34",System (Auto),REFERRAL_BONUS,OT1643,50,From OT4533. (Campaign: Standard)
