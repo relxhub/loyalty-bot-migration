@@ -49,7 +49,6 @@ async function startServer() {
     app.use(express.json()); 
     // ✅ Serve ไฟล์ Static (รูป, css, js)
     app.use(express.static(path.join(__dirname, 'public')));
-    app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
     
     // CORS
     app.use((req, res, next) => {
@@ -60,13 +59,14 @@ async function startServer() {
 
     // Logger
     app.use((req, res, next) => {
-        if (!req.url.includes('.')) { // ไม่ต้อง Log พวกไฟล์รูปภาพ/js ให้รก
-            console.log(`📥 [INCOMING] ${req.method} ${req.url}`);
+        // Log เฉพาะ API Request
+        if (req.url.startsWith('/api')) {
+            console.log(`📥 [API REQUEST] ${req.method} ${req.url}`);
         }
         next();
     });
 
-    // Health Check (ย้ายไปไว้ที่ /health แทน)
+    // Health Check
     app.get('/health', (req, res) => {
         res.send('✅ Loyalty Bot is online and running!');
     });
@@ -108,13 +108,12 @@ async function startServer() {
     // 🌐 [สำคัญ] FRONTEND ROUTING (SPA Fallback)
     // =========================================
     // ดักจับทุก Route ที่ไม่ใช่ API และไม่ใช่ Webhook ให้ส่งหน้า index.html ไปแสดง
-    // วิธีนี้จะแก้ปัญหา 404 ไม่ว่าจะเข้าผ่าน /, /app, หรือ /login
     app.get('*', (req, res) => {
         // ถ้าเป็น API หรือ Webhook แต่หลุดมาถึงตรงนี้ ให้ตอบ 404 จริงๆ
         if (req.url.startsWith('/api') || req.url.startsWith('/webhook')) {
              return res.status(404).json({ error: 'Not Found' });
         }
-        // นอกนั้นส่งหน้าเว็บไปให้หมด
+        // นอกนั้นส่งหน้าเว็บไปให้หมด (สำหรับ Magic Link)
         res.sendFile(path.join(__dirname, 'public', 'index.html'));
     });
 

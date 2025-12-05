@@ -4,13 +4,15 @@ import { prisma } from '../db.js';
 import { getActiveCampaign } from '../services/campaign.service.js';
 import { getConfig } from '../config/config.js';
 import { addDays } from '../utils/date.utils.js';
-// ❌ เอา createCustomer ออกตามที่ขอ (ห้ามสมัครเอง)
 import { getCustomerByTelegramId, updateCustomer, countCampaignReferralsByTag } from '../services/customer.service.js';
 import { countMonthlyReferrals } from '../services/referral.service.js';
 
 const router = express.Router();
 
-// ... (Helper function: verifyTelegramWebAppData เหมือนเดิม) ...
+// ✅ Debug Log: เช็คว่าไฟล์นี้ถูกโหลดจริงไหม
+console.log("✅ API Routes loaded successfully");
+
+// ... (Helper function: verifyTelegramWebAppData) ...
 function verifyTelegramWebAppData(telegramInitData) {
     if (!telegramInitData) return false;
     const encoded = decodeURIComponent(telegramInitData);
@@ -27,107 +29,84 @@ function verifyTelegramWebAppData(telegramInitData) {
 }
 
 // ==================================================
-// 🚪 LOGIN / AUTH (ปรับปรุงใหม่: ห้ามสมัครเอง)
+// 🚪 LOGIN / AUTH
 // ==================================================
 router.post('/auth', async (req, res) => {
     try {
         const { initData } = req.body;
-
-        // 1. ตรวจสอบความถูกต้องของ initData (Validate Telegram Hash)
         if (!verifyTelegramWebAppData(initData)) {
             return res.status(401).json({ error: "Invalid Telegram Data" });
         }
 
-        // 2. แปลงข้อมูล initData กลับเป็น Object
         const urlParams = new URLSearchParams(initData);
         const userDataStr = urlParams.get('user');
-
-        if (!userDataStr) {
-            return res.status(400).json({ error: "User data missing" });
-        }
+        if (!userDataStr) return res.status(400).json({ error: "User data missing" });
 
         const userData = JSON.parse(userDataStr);
         const telegramId = userData.id.toString();
 
-        // 3. ค้นหาลูกค้า (customer)
         let customer = await getCustomerByTelegramId(telegramId);
         
-        // ถ้าไม่เจอลูกค้าในระบบ (ยังไม่ Link Account)
         if (!customer) {
-            // กรณีนี้ Front-end จะได้รับ isMember: false และไปแสดงหน้า Login/Link
             return res.json({ success: true, isMember: false });
         }
 
-        // อัปเดตชื่อ-นามสกุล ถ้ามีการเปลี่ยนแปลง (Optional)
+        // Update Info
         if (customer.firstName !== userData.first_name || customer.lastName !== userData.last_name || customer.username !== userData.username) {
              await updateCustomer(customer.customerId, {
                 firstName: userData.first_name,
                 lastName: userData.last_name || '',
                 username: userData.username || ''
              });
-             // อัปเดตตัวแปร local
              customer.firstName = userData.first_name;
              customer.lastName = userData.last_name;
              customer.username = userData.username;
         }
 
-        // --------------------------------------------------
-        // 4. [FIXED] ดึงข้อมูลแคมเปญใน Try-Catch แยกต่างหาก
-        // --------------------------------------------------
+        // Campaign Logic
         let campaignReferralCount = 0;
         let referralTarget = 0;
         let activeCampaignTag = 'Standard';
         let milestoneBonus = 0; 
-        let totalReferrals = 0; // ยอดรวมทั้งหมด (Lifetime)
-        let referralCountMonth = 0; // ยอดเดือนนี้
+        let totalReferrals = 0; 
+        let referralCountMonth = 0;
         let campaignStartAt = null;
         let campaignEndAt = null;
-        let referralBasePoints = parseInt(getConfig('standardReferralPoints')) || 50; // Default
+        let referralBasePoints = parseInt(getConfig('standardReferralPoints')) || 50;
 
         try {
-            // นับยอดรวมตลอดชีพจากฐานข้อมูลจริง
-            totalReferrals = await prisma.customer.count({
-                where: { referrerId: customer.customerId }
-            });
-
-            // นับยอดเดือนนี้
+            totalReferrals = await prisma.customer.count({ where: { referrerId: customer.customerId } });
             referralCountMonth = await countMonthlyReferrals(customer.customerId);
-
             const campaign = await getActiveCampaign();
             
-            // อัปเดต Base Points จากแคมเปญ (ถ้ามี) หรือใช้ค่า Default ที่ getActiveCampaign ส่งมา
             if (campaign) {
                  referralBasePoints = campaign.baseReferral || campaign.base || referralBasePoints;
             }
 
-            if (campaign && campaign.startAt) {
-                activeCampaignTag = campaign.campaignName || 'Active';
+            if (campaign && campaign.startDate) { // แก้ startAt -> startDate ตาม Schema
+                activeCampaignTag = campaign.name || 'Active';
                 referralTarget = campaign.milestoneTarget;
                 milestoneBonus = campaign.milestoneBonus;
-                campaignStartAt = campaign.startAt;
-                campaignEndAt = campaign.endAt;
-                
-                // Use Tag-based counting for precise stats
+                campaignStartAt = campaign.startDate;
+                campaignEndAt = campaign.endDate;
                 campaignReferralCount = await countCampaignReferralsByTag(customer.customerId, activeCampaignTag);
             }
         } catch (campaignError) {
-            console.error("⚠️ Failed to load/calculate campaign data. Using default values:", campaignError.message);
+            console.error("⚠️ Failed to load/calculate campaign data:", campaignError.message);
         }
-        // --------------------------------------------------
 
-        // 5. รวมข้อมูลแคมเปญเข้าไปใน Object ลูกค้า
         const customerDataForFrontend = {
             ...customer,
-            referralCount: customer.referralCount, // นี่คือยอดของแคมเปญปัจจุบัน (ตามที่ลูกค้าแจ้ง)
-            totalReferrals: totalReferrals, // ✅ เพิ่มยอดรวมตลอดชีพ
-            referralCountMonth: referralCountMonth, // ✅ ยอดเดือนนี้
-            campaignReferralCount: campaignReferralCount, // ยอดเฉพาะแคมเปญ (จากการคำนวณ log)
+            referralCount: customer.referralCount,
+            totalReferrals: totalReferrals,
+            referralCountMonth: referralCountMonth,
+            campaignReferralCount: campaignReferralCount,
             referralTarget: referralTarget,
             milestoneBonus: milestoneBonus, 
             activeCampaignTag: activeCampaignTag,
             campaignStartAt: campaignStartAt,
             campaignEndAt: campaignEndAt,
-            referralBasePoints: referralBasePoints // ✅ ส่งค่า Base Points ไปให้ Frontend
+            referralBasePoints: referralBasePoints
         };
 
         return res.json({ success: true, isMember: true, customer: customerDataForFrontend });
@@ -139,34 +118,26 @@ router.post('/auth', async (req, res) => {
 });
 
 // ==================================================
-// 👤 ส่วนที่ 3: ดึงข้อมูลลูกค้า (Dashboard Data)
+// 👤 USER DATA
 // ==================================================
 router.get('/user/:telegramId', async (req, res) => {
     const { telegramId } = req.params;
-
     try {
         const customer = await prisma.customer.findUnique({
             where: { telegramUserId: telegramId, isDeleted: false }
         });
 
-        if (!customer) {
-            return res.status(404).json({ linked: false, message: "User not linked" });
-        }
+        if (!customer) return res.status(404).json({ linked: false, message: "User not linked" });
 
         const campaign = await getActiveCampaign();
         const target = campaign?.milestoneTarget || 0;
-
-        // นับยอดรวมตลอดชีพจากฐานข้อมูลจริง
-        const totalReferrals = await prisma.customer.count({
-            where: { referrerId: customer.customerId }
-        });
+        const totalReferrals = await prisma.customer.count({ where: { referrerId: customer.customerId } });
 
         let progress = null;
-
         if (target > 0) {
             const current = customer.referralCount % target;
             progress = {
-                name: campaign.campaignName || campaign.name,
+                name: campaign.name,
                 current: current,
                 target: target,
                 remaining: target - current,
@@ -179,8 +150,8 @@ router.get('/user/:telegramId', async (req, res) => {
             customerId: customer.customerId,
             points: customer.points,
             expiryDate: customer.expiryDate,
-            referralCount: customer.referralCount, // Active Campaign Count
-            totalReferrals: totalReferrals,       // Lifetime Total
+            referralCount: customer.referralCount,
+            totalReferrals: totalReferrals,
             campaignProgress: progress
         });
 
@@ -191,22 +162,15 @@ router.get('/user/:telegramId', async (req, res) => {
 });
 
 // ==================================================
-// 🎁 ส่วนที่ 4: ดึงรายการของรางวัล (Reward List)
+// 🎁 REWARDS
 // ==================================================
 router.get('/rewards', async (req, res) => {
     try {
-        // ✅ แก้ไข: ใช้ isActive: true และ orderBy pointsCost
         const rewards = await prisma.reward.findMany({
             where: { isActive: true }, 
             orderBy: { pointsCost: 'asc' }
         });
-
-        // ✅ แก้ไข: แปลงชื่อ field ให้ตรงกับที่ Frontend รอรับ (pointsCost -> points)
-        const formattedRewards = rewards.map(r => ({
-            ...r,
-            points: r.pointsCost // Frontend รอตัวแปรชื่อ points
-        }));
-
+        const formattedRewards = rewards.map(r => ({ ...r, points: r.pointsCost }));
         res.json(formattedRewards);
     } catch (error) {
         console.error("Reward API Error:", error);
@@ -215,7 +179,7 @@ router.get('/rewards', async (req, res) => {
 });
 
 // ==================================================
-// 🔗 ส่วนที่ 5: เชื่อมต่อบัญชี (Link Account)
+// 🔗 LINK ACCOUNT
 // ==================================================
 router.post('/link', async (req, res) => {
     const { telegramId, customerId, verificationCode } = req.body;
@@ -256,12 +220,13 @@ router.post('/link', async (req, res) => {
             }
         });
 
-        await prisma.customerLog.create({
+        // บันทึก Log ลง PointTransaction
+        await prisma.pointTransaction.create({
             data: {
-                telegramUserId: telegramId,
                 customerId: searchId,
-                action: "LINK_ACCOUNT_API",
-                pointsChange: bonusPoints
+                amount: bonusPoints,
+                type: 'LINK_BONUS',
+                detail: `Link Account with Telegram ID: ${telegramId}`
             }
         });
 
@@ -279,37 +244,41 @@ router.post('/link', async (req, res) => {
 });
 
 // ==================================================
-// 📜 ส่วนที่ 6: ดึงประวัติการได้แต้ม (History)
+// ⚠️ VERIFY LOGIN (Fallback for Manual Login)
+// ✅ เพิ่มส่วนนี้เพื่อแก้ปัญหา 404 เวลาหน้าเว็บเรียก /api/verify-login
+// ==================================================
+router.post('/verify-login', async (req, res) => {
+    // ใช้ Logic เดียวกับ /link หรือส่งไป /link แทน
+    // แต่เพื่อป้องกัน 404 เราต้องมี Route นี้รองรับไว้
+    return res.status(400).json({ error: "กรุณาใช้เมนู 'เชื่อมบัญชี' (Link Account) แทนการ Login ปกติ" });
+});
+
+// ==================================================
+// 📜 HISTORY
 // ==================================================
 router.get('/history/:telegramId', async (req, res) => {
     try {
         const { telegramId } = req.params;
-        
-        // 1. ✅ แก้ไข: ต้องหา Customer ID ก่อน เพราะ PointTransaction ผูกกับ Customer ID
         const customer = await prisma.customer.findUnique({
             where: { telegramUserId: telegramId }
         });
 
-        if (!customer) {
-            return res.json({ success: true, logs: [] });
-        }
+        if (!customer) return res.json({ success: true, logs: [] });
 
-        // 2. ✅ แก้ไข: ดึงจาก PointTransaction แทน CustomerLog
         const logs = await prisma.pointTransaction.findMany({
             where: { customerId: customer.customerId },
             orderBy: { createdAt: 'desc' },
             take: 20,
             select: {
-                type: true,     // ใน Schema ใหม่ใช้ type
-                amount: true,   // ใน Schema ใหม่ใช้ amount
+                type: true,
+                amount: true,
                 createdAt: true
             }
         });
 
-        // 3. จัด Format
         const formattedLogs = logs.map(log => ({
-            action: mapActionName(log.type), // แปลงชื่อ Action (รับค่า type)
-            points: log.amount > 0 ? `+${log.amount}` : `${log.amount}`, // ใช้ amount
+            action: mapActionName(log.type),
+            points: log.amount > 0 ? `+${log.amount}` : `${log.amount}`,
             date: new Date(log.createdAt).toLocaleDateString('th-TH', {
                 day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
             }),
@@ -324,12 +293,11 @@ router.get('/history/:telegramId', async (req, res) => {
     }
 });
 
-// ฟังก์ชันช่วยแปลชื่อ Action (ใส่ไว้ในไฟล์เดียวกันหรือแยก Utils ก็ได้)
 function mapActionName(action) {
     const map = {
         'REFERRAL_BONUS': 'แนะนำเพื่อน',
         'LINK_BONUS': 'โบนัสผูกบัญชี',
-        'LINK_ACCOUNT_API': 'โบนัสผูกบัญชี', // เผื่อของเก่า
+        'LINK_ACCOUNT_API': 'โบนัสผูกบัญชี',
         'REDEEM_REWARD': 'แลกของรางวัล',
         'ADMIN_ADJUST': 'Admin ปรับปรุงยอด',
         'SYSTEM_ADJUST': 'ระบบปรับปรุงยอด',
@@ -340,60 +308,46 @@ function mapActionName(action) {
     return map[action] || action;
 }
 
-// --------------------------------------------------
-// 👥 ส่วนที่ 7: ดึงข้อมูลประวัติการแนะนำสมาชิก
-// --------------------------------------------------
+// ==================================================
+// 👥 REFERRALS
+// ==================================================
 router.get('/referrals/:telegramId', async (req, res) => {
     try {
         const { telegramId } = req.params;
-
-        // 1. หาข้อมูลของตัว User เองก่อน เพื่อเอา Customer ID
         const user = await prisma.customer.findUnique({
             where: { telegramUserId: telegramId },
-            select: { customerId: true, telegramUserId: true }
+            select: { customerId: true }
         });
 
         if (!user) return res.json({ success: false, message: "User not found" });
 
-        // 2. ค้นหา "ผู้ถูกแนะนำ" (คนที่ User นี้เป็นคนแนะนำ)
         const referrals = await prisma.customer.findMany({
             where: { referrerId: user.customerId },
-            orderBy: { createdAt: 'desc' }, // เรียงตามวันที่ล่าสุด
+            orderBy: { createdAt: 'desc' },
             select: {
                 customerId: true,
                 firstName: true,
                 lastName: true,
                 createdAt: true,
-                referralCount: true, // นับ Tier 2
-                activeCampaignTag: true // ดึง Tag แคมเปญมาด้วย
+                referralCount: true,
+                activeCampaignTag: true
             }
         });
 
-        // 3. วิ่งค้นหา Log สำหรับแต่ละ Referral (การดึงข้อมูลเชิงลึก)
         const formattedList = await Promise.all(referrals.map(async (ref) => {
-            
-            // 3.1 ค้นหา Log การให้ Bonus จากการชวนคนนี้
-            // Log นี้จะผูกกับ customerId ของ "ผู้ชวน" (user.customerId)
-            const bonusLog = await prisma.customerLog.findFirst({
+            const bonusLog = await prisma.pointTransaction.findFirst({
                 where: {
                     customerId: user.customerId,
-                    action: 'REFERRAL_BONUS',
-                    // หา Log ที่เกิดใกล้เคียงกับวันที่เพื่อนสมัคร (ref.createdAt)
+                    type: 'REFERRAL_BONUS',
+                    // หา transaction ที่ amount > 0 และเวลาใกล้เคียงกัน (Optional logic)
                     createdAt: {
-                        gte: new Date(ref.createdAt.getTime() - 1000 * 60 * 60 * 24 * 7), // 7 วันก่อน
-                        lte: new Date(ref.createdAt.getTime() + 1000 * 60 * 60 * 24 * 7)  // 7 วันหลัง
+                        gte: new Date(ref.createdAt.getTime() - 86400000), // +/- 1 วัน
+                        lte: new Date(ref.createdAt.getTime() + 86400000)
                     }
                 },
-                orderBy: { createdAt: 'desc' },
-                select: { pointsChange: true, createdAt: true }
+                orderBy: { createdAt: 'desc' }
             });
 
-            // 3.2 กำหนดค่าที่แสดง
-            const earnedPoints = bonusLog ? bonusLog.pointsChange : 0; // ถ้าไม่เจอ Log ให้เป็น 0
-            const bonusDate = bonusLog ? bonusLog.createdAt : ref.createdAt;
-            const campaignTag = ref.activeCampaignTag || 'Standard';
-
-            // 3.3 นับ Tier 2 (จำนวนคนที่คนนี้ชวนต่อ)
             const tier2Count = await prisma.customer.count({
                  where: { referrerId: ref.customerId }
             });
@@ -401,19 +355,11 @@ router.get('/referrals/:telegramId', async (req, res) => {
             return {
                 name: `${ref.firstName || 'Guest'} ${ref.lastName || ''}`.trim() || ref.customerId,
                 id: ref.customerId,
-                // วันที่เพื่อนสมัคร
-                joinedAt: new Date(ref.createdAt).toLocaleDateString('th-TH', {
-                    day: 'numeric', month: 'short', year: 'numeric',
-                    hour: '2-digit', minute: '2-digit'
-                }),
-                // วันที่ได้รับแต้ม
-                earnedAt: new Date(bonusDate).toLocaleDateString('th-TH', {
-                    day: 'numeric', month: 'short', year: 'numeric',
-                    hour: '2-digit', minute: '2-digit'
-                }),
+                joinedAt: new Date(ref.createdAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }),
+                earnedAt: bonusLog ? new Date(bonusLog.createdAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) : '-',
                 tier2Count: tier2Count,
-                earned: earnedPoints,
-                campaign: campaignTag
+                earned: bonusLog ? bonusLog.amount : 0,
+                campaign: ref.activeCampaignTag || 'Standard'
             };
         }));
 
