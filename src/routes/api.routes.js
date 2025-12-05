@@ -348,10 +348,13 @@ router.get('/referrals/:telegramId', async (req, res) => {
                 where: {
                     customerId: user.customerId,
                     type: 'REFERRAL_BONUS',
-                    // หา transaction ที่ amount > 0 และเวลาใกล้เคียงกัน (Optional logic)
+                    // Use ref.joinDate for date comparison
                     createdAt: {
-                        gte: new Date(ref.createdAt.getTime() - 86400000), // +/- 1 วัน
-                        lte: new Date(ref.createdAt.getTime() + 86400000)
+                        gte: new Date(ref.joinDate.getTime() - 86400000), 
+                        lte: new Date(ref.joinDate.getTime() + 86400000)
+                    },
+                    detail: {
+                        contains: ref.customerId // Link bonus log to specific referred customer
                     }
                 },
                 orderBy: { createdAt: 'desc' }
@@ -364,7 +367,7 @@ router.get('/referrals/:telegramId', async (req, res) => {
             return {
                 name: `${ref.firstName || 'Guest'} ${ref.lastName || ''}`.trim() || ref.customerId,
                 id: ref.customerId,
-                joinedAt: formatToBangkok(ref.createdAt),
+                joinedAt: formatToBangkok(ref.joinDate), // Use ref.joinDate
                 earnedAt: bonusLog ? formatToBangkok(bonusLog.createdAt) : '-',
                 tier2Count: tier2Count,
                 earned: bonusLog ? bonusLog.amount : 0,
