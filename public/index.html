@@ -896,29 +896,22 @@
                     })
                 });
 
-                // ตรวจสอบสถานะ Response ก่อนแปลง JSON
-                if (!response.ok) {
-                    throw new Error(`Server Error: ${response.status}`);
-                }
-
                 const result = await response.json();
                 document.getElementById('loading-screen').classList.add('hidden');
 
-                if (result.success) {
-                    // ✅ เพิ่ม: แจ้งเตือน
+                if (response.ok && result.success) {
                     showToast(`เชื่อมต่อสำเร็จ! รับโบนัส ${result.bonus} แต้ม`, 'success');
                     showSuccessModal(result.bonus);
                 } else {
-                    // ❌ เปลี่ยนจาก tg.showPopup เป็น Toast สีแดง
-                    showToast(result.error || "รหัสไม่ถูกต้อง", 'error');
+                    // If response is not ok, use the error message from the JSON body
+                    showToast(result.error || "รหัสไม่ถูกต้อง หรือมีข้อผิดพลาดเกิดขึ้น", 'error');
                     showLoginScreen();
                 }
             } catch (error) {
-                console.error("Link Error:", error); // ดู Error จริงใน Console
+                console.error("Link Error:", error);
                 document.getElementById('loading-screen').classList.add('hidden');
                 
-                // แจ้งเตือนลูกค้า
-                tg.showAlert("เกิดข้อผิดพลาด: " + (error.message || "เชื่อมต่อ Server ไม่ได้"));
+                showToast("เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ", 'error');
                 showLoginScreen();
             }
         }
