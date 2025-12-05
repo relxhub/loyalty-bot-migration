@@ -202,7 +202,36 @@ export async function giveReferralBonus(referrerId, newCustomerId, adminUser) {
         }
     }
 
-    // 5. Notification
+    // 5. System Logging
+    try {
+        await prisma.SystemLog.create({
+            data: {
+                level: 'INFO',
+                source: 'SYSTEM',
+                action: 'REFERRAL_BONUS',
+                customerId: referrerId,
+                points: bonusPoints,
+                message: `Referrer ${referrerId} received ${bonusPoints} points for referring ${newCustomerId}.`
+            }
+        });
+
+        if (earnedMilestoneBonus > 0) {
+            await prisma.SystemLog.create({
+                data: {
+                    level: 'INFO',
+                    source: 'SYSTEM',
+                    action: 'CAMPAIGN_BONUS',
+                    customerId: referrerId,
+                    points: earnedMilestoneBonus,
+                    message: `Referrer ${referrerId} earned milestone bonus of ${earnedMilestoneBonus} points.`
+                }
+            });
+        }
+    } catch (logError) {
+        console.error("Failed to create SystemLog for referral bonus:", logError);
+    }
+
+    // 6. Notification
     const newPoints = referrer.points + totalPointsToAdd;
     let notificationMessage = `💌 ขอบคุณที่แนะนำเพื่อน!\n⭐️ คุณได้รับแต้มแนะนำ ${bonusPoints} แต้ม จากการแนะนำคุณ ${newCustomerId}`;
 
