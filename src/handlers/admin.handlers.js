@@ -7,7 +7,7 @@ import { generateUniqueCode } from '../utils/crypto.utils.js';
 import { addDays } from '../utils/date.utils.js';
 import { getActiveCampaign } from '../services/campaign.service.js';
 import { getConfig } from '../config/config.js';
-import { giveReferralBonus } from '../services/customer.service.js';
+import { createCustomer, giveReferralBonus } from '../services/customer.service.js';
 import * as referralService from '../services/referral.service.js'; // Import the new referral service
 import fs from 'fs';
 import path from 'path';
