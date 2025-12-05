@@ -179,23 +179,24 @@ export async function giveReferralBonus(referrerId, newCustomerId, adminUser) {
 
     // 4. Customer Log (For Campaign Counting & User History)
     if (referrer.telegramUserId) {
+        // Base Log for the referral
         await prisma.PointTransaction.create({
             data: {
-                telegramUserId: referrer.telegramUserId,
                 customerId: referrer.customerId,
-                action: 'REFERRAL_BONUS',
-                pointsChange: bonusPoints
+                amount: bonusPoints,
+                type: 'REFERRAL_BONUS',
+                detail: `From new customer ${newCustomerId}`
             }
         });
 
-        // Milestone Log
+        // Milestone Log if bonus was earned
         if (earnedMilestoneBonus > 0) {
             await prisma.PointTransaction.create({
                 data: {
-                    telegramUserId: referrer.telegramUserId,
                     customerId: referrer.customerId,
-                    action: 'CAMPAIGN_BONUS', // Use different action to avoid double counting referrals
-                    pointsChange: earnedMilestoneBonus
+                    amount: earnedMilestoneBonus,
+                    type: 'CAMPAIGN_BONUS',
+                    detail: `Milestone reached for referring ${newCustomerId}`
                 }
             });
         }

@@ -326,10 +326,9 @@ async function handleAddPoints(ctx, commandParts, adminUser, chatId) {
     if (customer.telegramUserId) {
         await prisma.PointTransaction.create({
             data: {
-                telegramUserId: customer.telegramUserId,
                 customerId: customerId,
-                action: "ADMIN_ADD_POINTS", // ชื่อ Action ที่จะไปโชว์
-                pointsChange: points
+                type: "ADMIN_ADJUST",
+                amount: points
             }
         });
         await sendNotificationToCustomer(customer.telegramUserId, `🎉 คุณได้รับ ${points} แต้ม!\n💰 แต้มสะสมปัจจุบัน: ${newPoints} แต้ม`);
@@ -363,10 +362,10 @@ async function handleRedeemReward(ctx, commandParts, adminUser, chatId) {
     if (customer.telegramUserId) {
         await prisma.PointTransaction.create({
             data: {
-                telegramUserId: customer.telegramUserId,
                 customerId: customerId,
-                action: "ADMIN_REDEEM", // หรือใช้ชื่อรางวัลเลยก็ได้ ถ้าอยากให้ละเอียด
-                pointsChange: -reward.points
+                type: "REDEEM_REWARD",
+                amount: -reward.pointsCost,
+                detail: `Redeemed: ${reward.name}`
             }
         });
         await sendNotificationToCustomer(customer.telegramUserId, `🎁 คุณใช้ ${reward.points} แต้ม แลก '${reward.name}' สำเร็จ\n💰 แต้มคงเหลือ: ${newPoints}`);
