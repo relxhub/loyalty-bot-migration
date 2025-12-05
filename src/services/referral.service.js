@@ -1,8 +1,8 @@
-const prisma = require('../db');
-const customerService = require('./customer.service');
-const campaignService = require('./campaign.service');
-const { getConfig } = require('../config/config');
-const { addDays } = require('../utils/date.utils');
+import { prisma } from '../db.js';
+import * as customerService from './customer.service.js';
+import * as campaignService from './campaign.service.js';
+import { getConfig } from '../config/config.js';
+import { addDays } from '../utils/date.utils.js';
 
 /**
  * Creates a pending referral record when a new user joins via a referral link.
@@ -129,7 +129,44 @@ const completeReferral = async (refereeId, purchaseAmount) => {
   });
 };
 
-module.exports = {
+
+/**
+ * Counts the number of completed referrals for a given customer in the current month.
+ *
+ * @param {string} referrerId - The customer ID of the referrer.
+ * @returns {Promise<number>} The count of completed referrals for the current month.
+ */
+const countMonthlyReferrals = async (referrerId) => {
+  try {
+    const now = new Date();
+    // Get the current date in Bangkok time zone
+    const bangkokTime = now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' });
+    const bangkokDate = new Date(bangkokTime);
+
+    // Set to the first day of the current month in Bangkok time
+    const startOfMonth = new Date(bangkokDate.getFullYear(), bangkokDate.getMonth(), 1);
+    // Set to the last day of the current month in Bangkok time
+    const endOfMonth = new Date(bangkokDate.getFullYear(), bangkokDate.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    const count = await prisma.referral.count({
+      where: {
+        referrerId: referrerId,
+        status: 'COMPLETED',
+        completedAt: {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        },
+      },
+    });
+    return count;
+  } catch (error) {
+    console.error("Error counting monthly referrals:", error);
+    return 0;
+  }
+};
+
+export {
   createPendingReferral,
   completeReferral,
+  countMonthlyReferrals,
 };

@@ -6,7 +6,7 @@ import { getConfig } from '../config/config.js';
 import { addDays, formatToBangkok } from '../utils/date.utils.js';
 import { getCustomerByTelegramId, updateCustomer, countCampaignReferralsByTag } from '../services/customer.service.js';
 import { countMonthlyReferrals } from '../services/referral.service.js';
-import * as referralService from '../services/referral.service'; // Import the new referral service
+import * as referralService from '../services/referral.service.js'; // Import the new referral service
 
 const router = express.Router();
 
