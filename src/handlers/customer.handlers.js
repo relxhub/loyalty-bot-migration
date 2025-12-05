@@ -53,12 +53,42 @@ export async function handleCustomerCommand(ctx) {
             break;
 
         case "/start":
-             await createCustomerLog(userTgId, null, "START_BOT", 0);
-             return ctx.reply(`👋 สวัสดีค่ะคุณ ${customerName}!\n\n` + 
-                `นี่คือบอทสำหรับตรวจสอบโปรแกรมสะสมแต้ม\n\n` +
-                `🔹 พิมพ์ /points เพื่อตรวจสอบแต้ม\n` +
-                `🎁 พิมพ์ /reward เพื่อดูรายการของรางวัล\n` +
-                `🔗 พิมพ์ /link [รหัสลูกค้า] [รหัสยืนยัน] เพื่อเชื่อมบัญชี`);
+            // commandParts[1] will contain the payload, e.g., "ref_OT123"
+            const payload = commandParts.length > 1 ? commandParts[1] : null;
+
+            if (payload && payload.startsWith('ref_')) {
+                // This is a referral link click
+                const referrerId = payload.split('_')[1];
+                const webAppUrl = `${getConfig('publicUrl')}?referrerId=${referrerId}`;
+
+                await createCustomerLog(userTgId, null, "REFERRAL_LINK_CLICK", 0, `Referrer: ${referrerId}`);
+                
+                return ctx.reply(`👋 สวัสดีค่ะคุณ ${customerName}!\n\n` +
+                    `คุณได้รับเชิญให้เข้าร่วมโปรแกรมสะสมแต้ม! 🎉\n\n` +
+                    `👇 กดปุ่มด้านล่างเพื่อเริ่มลงทะเบียนและรับแต้มแรกของคุณได้เลย!`, {
+                    reply_markup: {
+                        inline_keyboard: [[
+                            { text: "📝 เริ่มลงทะเบียน", web_app: { url: webAppUrl } }
+                        ]]
+                    }
+                });
+
+            } else {
+                // This is a normal /start command without a referral
+                await createCustomerLog(userTgId, null, "START_BOT", 0);
+                
+                const webAppUrl = getConfig('publicUrl');
+                
+                return ctx.reply(`👋 สวัสดีค่ะคุณ ${customerName}!\n\n` +
+                    `นี่คือบอทสำหรับโปรแกรมสะสมแต้มของเราค่ะ\n\n` +
+                    `คุณสามารถจัดการทุกอย่างได้ง่ายๆ ผ่านแอปพลิเคชันของเรา`, {
+                    reply_markup: {
+                        inline_keyboard: [[
+                            { text: "💎 เปิดแอปพลิเคชัน", web_app: { url: webAppUrl } }
+                        ]]
+                    }
+                });
+            }
         default:
             break;
     }

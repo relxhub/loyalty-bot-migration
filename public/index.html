@@ -698,24 +698,74 @@
 
         async function initApp() {
             try {
-                // 1. Magic Link Logic
+                // 1. Check for Referral ID from Web App URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const referrerId = urlParams.get('referrerId');
+                
+                if (referrerId) {
+                    await handleReferralRegistration(referrerId);
+                    // After registration, the backend creates the user, so we proceed to the normal auth flow.
+                }
+
+                // 2. Magic Link Logic (for manual account linking)
                 const startParam = tg.initDataUnsafe?.start_param;
                 if (startParam && startParam.startsWith('link_')) {
                     document.getElementById('loading-text').innerText = "กำลังเชื่อมต่ออัตโนมัติ...";
                     const parts = startParam.split('_');
                     if (parts.length === 3) {
                         await performLink(parts[1], parts[2]); 
-                        return;
+                        return; // Stop further execution after linking
                     }
                 }
 
-                // 2. Normal Login (โหลดข้อมูลผู้ใช้)
+                // 3. Normal Authentication and Data Fetch
                 await refreshUserData();
 
             } catch (error) {
-                console.error(error);
-                tg.showAlert("เกิดข้อผิดพลาด: " + error.message);
+                console.error("Initialization Error:", error);
+                tg.showAlert("เกิดข้อผิดพลาดในการเริ่มต้น: " + error.message);
                 showLoginScreen();
+            }
+        }
+
+        async function handleReferralRegistration(referrerId) {
+            document.getElementById('loading-text').innerText = "กำลังลงทะเบียนสมาชิกใหม่...";
+            try {
+                const user = tg.initDataUnsafe?.user;
+                if (!user) {
+                    throw new Error("ไม่สามารถเข้าถึงข้อมูลผู้ใช้ Telegram ได้");
+                }
+
+                const response = await fetch('/api/referral/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        referrerId: referrerId,
+                        telegramId: user.id.toString(),
+                        firstName: user.first_name,
+                        lastName: user.last_name || null,
+                        username: user.username || null
+                    })
+                });
+                
+                const result = await response.json();
+
+                if (!response.ok) {
+                    // If user already exists, it's not a critical error, just show toast and continue.
+                    if (response.status === 400 && result.error.includes("ถูกผูกกับลูกค้าอื่นไปแล้ว")) {
+                         showToast("บัญชีของคุณเป็นสมาชิกอยู่แล้ว", "info");
+                    } else {
+                        throw new Error(result.error || "การลงทะเบียนเบื้องต้นล้มเหลว");
+                    }
+                } else {
+                    showToast("ลงทะเบียนผ่านผู้แนะนำสำเร็จ!", "success");
+                }
+                // After attempting registration, proceed to the standard auth flow which will now find the newly created user
+            } catch (error) {
+                console.error("Referral Registration Failed:", error);
+                // Even if it fails, we can still try to authenticate. Maybe they are already a member.
+                // We don't want to block the user completely.
+                showToast(error.message, 'error');
             }
         }
 
