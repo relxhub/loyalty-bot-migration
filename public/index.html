@@ -928,13 +928,11 @@
 
             // 1. อัปเดตกล่อง "เพื่อนที่คุณแนะนำ" (แสดงตลอดเวลา)
             const totalRefs = (user.totalReferrals !== undefined) ? user.totalReferrals : (user.referralCount || 0);
-            const monthRefs = user.referralCountMonth || 0; // ต้องส่งมาจาก API
+            const monthRefs = user.referralCountMonth || 0;
 
-            const elTotalAll = document.getElementById('referral-total-all');
-            if(elTotalAll) elTotalAll.innerText = totalRefs.toLocaleString();
+            animateValue('referral-total-all', parseInt(document.getElementById('referral-total-all').innerText) || 0, totalRefs, 800);
+            animateValue('referral-total-month', parseInt(document.getElementById('referral-total-month').innerText) || 0, monthRefs, 800);
 
-            const elTotalMonth = document.getElementById('referral-total-month');
-            if(elTotalMonth) elTotalMonth.innerText = monthRefs.toLocaleString();
 
             // 2. อัปเดตกล่อง "ภารกิจแนะนำเพื่อน" (Mission Box)
             const missionBox = document.getElementById('mission-box');
@@ -953,7 +951,7 @@
             // แสดงกล่องถ้า: เป็น Campaign Active หรือ ใกล้จะเริ่ม (Coming Soon)
             if (missionBox) {
                 if ((isCampaign && user.referralTarget > 0) || isComingSoon) {
-                    missionBox.classList.remove('hidden');
+                    missionBox.classList.add('is-active');
 
                     const campaignName = user.activeCampaignTag || 'Upcoming Event';
                     const target = user.referralTarget || 5;
@@ -1002,7 +1000,7 @@
                     }
 
                 } else {
-                    missionBox.classList.add('hidden');
+                    missionBox.classList.remove('is-active');
                 }
             }
             // -----------------------------------------------------
@@ -1371,6 +1369,10 @@
                             ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-700/50 text-gray-400 text-[9px] border border-gray-600/30"><i class="ri-flag-line"></i> ${item.campaign}</span>`
                             : `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 text-[9px] border border-purple-500/30"><i class="ri-flashlight-fill"></i> ${item.campaign}</span>`;
 
+                        const statusBadge = item.status === 'COMPLETED'
+                            ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-green-500/20 text-green-300 text-[9px] border border-green-500/30"><i class="ri-check-line"></i> สำเร็จ</span>`
+                            : `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300 text-[9px] border border-yellow-500/30"><i class="ri-time-line"></i> รอสั่งซื้อ</span>`;
+
                         html += `
                         <div class="bg-white/5 p-3 rounded-xl border border-white/10 space-y-2 transition item-hover-effect list-item-animate ${hasTier2 ? 'cursor-pointer' : ''}" style="animation-delay: ${index * 60}ms" ${hasTier2 ? `onclick="toggleTier2('${item.id}')"` : ''}>
                             <div class="flex justify-between items-start">
@@ -1383,7 +1385,10 @@
                                 </span>
                             </div>
                             <div class="flex justify-between items-center text-xs text-gray-400 pt-1 border-t border-white/5">
-                                ${campaignBadge}
+                                <div class="flex items-center gap-2">
+                                    ${campaignBadge}
+                                    ${statusBadge}
+                                </div>
                                 <span class="flex items-center gap-1.5">
                                     <i class="ri-calendar-check-line"></i>
                                     <span>${item.joinedAt}</span>
