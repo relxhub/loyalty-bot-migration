@@ -310,14 +310,23 @@ function mapActionName(action) {
 // 👥 REFERRALS
 // ==================================================
 router.get('/referrals/:telegramId', async (req, res) => {
+    console.log("==================== DEBUG: /api/referrals ====================");
     try {
         const { telegramId } = req.params;
+        console.log(`[1] Received request for telegramId: ${telegramId}`);
+
         const user = await prisma.customer.findUnique({
             where: { telegramUserId: telegramId },
             select: { customerId: true }
         });
 
-        if (!user) return res.json({ success: false, message: "User not found" });
+        if (!user) {
+            console.log(`[2] ❌ User not found in DB with telegramId: ${telegramId}`);
+            console.log("=============================================================");
+            return res.json({ success: false, message: "User not found" });
+        }
+
+        console.log(`[2] ✅ Found user. CustomerID is: ${user.customerId}`);
 
         const referrals = await prisma.customer.findMany({
             where: { referrerId: user.customerId },
@@ -331,6 +340,8 @@ router.get('/referrals/:telegramId', async (req, res) => {
                 activeCampaignTag: true
             }
         });
+
+        console.log(`[3] Found ${referrals.length} referrals for customerId: ${user.customerId}`);
 
         const formattedList = await Promise.all(referrals.map(async (ref) => {
             const bonusLog = await prisma.pointTransaction.findFirst({
@@ -360,11 +371,14 @@ router.get('/referrals/:telegramId', async (req, res) => {
                 campaign: ref.activeCampaignTag || 'Standard'
             };
         }));
-
+        
+        console.log(`[4] Successfully formatted list of ${formattedList.length} items. Sending response.`);
+        console.log("=============================================================");
         res.json({ success: true, count: referrals.length, data: formattedList });
 
     } catch (error) {
-        console.error("Referral API Error:", error);
+        console.error("🚨 Referral API Error:", error);
+        console.log("=============================================================");
         res.status(500).json({ error: "ดึงข้อมูลการแนะนำไม่สำเร็จ" });
     }
 });
