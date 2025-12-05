@@ -156,7 +156,7 @@ async function handleNewCustomer(ctx, commandParts, adminUser, chatId) {
             username: null,
             adminCreatedBy: adminUser
         };
-        const customer = await customerService.createCustomer(newCustomerData); // customer.service.js creates the customerId and verificationCode
+        const customer = await createCustomer(newCustomerData); // customer.service.js creates the customerId and verificationCode
 
         // Log Creation
         await createAdminLog(adminUser, "CREATE_CUSTOMER", customer.customerId, 0, `Auto-generated customer via /new`);
