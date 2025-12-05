@@ -1,4 +1,4 @@
-// migrate_referral.js
+// migrate_referral.js (ฉบับรองรับ DB ใหม่)
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -9,7 +9,7 @@ const POINTS_PER_REFERRAL = 50;
 const DEFAULT_EXPIRY_DAYS = 30;
 
 async function migrateReferralHistory() {
-    console.log("🚀 เริ่มต้นกู้ประวัติแนะนำเพื่อน (แบบดึงเวลาจริง)...");
+    console.log("🚀 เริ่มต้นกู้ประวัติแนะนำเพื่อน (ลง PointTransaction)...");
 
     try {
         // 1. ดึงลูกค้าทุกคนที่มีคนชวน
@@ -32,56 +32,50 @@ async function migrateReferralHistory() {
                 where: { customerId: child.referrerId }
             });
 
-            // ถ้าเจอคนชวน และคนชวนผูก Telegram ไว้
-            if (parent && parent.telegramUserId) {
+            // ถ้าเจอคนชวน
+            if (parent) {
                 
-                // 🕵️‍♂️ ค้นหาวันที่สมัครจริงของเพื่อน (child) จาก AdminLog
+                // 🕵️‍♂️ ค้นหาวันที่สมัครจริงของเพื่อน (child)
                 let actualDate = new Date();
                 
-                // 1. ลองหาจาก AdminLog ตอนสร้างลูกค้า
-                const creationLog = await prisma.adminLog.findFirst({
+                // A. ลองหาจาก AdminAuditLog (ตารางใหม่)
+                const creationLog = await prisma.adminAuditLog.findFirst({
                     where: { 
-                        customerId: child.customerId,
+                        targetId: child.customerId, // ใช้ targetId แทน customerId
                         action: 'CREATE_CUSTOMER'
                     }
                 });
 
                 if (creationLog) {
                     actualDate = creationLog.createdAt;
-                } else {
-                    // 2. ถ้าไม่เจอ Log (เช่น สร้างไว้นานแล้ว) ให้เดาจากวันหมดอายุ
-                    // สูตร: วันสมัคร = วันหมดอายุ - 30 วัน (ค่า Default)
-                    if (child.expiryDate) {
-                        const estimatedDate = new Date(child.expiryDate);
-                        estimatedDate.setDate(estimatedDate.getDate() - DEFAULT_EXPIRY_DAYS);
-                        actualDate = estimatedDate;
-                        // console.log(`⚠️ ไม่พบ Log ของ ${child.customerId} ใช้วันโดยประมาณ: ${actualDate.toISOString()}`);
-                    }
+                } else if (child.joinDate) {
+                    // B. ถ้าไม่เจอ Log ให้ใช้วัน joinDate จากตาราง Customer (ถ้ามี)
+                    actualDate = child.joinDate;
+                } else if (child.expiryDate) {
+                    // C. ถ้าไม่มีอะไรเลย ให้เดาจากวันหมดอายุ
+                    const estimatedDate = new Date(child.expiryDate);
+                    estimatedDate.setDate(estimatedDate.getDate() - DEFAULT_EXPIRY_DAYS);
+                    actualDate = estimatedDate;
                 }
 
-                // เช็คว่ามีประวัตินี้แล้วหรือยัง (เช็คจาก Action และ CustomerId ของคนชวน)
-                // *ไม่ต้องเช็คเวลาเป๊ะๆ แล้ว เพราะเราอาจจะคำนวณใหม่*
-                const exists = await prisma.customerLog.findFirst({
+                // D. เช็คว่ามีประวัติการได้แต้มใน PointTransaction หรือยัง (ตารางใหม่)
+                const exists = await prisma.pointTransaction.findFirst({
                     where: {
                         customerId: parent.customerId,
-                        action: 'REFERRAL_BONUS',
-                        // ใช้ details เป็นตัวแยก unique แทน (เก็บว่าชวนใคร)
-                        // แต่เนื่องจาก db คุณไม่มี details เราจะเช็คคร่าวๆ ว่าเคยได้แต้มในช่วงเวลานั้นไหม
-                        createdAt: {
-                            gte: new Date(actualDate.getTime() - 1000 * 60), // บวกลบ 1 นาที
-                            lte: new Date(actualDate.getTime() + 1000 * 60)
-                        }
+                        type: 'REFERRAL_BONUS', // ใช้ type แทน action
+                        relatedId: child.customerId // เช็คว่าเคยได้แต้มจาก ID นี้หรือยัง
                     }
                 });
 
                 if (!exists) {
-                    await prisma.customerLog.create({
+                    await prisma.pointTransaction.create({
                         data: {
-                            telegramUserId: parent.telegramUserId,
                             customerId: parent.customerId,
-                            action: 'REFERRAL_BONUS',
-                            pointsChange: POINTS_PER_REFERRAL,
-                            createdAt: actualDate // ✅ ใช้วันที่หามาได้ (ย้อนหลัง)
+                            amount: POINTS_PER_REFERRAL, // ใช้ amount แทน pointsChange
+                            type: 'REFERRAL_BONUS',
+                            detail: `System Repair: แนะนำ ${child.customerId}`,
+                            relatedId: child.customerId, // ผูก ID เพื่อนไว้ด้วย
+                            createdAt: actualDate
                         }
                     });
                     process.stdout.write(".");
@@ -91,7 +85,6 @@ async function migrateReferralHistory() {
         }
 
         console.log(`\n\n✅ กู้ประวัติเชิญเพื่อนสำเร็จ ${count} รายการ`);
-        console.log(`(ใช้วันที่จริงจาก AdminLog หรือคำนวณย้อนหลัง)`);
 
     } catch (error) {
         console.error("\n❌ Error:", error);

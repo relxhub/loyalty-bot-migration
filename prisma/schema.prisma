@@ -133,9 +133,15 @@ model AdminAuditLog {
 
 // เก็บ Logs ของระบบ (Error, Cron Job)
 model SystemLog {
-  id        Int      @id @default(autoincrement())
-  level     String   // INFO, WARN, ERROR
-  source    String   // CRON, API, SYSTEM
-  message   String
-  createdAt DateTime @default(now())
+  id          Int      @id @default(autoincrement())
+  level       String   // INFO, WARN, ERROR
+  source      String   // LEGACY_AUTO, CRON, API
+  
+  // ✅ เพิ่ม Column ใหม่เพื่อเก็บข้อมูลแยก
+  action      String?  // เก็บชื่อ Action เช่น REFERRAL_BONUS, EXPIRE
+  customerId  String?  // เก็บ ID ลูกค้าที่เกี่ยวข้อง
+  points      Int?     // เก็บจำนวนแต้ม
+  
+  message     String   // รายละเอียดอื่นๆ หรือข้อความสรุป
+  createdAt   DateTime @default(now())
 }
