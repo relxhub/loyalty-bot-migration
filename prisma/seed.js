@@ -1,77 +1,50 @@
-// prisma/seed.js
-
 import { PrismaClient } from '@prisma/client';
-// ต้องเพิ่ม dotenv เพื่อให้ seed file เข้าถึง .env ได้
-import 'dotenv/config'; 
 
 const prisma = new PrismaClient();
 
-// ⭐️ ดึง Super Admin ID จาก Environment Variable (.env)
-const SUPER_ADMIN_TG_ID = process.env.SUPER_ADMIN_CHAT_ID;
-const ADMIN_ROLE_NAME = "SuperAdmin"; 
-
 async function main() {
-  console.log('Start seeding...');
+  console.log('🌱 Starting seeding...');
 
-  // 1. ⭐️ ข้อมูลตั้งค่า Dynamic หลัก (SystemConfig)
-  const configData = [
-    // [CRON JOB TIMES] - CRITICAL FOR SCHEDULER STARTUP
-    { key: 'expiryCutoffTime', value: '5 0 * * *' },          // เวลาตัดแต้ม (00:05 AM)
-    { key: 'reminderNotificationTime', value: '0 9 * * *' },   // เวลาแจ้งเตือน (09:00 AM)
-    
-    // [DAYS AND LIMITS]
-    { key: 'expiryDaysLimitMax', value: '60' },             // เพดานสะสมสูงสุด (วัน)
-    { key: 'expiryDaysReferralBonus', value: '7' },          // ต่ออายุสำหรับผู้แนะนำ (วัน)
-    { key: 'expiryDaysLinkAccount', value: '7' },            // ต่ออายุสำหรับการเชื่อมบัญชี (วัน)
-    { key: 'expiryDaysAddPoints', value: '30' },             // ต่ออายุเมื่อ Admin /add (วัน)
-    { key: 'expiryDaysNewCustomer', value: '30' },           // วันหมดอายุเริ่มต้นลูกค้าใหม่ (วัน)
-    { key: 'expiryReminderDaysList', value: '4,3,2,1,0' },   // วันแจ้งเตือนล่วงหน้า
-
-    // [STANDARD POINTS]
+  // ===============================================
+  // ⚙️ SYSTEM CONFIG (ตั้งค่าระบบทีเดียวจบ)
+  // ===============================================
+  const configs = [
+    // 1. หมวดคะแนนพื้นฐาน
     { key: 'standardReferralPoints', value: '50' },
     { key: 'standardLinkBonus', value: '50' },
 
-    // [LINKS]
-    { key: 'customerBotLink', value: 'https://t.me/ONEHUBCustomer_Bot' }, 
-  ];
+    // 2. หมวดวันหมดอายุ (Expiry Rules)
+    { key: 'expiryDaysNewMember', value: '30' },
+    { key: 'expiryDaysReferralBonus', value: '7' },
+    { key: 'expiryDaysLinkAccount', value: '7' },
+    { key: 'expiryDaysLimitMax', value: '60' },
 
-    // 2. ⭐️ Upsert ข้อมูลทั้งหมดลงใน SystemConfig (เพิ่มหรืออัปเดต)
-  for (const data of configData) {
-    await prisma.systemConfig.upsert({
-      where: { key: data.key },
-      update: { value: data.value },
-      create: { key: data.key, value: data.value },
-    });
-  }
-  console.log(`- Inserted/Updated ${configData.length} System Configurations.`);
+    // 3. หมวดเวลาและการแจ้งเตือน (Scheduler)
+    { key: 'expiryCutoffTime', value: '5 0 * * *' },      // ตัดแต้ม 00:05 น.
+    { key: 'reminderNotificationTime', value: '0 9 * * *' }, // แจ้งเตือน 09:00 น.
+    { key: 'systemTimezone', value: 'Asia/Bangkok' }
+  ];
 
-  // 3. ⭐️ Upsert Super Admin คนแรก (ถ้ายังไม่มี)
-  // ใช้ Chat ID จาก ENV เพื่อให้แน่ใจว่า Admin คนแรกถูกสร้างขึ้น
-  if (!SUPER_ADMIN_TG_ID) {
-    console.error('FATAL: SUPER_ADMIN_CHAT_ID is missing in the .env file. Cannot create first admin.');
-    process.exit(1);
+  console.log('⚙️ Upserting System Configs...');
+  
+  for (const config of configs) {
+    // ใช้ upsert: ถ้ามีอยู่แล้วให้ update (หรือข้ามก็ได้), ถ้ายังไม่มีให้ create
+    await prisma.systemConfig.upsert({
+      where: { key: config.key },
+      update: { value: config.value }, // ถ้าอยากให้ทับค่าเดิม ให้ใส่บรรทัดนี้
+      // update: {}, // ถ้าไม่อยากให้ทับค่าเดิมที่เคยแก้ไว้ ให้ใช้บรรทัดนี้แทน
+      create: config,
+    });
   }
 
-  const admin = await prisma.admin.upsert({
-    where: { telegramId: SUPER_ADMIN_TG_ID },
-    update: { role: ADMIN_ROLE_NAME }, 
-    create: {
-      telegramId: SUPER_ADMIN_TG_ID,
-      name: 'System Initial Admin',
-      role: ADMIN_ROLE_NAME,
-    },
-  });
-  console.log(`- Created/Updated Super Admin: ${admin.telegramId}`);
-
-
-  console.log('Seeding finished. Database is configured.');
+  console.log('✅ Seeding completed!');
 }
 
 main()
-  .catch((e) => {
-    console.error('Seeding failed:', e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
