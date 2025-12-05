@@ -220,32 +220,6 @@
         </div>
     </div>
 
-    <!-- Referral Registration Screen -->
-    <div id="referral-registration-screen" class="hidden fixed inset-0 z-40 bg-[#18181b] flex flex-col items-center justify-center p-6">
-        <div class="glass-card p-8 w-full max-w-sm text-center shadow-2xl relative overflow-hidden fade-in">
-            <div class="absolute -top-10 -right-10 w-32 h-32 bg-green-500/20 rounded-full blur-3xl"></div>
-            
-            <div class="w-20 h-20 bg-gradient-to-tr from-green-500 to-teal-600 text-white rounded-full flex items-center justify-center mx-auto mb-6 text-4xl shadow-lg relative z-10">
-                🎉
-            </div>
-            
-            <h2 class="text-2xl font-bold mb-2 text-white relative z-10">คุณถูกเชิญให้เข้าร่วม!</h2>
-            <p class="text-gray-400 text-sm mb-8 relative z-10">
-                ยินดีต้อนรับคุณ <span id="ref-reg-username" class="font-bold text-white"></span>
-                คุณได้รับคำเชิญจาก <span id="ref-reg-referrerid" class="font-bold text-white"></span>
-                กดปุ่มด้านล่างเพื่อยืนยันการเป็นสมาชิกและรับสิทธิพิเศษได้เลย
-            </p>
-
-            <button id="confirm-referral-reg-btn" onclick="handleReferralRegistration(this.dataset.referrerId)" class="w-full mt-8 py-4 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 rounded-xl font-bold text-lg text-white shadow-lg shadow-green-500/30 transition active:scale-95 relative z-10">
-                ยืนยันการเป็นสมาชิก
-            </button>
-            
-            <p class="text-[10px] text-gray-600 mt-6 relative z-10">
-                *การยืนยันจะสร้างบัญชีสมาชิกใหม่ให้คุณ
-            </p>
-        </div>
-    </div>
-
     <div id="app-content" class="hidden w-full max-w-md mx-auto space-y-6 pb-20 fade-in">
         
         <div class="flex items-center space-x-4">
@@ -777,8 +751,11 @@
                     window.currentUser = authData.customer;
                     renderUser(authData.customer); // Go to dashboard
                 } else {
-                    // User is not a member, show referral registration screen
-                    showReferralRegistrationScreen(referrerId, user.first_name || user.username);
+                    // User is not a member, proceed with automatic referral registration
+                    document.getElementById('loading-text').innerText = "กำลังลงทะเบียนสมาชิกใหม่...";
+                    await handleReferralRegistration(referrerId);
+                    // After registration attempt, refresh data to show dashboard
+                    await refreshUserData();
                 }
             } catch (error) {
                 console.error("Referral Flow Error:", error);
@@ -788,8 +765,6 @@
         }
 
         async function handleReferralRegistration(referrerId) {
-            // This function is now the actual registration step after user confirmation
-            document.getElementById('loading-text').innerText = "กำลังลงทะเบียนสมาชิกใหม่...";
             try {
                 const user = tg.initDataUnsafe?.user;
                 if (!user) {
@@ -814,12 +789,13 @@
                     throw new Error(result.error || "การลงทะเบียนเบื้องต้นล้มเหลว");
                 } else {
                     showToast("ลงทะเบียนผ่านผู้แนะนำสำเร็จ!", "success");
-                    showSuccessModal(result.bonus); // Assuming bonus is returned upon successful registration
+                    // No need to show success modal, refreshUserData will handle rendering dashboard
                 }
             } catch (error) {
                 console.error("Referral Registration Failed:", error);
                 showToast(error.message, 'error');
-                showLoginScreen();
+                // The handleReferralFlow will call refreshUserData or showLoginScreen based on result
+                throw error; // Re-throw to be caught by handleReferralFlow's catch block
             }
         }
 
@@ -875,28 +851,13 @@
             document.getElementById('loading-screen').classList.add('hidden');
             document.getElementById('app-content').classList.add('hidden');
             document.getElementById('success-modal').classList.add('hidden'); // ซ่อน Modal ถ้ามี
-            document.getElementById('referral-registration-screen').classList.add('hidden'); // Ensure referral screen is hidden
             document.getElementById('login-screen').classList.remove('hidden');
 
             const refreshBtn = document.querySelector('.refresh-btn');
             if (refreshBtn) refreshBtn.classList.add('hidden');
         }
 
-        function showReferralRegistrationScreen(referrerId, userName) {
-            document.getElementById('loading-screen').classList.add('hidden');
-            document.getElementById('app-content').classList.add('hidden');
-            document.getElementById('login-screen').classList.add('hidden');
-            document.getElementById('success-modal').classList.add('hidden'); // ซ่อน Modal ถ้ามี
 
-            document.getElementById('ref-reg-username').innerText = userName || "คุณ";
-            document.getElementById('ref-reg-referrerid').innerText = referrerId;
-            document.getElementById('confirm-referral-reg-btn').dataset.referrerId = referrerId; // Store referrerId in button for click handler
-
-            document.getElementById('referral-registration-screen').classList.remove('hidden');
-
-            const refreshBtn = document.querySelector('.refresh-btn');
-            if (refreshBtn) refreshBtn.classList.add('hidden');
-        }
 
         function renderUser(user) {
             // ปิดทุกหน้า เปิด Dashboard
