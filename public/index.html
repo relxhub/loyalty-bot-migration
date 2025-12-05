@@ -1264,11 +1264,10 @@
                             </button>
                         </div>`;
                 }
-            } catch (e) {
-                console.error(e);
-                list.innerHTML = '<div class="text-center text-red-400 mt-10">ไม่สามารถดึงข้อมูลการแนะนำได้</div>';
-            }
-        }
+                } catch (e) {
+                    console.error("Error in openReferralModal:", e);
+                    list.innerHTML = '<div class="text-center text-red-400 mt-10">เกิดข้อผิดพลาดในการโหลด (v3)</div>';
+                }        }
 
         function closeReferralModal() {
             const modal = document.getElementById('referral-modal');
