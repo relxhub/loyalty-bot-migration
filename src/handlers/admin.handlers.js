@@ -324,8 +324,7 @@ async function handleAddPoints(ctx, commandParts, adminUser, chatId) {
     await createAdminLog(adminUser, "ADD_POINTS", customerId, points, "Manual Add");
 
     if (customer.telegramUserId) {
-        // 1. บันทึกประวัติ
-        await prisma.customerLog.create({
+        await prisma.PointTransaction.create({
             data: {
                 telegramUserId: customer.telegramUserId,
                 customerId: customerId,
@@ -362,7 +361,7 @@ async function handleRedeemReward(ctx, commandParts, adminUser, chatId) {
     await createAdminLog(adminUser, "REDEEM_POINTS", customerId, -reward.points, `Redeemed: ${reward.name}`);
 
     if (customer.telegramUserId) {
-        await prisma.customerLog.create({
+        await prisma.PointTransaction.create({
             data: {
                 telegramUserId: customer.telegramUserId,
                 customerId: customerId,
@@ -377,7 +376,7 @@ async function handleRedeemReward(ctx, commandParts, adminUser, chatId) {
 
 async function createAdminLog(admin, action, customerId, pointsChange, details) {
     try {
-        await prisma.adminLog.create({
+        await prisma.AdminAuditLog.create({
             data: {
                 admin: admin,
                 action: action,

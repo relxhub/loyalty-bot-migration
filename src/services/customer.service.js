@@ -156,8 +156,7 @@ export async function giveReferralBonus(referrerId, newCustomerId, adminUser) {
     });
 
     // 3. Log System (Auto) in AdminLog
-    // Base Log
-    await prisma.adminLog.create({
+    await prisma.AdminAuditLog.create({
         data: {
             admin: 'System (Auto)',
             action: 'REFERRAL_BONUS',
@@ -169,7 +168,7 @@ export async function giveReferralBonus(referrerId, newCustomerId, adminUser) {
 
     // Milestone Log (if earned)
     if (earnedMilestoneBonus > 0) {
-        await prisma.adminLog.create({
+        await prisma.AdminAuditLog.create({
             data: {
                 admin: 'System (Auto)',
                 action: 'CAMPAIGN_BONUS',
@@ -182,8 +181,7 @@ export async function giveReferralBonus(referrerId, newCustomerId, adminUser) {
 
     // 4. Customer Log (For Campaign Counting & User History)
     if (referrer.telegramUserId) {
-        // Base Log (Important: This is what countCampaignReferrals counts!)
-        await prisma.customerLog.create({
+        await prisma.PointTransaction.create({
             data: {
                 telegramUserId: referrer.telegramUserId,
                 customerId: referrer.customerId,
@@ -194,7 +192,7 @@ export async function giveReferralBonus(referrerId, newCustomerId, adminUser) {
 
         // Milestone Log
         if (earnedMilestoneBonus > 0) {
-            await prisma.customerLog.create({
+            await prisma.PointTransaction.create({
                 data: {
                     telegramUserId: referrer.telegramUserId,
                     customerId: referrer.customerId,
