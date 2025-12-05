@@ -9,7 +9,7 @@ export async function listRewards() {
         select: {
             rewardId: true,
             name: true,
-            points: true
+            pointsCost: true
         }
     });
     return rewards;
@@ -25,7 +25,7 @@ export function formatRewardsForAdmin(rewards) {
     
     let rewardList = "<b>🎁 รายการของรางวัลทั้งหมด:</b>\n\n";
     rewards.forEach(r => {
-        rewardList += `- <b>${r.rewardId}</b>: ${r.name} (${r.points} แต้ม)\n`;
+        rewardList += `- <b>${r.rewardId}</b>: ${r.name} (${r.pointsCost} แต้ม)\n`;
     });
     return rewardList + "\nใช้คำสั่ง /redeem [รหัสลูกค้า] [รหัสของรางวัล] เพื่อแลก";
 }
