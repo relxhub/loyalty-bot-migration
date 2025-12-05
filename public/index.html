@@ -1308,8 +1308,8 @@
             // Fallback to generic if not known
             const botUsername = "ONEHUB_Customer_Backup_Bot"; // Replace with actual bot username if dynamic
             const userId = window.currentUser?.customerId || "UNKNOWN";
-            // Standard format for direct Web App launch: t.me/Bot?startapp=ref_ID
-            const link = `https://t.me/${botUsername}?startapp=ref_${userId}`;
+            // Standard format for direct Web App launch: t.me/Bot/app?startapp=ref_ID
+            const link = `https://t.me/${botUsername}/app?startapp=ref_${userId}`;
             linkInput.value = link;
 
             document.body.classList.add('no-scroll');
