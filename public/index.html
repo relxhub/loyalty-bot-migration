@@ -142,6 +142,33 @@
             overscroll-behavior: contain; /* สั่งว่าถ้าสุดขอบแล้ว "ห้าม" ส่งต่อการสไลด์ไปข้างหลัง */
         }
 
+        .list-item-animate {
+            animation: slideIn 0.5s ease-out forwards;
+            opacity: 0;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .tier2-list {
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
+        }
+
+        .item-hover-effect:hover {
+            border-color: rgba(96, 165, 250, 0.5);
+            box-shadow: 0 0 15px rgba(96, 165, 250, 0.1);
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col p-5 select-none overflow-x-hidden">
@@ -527,7 +554,7 @@
             <div class="p-6 border-b border-gray-700 bg-gradient-to-r from-blue-900/50 to-purple-900/50 rounded-t-3xl sm:rounded-t-2xl">
                 <div class="flex justify-between items-center mb-2">
                     <h3 class="text-xl font-bold flex items-center gap-2 text-white">
-                        <i class="ri-team-line text-blue-400"></i> ผู้ที่ถูกคุณแนะนำ (v2)
+                        <i class="ri-team-line text-blue-400"></i> ผู้ที่ถูกคุณแนะนำ
                     </h3>
                     <button onclick="closeReferralModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition text-white">
                         <i class="ri-close-line"></i>
@@ -1229,15 +1256,20 @@
                     document.getElementById('ref-total-earned').innerText = totalEarned.toLocaleString();
 
                     let html = '';
-                    result.data.forEach(item => {
+                    result.data.forEach((item, index) => {
+                        const hasTier2 = item.tier2Referrals && item.tier2Referrals.length > 0;
+
                         const campaignBadge = item.campaign.includes('Standard')
                             ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-700/50 text-gray-400 text-[9px] border border-gray-600/30"><i class="ri-flag-line"></i> ${item.campaign}</span>`
                             : `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 text-[9px] border border-purple-500/30"><i class="ri-flashlight-fill"></i> ${item.campaign}</span>`;
 
                         html += `
-                        <div class="bg-white/5 p-3 rounded-xl border border-white/10 space-y-2 transition hover:bg-white/10">
+                        <div class="bg-white/5 p-3 rounded-xl border border-white/10 space-y-2 transition item-hover-effect list-item-animate ${hasTier2 ? 'cursor-pointer' : ''}" style="animation-delay: ${index * 60}ms" ${hasTier2 ? `onclick="toggleTier2('${item.id}')"` : ''}>
                             <div class="flex justify-between items-start">
-                                <span class="font-mono font-bold text-blue-300 text-sm">${item.id}</span>
+                                <div class="flex items-center gap-2">
+                                    <i id="ref-icon-${item.id}" class="ri-arrow-right-s-line text-gray-500 transition-transform ${hasTier2 ? '' : 'invisible'}"></i>
+                                    <span class="font-mono font-bold text-blue-300 text-sm">${item.id}</span>
+                                </div>
                                 <span class="font-bold text-lg text-yellow-400 flex items-center gap-1.5">
                                     <i class="ri-copper-coin-line"></i> +${item.earned}
                                 </span>
@@ -1248,8 +1280,21 @@
                                     <i class="ri-calendar-check-line"></i>
                                     <span>${item.joinedAt}</span>
                                 </span>
-                            </div>
-                        </div>`;
+                            </div>`;
+                        
+                        if (hasTier2) {
+                            html += `<div id="tier2-list-${item.id}" class="tier2-list pt-2 mt-2 border-t border-white/20 space-y-1 pl-5">`;
+                            item.tier2Referrals.forEach(t2 => {
+                                html += `
+                                <div class="flex justify-between items-center text-xs">
+                                    <span class="font-mono text-gray-400">${t2.id}</span>
+                                    <span class="text-gray-500">${t2.joinDate}</span>
+                                </div>`;
+                            });
+                            html += `</div>`;
+                        }
+
+                        html += `</div>`;
                     });
                     list.innerHTML = html;
                 } else {
@@ -1277,6 +1322,24 @@
             content.classList.add('translate-y-full');
             modal.classList.add('opacity-0');
             setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        function toggleTier2(itemId) {
+            const tier2List = document.getElementById(`tier2-list-${itemId}`);
+            const icon = document.getElementById(`ref-icon-${itemId}`);
+            if (tier2List && icon) {
+                // Animate the list expand/collapse
+                if (tier2List.style.maxHeight && tier2List.style.maxHeight !== "0px") {
+                    tier2List.style.maxHeight = "0px";
+                    tier2List.style.opacity = 0;
+                } else {
+                    tier2List.style.maxHeight = tier2List.scrollHeight + "px";
+                    tier2List.style.opacity = 1;
+                }
+                
+                // Rotate the icon
+                icon.classList.toggle('rotate-90');
+            }
         }
 
         // ปิดเมื่อกดพื้นหลัง

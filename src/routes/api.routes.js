@@ -360,9 +360,34 @@ router.get('/referrals/:telegramId', async (req, res) => {
                 orderBy: { createdAt: 'desc' }
             });
 
-            const tier2Count = await prisma.customer.count({
-                 where: { referrerId: ref.customerId }
-            });
+            // --- New Tier-2 Logic ---
+            let tier2Referrals = [];
+            const tier2Count = await prisma.customer.count({ where: { referrerId: ref.customerId } });
+
+            if (tier2Count > 0) {
+                const tier2Customers = await prisma.customer.findMany({
+                    where: { referrerId: ref.customerId },
+                    orderBy: { joinDate: 'desc' },
+                    select: {
+                        customerId: true,
+                        firstName: true,
+                        lastName: true,
+                        joinDate: true
+                    },
+                    take: 10 // Limit to 10 for performance
+                });
+                
+                tier2Referrals = tier2Customers.map(t2 => {
+                    const id = t2.customerId;
+                    const maskedId = id.length > 4 ? `${id.substring(0, 2)}****${id.substring(id.length - 2)}` : id;
+                    return {
+                        id: maskedId,
+                        name: `${t2.firstName || ''} ${t2.lastName || ''}`.trim() || 'Guest',
+                        joinDate: formatToBangkok(t2.joinDate)
+                    };
+                });
+            }
+            // --- End New Logic ---
 
             return {
                 name: `${ref.firstName || 'Guest'} ${ref.lastName || ''}`.trim() || ref.customerId,
@@ -371,7 +396,8 @@ router.get('/referrals/:telegramId', async (req, res) => {
                 earnedAt: bonusLog ? formatToBangkok(bonusLog.createdAt) : '-',
                 tier2Count: tier2Count,
                 earned: bonusLog ? bonusLog.amount : 0,
-                campaign: ref.activeCampaignTag || 'Standard'
+                campaign: ref.activeCampaignTag || 'Standard',
+                tier2Referrals: tier2Referrals // Add the new array
             };
         }));
         
