@@ -4,7 +4,7 @@ import { sendAdminReply, sendAlertToSuperAdmin, sendNotificationToCustomer } fro
 import { listRewards, formatRewardsForAdmin } from '../services/reward.service.js';
 import { isValidIdFormat } from '../utils/validation.utils.js'; 
 import { generateUniqueCode } from '../utils/crypto.utils.js';
-import { addDays, getThaiNow } from '../utils/date.utils.js';
+import { addDays } from '../utils/date.utils.js';
 import { getActiveCampaign } from '../services/campaign.service.js';
 import { getConfig } from '../config/config.js';
 import { giveReferralBonus } from '../services/customer.service.js';
@@ -122,7 +122,7 @@ async function handleNewCustomer(ctx, commandParts, adminUser, chatId) {
         // 2. Create Data
         const verificationCode = generateUniqueCode(4);
         const initialPoints = 0;
-        const newExpiryDate = addDays(getThaiNow(), getConfig('expiryDaysNewCustomer') || 30);
+        const newExpiryDate = addDays(new Date(), getConfig('expiryDaysNewCustomer') || 30);
 
         await prisma.customer.create({
             data: {
@@ -300,14 +300,18 @@ async function handleAddPoints(ctx, commandParts, adminUser, chatId) {
     const customer = await prisma.customer.findUnique({ where: { customerId: customerId } });
     if (!customer || customer.isDeleted) return sendAdminReply(chatId, `🔍 ไม่พบข้อมูลลูกค้า ${customerId}`);
 
-    const today = getThaiNow(); 
-    today.setHours(0,0,0,0); 
+    // Get the start of today in Bangkok, represented as a UTC timestamp for accurate comparison
+    const now = new Date();
+    const year = Number(now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok', year: 'numeric' }));
+    const month = Number(now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok', month: 'numeric' }));
+    const day = Number(now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok', day: 'numeric' }));
+    const today = new Date(Date.UTC(year, month - 1, day));
     
     const currentExpiry = customer.expiryDate;
     const limitDays = getConfig('expiryDaysLimitMax') || 60;
     const extendDays = getConfig('expiryDaysAddPoints') || 30;
 
-    const baseDate = currentExpiry > today ? currentExpiry : today;
+    const baseDate = (currentExpiry && currentExpiry > today) ? currentExpiry : today;
     const proposedExpiry = addDays(baseDate, extendDays);
     const limitDate = addDays(today, limitDays);
     let finalExpiryDate = proposedExpiry > limitDate ? limitDate : proposedExpiry;
