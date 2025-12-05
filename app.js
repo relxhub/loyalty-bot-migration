@@ -74,6 +74,19 @@ async function startServer() {
     // ⭐️ เชื่อมต่อ API Routes
     app.use('/api', apiRoutes);
 
+    // ✅ [DEBUG] เพิ่มโค้ดสำหรับ Log-Route
+    if (apiRoutes.stack) {
+        console.log("==================== Registered API Routes ====================");
+        apiRoutes.stack.forEach(middleware => {
+            if (middleware.route) { // BINGO! This is a route.
+                const path = middleware.route.path;
+                const methods = Object.keys(middleware.route.methods).join(', ').toUpperCase();
+                console.log(`✅ ${methods} - /api${path}`);
+            }
+        });
+        console.log("=============================================================");
+    }
+
     // =========================================
     // 🤖 ADMIN & CUSTOMER BOT SETUP
     // =========================================
