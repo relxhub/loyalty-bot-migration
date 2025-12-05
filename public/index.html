@@ -699,15 +699,18 @@
         async function initApp() {
             try {
                 const startParam = tg.initDataUnsafe?.start_param;
+                console.log(`[Init] start_param received: ${startParam}`);
 
                 if (startParam && startParam.startsWith('ref_')) {
                     // Case 3 & 4 (Referral Link)
+                    console.log("[Init] Referral link detected.");
                     const referrerId = startParam.split('_')[1];
                     await handleReferralFlow(referrerId);
                     return; 
 
                 } else if (startParam && startParam.startsWith('link_')) {
                     // Case 2 (Admin's Magic Link)
+                    console.log("[Init] Magic link detected.");
                     document.getElementById('loading-text').innerText = "กำลังเชื่อมต่ออัตโนมัติ...";
                     const parts = startParam.split('_');
                     if (parts.length === 3) {
@@ -716,7 +719,8 @@
                     }
                 }
 
-                // Case 1 & 4 (Normal entry or existing member)
+                // Case 1 (Normal entry or if other params fail)
+                console.log("[Init] Normal entry. Refreshing user data.");
                 await refreshUserData();
 
             } catch (error) {
