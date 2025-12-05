@@ -353,14 +353,14 @@ async function handleRedeemReward(ctx, commandParts, adminUser, chatId) {
     const reward = await prisma.reward.findUnique({ where: { rewardId: rewardId } });
     if (!reward) return sendAdminReply(chatId, `🎁 ไม่พบของรางวัลรหัส '${rewardId}'`);
 
-    if (customer.points < reward.points) return sendAdminReply(chatId, `⚠️ แต้มไม่เพียงพอ (มี ${customer.points}, ใช้ ${reward.points})`);
+    if (customer.points < reward.pointsCost) return sendAdminReply(chatId, `⚠️ แต้มไม่เพียงพอ (มี ${customer.points}, ใช้ ${reward.pointsCost})`);
 
     await prisma.customer.update({
         where: { customerId: customerId },
-        data: { points: { decrement: reward.points } }
+        data: { points: { decrement: reward.pointsCost } }
     });
 
-    const newPoints = customer.points - reward.points;
+    const newPoints = customer.points - reward.pointsCost;
     await createAdminLog(adminUser, "REDEEM_POINTS", customerId, -reward.points, `Redeemed: ${reward.name}`);
 
     if (customer.telegramUserId) {
