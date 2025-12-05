@@ -698,27 +698,25 @@
 
         async function initApp() {
             try {
-                // 1. Check for Referral ID from Web App URL
-                const urlParams = new URLSearchParams(window.location.search);
-                const referrerId = urlParams.get('referrerId');
-                
-                if (referrerId) {
-                    await handleReferralFlow(referrerId);
-                    return; // Stop further execution, handleReferralFlow will manage the next step
-                }
-
-                // 2. Magic Link Logic (for manual account linking)
                 const startParam = tg.initDataUnsafe?.start_param;
-                if (startParam && startParam.startsWith('link_')) {
+
+                if (startParam && startParam.startsWith('ref_')) {
+                    // Case 3 & 4 (Referral Link)
+                    const referrerId = startParam.split('_')[1];
+                    await handleReferralFlow(referrerId);
+                    return; 
+
+                } else if (startParam && startParam.startsWith('link_')) {
+                    // Case 2 (Admin's Magic Link)
                     document.getElementById('loading-text').innerText = "กำลังเชื่อมต่ออัตโนมัติ...";
                     const parts = startParam.split('_');
                     if (parts.length === 3) {
                         await performLink(parts[1], parts[2]); 
-                        return; // Stop further execution after linking
+                        return;
                     }
                 }
 
-                // 3. Normal Authentication and Data Fetch
+                // Case 1 & 4 (Normal entry or existing member)
                 await refreshUserData();
 
             } catch (error) {
@@ -730,6 +728,7 @@
 
         async function handleReferralFlow(referrerId) {
             document.getElementById('loading-text').innerText = "กำลังตรวจสอบสถานะสมาชิก...";
+            console.log(`[Referral Flow] Started. Referrer ID: ${referrerId}`);
             try {
                 const user = tg.initDataUnsafe?.user;
                 if (!user) {
@@ -737,6 +736,7 @@
                 }
 
                 // First, check if the Telegram user is already a member
+                console.log("[Referral Flow] Checking auth status...");
                 const response = await fetch('/api/auth', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -744,21 +744,32 @@
                 });
                 
                 const authData = await response.json();
+                console.log("[Referral Flow] Auth response:", authData);
 
                 if (authData.isMember) {
                     // User is already a member
+                    console.log("[Referral Flow] User is already a member. Showing dashboard.");
                     showToast("คุณเป็นสมาชิกอยู่แล้ว ไม่จำเป็นต้องลงทะเบียนใหม่", "info");
                     window.currentUser = authData.customer;
                     renderUser(authData.customer); // Go to dashboard
                 } else {
                     // User is not a member, proceed with automatic referral registration
+                    console.log("[Referral Flow] New user detected. Attempting automatic registration...");
                     document.getElementById('loading-text').innerText = "กำลังลงทะเบียนสมาชิกใหม่...";
-                    await handleReferralRegistration(referrerId);
-                    // After registration attempt, refresh data to show dashboard
+                    
+                    try {
+                        await handleReferralRegistration(referrerId);
+                    } catch (regError) {
+                        console.error("Registration failed, but continuing to refresh data.", regError);
+                        // Even if registration fails (e.g., race condition), 
+                        // we still want to try refreshing the user data one last time.
+                    }
+
+                    console.log("[Referral Flow] Registration attempt finished. Refreshing user data...");
                     await refreshUserData();
                 }
             } catch (error) {
-                console.error("Referral Flow Error:", error);
+                console.error("Critical Error in Referral Flow:", error);
                 showToast(error.message || "เกิดข้อผิดพลาดในกระบวนการแนะนำเพื่อน", 'error');
                 showLoginScreen(); // Fallback to login screen
             }
