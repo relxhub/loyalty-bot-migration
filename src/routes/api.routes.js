@@ -101,7 +101,7 @@ router.post('/auth', async (req, res) => {
         const pendingReferral = await prisma.referral.findFirst({
             where: {
                 refereeId: customer.customerId,
-                status: 'PENDING'
+                status: 'PENDING_PURCHASE'
             }
         });
 
