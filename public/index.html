@@ -881,9 +881,29 @@
             document.getElementById('success-modal').classList.add('hidden');
             document.getElementById('app-content').classList.remove('hidden');
 
-            // Render Data
             document.getElementById('user-name').innerText = `${user.firstName} ${user.lastName || ''}`.trim();
-            document.getElementById('user-id').innerText = user.customerId || 'N/A';
+            
+            // --- New logic for pending referral badge ---
+            const userIdElement = document.getElementById('user-id');
+            const parent = userIdElement.parentElement;
+
+            // Remove any existing badge first to avoid duplicates on refresh
+            const existingBadge = parent.querySelector('.pending-badge');
+            if (existingBadge) {
+                parent.removeChild(existingBadge);
+            }
+            
+            // Set the user ID
+            userIdElement.innerText = user.customerId || 'N/A';
+
+            // If the user is a pending referral, add the badge
+            if (user.isPendingReferral) {
+                const badge = document.createElement('span');
+                badge.className = 'pending-badge ml-2 px-2 py-1 bg-yellow-500/20 text-yellow-300 text-[10px] rounded-md font-mono';
+                badge.innerText = '(แคปหน้าจอส่งให้แอดมินสำหรับการสั่งซื้อครั้งแรก เพื่อรับส่วนลด 10%)';
+                parent.appendChild(badge);
+            }
+            // --- End new logic ---
 
             const refreshBtn = document.querySelector('.refresh-btn');
             if (refreshBtn) refreshBtn.classList.remove('hidden');

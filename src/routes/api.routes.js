@@ -96,6 +96,15 @@ router.post('/auth', async (req, res) => {
             console.error("⚠️ Failed to load/calculate campaign data:", campaignError.message);
         }
 
+        
+        // Check for pending referral status
+        const pendingReferral = await prisma.referral.findFirst({
+            where: {
+                refereeId: customer.customerId,
+                status: 'PENDING'
+            }
+        });
+
         const customerDataForFrontend = {
             ...customer,
             referralCount: customer.referralCount,
@@ -107,7 +116,8 @@ router.post('/auth', async (req, res) => {
             activeCampaignTag: activeCampaignTag,
             campaignStartAt: campaignStartAt,
             campaignEndAt: campaignEndAt,
-            referralBasePoints: referralBasePoints
+            referralBasePoints: referralBasePoints,
+            isPendingReferral: !!pendingReferral // Add this flag
         };
 
         return res.json({ success: true, isMember: true, customer: customerDataForFrontend });
