@@ -2,68 +2,92 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ยินดีต้อนรับสมาชิกใหม่</title>
+    
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+
     <style>
+        :root {
+            --bg-color: var(--tg-theme-bg-color, #18181b);
+            --text-color: var(--tg-theme-text-color, #ffffff);
+        }
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f0f2f5;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            text-align: center;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Kanit', sans-serif;
         }
-        .container {
-            background-color: #fff;
-            padding: 40px;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
         }
-        h1 {
-            color: #333;
+        .fade-in { 
+            animation: fadeIn 0.5s ease-out forwards; 
         }
-        p {
-            color: #555;
-            font-size: 1.2em;
+        @keyframes fadeIn { 
+            from { opacity: 0; transform: scale(0.95); } 
+            to { opacity: 1; transform: scale(1); } 
         }
-        .customer-id {
-            display: inline-block;
-            background-color: #e7f3ff;
-            color: #007bff;
-            padding: 10px 20px;
-            border-radius: 5px;
-            font-size: 1.5em;
-            font-weight: bold;
-            margin-top: 20px;
-        }
-        .instructions {
-            margin-top: 30px;
-            color: #777;
-        }
+        .bounce-in { animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+        @keyframes bounceIn { 0% { transform: scale(0); } 80% { transform: scale(1.1); } 100% { transform: scale(1); } }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>ยินดีต้อนรับสมาชิกใหม่!</h1>
-        <p>รหัสสมาชิกของคุณคือ:</p>
-        <div id="customerId" class="customer-id">กำลังโหลด...</div>
-        <div class="instructions">
-            <p>กรุณาแคปหน้าจอนี้และส่งให้กับแอดมินในการสั่งซื้อครั้งแรก</p>
-            <p>เพื่อรับโบนัสแนะนำเพื่อน</p>
+<body class="min-h-screen flex items-center justify-center p-6 bg-[#18181b]">
+
+    <div class="glass-card p-8 w-full max-w-sm text-center shadow-2xl relative overflow-hidden fade-in">
+        <div class="absolute -top-10 -right-10 w-32 h-32 bg-green-500/20 rounded-full blur-3xl"></div>
+        
+        <div class="w-24 h-24 bg-gradient-to-tr from-green-500 to-emerald-600 text-white rounded-full flex items-center justify-center mx-auto mb-6 text-5xl shadow-lg shadow-green-500/30 relative z-10 bounce-in">
+            🎉
         </div>
+        
+        <h1 class="text-2xl font-bold mb-2 text-white relative z-10">ยินดีต้อนรับสมาชิกใหม่!</h1>
+        <p class="text-gray-300 text-sm mb-6 relative z-10">รหัสสมาชิกของคุณคือ:</p>
+
+        <div class="relative z-10 bg-black/30 border border-gray-600 rounded-xl p-4 text-white text-center tracking-wider uppercase text-2xl font-bold text-green-400 mb-8">
+            <span id="customerId">กำลังโหลด...</span>
+        </div>
+
+        <p class="text-sm text-yellow-200/80 mb-8 relative z-10 bg-yellow-500/10 border border-yellow-500/20 px-4 py-3 rounded-lg">
+            กรุณาแคปหน้าจอนี้และส่งให้กับแอดมินสำหรับการสั่งซื้อครั้งแรก เพื่อรับส่วนลดพิเศษ 10%
+        </p>
+
+        <button id="confirm-button" class="w-full py-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 rounded-xl font-bold text-lg text-white shadow-lg shadow-blue-500/30 transition active:scale-95 relative z-10">
+            ไปหน้าหลัก
+        </button>
     </div>
+
     <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
         window.onload = function() {
             const urlParams = new URLSearchParams(window.location.search);
             const customerId = urlParams.get('customerId');
             const customerIdElement = document.getElementById('customerId');
+            
             if (customerId) {
                 customerIdElement.textContent = customerId;
             } else {
-                customerIdElement.textContent = 'ไม่พบรหัสสมาชิก';
+                customerIdElement.textContent = 'ไม่พบรหัส';
             }
+
+            // --- Logic for the button ---
+            const confirmButton = document.getElementById('confirm-button');
+            confirmButton.addEventListener('click', () => {
+                // Haptic feedback for better UX
+                try { tg.hapticFeedback.impactOccurred('medium'); } catch(e) {}
+                
+                // Navigate to the main app page
+                // The bot username should be consistent with the one in your main app
+                const botUsername = "ONEHUB_Customer_Backup_Bot"; 
+                tg.openTelegramLink(`https://t.me/${botUsername}/app`);
+            });
         };
     </script>
 </body>
