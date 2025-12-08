@@ -692,6 +692,18 @@
             // ... (โค้ดเดิม) ...
         }
         }
+
+        function showReferralInstructions() {
+            if (!window.currentUser || !window.currentUser.customerId) {
+                tg.showAlert("ไม่สามารถโหลดรหัสสมาชิกได้ โปรดลองอีกครั้ง");
+                return;
+            }
+            
+            const customerId = window.currentUser.customerId;
+            const message = `รหัสสมาชิกของคุณ: ${customerId}\n\nกรุณาแคปหน้าจอนี้และส่งให้กับแอดมินสำหรับการสั่งซื้อครั้งแรก เพื่อรับส่วนลดพิเศษ 10%`;
+            
+            tg.showAlert(message);
+        }
         // --- [END] Helper Functions ---
 
         tg.enableClosingConfirmation(); 
@@ -896,16 +908,18 @@
             // Set the user ID
             userIdElement.innerText = user.customerId || 'N/A';
 
-            // If the user is a pending referral, add the badge
+            // If the user is a pending referral, add the clickable badge
             if (user.isPendingReferral) {
-                const badge = document.createElement('span');
-                badge.className = 'pending-badge ml-2 px-2 py-1 bg-yellow-500/20 text-yellow-300 text-[10px] rounded-md font-mono';
-                badge.innerText = '(แคปหน้าจอส่งให้แอดมินสำหรับการสั่งซื้อครั้งแรก เพื่อรับส่วนลด 10%)';
+                const badge = document.createElement('button');
+                badge.className = 'pending-badge ml-2 px-2 py-1 bg-yellow-500/20 text-yellow-300 text-[10px] rounded-md font-mono flex items-center gap-1';
+                badge.innerHTML = '🎁 <span>มีส่วนลดพิเศษ</span>';
+                badge.onclick = () => showReferralInstructions();
                 parent.appendChild(badge);
             }
             // --- End new logic ---
 
             const refreshBtn = document.querySelector('.refresh-btn');
+            if (refreshBtn) refreshBtn.classList.remove('hidden');
             if (refreshBtn) refreshBtn.classList.remove('hidden');
             // -----------------------------------------------------
             // ✅ [ส่วนที่ 1] อัปเดตแต้ม (Logic เดิม)
