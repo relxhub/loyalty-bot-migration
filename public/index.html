@@ -897,24 +897,25 @@
             
             // --- New logic for pending referral badge ---
             const userIdElement = document.getElementById('user-id');
-            const parent = userIdElement.parentElement;
+            const userInfoContainer = userIdElement.parentElement.parentElement; // The containing div
 
             // Remove any existing badge first to avoid duplicates on refresh
-            const existingBadge = parent.querySelector('.pending-badge');
+            const existingBadge = userInfoContainer.querySelector('.pending-badge');
             if (existingBadge) {
-                parent.removeChild(existingBadge);
+                userInfoContainer.removeChild(existingBadge);
             }
-            
+
             // Set the user ID
             userIdElement.innerText = user.customerId || 'N/A';
 
             // If the user is a pending referral, add the clickable badge
             if (user.isPendingReferral) {
                 const badge = document.createElement('button');
-                badge.className = 'pending-badge ml-2 px-2 py-1 bg-yellow-500/20 text-yellow-300 text-[10px] rounded-md font-mono flex items-center gap-1';
+                // Place it below the ID line with margin-top for alignment
+                badge.className = 'pending-badge mt-2 px-2 py-1 bg-yellow-500/20 text-yellow-300 text-[10px] rounded-md font-mono flex items-center gap-1';
                 badge.innerHTML = '🎁 <span>มีส่วนลดพิเศษ</span>';
                 badge.onclick = () => showReferralInstructions();
-                parent.appendChild(badge);
+                userInfoContainer.appendChild(badge);
             }
             // --- End new logic ---
 
