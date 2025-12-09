@@ -13,12 +13,12 @@
     <style>
         /* ตั้งค่าสีตาม Theme ของ Telegram อัตโนมัติ */
         :root {
-            --bg-color: var(--tg-theme-bg-color, #18181b);
-            --text-color: var(--tg-theme-text-color, #ffffff);
-            --secondary-bg: var(--tg-theme-secondary-bg-color, #27272a);
-            --hint-color: var(--tg-theme-hint-color, #a1a1aa);
-            --button-color: var(--tg-theme-button-color, #3b82f6);
-            --button-text: var(--tg-theme-button-text-color, #ffffff);
+            --bg-color: #050C0D;
+            --text-color: #ffffff;
+            --secondary-bg: #161B22;
+            --hint-color: #ffffff;
+            --button-color: #F22233;
+            --button-text: #ffffff;
         }
 
         body {
@@ -112,7 +112,7 @@
             z-index: 100;
         }
         .refresh-btn {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(2, 2, 2, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 50%;
             width: 40px;
@@ -183,16 +183,16 @@
 
     <div id="toast-container"></div>
 
-    <div id="loading-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#18181b]">
+    <div id="loading-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#050C0D]">
         <div class="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
         <p class="text-gray-400 animate-pulse" id="loading-text">กำลังเชื่อมต่อข้อมูล...</p>
     </div>
 
-    <div id="login-screen" class="hidden fixed inset-0 z-40 bg-[#18181b] flex flex-col items-center justify-center p-6">
+    <div id="login-screen" class="hidden fixed inset-0 z-40 bg-[#050C0D] flex flex-col items-center justify-center p-6">
         <div class="glass-card p-8 w-full max-w-sm text-center shadow-2xl relative overflow-hidden fade-in">
-            <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl"></div>
+            <div class="absolute -top-10 -right-10 w-32 h-32 bg-[#F22233]/20 rounded-full blur-3xl"></div>
             
-            <div class="w-20 h-20 bg-gradient-to-tr from-blue-500 to-purple-600 text-white rounded-full flex items-center justify-center mx-auto mb-6 text-4xl shadow-lg relative z-10">
+            <div class="w-20 h-20 bg-gradient-to-tr from-[#F2A71B] to-[#F28627] text-white rounded-full flex items-center justify-center mx-auto mb-6 text-4xl shadow-lg relative z-10">
                 🔗
             </div>
             
@@ -210,7 +210,7 @@
                 </div>
             </div>
 
-            <button onclick="submitLogin()" class="w-full mt-8 py-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 rounded-xl font-bold text-lg text-white shadow-lg shadow-blue-500/30 transition active:scale-95 relative z-10">
+            <button onclick="submitLogin()" class="w-full mt-8 py-4 bg-gradient-to-r from-[#F22233] to-[#F24E29] hover:from-blue-500 hover:to-blue-400 rounded-xl font-bold text-lg text-white shadow-lg shadow-[#F22233]/30 transition active:scale-95 relative z-10">
                 เข้าสู่ระบบ
             </button>
             
@@ -221,10 +221,14 @@
     </div>
 
     <div id="app-content" class="hidden w-full max-w-md mx-auto space-y-6 pb-20 fade-in">
+
+        <div class="flex justify-center mb-4">
+            <img src="logo.png" alt="Company Logo" class="w-48">
+        </div>
         
         <div class="flex items-center space-x-4">
             <div class="relative">
-                <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-blue-400 to-purple-500 flex items-center justify-center text-2xl shadow-lg shadow-blue-500/20">
+                <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-[#F2A71B] to-[#F28627] flex items-center justify-center text-2xl shadow-lg shadow-blue-500/20">
                     👤
                 </div>
                 <div class="absolute -bottom-1 -right-1 bg-green-500 w-4 h-4 rounded-full border-2 border-[#18181b]"></div>
@@ -242,7 +246,7 @@
             
             <p class="text-sm text-gray-300 mb-1">คะแนนสะสมของคุณ</p>
             <div class="flex items-baseline space-x-2">
-                <h1 id="user-points" class="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 to-yellow-500">0</h1>
+                <h1 id="user-points" class="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#F2A71B] to-[#F24E29]">0</h1>
                 <span class="text-sm text-yellow-500 font-medium">Points</span>
             </div>
             
@@ -320,7 +324,7 @@
         <!-- [START] Friends You Referred Box (Always Visible) -->
         <div class="glass-card p-5 group cursor-pointer transition active:scale-95" onclick="openReferralModal(); try { Telegram.WebApp.hapticFeedback.impactOccurred('medium'); } catch(e) {}">
             <div class="mb-4 font-semibold text-sm flex items-center gap-2 text-blue-100">
-                <i class="ri-team-fill text-blue-500"></i> เพื่อนที่คุณแนะนำ
+                <i class="ri-team-fill text-[#F22233]"></i> เพื่อนที่คุณแนะนำ
             </div>
             <div class="grid grid-cols-2 gap-4 relative">
                 <!-- Vertical Divider -->
@@ -341,7 +345,7 @@
 
         <div class="grid grid-cols-2 gap-4">
             <button onclick="handleAction('rewards')" class="glass-card p-4 hover:bg-white/10 transition active:scale-95 text-left group">
-                <div class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 mb-3 group-hover:scale-110 transition">
+                <div class="w-10 h-10 rounded-full bg-[#F22233]/20 flex items-center justify-center text-[#F22233] mb-3 group-hover:scale-110 transition">
                     <i class="ri-gift-2-line text-xl"></i>
                 </div>
                 <div class="font-semibold">ของรางวัล</div>
@@ -357,7 +361,7 @@
             </button>
 
             <button id="btn-link" onclick="openLinkModal()" class="glass-card p-4 hover:bg-white/10 transition active:scale-95 text-left group hidden">
-                <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 mb-3 group-hover:scale-110 transition">
+                <div class="w-10 h-10 rounded-full bg-[#F22233]/20 flex items-center justify-center text-[#F22233] mb-3 group-hover:scale-110 transition">
                     <i class="ri-link-m text-xl"></i>
                 </div>
                 <div class="font-semibold">เชื่อมบัญชี</div>
@@ -377,7 +381,7 @@
     <div id="link-modal" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 hidden opacity-0 transition-opacity duration-300">
         <div class="glass-card p-6 w-[90%] max-w-sm scale-95 transition-transform duration-300 transform" id="link-modal-content">
             <div class="text-center mb-6">
-                <div class="w-16 h-16 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">🔗</div>
+                <div class="w-16 h-16 bg-[#F22233]/20 text-[#F22233] rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">🔗</div>
                 <h3 class="text-xl font-bold mb-2">เชื่อมบัญชีสมาชิก</h3>
                 <p class="text-sm text-gray-400 mb-4">กรุณากรอกข้อมูลเพื่อดึงแต้มเดิมของคุณ</p>
             </div>
@@ -385,17 +389,17 @@
             <div class="space-y-4">
                 <div>
                     <label class="text-xs text-gray-500 ml-1">รหัสลูกค้า</label>
-                    <input type="text" id="link-code" placeholder="เช่น MEM-888888" class="w-full bg-black/30 border border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 text-center tracking-wider uppercase">
+                    <input type="text" id="link-code" placeholder="เช่น MEM-888888" class="w-full bg-black/30 border border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-[#F22233] text-center tracking-wider uppercase">
                 </div>
                 <div>
                     <label class="text-xs text-gray-500 ml-1">รหัสยืนยัน 4 หลัก</label>
-                    <input type="tel" id="verify-code" maxlength="4" placeholder="XXXX" class="w-full bg-black/30 border border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 text-center tracking-[0.5em] text-lg">
+                    <input type="tel" id="verify-code" maxlength="4" placeholder="XXXX" class="w-full bg-black/30 border border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-[#F22233] text-center tracking-[0.5em] text-lg">
                 </div>
             </div>
             
             <div class="flex space-x-3 mt-8">
                 <button onclick="closeLinkModal()" class="flex-1 py-3 rounded-xl bg-gray-700 hover:bg-gray-600 transition text-sm">ไว้ทีหลัง</button>
-                <button onclick="submitLinkAccount()" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 font-bold transition shadow-lg shadow-blue-500/30">ยืนยัน</button>
+                <button onclick="submitLinkAccount()" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#F22233] to-[#F24E29] hover:from-blue-500 hover:to-blue-400 font-bold transition shadow-lg shadow-[#F22233]/30">ยืนยัน</button>
             </div>
         </div>
     </div>
@@ -405,7 +409,7 @@
         <div class="glass-card w-full max-w-md p-6 rounded-t-3xl sm:rounded-2xl flex flex-col transform translate-y-full transition-transform duration-300" id="invite-content">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="text-xl font-bold text-white flex items-center gap-2">
-                    <i class="ri-user-add-line text-green-400"></i> ชวนเพื่อน
+                    <i class="ri-user-add-line text-[#F22233]"></i> ชวนเพื่อน
                 </h3>
                 <button onclick="closeInviteModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition text-white">
                     <i class="ri-close-line"></i>
@@ -423,7 +427,7 @@
                     </div>
                 </div>
 
-                <button onclick="shareInviteLink()" class="w-full py-3 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 rounded-xl font-bold text-white shadow-lg transition active:scale-95 flex items-center justify-center gap-2">
+                <button onclick="shareInviteLink()" class="w-full py-3 bg-gradient-to-r from-[#F22233] to-[#F24E29] hover:from-green-500 hover:to-green-400 rounded-xl font-bold text-white shadow-lg transition active:scale-95 flex items-center justify-center gap-2">
                     <i class="ri-telegram-fill text-xl"></i> ส่งให้เพื่อนใน Telegram
                 </button>
             </div>
@@ -434,10 +438,10 @@
     <div id="rewards-modal" class="hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/90 backdrop-blur-md opacity-0 transition-opacity duration-300">
         <div class="glass-card w-full max-w-md h-[85vh] sm:h-[650px] rounded-t-3xl sm:rounded-2xl flex flex-col transform translate-y-full transition-transform duration-300" id="rewards-content">
 
-            <div class="p-6 border-b border-gray-700 bg-gradient-to-r from-purple-900/50 to-pink-900/50 rounded-t-3xl sm:rounded-t-2xl">
+            <div class="p-6 border-b border-gray-700 bg-gradient-to-r from-[#F22233]/50 to-[#F24E29]/50 rounded-t-3xl sm:rounded-t-2xl">
                 <div class="flex justify-between items-center mb-2">
                     <h3 class="text-xl font-bold flex items-center gap-2 text-white">
-                        <i class="ri-gift-line text-purple-400"></i> ของรางวัล
+                        <i class="ri-gift-line text-[#F22233]"></i> ของรางวัล
                     </h3>
                     <button onclick="closeRewardsModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition text-white">
                         <i class="ri-close-line"></i>
@@ -516,12 +520,12 @@
                 <div class="space-y-4">
                     <!-- Rule 1: Per Person -->
                     <div class="flex items-center gap-4 bg-white/5 p-4 rounded-xl border border-white/5">
-                        <div class="w-12 h-12 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xl">
+                        <div class="w-12 h-12 rounded-full bg-[#F22233]/20 text-[#F22233] flex items-center justify-center text-xl">
                             <i class="ri-user-add-line"></i>
                         </div>
                         <div>
                             <div class="text-sm font-bold text-gray-200">แนะนำเพื่อน 1 คน</div>
-                            <div class="text-xs text-gray-400">รับทันที <span class="text-blue-400 font-bold text-sm" id="modal-camp-base">50</span> แต้ม</div>
+                            <div class="text-xs text-gray-400">รับทันที <span class="text-[#F22233] font-bold text-sm" id="modal-camp-base">50</span> แต้ม</div>
                         </div>
                     </div>
 
@@ -551,10 +555,10 @@
     <div id="referral-modal" class="hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/90 backdrop-blur-md opacity-0 transition-opacity duration-300">
         <div class="glass-card w-full max-w-md h-[85vh] sm:h-[650px] rounded-t-3xl sm:rounded-2xl flex flex-col transform translate-y-full transition-transform duration-300" id="referral-content">
             
-            <div class="p-6 border-b border-gray-700 bg-gradient-to-r from-blue-900/50 to-purple-900/50 rounded-t-3xl sm:rounded-t-2xl">
+            <div class="p-6 border-b border-gray-700 bg-gradient-to-r from-[#F22233]/50 to-[#F24E29]/50 rounded-t-3xl sm:rounded-t-2xl">
                 <div class="flex justify-between items-center mb-2">
                     <h3 class="text-xl font-bold flex items-center gap-2 text-white">
-                        <i class="ri-team-line text-blue-400"></i> ผู้ที่ถูกคุณแนะนำ
+                        <i class="ri-team-line text-[#F22233]"></i> ผู้ที่ถูกคุณแนะนำ
                     </h3>
                     <button onclick="closeReferralModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition text-white">
                         <i class="ri-close-line"></i>
@@ -566,7 +570,7 @@
             <div class="grid grid-cols-2 gap-3 p-4">
                 <div class="bg-white/5 rounded-xl p-3 text-center border border-white/10">
                     <div class="text-xs text-gray-400">สมาชิกที่คุณแนะนำ</div>
-                    <div class="text-2xl font-bold text-blue-400" id="ref-total-count">0</div>
+                    <div class="text-2xl font-bold text-[#F22233]" id="ref-total-count">0</div>
                 </div>
                 <div class="bg-white/5 rounded-xl p-3 text-center border border-white/10">
                     <div class="text-xs text-gray-400">โบนัสที่ได้รับ (จากคนเหล่านี้)</div>
@@ -1273,7 +1277,7 @@
                     rewards.forEach(item => {
                         html += `
                         <div class="bg-white/5 p-4 rounded-xl border border-white/10 flex flex-col items-center text-center group hover:bg-white/10 transition">
-                            <div class="w-16 h-16 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center text-3xl mb-3 shadow-[0_0_15px_rgba(168,85,247,0.3)] group-hover:scale-110 transition">
+                            <div class="w-16 h-16 rounded-full bg-[#F22233]/20 text-[#F22233] flex items-center justify-center text-3xl mb-3 shadow-[0_0_15px_rgba(168,85,247,0.3)] group-hover:scale-110 transition">
                                 <i class="ri-gift-2-fill"></i>
                             </div>
                             <div class="font-bold text-sm text-white mb-1 line-clamp-2 min-h-[2.5em]">${item.name}</div>
@@ -1411,7 +1415,7 @@
                             <div class="flex justify-between items-start">
                                 <div class="flex items-center gap-2">
                                     <i id="ref-icon-${item.id}" class="ri-arrow-right-s-line text-gray-500 transition-transform ${hasTier2 ? '' : 'invisible'}"></i>
-                                    <span class="font-mono font-bold text-blue-300 text-sm">${item.id}</span>
+                                    <span class="font-mono font-bold text-[#F22233] text-sm">${item.id}</span>
                                 </div>
                                 <span class="font-bold text-lg text-yellow-400 flex items-center gap-1.5">
                                     <i class="ri-copper-coin-line"></i> +${item.earned}
@@ -1447,7 +1451,7 @@
                         <div class="flex flex-col items-center justify-center h-full text-gray-500 opacity-60">
                             <i class="ri-team-line text-6xl mb-4"></i>
                             <p>ยังไม่มีผู้ถูกแนะนำ</p>
-                            <button onclick="handleAction('invite')" class="mt-4 px-4 py-2 bg-blue-600 rounded-lg text-white text-sm">
+                            <button onclick="handleAction('invite')" class="mt-4 px-4 py-2 bg-[#F22233] rounded-lg text-white text-sm">
                                 เริ่มแนะนำเพื่อนเลย!
                             </button>
                         </div>`;
