@@ -169,14 +169,6 @@
             border-color: rgba(96, 165, 250, 0.5);
             box-shadow: 0 0 15px rgba(96, 165, 250, 0.1);
         }
-
-        /* CSS สำหรับแถบนำทางด้านล่าง */
-        #bottom-nav {
-            transition: transform 0.3s ease-in-out;
-        }
-        #bottom-nav.hide {
-            transform: translateY(150%); /* ซ่อนออกไปด้านล่าง */
-        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col p-5 select-none overflow-x-hidden">
@@ -351,7 +343,39 @@
         </div>
         <!-- [END] Friends Box -->
 
+        <div class="grid grid-cols-2 gap-4">
+            <button onclick="handleAction('rewards')" class="glass-card p-4 hover:bg-white/10 transition active:scale-95 text-left group">
+                <div class="w-10 h-10 rounded-full bg-[#F22233]/20 flex items-center justify-center text-[#F22233] mb-3 group-hover:scale-110 transition">
+                    <i class="ri-gift-2-line text-xl"></i>
+                </div>
+                <div class="font-semibold">ของรางวัล</div>
+                <div class="text-xs text-gray-400">สะสมแต้มแลกรางวัล</div>
+            </button>
 
+            <button onclick="handleAction('invite')" class="glass-card p-4 hover:bg-white/10 transition active:scale-95 text-left group">
+                <div class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 mb-3 group-hover:scale-110 transition">
+                    <i class="ri-user-add-line text-xl"></i>
+                </div>
+                <div class="font-semibold">เชิญเพื่อน</div>
+                <div class="text-xs text-gray-400">รับแต้มพิเศษ</div>
+            </button>
+
+            <button id="btn-link" onclick="openLinkModal()" class="glass-card p-4 hover:bg-white/10 transition active:scale-95 text-left group hidden">
+                <div class="w-10 h-10 rounded-full bg-[#F22233]/20 flex items-center justify-center text-[#F22233] mb-3 group-hover:scale-110 transition">
+                    <i class="ri-link-m text-xl"></i>
+                </div>
+                <div class="font-semibold">เชื่อมบัญชี</div>
+                <div class="text-xs text-gray-400">สมาชิกเก่า</div>
+            </button>
+
+            <button onclick="Telegram.WebApp.openTelegramLink('https://t.me/ONEHUBorder_bot')" class="glass-card p-4 hover:bg-white/10 transition active:scale-95 text-left group">
+                <div class="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-400 mb-3 group-hover:scale-110 transition">
+                    <i class="ri-customer-service-2-line text-xl"></i>
+                </div>
+                <div class="font-semibold">ติดต่อเรา</div>
+                <div class="text-xs text-gray-400">แจ้งปัญหา</div>
+            </button>
+        </div>
     </div>
 
     <div id="link-modal" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 hidden opacity-0 transition-opacity duration-300">
@@ -1118,10 +1142,26 @@
             tg.MainButton.hideProgress();
         }
 
+        window.handleAction = function(type) {
+            console.log("Action Triggered:", type);
+            try { tg.hapticFeedback.impactOccurred('light'); } catch(e){}
 
+            switch(type) {
+                case 'rewards': 
+                    openRewardsModal();
+                    break;
+                    
+                case 'invite': 
+                    openInviteModal();
+                    break;
+                    
+                case 'link': 
+                    openLinkModal(); 
+                    break;
+            }
+        }
 
         function openLinkModal() {
-            hideBottomNav(); // Hide nav bar when modal opens
             const modal = document.getElementById('link-modal');
             const content = document.getElementById('link-modal-content');
             modal.classList.remove('hidden');
@@ -1133,7 +1173,6 @@
         }
 
         function closeLinkModal() {
-            showBottomNav(); // Show nav bar when modal closes
             const modal = document.getElementById('link-modal');
             const content = document.getElementById('link-modal-content');
             modal.classList.add('opacity-0');
@@ -1168,7 +1207,6 @@
         }
 
         async function openHistoryModal() {
-            hideBottomNav(); // Hide nav bar when modal opens
             const modal = document.getElementById('history-modal');
             const content = document.getElementById('history-content');
             const list = document.getElementById('history-list');
@@ -1220,7 +1258,6 @@
         }
 
         function closeHistoryModal() {
-            showBottomNav(); // Show nav bar when modal closes
             const modal = document.getElementById('history-modal');
             const content = document.getElementById('history-content');
             
@@ -1234,7 +1271,6 @@
 
         // --- [START] Rewards Logic ---
         async function openRewardsModal() {
-            hideBottomNav(); // Hide nav bar when modal opens
             const modal = document.getElementById('rewards-modal');
             const content = document.getElementById('rewards-content');
             const list = document.getElementById('rewards-list');
@@ -1280,7 +1316,6 @@
         }
 
         function closeRewardsModal() {
-            showBottomNav(); // Show nav bar when modal closes
             const modal = document.getElementById('rewards-modal');
             const content = document.getElementById('rewards-content');
 
@@ -1293,7 +1328,6 @@
 
         // --- [START] Invite Logic ---
         function openInviteModal() {
-            hideBottomNav(); // Hide nav bar when modal opens
             const modal = document.getElementById('invite-modal');
             const content = document.getElementById('invite-content');
             const linkInput = document.getElementById('invite-link');
@@ -1326,7 +1360,6 @@
         }
 
         function closeInviteModal() {
-            showBottomNav(); // Show nav bar when modal closes
             const modal = document.getElementById('invite-modal');
             const content = document.getElementById('invite-content');
 
@@ -1389,7 +1422,6 @@
         // --- [START] Referral Logic ---
 
         async function openReferralModal() {
-            hideBottomNav(); // Hide nav bar when modal opens
             const modal = document.getElementById('referral-modal');
             const content = document.getElementById('referral-content');
             const list = document.getElementById('referral-list');
@@ -1481,7 +1513,6 @@
                 }        }
 
         function closeReferralModal() {
-            showBottomNav(); // Show nav bar when modal closes
             const modal = document.getElementById('referral-modal');
             const content = document.getElementById('referral-content');
             
@@ -1525,7 +1556,6 @@
 
         // --- Campaign Detail Modal Logic ---
         function openCampaignModal() {
-            hideBottomNav(); // Hide nav bar when modal opens
             const user = window.currentUser;
             if (!user) return;
 
@@ -1562,7 +1592,6 @@
         }
 
         function closeCampaignModal() {
-            showBottomNav(); // Show nav bar when modal closes
             const modal = document.getElementById('campaign-modal');
             const content = document.getElementById('campaign-content');
 
@@ -1625,32 +1654,20 @@
             }
         });
 
-        // Function to hide bottom nav bar
-        function hideBottomNav() {
-            const nav = document.getElementById('bottom-nav');
-            if (nav) nav.classList.add('hide');
-        }
-
-        // Function to show bottom nav bar
-        function showBottomNav() {
-            const nav = document.getElementById('bottom-nav');
-            if (nav) nav.classList.remove('hide');
-        }
-
         initApp();
     </script>
-
+    
     <!-- Bottom Navigation Bar -->
-    <div id="bottom-nav" class="fixed bottom-4 left-0 right-0 z-[70] mx-auto w-[calc(100%-2.5rem)] max-w-md bg-[var(--secondary-bg)] shadow-xl rounded-full p-2 flex justify-around items-center">
-        <a href="home.html" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/3 py-1.5 rounded-xl transition active:scale-95">
+    <div class="fixed bottom-0 left-0 right-0 w-full bg-[var(--secondary-bg)] shadow-[0_-5px_15px_rgba(0,0,0,0.3)] z-[70] h-20 flex justify-around items-center px-4 py-2">
+        <a href="home.html" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/3 py-1.5 rounded-lg">
             <i class="ri-home-4-line text-xl"></i>
             <span>หน้าหลัก</span>
         </a>
-        <a href="https://bit.ly/onehub-catalogue" target="_blank" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/3 py-1.5 rounded-xl transition active:scale-95">
-            <i class="ri-shopping-cart-line text-xl"></i>
+        <a href="https://bit.ly/onehub-catalogue" target="_blank" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/3 py-1.5 rounded-lg">
+            <i class="ri-restaurant-line text-xl"></i>
             <span>เมนูสินค้า</span>
         </a>
-        <a href="dashboard.html" class="flex flex-col items-center text-xs font-medium text-[#F22233] w-1/3 py-1.5 rounded-xl transition active:scale-95">
+        <a href="dashboard.html" class="flex flex-col items-center text-xs font-medium text-[#F22233] w-1/3 py-1.5 rounded-lg">
             <i class="ri-wallet-3-line text-xl"></i>
             <span>บัตรสมาชิก</span>
         </a>
