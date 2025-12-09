@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Welcome</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #050C0D;
+            --secondary-bg: #161B22;
+        }
+        body {
+            background-color: var(--bg-color);
+            font-family: 'Kanit', sans-serif;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-5 text-white">
+
+    <div class="text-center">
+        <img src="logo.png" alt="Company Logo" class="w-64 mx-auto mb-8">
+        <h1 class="text-3xl font-bold mb-2">ยินดีต้อนรับ</h1>
+        <p class="text-gray-400">เลือกเมนูด้านล่างเพื่อเริ่มต้นใช้งาน</p>
+    </div>
+
+    <!-- Bottom Navigation Bar -->
+    <div class="fixed bottom-0 left-0 right-0 w-full bg-[var(--secondary-bg)] shadow-[0_-5px_15px_rgba(0,0,0,0.3)] z-[70] h-20 flex justify-around items-center px-4 py-2">
+        <a href="home.html" class="flex flex-col items-center text-xs font-medium text-[#F22233] w-1/3 py-1.5 rounded-lg">
+            <i class="ri-home-4-line text-xl"></i>
+            <span>หน้าหลัก</span>
+        </a>
+        <a href="https://bit.ly/onehub-catalogue" target="_blank" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/3 py-1.5 rounded-lg">
+            <i class="ri-restaurant-line text-xl"></i>
+            <span>เมนูสินค้า</span>
+        </a>
+        <a href="dashboard.html" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/3 py-1.5 rounded-lg">
+            <i class="ri-wallet-3-line text-xl"></i>
+            <span>บัตรสมาชิก</span>
+        </a>
+    </div>
+
+</body>
+</html>

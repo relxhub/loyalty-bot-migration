@@ -220,7 +220,7 @@
         </div>
     </div>
 
-    <div id="app-content" class="hidden w-full max-w-md mx-auto space-y-6 pb-20 fade-in">
+    <div id="app-content" class="hidden w-full max-w-md mx-auto space-y-6 pb-32 fade-in">
 
         <div class="flex justify-center mb-4">
             <img src="logo.png" alt="Company Logo" class="w-48">
@@ -1626,6 +1626,12 @@
 
         // --- [END] ระบบ Real-time ---
 
+        // ฟังก์ชันสำหรับปุ่ม "หน้าหลัก" ใน Bottom Nav
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            try { tg.hapticFeedback.impactOccurred('light'); } catch(e){}
+        }
+
         // ดักจับการคลิกที่ตัว Modal ใหญ่
         document.getElementById('history-modal').addEventListener('click', function(e) {
             // e.target คือจุดที่นิ้วไปจิ้ม
@@ -1633,7 +1639,7 @@
             
             // ถ้าจุดที่จิ้ม คือฉากหลัง (ไม่ได้จิ้มโดนกล่องเนื้อหาข้างใน)
             if (e.target === this) {
-                closeHistory(); // สั่งปิดทันที
+                closeHistoryModal(); // สั่งปิดทันที
             }
         });
 
@@ -1650,5 +1656,21 @@
 
         initApp();
     </script>
+    
+    <!-- Bottom Navigation Bar -->
+    <div class="fixed bottom-0 left-0 right-0 w-full bg-[var(--secondary-bg)] shadow-[0_-5px_15px_rgba(0,0,0,0.3)] z-[70] h-20 flex justify-around items-center px-4 py-2">
+        <a href="home.html" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/3 py-1.5 rounded-lg">
+            <i class="ri-home-4-line text-xl"></i>
+            <span>หน้าหลัก</span>
+        </a>
+        <a href="https://bit.ly/onehub-catalogue" target="_blank" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/3 py-1.5 rounded-lg">
+            <i class="ri-restaurant-line text-xl"></i>
+            <span>เมนูสินค้า</span>
+        </a>
+        <a href="dashboard.html" class="flex flex-col items-center text-xs font-medium text-[#F22233] w-1/3 py-1.5 rounded-lg">
+            <i class="ri-wallet-3-line text-xl"></i>
+            <span>บัตรสมาชิก</span>
+        </a>
+    </div>
 </body>
 </html>
