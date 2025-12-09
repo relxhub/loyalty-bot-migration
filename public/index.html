@@ -427,9 +427,23 @@
                     </div>
                 </div>
 
-                <button onclick="shareInviteLink()" class="w-full py-3 bg-gradient-to-r from-[#F22233] to-[#F24E29] hover:from-green-500 hover:to-green-400 rounded-xl font-bold text-white shadow-lg transition active:scale-95 flex items-center justify-center gap-2">
-                    <i class="ri-telegram-fill text-xl"></i> ส่งให้เพื่อนใน Telegram
+                <button onclick="universalShare()" id="universal-share-btn" class="w-full py-3 bg-gradient-to-r from-[#F22233] to-[#F24E29] rounded-xl font-bold text-white shadow-lg transition active:scale-95 flex items-center justify-center gap-2">
+                    <i class="ri-share-forward-fill text-xl"></i> แชร์ลิงก์ให้เพื่อน
                 </button>
+
+                <div id="fallback-share-container" class="hidden space-y-3">
+                    <button onclick="shareOnTelegram()" class="w-full py-3 bg-[#2AABEE] hover:bg-[#279cda] rounded-xl font-bold text-white transition active:scale-95 flex items-center justify-center gap-2">
+                        <i class="ri-telegram-fill text-xl"></i> แชร์ไป Telegram
+                    </button>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="shareOnLine()" class="w-full py-3 bg-[#06C755] hover:bg-[#05b34c] rounded-xl font-bold text-white transition active:scale-95 flex items-center justify-center gap-2">
+                            <i class="ri-line-fill text-xl"></i> LINE
+                        </button>
+                        <button onclick="shareOnWhatsApp()" class="w-full py-3 bg-[#25D366] hover:bg-[#22bf5b] rounded-xl font-bold text-white transition active:scale-95 flex items-center justify-center gap-2">
+                            <i class="ri-whatsapp-fill text-xl"></i> WhatsApp
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1319,13 +1333,23 @@
             const linkInput = document.getElementById('invite-link');
 
             // Generate Link
-            // Assuming bot username is hardcoded or available. Ideally passed from backend.
-            // Fallback to generic if not known
-            const botUsername = "ONEHUB_Customer_Backup_Bot"; // Replace with actual bot username if dynamic
+            const botUsername = "ONEHUB_Customer_Backup_Bot"; 
             const userId = window.currentUser?.customerId || "UNKNOWN";
-            // Standard format for direct Web App launch: t.me/Bot/app?startapp=ref_ID
             const link = `https://t.me/${botUsername}/app?startapp=ref_${userId}`;
             linkInput.value = link;
+            
+            // --- New Share Logic ---
+            const universalBtn = document.getElementById('universal-share-btn');
+            const fallbackContainer = document.getElementById('fallback-share-container');
+
+            if (navigator.share) {
+                universalBtn.classList.remove('hidden');
+                fallbackContainer.classList.add('hidden');
+            } else {
+                universalBtn.classList.add('hidden');
+                fallbackContainer.classList.remove('hidden');
+            }
+            // --- End New Share Logic ---
 
             document.body.classList.add('no-scroll');
             modal.classList.remove('hidden');
@@ -1356,15 +1380,42 @@
                 showToast("ไม่สามารถคัดลอกได้", "error");
             });
         }
-        function shareInviteLink() {
+        
+        async function universalShare() {
+            const linkInput = document.getElementById('invite-link');
+            const shareData = {
+                title: 'มาสะสมแต้มกัน!',
+                text: 'มาเข้าร่วมโปรแกรมสะสมแต้มกับฉันสิ! กดลิงก์นี้เลย: ',
+                url: linkInput.value
+            };
+            try {
+                await navigator.share(shareData);
+                showToast('แชร์สำเร็จ!', 'success');
+            } catch(err) {
+                console.error("Share failed:", err);
+                showToast('การแชร์ล้มเหลว', 'error');
+            }
+        }
+
+        function shareOnTelegram() {
             const linkInput = document.getElementById('invite-link');
             const referralLink = linkInput.value;
-            // Use Telegram.WebApp.openTelegramLink to open Telegram's share dialog
-            // The URL should be for sharing a link/text
-            // This format opens the share dialog with the URL pre-filled
-            // telegram.me/share/url?url=<URL_TO_SHARE>&text=<OPTIONAL_TEXT>
             const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent('มาเข้าร่วมโปรแกรมสะสมแต้มกับฉันสิ! กดลิงก์นี้เลย: ')}`;
             window.Telegram.WebApp.openTelegramLink(shareUrl);
+        }
+
+        function shareOnLine() {
+            const linkInput = document.getElementById('invite-link');
+            const text = encodeURIComponent(`มาเข้าร่วมโปรแกรมสะสมแต้มกับฉันสิ!\n${linkInput.value}`);
+            const shareUrl = `https://line.me/R/msg/text/?${text}`;
+            window.open(shareUrl, '_blank');
+        }
+
+        function shareOnWhatsApp() {
+            const linkInput = document.getElementById('invite-link');
+            const text = encodeURIComponent(`มาเข้าร่วมโปรแกรมสะสมแต้มกับฉันสิ! ${linkInput.value}`);
+            const shareUrl = `https://api.whatsapp.com/send?text=${text}`;
+            window.open(shareUrl, '_blank');
         }
         // --- [END] Invite Logic ---
 
