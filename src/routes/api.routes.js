@@ -28,13 +28,14 @@ function verifyTelegramWebAppData(telegramInitData) {
     arr.sort((a, b) => a.localeCompare(b));
     const dataCheckString = arr.join('\n');
 
-    // Directly access process.env.ORDER_BOT_TOKEN here, bypassing getConfig potentially
+    // Directly access ORDER_BOT_TOKEN from environment variables here
+    // This bypasses potential issues with config cache or timing.
     const token = process.env.ORDER_BOT_TOKEN;
-    console.log('DEBUG: ORDER_BOT_TOKEN direct access in verifyTelegramWebAppData:', token ? '✅ FOUND' : '❌ MISSING'); // <<< Add this log
+    console.log('DEBUG: ORDER_BOT_TOKEN direct access in verifyTelegramWebAppData:', token ? '✅ FOUND' : '❌ MISSING'); // <<< Add this log to see the value at runtime
 
     if (!token) {
         console.error("FATAL: ORDER_BOT_TOKEN is missing. Cannot verify Telegram Web App data.");
-        return false;
+        return false; // Return false to indicate authentication failure
     }
 
     const secret = crypto.createHmac('sha256', 'WebAppData').update(token).digest();
