@@ -37,6 +37,14 @@ export async function loadConfig() {
         configCache[camelCaseKey] = process.env[key];
     });
 
+    // --- Railway specific fallback for PUBLIC_URL ---
+    // If PUBLIC_URL is not set, try to build it from Railway's provided env vars.
+    if (!configCache.publicUrl && process.env.RAILWAY_PUBLIC_DOMAIN) {
+        configCache.publicUrl = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
+        console.log(`✅ PUBLIC_URL not set, automatically using Railway domain: ${configCache.publicUrl}`);
+    }
+    // --- End Railway specific fallback ---
+
     console.log("👍 Configuration loaded.");
 }
 
