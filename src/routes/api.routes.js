@@ -7,14 +7,25 @@ import { addDays, formatToBangkok } from '../utils/date.utils.js';
 import { getCustomerByTelegramId, updateCustomer, countCampaignReferralsByTag } from '../services/customer.service.js';
 import { countMonthlyReferrals } from '../services/referral.service.js';
 import * as referralService from '../services/referral.service.js';
-import { orderBotToken } from '../../app.js'; // Import orderBotToken directly
+// import { orderBotToken } from '../../app.js'; // We will not import it directly from app.js due to issues
 
 const router = express.Router();
 
 console.log("✅ API Routes loaded successfully");
 
-// Modify verifyTelegramWebAppData to accept token as argument
-function verifyTelegramWebAppData(telegramInitData, token) {
+// Use a more robust way to get the token, directly from process.env
+function getOrderBotTokenForVerification() {
+    const token = process.env.ORDER_BOT_TOKEN;
+    if (!token) {
+        console.error("FATAL: ORDER_BOT_TOKEN is missing in getOrderBotTokenForVerification. Check Railway env vars.");
+        // In a deployed environment, this should ideally be handled at startup.
+        // Returning null/undefined here will cause verification to fail.
+    }
+    return token;
+}
+
+// Modify verifyTelegramWebAppData to take token internally
+function verifyTelegramWebAppData(telegramInitData) {
     if (!telegramInitData) {
         console.error("Error: telegramInitData is missing.");
         return false;
@@ -29,12 +40,15 @@ function verifyTelegramWebAppData(telegramInitData, token) {
     const hash = arr.splice(hashIndex, 1)[0].split('=')[1];
     arr.sort((a, b) => a.localeCompare(b));
     const dataCheckString = arr.join('\n');
-    
-    // Use the token passed as argument
-    console.log('DEBUG: ORDER_BOT_TOKEN received in verifyTelegramWebAppData:', token ? '✅ FOUND' : '❌ MISSING'); // <<< Log to verify token received
+
+    // Get the token right before use, directly from process.env
+    const token = getOrderBotTokenForVerification();
+    console.log('DEBUG: ORDER_BOT_TOKEN direct access in verifyTelegramWebAppData (inside function):', token ? '✅ FOUND' : '❌ MISSING'); // <<< Log to verify token received
 
     if (!token) {
-        console.error("FATAL: ORDER_BOT_TOKEN is missing. Cannot verify Telegram Web App data.");
+        // This FATAL error should have been caught at app startup by app.js
+        // But as a fallback, we explicitly log here and fail verification.
+        console.error("FATAL: ORDER_BOT_TOKEN is missing. Cannot verify Telegram Web App data. (Inside verifyTelegramWebAppData)");
         return false; // Return false to indicate authentication failure
     }
 
@@ -51,8 +65,8 @@ function verifyTelegramWebAppData(telegramInitData, token) {
 router.post('/auth', async (req, res) => {
     try {
         const { initData } = req.body;
-        // Pass the orderBotToken to the verification function
-        if (!verifyTelegramWebAppData(initData, orderBotToken)) { // <-- Pass orderBotToken here
+        // No longer pass token as argument, it's retrieved internally
+        if (!verifyTelegramWebAppData(initData)) {
             return res.status(401).json({ error: "Invalid Telegram Data" });
         }
 
