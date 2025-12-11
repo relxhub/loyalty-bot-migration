@@ -21,7 +21,15 @@ function verifyTelegramWebAppData(telegramInitData) {
     const hash = arr.splice(hashIndex, 1)[0].split('=')[1];
     arr.sort((a, b) => a.localeCompare(b));
     const dataCheckString = arr.join('\n');
+    
     const token = getConfig('orderBotToken'); 
+    
+    // Defensive check: If token is missing, authentication cannot proceed.
+    if (!token) {
+        console.error("FATAL: ORDER_BOT_TOKEN is missing. Cannot verify Telegram Web App data.");
+        return false;
+    }
+
     const secret = crypto.createHmac('sha256', 'WebAppData').update(token).digest();
     const _hash = crypto.createHmac('sha256', secret).update(dataCheckString).digest('hex');
     return _hash === hash;
