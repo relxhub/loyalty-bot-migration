@@ -7,7 +7,10 @@
     
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <!-- QR Code Styling Library -->
+    <script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0/lib/qr-code-styling.browser.min.js"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&amp;display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
 
     <style>
@@ -31,6 +34,7 @@
         .glass-card {
             background: rgba(255, 255, 255, 0.05);
             backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 20px;
         }
@@ -177,12 +181,51 @@
         #bottom-nav.hide {
             transform: translateY(150%); /* ซ่อนออกไปด้านล่าง */
         }
+
+        /* Styling for QR Code */
+        #qr-code-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+            background: transparent; /* QR Code จะถูก render ลง canvas/div */
+            padding: 10px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.05);
+        }
+        #qr-code-container canvas {
+            border-radius: 12px; /* ทำให้ QR Code มีขอบมน */
+        }
+
+        .download-qr-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 12px 20px;
+            color: white;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        .download-qr-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .download-qr-btn:active {
+            transform: scale(0.98);
+        }
+
     </style>
 </head>
 <body class="min-h-screen flex flex-col p-5 select-none overflow-x-hidden">
 
     <div class="header-actions">
-        <button class="refresh-btn" onclick="manualRefresh(); Telegram.WebApp.hapticFeedback.impactOccurred('light');">
+        <button class="refresh-btn" onclick="manualRefresh(); try { Telegram.WebApp.hapticFeedback.impactOccurred('medium'); } catch(e){}">
             <i class="ri-refresh-line text-xl"></i>
         </button>
     </div>
@@ -210,14 +253,14 @@
             <div class="space-y-4 text-left relative z-10">
                 <div>
                     <label class="text-xs text-gray-500 ml-1">รหัสสมาชิก</label>
-                    <input type="text" id="login-cust-id" placeholder="เช่น OT99999" class="w-full input-box rounded-xl p-4 text-white text-center tracking-wider uppercase text-lg placeholder-gray-600">
+                    <input type="text" id="login-cust-id" placeholder="เช่น MEM-888888" class="w-full input-box rounded-xl p-4 text-white text-center tracking-wider uppercase text-lg placeholder-gray-600">
                 </div>
                 <div>
                     <label class="text-xs text-gray-500 ml-1">รหัสยืนยัน 4 หลัก</label>
                     <input type="tel" id="login-verify-code" maxlength="4" placeholder="XXXX" class="w-full input-box rounded-xl p-4 text-white text-center tracking-[0.5em] text-xl placeholder-gray-600">
                 </div>
             </div>
-
+            
             <button onclick="submitLogin()" class="w-full mt-8 py-4 bg-gradient-to-r from-[#F22233] to-[#F24E29] hover:from-blue-500 hover:to-blue-400 rounded-xl font-bold text-lg text-white shadow-lg shadow-[#F22233]/30 transition active:scale-95 relative z-10">
                 เข้าสู่ระบบ
             </button>
@@ -236,14 +279,14 @@
         
         <div class="flex items-center space-x-4">
             <div class="relative">
-                <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-[#F2A71B] to-[#F28627] flex items-center justify-center text-2xl shadow-lg shadow-blue-500/20">
+                <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-[#F2A71B] to-[#F28627] text-white rounded-full flex items-center justify-center text-4xl shadow-lg shadow-blue-500/20">
                     👤
                 </div>
                 <div class="absolute -bottom-1 -right-1 bg-green-500 w-4 h-4 rounded-full border-2 border-[#18181b]"></div>
             </div>
             <div>
                 <h2 id="user-name" class="text-xl font-bold leading-tight">...</h2>
-                <p class="text-xs text-[var(--hint-color)]">ID: <span id="user-id">...</span></p>
+                <p class="text-xs text-gray-400">ID: <span id="user-id">...</span></p>
             </div>
         </div>
 
@@ -254,7 +297,7 @@
             
             <p class="text-sm text-gray-300 mb-1">คะแนนสะสมของคุณ</p>
             <div class="flex items-baseline space-x-2">
-                <h1 id="user-points" class="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#F2A71B] to-[#F24E29]">0</h1>
+                <h1 id="user-points" class="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#F2A71B] to-[#F28627]">0</h1>
                 <span class="text-sm text-yellow-500 font-medium">Points</span>
             </div>
             
@@ -263,7 +306,7 @@
                     หมดอายุ: <span id="expiry-date" class="text-white">...</span>
                 </div>
                 <button 
-                    onclick="openHistoryModal(); try { Telegram.WebApp.hapticFeedback.impactOccurred('medium'); } catch(e) {}" 
+                    onclick="openHistoryModal(); try { Telegram.WebApp.hapticFeedback.impactOccurred('medium'); } catch(e){}" 
                     class="bg-white/5 hover:bg-white/10 p-4 rounded-2xl flex flex-col items-center justify-center gap-2 transition group">
                     
                     <div class="w-10 h-10 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xl group-hover:scale-110 transition">
@@ -278,7 +321,7 @@
         <div id="mission-box" onclick="openCampaignModal()" class="glass-card p-5 hidden relative overflow-hidden border border-yellow-500/50 shadow-[0_0_15px_rgba(234,179,8,0.15)] group transition active:scale-95 cursor-pointer">
             <!-- Sparkle Effect -->
             <div class="absolute -top-10 -right-10 w-20 h-20 bg-yellow-500/20 rounded-full blur-2xl animate-pulse"></div>
-
+            
             <div class="flex justify-between items-start mb-3 relative z-10">
                 <div>
                     <div class="font-bold text-sm text-yellow-400 flex items-center gap-2">
@@ -330,7 +373,7 @@
         <!-- [END] Mission Box -->
 
         <!-- [START] Friends You Referred Box (Always Visible) -->
-        <div class="glass-card p-5 group cursor-pointer transition active:scale-95" onclick="openReferralModal(); try { Telegram.WebApp.hapticFeedback.impactOccurred('medium'); } catch(e) {}">
+        <div class="glass-card p-5 group cursor-pointer transition active:scale-95" onclick="openReferralModal(); try { Telegram.WebApp.hapticFeedback.impactOccurred('medium'); } catch(e){}">
             <div class="mb-4 font-semibold text-sm flex items-center gap-2 text-blue-100">
                 <i class="ri-team-fill text-[#F22233]"></i> เพื่อนที่คุณแนะนำ
             </div>
@@ -374,18 +417,18 @@
 
     </div>
 
-    <div id="link-modal" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 hidden opacity-0 transition-opacity duration-300">
+    <div id="link-modal" class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/80 hidden opacity-0 transition-opacity duration-300">
         <div class="glass-card p-6 w-[90%] max-w-sm scale-95 transition-transform duration-300 transform" id="link-modal-content">
             <div class="text-center mb-6">
                 <div class="w-16 h-16 bg-[#F22233]/20 text-[#F22233] rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">🔗</div>
-                <h3 class="text-xl font-bold mb-2">เชื่อมบัญชีสมาชิก</h3>
+                <h3 class="text-xl font-bold mb-2 text-white">เชื่อมบัญชีสมาชิก</h3>
                 <p class="text-sm text-gray-400 mb-4">กรุณากรอกข้อมูลเพื่อดึงแต้มเดิมของคุณ</p>
             </div>
             
             <div class="space-y-4">
                 <div>
                     <label class="text-xs text-gray-500 ml-1">รหัสลูกค้า</label>
-                    <input type="text" id="link-code" placeholder="เช่น MEM-888888" class="w-full bg-black/30 border border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-[#F22233] text-center tracking-wider uppercase">
+                    <input type="text" id="login-cust-id" placeholder="เช่น MEM-888888" class="w-full bg-black/30 border border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-[#F22233] text-center tracking-wider uppercase">
                 </div>
                 <div>
                     <label class="text-xs text-gray-500 ml-1">รหัสยืนยัน 4 หลัก</label>
@@ -395,7 +438,7 @@
             
             <div class="flex space-x-3 mt-8">
                 <button onclick="closeLinkModal()" class="flex-1 py-3 rounded-xl bg-gray-700 hover:bg-gray-600 transition text-sm">ไว้ทีหลัง</button>
-                <button onclick="submitLinkAccount()" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#F22233] to-[#F24E29] hover:from-blue-500 hover:to-blue-400 font-bold transition shadow-lg shadow-[#F22233]/30">ยืนยัน</button>
+                <button onclick="submitLogin()" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#F22233] to-[#F24E29] hover:from-blue-500 hover:to-blue-400 font-bold transition shadow-lg shadow-[#F22233]/30">ยืนยัน</button>
             </div>
         </div>
     </div>
@@ -403,6 +446,7 @@
     <!-- Invite Modal -->
     <div id="invite-modal" class="hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/90 backdrop-blur-md opacity-0 transition-opacity duration-300">
         <div class="glass-card w-full max-w-md p-6 rounded-t-3xl sm:rounded-2xl flex flex-col transform translate-y-full transition-transform duration-300" id="invite-content">
+            
             <div class="flex justify-between items-center mb-6">
                 <h3 class="text-xl font-bold text-white flex items-center gap-2">
                     <i class="ri-user-add-line text-[#F22233]"></i> ชวนเพื่อน
@@ -416,14 +460,14 @@
                 <div class="bg-white/5 p-4 rounded-xl border border-white/10 text-center">
                     <p class="text-sm text-gray-400 mb-2">ลิงก์แนะนำของคุณ</p>
                     <div class="flex items-center gap-2 bg-black/30 p-2 rounded-lg">
-                        <input type="text" id="invite-link" readonly class="bg-transparent w-full text-sm text-green-400 font-mono outline-none text-center" value="กำลังสร้างลิงก์...">
+                        <input type="text" id="invite-link" readonly class="bg-transparent w-full text-sm text-green-400 font-mono outline-none text-center">
                         <button onclick="copyInviteLink()" class="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition text-white">
                             <i class="ri-file-copy-line"></i>
                         </button>
                     </div>
                 </div>
 
-                <button onclick="universalShare()" id="universal-share-btn" class="w-full py-3 bg-gradient-to-r from-[#F22233] to-[#F24E29] rounded-xl font-bold text-white shadow-lg transition active:scale-95 flex items-center justify-center gap-2">
+                <button onclick="universalShare()" id="universal-share-btn" class="w-full py-3 bg-gradient-to-r from-[#F22233] to-[#F24E29] hover:from-blue-500 hover:to-blue-400 rounded-xl font-bold text-white shadow-lg shadow-[#F22233]/30 transition active:scale-95 flex items-center justify-center gap-2">
                     <i class="ri-share-forward-fill text-xl"></i> แชร์ลิงก์ให้เพื่อน
                 </button>
 
@@ -475,7 +519,7 @@
             </div>
             
             <h2 class="text-3xl font-bold mb-2 text-white relative z-10">ยินดีต้อนรับ!</h2>
-            <p class="text-gray-300 mb-8 relative z-10" id="success-msg">เชื่อมต่อบัญชีสำเร็จเรียบร้อย</p>
+            <p class="text-gray-300 mb-8 relative z-10" id="success-msg">เชื่อมต่อบัญชีสำเร็จ! คุณได้รับ 100 แต้ม</p>
             
             <button onclick="closeSuccessModal()" class="w-full py-4 bg-green-600 hover:bg-green-500 rounded-xl font-bold text-lg text-white shadow-lg transition active:scale-95 relative z-10">
                 เข้าสู่หน้าหลัก
@@ -483,7 +527,7 @@
         </div>
     </div>
 
-    <div id="history-modal" class="hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm opacity-0 transition-opacity duration-300">
+    <div id="history-modal" class="hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md opacity-0 transition-opacity duration-300">
         <div class="glass-card w-full max-w-md h-[80vh] sm:h-[600px] rounded-t-3xl sm:rounded-2xl flex flex-col transform translate-y-full transition-transform duration-300" id="history-content">
             
             <div class="p-5 border-b border-gray-700 flex justify-between items-center bg-black/20">
@@ -496,7 +540,7 @@
             </div>
 
             <div id="history-list" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-                <div class="text-center text-gray-500 mt-10">กำลังโหลด...</div>
+                <div class="text-center text-gray-500 mt-10 animate-pulse">กำลังโหลด...</div>
             </div>
         </div>
     </div>
@@ -523,13 +567,13 @@
                 <div class="text-center mb-6">
                     <h3 class="text-2xl font-bold text-yellow-400 mb-1" id="modal-camp-name">Campaign Name</h3>
                     <p class="text-xs text-gray-400 flex justify-center items-center gap-2">
-                        <i class="ri-calendar-event-line"></i> <span id="modal-camp-dates">... - ...</span>
+                        <i class="ri-calendar-event-line"></i> <span id="mission-dates">... - ...</span>
                     </p>
                 </div>
 
                 <div class="space-y-4">
                     <!-- Rule 1: Per Person -->
-                    <div class="flex items-center gap-4 bg-white/5 p-4 rounded-xl border border-white/5">
+                    <div class="flex items-center gap-4 bg-white/5 p-4 rounded-xl border border-white/10">
                         <div class="w-12 h-12 rounded-full bg-[#F22233]/20 text-[#F22233] flex items-center justify-center text-xl">
                             <i class="ri-user-add-line"></i>
                         </div>
@@ -565,26 +609,23 @@
     <div id="referral-modal" class="hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/90 backdrop-blur-md opacity-0 transition-opacity duration-300">
         <div class="glass-card w-full max-w-md h-[85vh] sm:h-[650px] rounded-t-3xl sm:rounded-2xl flex flex-col transform translate-y-full transition-transform duration-300" id="referral-content">
             
-            <div class="p-6 border-b border-gray-700 bg-gradient-to-r from-[#F22233]/50 to-[#F24E29]/50 rounded-t-3xl sm:rounded-t-2xl">
-                <div class="flex justify-between items-center mb-2">
-                    <h3 class="text-xl font-bold flex items-center gap-2 text-white">
-                        <i class="ri-team-line text-[#F22233]"></i> ผู้ที่ถูกคุณแนะนำ
-                    </h3>
-                    <button onclick="closeReferralModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition text-white">
-                        <i class="ri-close-line"></i>
-                    </button>
-                </div>
-                <p class="text-xs text-gray-400">ข้อมูลเชิงลึก แสดงความสำเร็จจากการแนะนำเพื่อน</p>
+            <div class="p-6 border-b border-gray-700 flex justify-between items-center bg-black/20">
+                <h3 class="text-xl font-bold flex items-center gap-2 text-white">
+                    <i class="ri-team-line text-[#F22233]"></i> ผู้ที่ถูกคุณแนะนำ
+                </h3>
+                <button onclick="closeReferralModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition text-white">
+                    <i class="ri-close-line"></i>
+                </button>
             </div>
 
             <div class="grid grid-cols-2 gap-3 p-4">
                 <div class="bg-white/5 rounded-xl p-3 text-center border border-white/10">
                     <div class="text-xs text-gray-400">สมาชิกที่คุณแนะนำ</div>
-                    <div class="text-2xl font-bold text-[#F22233]" id="ref-total-count">0</div>
+                    <div class="text-2xl font-bold text-white tracking-wide" id="ref-total-count">0</div>
                 </div>
                 <div class="bg-white/5 rounded-xl p-3 text-center border border-white/10">
                     <div class="text-xs text-gray-400">โบนัสที่ได้รับ (จากคนเหล่านี้)</div>
-                    <div class="text-2xl font-bold text-yellow-400" id="ref-total-earned">0</div>
+                    <div class="text-2xl font-bold text-green-400 tracking-wide" id="ref-total-earned">0</div>
                 </div>
             </div>
 
@@ -750,9 +791,9 @@
                 await refreshUserData();
 
             } catch (error) {
-                console.error("Initialization Error:", error);
-                tg.showAlert("เกิดข้อผิดพลาดในการเริ่มต้น: " + error.message);
-                showLoginScreen();
+                console.error("Critical Error in initApp:", error);
+                showToast(error.message || "เกิดข้อผิดพลาดในการเริ่มต้น", 'error');
+                showLoginScreen(); // Fallback to login screen
             }
         }
 
@@ -772,6 +813,18 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ initData: tg.initData })
                 });
+                
+                // Check if the response is OK before parsing JSON
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    // If it's a 401 or 404, show the login screen
+                    if (response.status === 401 || response.status === 404) {
+                        throw new Error(errorData.message || "Authentication failed. Please log in again.");
+                    } else {
+                        // For other errors, just log and show a generic message
+                        throw new Error(`Request failed: ${response.statusText}`);
+                    }
+                }
                 
                 const authData = await response.json();
                 console.log("[Referral Flow] Auth response:", authData);
@@ -852,7 +905,10 @@
             }
 
             if (!tg.initData) {
-                // ... (ส่วน Demo Mode เหมือนเดิม) ...
+                // --- DEMO MODE ---
+                // If Telegram Web App data is not available (e.g. running in a browser directly),
+                // simulate a logged-in state for demonstration purposes.
+                console.log("[Init] DEMO MODE: Telegram Web App data not available.");
                 isMember = false; 
                 user = { firstName: "Demo", customerId: "MEM-9999", points: 0, referralCount: 0 };
             } else {
@@ -863,26 +919,39 @@
                         body: JSON.stringify({ initData: tg.initData })
                     });
                     
-                    if(!response.ok) throw new Error("Auth Failed");
+                    // Check if the response is OK before parsing JSON
+                    if(!response.ok) {
+                        const errorData = await response.json();
+                        // If it's a 401 or 404, show the login screen
+                        if (response.status === 401 || response.status === 404) {
+                            throw new Error(errorData.message || "Authentication failed. Please log in again.");
+                        } else {
+                            // For other errors, just log and show a generic message
+                            throw new Error(`Request failed: ${response.statusText}`);
+                        }
+                    }
+                    
                     const data = await response.json();
                     isMember = data.isMember;
                     user = data.customer;
                 } catch (e) {
-                    console.error(e);
-                    return; // ถ้า Error ตอน Auto Refresh ก็ข้ามไปเลย ไม่ต้องฟ้อง User
+                    console.error("Error fetching user data:", e);
+                    // If there's an error, show the login screen unless it's a silent refresh
+                    if (!isSilent) {
+                        showToast(e.message || "เกิดข้อผิดพลาดในการดึงข้อมูล", 'error');
+                        showLoginScreen();
+                    }
+                    return; // Stop execution if there was an error
                 }
             }
 
-            // ปิด Loading Screen เสมอเมื่อเสร็จ
+            // Close Loading Screen
             document.getElementById('loading-screen').classList.add('hidden');
 
             if (isMember) {
                 window.currentUser = user; // Cache User Data
                 renderUser(user);
-                
-                // เรียกฟังก์ชันแจ้งเตือน (Toast) ที่เราทำไว้
-                // ส่ง isSilent ไปด้วย เพื่อบอกว่าถ้าเป็นการ Auto Refresh ให้เตือนเฉพาะแต้มขึ้น
-                checkNotifications(user, isSilent); 
+                checkNotifications(user, isSilent);
             } else {
                 if (!isSilent) showLoginScreen();
             }
@@ -891,7 +960,13 @@
         function showLoginScreen() {
             document.getElementById('loading-screen').classList.add('hidden');
             document.getElementById('app-content').classList.add('hidden');
-            document.getElementById('success-modal').classList.add('hidden'); // ซ่อน Modal ถ้ามี
+            document.getElementById('success-modal').classList.add('hidden'); // Hide success modal if visible
+            document.getElementById('link-modal').classList.add('hidden');   
+            document.getElementById('invite-modal').classList.add('hidden'); // Hide invite modal if visible
+            document.getElementById('rewards-modal').classList.add('hidden'); // Hide rewards modal if visible
+            document.getElementById('campaign-modal').classList.add('hidden'); // Hide campaign modal if visible
+            document.getElementById('referral-modal').classList.add('hidden'); // Hide referral modal if visible
+
             document.getElementById('login-screen').classList.remove('hidden');
 
             const refreshBtn = document.querySelector('.refresh-btn');
@@ -899,9 +974,8 @@
         }
 
 
-
         function renderUser(user) {
-            // ปิดทุกหน้า เปิด Dashboard
+            // Hide other screens, show dashboard
             document.getElementById('loading-screen').classList.add('hidden');
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('success-modal').classList.add('hidden');
@@ -1027,7 +1101,7 @@
                     if (user.campaignStartAt && user.campaignEndAt) {
                          const dStart = new Date(user.campaignStartAt);
                          const dEnd = new Date(user.campaignEndAt);
-                         const fmt = { day: 'numeric', month: 'short' };
+                         const fmt = { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' };
                          document.getElementById('mission-dates').innerText = `${dStart.toLocaleDateString('th-TH', fmt)} - ${dEnd.toLocaleDateString('th-TH', fmt)}`;
                     } else {
                          document.getElementById('mission-dates').innerText = 'ระยะเวลาจำกัด';
@@ -1139,7 +1213,6 @@
         }
 
 
-
         function openLinkModal() {
             hideBottomNav(); // Hide nav bar when modal opens
             const modal = document.getElementById('link-modal');
@@ -1204,38 +1277,45 @@
                 content.classList.remove('translate-y-full');
             }, 10);
 
-            // ... (ส่วนเรียก API เหมือนเดิม ไม่ต้องแก้) ...
             try {
-                const telegramId = tg.initDataUnsafe?.user?.id;
+                // Use cached user ID if available (fixes browser testing issues)
+                const telegramId = window.currentUser?.telegramUserId || tg.initDataUnsafe?.user?.id;
+
+                if (!telegramId) {
+                    throw new Error("User ID not found");
+                }
                 const res = await fetch(`/api/history/${telegramId}`);
                 const data = await res.json();
-                // ... (โค้ด Render HTML เดิม) ...
+                
                 if (data.logs && data.logs.length > 0) {
-                    let html = '';
-                    data.logs.forEach(item => {
-                        // ... (โค้ด HTML เดิม) ...
+                    let html = '<div class="space-y-3">'; // Start with space-y for spacing
+                    data.logs.forEach((item, index) => {
                         const colorClass = item.isPositive ? 'text-green-400' : 'text-red-400';
                         const icon = item.isPositive ? 'ri-arrow-up-circle-fill' : 'ri-arrow-down-circle-fill';
                         html += `
-                            <div class="bg-white/5 p-3 rounded-xl flex justify-between items-center">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center ${colorClass} text-xl">
-                                        <i class="${icon}"></i>
-                                    </div>
-                                    <div>
-                                        <div class="font-medium text-sm">${item.action}</div>
-                                        <div class="text-xs text-gray-500">${item.date}</div>
-                                    </div>
+                        <div class="bg-white/5 p-3 rounded-xl border border-white/10 flex items-center justify-between group cursor-pointer transition item-hover-effect" style="animation-delay: ${index * 60}ms" onclick="toggleTier2('${item.id}')">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center ${colorClass} text-xl">
+                                    <i class="${icon}"></i>
                                 </div>
-                                <div class="font-bold ${colorClass}">${item.points}</div>
-                            </div>`;
+                                <div>
+                                    <div class="font-medium text-sm">${item.action}</div>
+                                    <div class="text-xs text-gray-500">${item.date}</div>
+                                </div>
+                            </div>
+                            <div class="font-bold ${colorClass}">${item.points}</div>
+                        </div>`;
                     });
+                    html += '</div>';
                     list.innerHTML = html;
                 } else {
-                    list.innerHTML = '<div class="text-center text-gray-500 mt-10">ไม่พบประวัติรายการ</div>';
+                    list.innerHTML = `<div class="flex flex-col items-center justify-center h-full text-gray-500 opacity-60"><i class="ri-history-line text-6xl mb-4"></i><p>ยังไม่มีประวัติรายการ</p></div>`;
                 }
             } catch (e) {
-                list.innerHTML = '<div class="text-center text-red-400 mt-10">โหลดข้อมูลไม่สำเร็จ</div>';
+                console.error("Error in openHistoryModal:", e);
+                list.innerHTML = '<div class="text-center text-red-400 mt-10">เกิดข้อผิดพลาดในการโหลดข้อมูล</div>';
+                // Also show a toast notification for critical errors
+                showToast(e.message || "เกิดข้อผิดพลาดในการโหลดประวัติ", 'error');
             }
         }
 
@@ -1271,31 +1351,35 @@
                 const rewards = await res.json();
 
                 if (rewards && rewards.length > 0) {
-                    let html = '<div class="grid grid-cols-2 gap-3">';
+                    let html = '<div class="grid grid-cols-2 gap-3">'; // Start with grid for rewards
                     rewards.forEach(item => {
+                        // Add a check for item.points to ensure it exists
+                        const pointsDisplay = (item.points !== undefined && item.points !== null) ? `${item.points.toLocaleString()} pts` : 'N/A pts';
+
                         html += `
-                        <div class="bg-white/5 p-4 rounded-xl border border-white/10 flex flex-col items-center text-center group hover:bg-white/10 transition">
-                            <div class="w-16 h-16 rounded-full bg-[#F22233]/20 text-[#F22233] flex items-center justify-center text-3xl mb-3 shadow-[0_0_15px_rgba(168,85,247,0.3)] group-hover:scale-110 transition">
-                                <i class="ri-gift-2-fill"></i>
-                            </div>
-                            <div class="font-bold text-sm text-white mb-1 line-clamp-2 min-h-[2.5em]">${item.name}</div>
-                            <div class="text-yellow-400 font-bold text-sm bg-yellow-500/10 px-3 py-1 rounded-full border border-yellow-500/20">
-                                ${item.points.toLocaleString()} pts
-                            </div>
-                        </div>`;
+                    <div class="bg-white/5 p-3 rounded-xl border border-white/10 flex flex-col items-center text-center group hover:bg-white/10 transition item-hover-effect">
+                        <div class="w-16 h-16 rounded-full bg-[#F22233]/20 text-[#F22233] flex items-center justify-center text-3xl mb-3 shadow-[0_0_15px_rgba(168,85,247,0.3)] group-hover:scale-110 transition">
+                            <i class="ri-gift-2-fill"></i>
+                        </div>
+                        <div class="font-bold text-sm text-white mb-1 line-clamp-2 min-h-[2.5em]">${item.name}</div>
+                        <div class="text-yellow-400 font-bold text-sm bg-yellow-500/10 px-3 py-1 rounded-full border border-yellow-500/20">
+                            ${pointsDisplay}
+                        </div>
+                    </div>`;
                     });
                     html += '</div>';
                     list.innerHTML = html;
                 } else {
                     list.innerHTML = `
-                        <div class="flex flex-col items-center justify-center h-full text-gray-500 opacity-60">
-                            <i class="ri-gift-line text-6xl mb-4"></i>
-                            <p>ยังไม่มีของรางวัลในขณะนี้</p>
-                        </div>`;
+                    <div class="flex flex-col items-center justify-center h-full text-gray-500 opacity-60">
+                        <i class="ri-gift-line text-6xl mb-4"></i>
+                        <p>ยังไม่มีของรางวัลในขณะนี้</p>
+                    </div>`;
                 }
             } catch (e) {
-                console.error(e);
+                console.error("Error in openRewardsModal:", e);
                 list.innerHTML = '<div class="text-center text-red-400 mt-10">โหลดข้อมูลไม่สำเร็จ</div>';
+                showToast("เกิดข้อผิดพลาดในการโหลดของรางวัล", 'error');
             }
         }
 
@@ -1318,11 +1402,12 @@
             const content = document.getElementById('invite-content');
             const linkInput = document.getElementById('invite-link');
 
-                    // Generate Link
-                    const botUsername = getConfig('orderBotUsername', 'YOUR_ORDER_BOT_USERNAME_HERE'); // Use config value
-                    const link = `https://t.me/${botUsername}/app?startapp=ref_${userId}`;
-                    linkInput.value = link;
-                        
+            // Generate Link
+            const botUsername = getConfig('orderBotUsername', 'YOUR_ORDER_BOT_USERNAME_HERE'); // Use config value
+            const userId = window.currentUser?.customerId || "UNKNOWN";
+            const link = `https://t.me/${botUsername}/app?startapp=ref_${userId}`;
+            linkInput.value = link;
+            
             // --- New Share Logic ---
             const universalBtn = document.getElementById('universal-share-btn');
             const fallbackContainer = document.getElementById('fallback-share-container');
@@ -1431,7 +1516,6 @@
                 if (!telegramId) {
                     throw new Error("User ID not found");
                 }
-
                 const res = await fetch(`/api/referrals/${telegramId}`);
                 const result = await res.json();
 
@@ -1449,55 +1533,56 @@
                             : `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 text-[9px] border border-purple-500/30"><i class="ri-flashlight-fill"></i> ${item.campaign}</span>`;
 
                         html += `
-                        <div class="bg-white/5 p-3 rounded-xl border border-white/10 space-y-2 transition item-hover-effect list-item-animate ${hasTier2 ? 'cursor-pointer' : ''}" style="animation-delay: ${index * 60}ms" ${hasTier2 ? `onclick="toggleTier2('${item.id}')"` : ''}>
-                            <div class="flex justify-between items-start">
-                                <div class="flex items-center gap-2">
-                                    <i id="ref-icon-${item.id}" class="ri-arrow-right-s-line text-gray-500 transition-transform ${hasTier2 ? '' : 'invisible'}"></i>
-                                    <span class="font-mono font-bold text-[#F22233] text-sm">${item.id}</span>
-                                </div>
-                                <span class="font-bold text-lg text-yellow-400 flex items-center gap-1.5">
-                                    <i class="ri-copper-coin-line"></i> +${item.earned}
-                                </span>
+                    <div class="bg-white/5 p-3 rounded-xl border border-white/10 space-y-2 transition item-hover-effect list-item-animate ${hasTier2 ? 'cursor-pointer' : ''}" style="animation-delay: ${index * 60}ms" ${hasTier2 ? `onclick="toggleTier2('${item.id}')"` : ''}>
+                        <div class="flex justify-between items-start">
+                            <div class="flex items-center gap-2">
+                                <i id="ref-icon-${item.id}" class="ri-arrow-right-s-line text-gray-500 transition-transform ${hasTier2 ? '' : 'invisible'}"></i>
+                                <span class="font-mono font-bold text-[#F22233] text-sm">${item.id}</span>
                             </div>
-                            <div class="flex justify-between items-center text-xs text-gray-400 pt-1 border-t border-white/5">
-                                ${campaignBadge}
-                                <span class="flex items-center gap-1.5">
-                                    <i class="ri-calendar-check-line"></i>
-                                    <span>${item.joinedAt}</span>
-                                </span>
-                            </div>`;
-                        
-                        if (hasTier2) {
-                            html += `<div id="tier2-list-${item.id}" class="tier2-list pt-2 mt-2 border-t border-white/20 space-y-1 pl-5">`;
-                            item.tier2Referrals.forEach(t2 => {
-                                html += `
-                                <div class="flex justify-between items-center text-xs">
-                                    <span class="font-mono text-gray-400">${t2.id}</span>
-                                    <span class="text-gray-500">${t2.joinDate}</span>
-                                </div>`;
-                            });
-                            html += `</div>`;
-                        }
-
-                        html += `</div>`;
-                    });
-                    list.innerHTML = html;
-                } else {
-                    document.getElementById('ref-total-count').innerText = "0";
-                    document.getElementById('ref-total-earned').innerText = "0";
-                    list.innerHTML = `
-                        <div class="flex flex-col items-center justify-center h-full text-gray-500 opacity-60">
-                            <i class="ri-team-line text-6xl mb-4"></i>
-                            <p>ยังไม่มีผู้ถูกแนะนำ</p>
-                            <button onclick="handleAction('invite')" class="mt-4 px-4 py-2 bg-[#F22233] rounded-lg text-white text-sm">
-                                เริ่มแนะนำเพื่อนเลย!
-                            </button>
+                            <span class="font-bold text-lg text-yellow-400 flex items-center gap-1.5">
+                                <i class="ri-copper-coin-line"></i> +${item.earned}
+                            </span>
+                        </div>
+                        <div class="flex justify-between items-center text-xs text-gray-400 pt-1 border-t border-white/5">
+                            ${campaignBadge}
+                            <span class="flex items-center gap-1.5">
+                                <i class="ri-calendar-check-line"></i>
+                                <span>${item.joinedAt}</span>
+                            </span>
                         </div>`;
-                }
-                } catch (e) {
-                    console.error("Error in openReferralModal:", e);
-                    list.innerHTML = '<div class="text-center text-red-400 mt-10">เกิดข้อผิดพลาดในการโหลด (v3)</div>';
-                }        }
+                    
+                    if (hasTier2) {
+                        html += `<div id="tier2-list-${item.id}" class="tier2-list pt-2 mt-2 border-t border-white/20 space-y-1 pl-5">`;
+                        item.tier2Referrals.forEach(t2 => {
+                            html += `
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="font-mono text-gray-400">${t2.id}</span>
+                                <span class="text-gray-500">${t2.joinDate}</span>
+                            </div>`;
+                        });
+                        html += `</div>`;
+                    }
+
+                    html += `</div>`;
+                });
+                list.innerHTML = html;
+            } else {
+                document.getElementById('ref-total-count').innerText = "0";
+                document.getElementById('ref-total-earned').innerText = "0";
+                list.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-full text-gray-500 opacity-60">
+                    <i class="ri-team-line text-6xl mb-4"></i>
+                    <p>ยังไม่มีผู้ถูกแนะนำ</p>
+                    <button onclick="handleAction('invite')" class="mt-4 px-4 py-2 bg-[#F22233] rounded-lg text-white text-sm">
+                        เริ่มแนะนำเพื่อนเลย!
+                    </button>
+                </div>`;
+            }
+            } catch (e) {
+                console.error("Error in openReferralModal:", e);
+                list.innerHTML = '<div class="text-center text-red-400 mt-10">เกิดข้อผิดพลาดในการโหลด (v3)</div>';
+            }
+        }
 
         function closeReferralModal() {
             showBottomNav(); // Show nav bar when modal closes
@@ -1566,9 +1651,9 @@
                  const dStart = new Date(user.campaignStartAt);
                  const dEnd = new Date(user.campaignEndAt);
                  const fmt = { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' };
-                 document.getElementById('modal-camp-dates').innerText = `${dStart.toLocaleDateString('th-TH', fmt)} - ${dEnd.toLocaleDateString('th-TH', fmt)}`;
+                 document.getElementById('mission-dates').innerText = `${dStart.toLocaleDateString('th-TH', fmt)} - ${dEnd.toLocaleDateString('th-TH', fmt)}`;
             } else {
-                 document.getElementById('modal-camp-dates').innerText = 'ระยะเวลาจำกัด';
+                 document.getElementById('mission-dates').innerText = 'ระยะเวลาจำกัด';
             }
 
             // Show
