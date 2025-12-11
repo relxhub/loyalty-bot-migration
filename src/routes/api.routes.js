@@ -7,12 +7,14 @@ import { addDays, formatToBangkok } from '../utils/date.utils.js';
 import { getCustomerByTelegramId, updateCustomer, countCampaignReferralsByTag } from '../services/customer.service.js';
 import { countMonthlyReferrals } from '../services/referral.service.js';
 import * as referralService from '../services/referral.service.js';
+import { orderBotToken } from '../../app.js'; // Import orderBotToken directly
 
 const router = express.Router();
 
 console.log("✅ API Routes loaded successfully");
 
-function verifyTelegramWebAppData(telegramInitData) {
+// Modify verifyTelegramWebAppData to accept token as argument
+function verifyTelegramWebAppData(telegramInitData, token) {
     if (!telegramInitData) {
         console.error("Error: telegramInitData is missing.");
         return false;
@@ -27,11 +29,9 @@ function verifyTelegramWebAppData(telegramInitData) {
     const hash = arr.splice(hashIndex, 1)[0].split('=')[1];
     arr.sort((a, b) => a.localeCompare(b));
     const dataCheckString = arr.join('\n');
-
-    // Directly access ORDER_BOT_TOKEN from environment variables here
-    // This bypasses potential issues with config cache or timing.
-    const token = process.env.ORDER_BOT_TOKEN;
-    console.log('DEBUG: ORDER_BOT_TOKEN direct access in verifyTelegramWebAppData:', token ? '✅ FOUND' : '❌ MISSING'); // <<< Add this log to see the value at runtime
+    
+    // Use the token passed as argument
+    console.log('DEBUG: ORDER_BOT_TOKEN received in verifyTelegramWebAppData:', token ? '✅ FOUND' : '❌ MISSING'); // <<< Log to verify token received
 
     if (!token) {
         console.error("FATAL: ORDER_BOT_TOKEN is missing. Cannot verify Telegram Web App data.");
@@ -51,7 +51,8 @@ function verifyTelegramWebAppData(telegramInitData) {
 router.post('/auth', async (req, res) => {
     try {
         const { initData } = req.body;
-        if (!verifyTelegramWebAppData(initData)) {
+        // Pass the orderBotToken to the verification function
+        if (!verifyTelegramWebAppData(initData, orderBotToken)) { // <-- Pass orderBotToken here
             return res.status(401).json({ error: "Invalid Telegram Data" });
         }
 
