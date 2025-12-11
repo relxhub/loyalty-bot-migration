@@ -1318,12 +1318,11 @@
             const content = document.getElementById('invite-content');
             const linkInput = document.getElementById('invite-link');
 
-            // Generate Link
-            const botUsername = "ONEHUB_Customer_Backup_Bot"; 
-            const userId = window.currentUser?.customerId || "UNKNOWN";
-            const link = `https://t.me/${botUsername}/app?startapp=ref_${userId}`;
-            linkInput.value = link;
-            
+                    // Generate Link
+                    const botUsername = getConfig('orderBotUsername', 'YOUR_ORDER_BOT_USERNAME_HERE'); // Use config value
+                    const link = `https://t.me/${botUsername}/app?startapp=ref_${userId}`;
+                    linkInput.value = link;
+                        
             // --- New Share Logic ---
             const universalBtn = document.getElementById('universal-share-btn');
             const fallbackContainer = document.getElementById('fallback-share-container');
