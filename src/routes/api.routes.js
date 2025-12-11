@@ -13,26 +13,31 @@ const router = express.Router();
 console.log("✅ API Routes loaded successfully");
 
 function verifyTelegramWebAppData(telegramInitData) {
-    if (!telegramInitData) return false;
+    if (!telegramInitData) {
+        console.error("Error: telegramInitData is missing.");
+        return false;
+    }
     const encoded = decodeURIComponent(telegramInitData);
     const arr = encoded.split('&');
     const hashIndex = arr.findIndex(str => str.startsWith('hash='));
-    if (hashIndex === -1) return false;
+    if (hashIndex === -1) {
+        console.error("Error: Hash parameter not found in initData.");
+        return false;
+    }
     const hash = arr.splice(hashIndex, 1)[0].split('=')[1];
     arr.sort((a, b) => a.localeCompare(b));
     const dataCheckString = arr.join('\n');
-    
-    const token = getConfig('orderBotToken'); 
-    
-    // Defensive check: If token is missing, authentication cannot proceed.
+
+    // Directly access process.env.ORDER_BOT_TOKEN here, bypassing getConfig potentially
+    const token = process.env.ORDER_BOT_TOKEN;
+    console.log('DEBUG: ORDER_BOT_TOKEN direct access in verifyTelegramWebAppData:', token ? '✅ FOUND' : '❌ MISSING'); // <<< Add this log
+
     if (!token) {
         console.error("FATAL: ORDER_BOT_TOKEN is missing. Cannot verify Telegram Web App data.");
         return false;
     }
 
     const secret = crypto.createHmac('sha256', 'WebAppData').update(token).digest();
-    const _hash = crypto.createHmac('sha256', secret).update(dataCheckString).digest('hex');
-    return _hash === hash;
 }
 
 // ==================================================
