@@ -1,10 +1,10 @@
-// app.js (ฉบับแก้ไข: รองรับ Magic Link ทุกรูปแบบ)
+// app.js (Corrected Structure)
 
-import 'dotenv/config'; 
+import 'dotenv/config';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// 🛡️ เพิ่มตัวดัก Error
+// 🛡️ Error Handlers
 process.on('uncaughtException', (err) => {
   console.error('💥 CRITICAL ERROR:', err);
 });
@@ -19,36 +19,54 @@ import { loadConfig, getConfig } from './src/config/config.js';
 import { loadAdminCache } from './src/services/admin.service.js';
 
 // Import Handlers
-import { handleAdminCommand } from './src/handlers/admin.handlers.js'; 
+import { handleAdminCommand } from './src/handlers/admin.handlers.js';
 import { handleCustomerCommand } from './src/handlers/customer.handlers.js';
 
 // Import API Routes
 import apiRoutes from './src/routes/api.routes.js';
 
 // Import Scheduler
-import { runScheduler } from './src/jobs/scheduler.js'; 
+import { runScheduler } from './src/jobs/scheduler.js';
 
-// ✅ กำหนด Path ปัจจุบัน
+// ✅ Path setup
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 3000;
 const app = express();
 
+// =========================================
+// 🤖 BOT INSTANTIATION (Top Level)
+// =========================================
+// We instantiate bots here so they can be exported.
+// Tokens are loaded from process.env, which is available due to 'dotenv/config' import.
+// The main configuration (webhooks, etc.) happens inside startServer after config is fully loaded.
+
+const adminToken = process.env.ADMIN_BOT_TOKEN;
+if (!adminToken) throw new Error("ADMIN_BOT_TOKEN is missing from .env");
+const adminBot = new Telegraf(adminToken);
+
+const orderBotToken = process.env.ORDER_BOT_TOKEN;
+if (!orderBotToken) throw new Error("ORDER_BOT_TOKEN is missing from .env");
+export const customerBot = new Telegraf(orderBotToken); // Exported for use in other services
+
+// =========================================
+// 🚀 SERVER STARTUP
+// =========================================
 async function startServer() {
     console.log("🚀 Starting Unified Server...");
-    
-    // 1. โหลด Config และ Cache
+
+    // 1. Load Config from DB and Cache Admins
     await loadConfig();
     await loadAdminCache();
 
-    const PUBLIC_URL = process.env.PUBLIC_URL;
-    if (!PUBLIC_URL) throw new Error("PUBLIC_URL is missing");
+    const PUBLIC_URL = getConfig('publicUrl');
+    if (!PUBLIC_URL) throw new Error("PUBLIC_URL is missing from config");
 
-    // 2. ตั้งค่า Express
-    app.use(express.json()); 
+    // 2. Express Setup
+    app.use(express.json());
     app.use(express.static(path.join(__dirname, 'public')));
-    
+
     app.use((req, res, next) => {
         res.header("Access-Control-Allow-Origin", "*");
         res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
@@ -68,6 +86,7 @@ async function startServer() {
 
     app.use('/api', apiRoutes);
 
+    // API Route Logging
     if (apiRoutes.stack) {
         console.log("==================== Registered API Routes ====================");
         apiRoutes.stack.forEach(middleware => {
@@ -81,12 +100,9 @@ async function startServer() {
     }
 
     // =========================================
-    // 🤖 ADMIN & ORDER BOT SETUP
+    // 🤖 BOT CONFIGURATION (Inside startServer)
     // =========================================
-    // --- Admin Bot Setup ---
-    const adminToken = getConfig('adminBotToken');
-    if (!adminToken) throw new Error("ADMIN_BOT_TOKEN is missing from config");
-    const adminBot = new Telegraf(adminToken);
+    // --- Admin Bot Webhook ---
     adminBot.on('message', handleAdminCommand);
     app.post(`/webhook/admin`, (req, res) => {
         adminBot.handleUpdate(req.body);
@@ -94,37 +110,28 @@ async function startServer() {
     });
     await adminBot.telegram.setWebhook(`${PUBLIC_URL}/webhook/admin`);
     console.log(`✅ Admin Bot Webhook Ready`);
-    
-    // --- Order Bot Setup ---
-    // The Order Bot is used for two purposes:
-    // 1. Sending outbound notifications (requires token).
-    // 2. Providing a menu button to launch the Mini App (requires token).
-    // It does NOT use a webhook here, as inbound messages are handled by another service (e.g., Respond.io).
-    const orderBotToken = getConfig('orderBotToken');
-    if (!orderBotToken) throw new Error("ORDER_BOT_TOKEN is missing from config");
-    export const customerBot = new Telegraf(orderBotToken); // Export for notification service    
-    // Set the Mini App menu button for the Order Bot
-    const webAppUrl = `${PUBLIC_URL}/home.html`; 
+
+    // --- Order Bot Mini App Menu ---
+    const webAppUrl = `${PUBLIC_URL}/home.html`;
     await customerBot.telegram.setChatMenuButton({
         menuButton: {
             type: 'web_app',
-            text: 'Loyalty App', // Text on the menu button
+            text: 'Loyalty App',
             web_app: { url: webAppUrl }
         }
     });
     console.log(`✅ Order Bot Menu Button configured for Mini App.`);
-    
-    // We explicitly DO NOT set up a webhook for the customer/order bot here.
-        
+    // Note: No webhook is set for customerBot here, as intended.
+
     // =========================================
     // ⏰ SCHEDULER
     // =========================================
     const TIMEZONE = getConfig('systemTimezone');
-    runScheduler(TIMEZONE); 
+    runScheduler(TIMEZONE);
     console.log(`✅ Scheduler started`);
 
     // =========================================
-    // 🌐 [สำคัญ] FRONTEND ROUTING (SPA Fallback)
+    // 🌐 FRONTEND ROUTING (SPA Fallback)
     // =========================================
     app.get('*', (req, res, next) => {
         if (req.url.startsWith('/api') || req.url.startsWith('/webhook')) {
@@ -133,6 +140,7 @@ async function startServer() {
         res.sendFile(path.join(__dirname, 'public', 'index.html'));
     });
 
+    // 404 Handler
     app.use((req, res, next) => {
         res.status(404).json({
             error: 'Not Found',
@@ -140,7 +148,7 @@ async function startServer() {
         });
     });
 
-    // 3. เริ่ม Server
+    // 3. Start Server
     app.listen(PORT, '0.0.0.0', () => {
         console.log(`⚡️ Server listening on port ${PORT}`);
     });
