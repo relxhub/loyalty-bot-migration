@@ -10,7 +10,7 @@
     <!-- QR Code Styling Library -->
     <script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0/lib/qr-code-styling.browser.min.js"></script>
 
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&amp;display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
 
     <style>
@@ -52,7 +52,7 @@
 
         /* Animation */
         .fade-in { animation: fadeIn 0.3s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } } 
         
         .bounce-in { animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
         @keyframes bounceIn { 0% { transform: scale(0); } 80% { transform: scale(1.1); } 100% { transform: scale(1); } }
@@ -187,6 +187,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            margin-top: 20px;
             margin-bottom: 20px;
             background: transparent; /* QR Code จะถูก render ลง canvas/div */
             padding: 10px;
@@ -232,8 +233,6 @@
 
     <div id="toast-container"></div>
 
-    <div id="toast-container"></div>
-
     <div id="loading-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#050C0D]">
         <div class="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
         <p class="text-gray-400 animate-pulse" id="loading-text">กำลังเชื่อมต่อข้อมูล...</p>
@@ -253,7 +252,7 @@
             <div class="space-y-4 text-left relative z-10">
                 <div>
                     <label class="text-xs text-gray-500 ml-1">รหัสสมาชิก</label>
-                    <input type="text" id="login-cust-id" placeholder="เช่น MEM-888888" class="w-full input-box rounded-xl p-4 text-white text-center tracking-wider uppercase text-lg placeholder-gray-600">
+                    <input type="text" id="login-cust-id" placeholder="เช่น OT99999" class="w-full input-box rounded-xl p-4 text-white text-center tracking-wider uppercase text-lg placeholder-gray-600">
                 </div>
                 <div>
                     <label class="text-xs text-gray-500 ml-1">รหัสยืนยัน 4 หลัก</label>
@@ -279,7 +278,7 @@
         
         <div class="flex items-center space-x-4">
             <div class="relative">
-                <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-[#F2A71B] to-[#F28627] text-white rounded-full flex items-center justify-center text-4xl shadow-lg shadow-blue-500/20">
+                <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-[#F2A71B] to-[#F28627] flex items-center justify-center text-4xl shadow-lg shadow-blue-500/20">
                     👤
                 </div>
                 <div class="absolute -bottom-1 -right-1 bg-green-500 w-4 h-4 rounded-full border-2 border-[#18181b]"></div>
@@ -428,7 +427,7 @@
             <div class="space-y-4">
                 <div>
                     <label class="text-xs text-gray-500 ml-1">รหัสลูกค้า</label>
-                    <input type="text" id="login-cust-id" placeholder="เช่น MEM-888888" class="w-full bg-black/30 border border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-[#F22233] text-center tracking-wider uppercase">
+                    <input type="text" id="link-cust-id" placeholder="เช่น MEM-888888" class="w-full bg-black/30 border border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-[#F22233] text-center tracking-wider uppercase">
                 </div>
                 <div>
                     <label class="text-xs text-gray-500 ml-1">รหัสยืนยัน 4 หลัก</label>
@@ -438,7 +437,7 @@
             
             <div class="flex space-x-3 mt-8">
                 <button onclick="closeLinkModal()" class="flex-1 py-3 rounded-xl bg-gray-700 hover:bg-gray-600 transition text-sm">ไว้ทีหลัง</button>
-                <button onclick="submitLogin()" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#F22233] to-[#F24E29] hover:from-blue-500 hover:to-blue-400 font-bold transition shadow-lg shadow-[#F22233]/30">ยืนยัน</button>
+                <button onclick="submitLinkAccount()" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#F22233] to-[#F24E29] hover:from-blue-500 hover:to-blue-400 font-bold transition shadow-lg shadow-[#F22233]/30">ยืนยัน</button>
             </div>
         </div>
     </div>
@@ -465,6 +464,10 @@
                             <i class="ri-file-copy-line"></i>
                         </button>
                     </div>
+
+                    <!-- QR Code Display -->
+                    <div id="qr-code-container" class="mt-4"></div>
+                    <button id="download-qr-btn" class="download-qr-btn w-full mt-3"><i class="ri-download-line"></i> ดาวน์โหลด QR Code</button>
                 </div>
 
                 <button onclick="universalShare()" id="universal-share-btn" class="w-full py-3 bg-gradient-to-r from-[#F22233] to-[#F24E29] hover:from-blue-500 hover:to-blue-400 rounded-xl font-bold text-white shadow-lg shadow-[#F22233]/30 transition active:scale-95 flex items-center justify-center gap-2">
@@ -567,7 +570,7 @@
                 <div class="text-center mb-6">
                     <h3 class="text-2xl font-bold text-yellow-400 mb-1" id="modal-camp-name">Campaign Name</h3>
                     <p class="text-xs text-gray-400 flex justify-center items-center gap-2">
-                        <i class="ri-calendar-event-line"></i> <span id="mission-dates">... - ...</span>
+                        <i class="ri-calendar-event-line"></i> <span id="modal-camp-dates">... - ...</span>
                     </p>
                 </div>
 
@@ -940,6 +943,9 @@
                     if (!isSilent) {
                         showToast(e.message || "เกิดข้อผิดพลาดในการดึงข้อมูล", 'error');
                         showLoginScreen();
+                    } else {
+                        // For silent refreshes, if user data fetch fails, we simply stop.
+                        // This might happen if the token expires or network issues occur.
                     }
                     return; // Stop execution if there was an error
                 }
@@ -1140,7 +1146,8 @@
                     body: JSON.stringify({
                         telegramId: tg.initDataUnsafe.user?.id.toString() || "DEMO",
                         customerId: customerId,
-                        verificationCode: verificationCode
+                        verificationCode: verificationCode,
+                        initData: tg.initData // Pass initData for verification on backend
                     })
                 });
 
@@ -1293,7 +1300,7 @@
                         const colorClass = item.isPositive ? 'text-green-400' : 'text-red-400';
                         const icon = item.isPositive ? 'ri-arrow-up-circle-fill' : 'ri-arrow-down-circle-fill';
                         html += `
-                        <div class="bg-white/5 p-3 rounded-xl border border-white/10 flex items-center justify-between group cursor-pointer transition item-hover-effect" style="animation-delay: ${index * 60}ms" onclick="toggleTier2('${item.id}')">
+                        <div class="bg-white/5 p-3 rounded-xl flex items-center justify-between border border-white/10 group cursor-pointer transition item-hover-effect list-item-animate" style="animation-delay: ${index * 60}ms" onclick="toggleTier2('${item.id}')">
                             <div class="flex items-center gap-3">
                                 <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center ${colorClass} text-xl">
                                     <i class="${icon}"></i>
@@ -1396,18 +1403,67 @@
         // --- [END] Rewards Logic ---
 
         // --- [START] Invite Logic ---
-        function openInviteModal() {
+        let qrCodeStyling = null; // Declare qrCodeStyling outside to persist
+
+        async function openInviteModal() {
             hideBottomNav(); // Hide nav bar when modal opens
             const modal = document.getElementById('invite-modal');
             const content = document.getElementById('invite-content');
             const linkInput = document.getElementById('invite-link');
+            const qrCodeContainer = document.getElementById('qr-code-container');
+            const downloadQrBtn = document.getElementById('download-qr-btn');
 
             // Generate Link
             const botUsername = getConfig('orderBotUsername', 'YOUR_ORDER_BOT_USERNAME_HERE'); // Use config value
             const userId = window.currentUser?.customerId || "UNKNOWN";
-            const link = `https://t.me/${botUsername}/app?startapp=ref_${userId}`;
-            linkInput.value = link;
+            const inviteLink = `https://t.me/${botUsername}/app?startapp=ref_${userId}`;
+            linkInput.value = inviteLink;
             
+            // Clear previous QR Code
+            qrCodeContainer.innerHTML = '';
+
+            // Generate QR Code with Logo
+            if (QRCodeStyling && userId !== "UNKNOWN") {
+                if (!qrCodeStyling) {
+                    qrCodeStyling = new QRCodeStyling({
+                        width: 200,
+                        height: 200,
+                        type: 'canvas',
+                        data: inviteLink,
+                        image: 'logo.png', // Use your existing logo
+                        dotsOptions: {
+                            color: "#F22233",
+                            type: "rounded"
+                        },
+                        backgroundOptions: {
+                            color: "transparent",
+                        },
+                        imageOptions: {
+                            hideBackgroundDots: true,
+                            imageSize: 0.4,
+                            margin: 0
+                        },
+                        qrOptions: {
+                            errorCorrectionLevel: 'H' // Required for logo
+                        }
+                    });
+                }
+                qrCodeStyling.update({ data: inviteLink }); // Update data if already initialized
+                qrCodeStyling.append(qrCodeContainer);
+
+                downloadQrBtn.onclick = () => {
+                    qrCodeStyling.download({
+                        name: `qr-invite-${userId}`,
+                        extension: 'png'
+                    });
+                    showToast('ดาวน์โหลด QR Code สำเร็จ!', 'success');
+                };
+                downloadQrBtn.classList.remove('hidden');
+
+            } else {
+                downloadQrBtn.classList.add('hidden');
+            }
+
             // --- New Share Logic ---
             const universalBtn = document.getElementById('universal-share-btn');
             const fallbackContainer = document.getElementById('fallback-share-container');
@@ -1516,6 +1572,7 @@
                 if (!telegramId) {
                     throw new Error("User ID not found");
                 }
+
                 const res = await fetch(`/api/referrals/${telegramId}`);
                 const result = await res.json();
 
@@ -1533,56 +1590,55 @@
                             : `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 text-[9px] border border-purple-500/30"><i class="ri-flashlight-fill"></i> ${item.campaign}</span>`;
 
                         html += `
-                    <div class="bg-white/5 p-3 rounded-xl border border-white/10 space-y-2 transition item-hover-effect list-item-animate ${hasTier2 ? 'cursor-pointer' : ''}" style="animation-delay: ${index * 60}ms" ${hasTier2 ? `onclick="toggleTier2('${item.id}')"` : ''}>
-                        <div class="flex justify-between items-start">
-                            <div class="flex items-center gap-2">
-                                <i id="ref-icon-${item.id}" class="ri-arrow-right-s-line text-gray-500 transition-transform ${hasTier2 ? '' : 'invisible'}"></i>
-                                <span class="font-mono font-bold text-[#F22233] text-sm">${item.id}</span>
+                        <div class="bg-white/5 p-3 rounded-xl border border-white/10 space-y-2 transition item-hover-effect list-item-animate ${hasTier2 ? 'cursor-pointer' : ''}" style="animation-delay: ${index * 60}ms" ${hasTier2 ? `onclick="toggleTier2('${item.id}')"` : ''}>
+                            <div class="flex justify-between items-start">
+                                <div class="flex items-center gap-2">
+                                    <i id="ref-icon-${item.id}" class="ri-arrow-right-s-line text-gray-500 transition-transform ${hasTier2 ? '' : 'invisible'}"></i>
+                                    <span class="font-mono font-bold text-[#F22233] text-sm">${item.id}</span>
+                                </div>
+                                <span class="font-bold text-lg text-yellow-400 flex items-center gap-1.5">
+                                    <i class="ri-copper-coin-line"></i> +${item.earned}
+                                </span>
                             </div>
-                            <span class="font-bold text-lg text-yellow-400 flex items-center gap-1.5">
-                                <i class="ri-copper-coin-line"></i> +${item.earned}
-                            </span>
-                        </div>
-                        <div class="flex justify-between items-center text-xs text-gray-400 pt-1 border-t border-white/5">
-                            ${campaignBadge}
-                            <span class="flex items-center gap-1.5">
-                                <i class="ri-calendar-check-line"></i>
-                                <span>${item.joinedAt}</span>
-                            </span>
-                        </div>`;
-                    
-                    if (hasTier2) {
-                        html += `<div id="tier2-list-${item.id}" class="tier2-list pt-2 mt-2 border-t border-white/20 space-y-1 pl-5">`;
-                        item.tier2Referrals.forEach(t2 => {
-                            html += `
-                            <div class="flex justify-between items-center text-xs">
-                                <span class="font-mono text-gray-400">${t2.id}</span>
-                                <span class="text-gray-500">${t2.joinDate}</span>
+                            <div class="flex justify-between items-center text-xs text-gray-400 pt-1 border-t border-white/5">
+                                ${campaignBadge}
+                                <span class="flex items-center gap-1.5">
+                                    <i class="ri-calendar-check-line"></i>
+                                    <span>${item.joinedAt}</span>
+                                </span>
                             </div>`;
-                        });
-                        html += `</div>`;
-                    }
+                        
+                        if (hasTier2) {
+                            html += `<div id="tier2-list-${item.id}" class="tier2-list pt-2 mt-2 border-t border-white/20 space-y-1 pl-5">`;
+                            item.tier2Referrals.forEach(t2 => {
+                                html += `
+                                <div class="flex justify-between items-center text-xs">
+                                    <span class="font-mono text-gray-400">${t2.id}</span>
+                                    <span class="text-gray-500">${t2.joinDate}</span>
+                                </div>`;
+                            });
+                            html += `</div>`;
+                        }
 
-                    html += `</div>`;
-                });
-                list.innerHTML = html;
-            } else {
-                document.getElementById('ref-total-count').innerText = "0";
-                document.getElementById('ref-total-earned').innerText = "0";
-                list.innerHTML = `
-                <div class="flex flex-col items-center justify-center h-full text-gray-500 opacity-60">
-                    <i class="ri-team-line text-6xl mb-4"></i>
-                    <p>ยังไม่มีผู้ถูกแนะนำ</p>
-                    <button onclick="handleAction('invite')" class="mt-4 px-4 py-2 bg-[#F22233] rounded-lg text-white text-sm">
-                        เริ่มแนะนำเพื่อนเลย!
-                    </button>
-                </div>`;
-            }
-            } catch (e) {
-                console.error("Error in openReferralModal:", e);
-                list.innerHTML = '<div class="text-center text-red-400 mt-10">เกิดข้อผิดพลาดในการโหลด (v3)</div>';
-            }
-        }
+                        html += `</div>`;
+                    });
+                    list.innerHTML = html;
+                } else {
+                    document.getElementById('ref-total-count').innerText = "0";
+                    document.getElementById('ref-total-earned').innerText = "0";
+                    list.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full text-gray-500 opacity-60">
+                        <i class="ri-team-line text-6xl mb-4"></i>
+                        <p>ยังไม่มีผู้ถูกแนะนำ</p>
+                        <button onclick="handleAction('invite')" class="mt-4 px-4 py-2 bg-[#F22233] rounded-lg text-white text-sm">
+                            เริ่มแนะนำเพื่อนเลย!
+                        </button>
+                    </div>`;
+                }
+                } catch (e) {
+                    console.error("Error in openReferralModal:", e);
+                    list.innerHTML = '<div class="text-center text-red-400 mt-10">เกิดข้อผิดพลาดในการโหลด (v3)</div>';
+                }        }
 
         function closeReferralModal() {
             showBottomNav(); // Show nav bar when modal closes
