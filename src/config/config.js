@@ -55,7 +55,6 @@ export async function loadConfig() {
     // --- End Railway specific fallback ---
 
     console.log("👍 Configuration loaded.");
-
 }
 
 /**
@@ -66,7 +65,7 @@ export async function loadConfig() {
  */
 export function getConfig(key, defaultValue = null) {
     if (!configCache) {
-        throw new Error("FATAL: Config not loaded! Call loadConfig() at startup.");
+        throw new Error("FATAL: Config not loaded! Call loadConfig() at startup.");    
     }
     
     const value = configCache[key];
