@@ -47,38 +47,31 @@ async function startServer() {
 
     // 2. ตั้งค่า Express
     app.use(express.json()); 
-    // ✅ Serve ไฟล์ Static (รูป, css, js)
     app.use(express.static(path.join(__dirname, 'public')));
     
-    // CORS
     app.use((req, res, next) => {
         res.header("Access-Control-Allow-Origin", "*");
         res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
         next();
     });
 
-    // Logger
     app.use((req, res, next) => {
-        // Log เฉพาะ API Request
         if (req.url.startsWith('/api')) {
             console.log(`📥 [API REQUEST] ${req.method} ${req.url}`);
         }
         next();
     });
 
-    // Health Check
     app.get('/health', (req, res) => {
         res.send('✅ Loyalty Bot is online and running!');
     });
 
-    // ⭐️ เชื่อมต่อ API Routes
     app.use('/api', apiRoutes);
 
-    // ✅ [DEBUG] เพิ่มโค้ดสำหรับ Log-Route
     if (apiRoutes.stack) {
         console.log("==================== Registered API Routes ====================");
         apiRoutes.stack.forEach(middleware => {
-            if (middleware.route) { // BINGO! This is a route.
+            if (middleware.route) {
                 const path = middleware.route.path;
                 const methods = Object.keys(middleware.route.methods).join(', ').toUpperCase();
                 console.log(`✅ ${methods} - /api${path}`);
@@ -88,9 +81,11 @@ async function startServer() {
     }
 
     // =========================================
-    // 🤖 ADMIN & CUSTOMER BOT SETUP
+    // 🤖 ADMIN & ORDER BOT SETUP
     // =========================================
+    // --- Admin Bot Setup ---
     const adminToken = getConfig('adminBotToken');
+    if (!adminToken) throw new Error("ADMIN_BOT_TOKEN is missing from config");
     const adminBot = new Telegraf(adminToken);
     adminBot.on('message', handleAdminCommand);
     app.post(`/webhook/admin`, (req, res) => {
@@ -99,17 +94,28 @@ async function startServer() {
     });
     await adminBot.telegram.setWebhook(`${PUBLIC_URL}/webhook/admin`);
     console.log(`✅ Admin Bot Webhook Ready`);
-
-    const customerToken = getConfig('customerBotToken');
-    const customerBot = new Telegraf(customerToken);
-    customerBot.on('message', handleCustomerCommand);
-    app.post(`/webhook/customer`, (req, res) => {
-        customerBot.handleUpdate(req.body);
-        res.sendStatus(200);
+    
+    // --- Order Bot Setup ---
+    // The Order Bot is used for two purposes:
+    // 1. Sending outbound notifications (requires token).
+    // 2. Providing a menu button to launch the Mini App (requires token).
+    // It does NOT use a webhook here, as inbound messages are handled by another service (e.g., Respond.io).
+    const orderBotToken = getConfig('orderBotToken');
+    if (!orderBotToken) throw new Error("ORDER_BOT_TOKEN is missing from config");
+    export const customerBot = new Telegraf(orderBotToken); // Export for notification service    
+    // Set the Mini App menu button for the Order Bot
+    const webAppUrl = `${PUBLIC_URL}/home.html`; 
+    await customerBot.telegram.setChatMenuButton({
+        menuButton: {
+            type: 'web_app',
+            text: 'Loyalty App', // Text on the menu button
+            web_app: { url: webAppUrl }
+        }
     });
-    await customerBot.telegram.setWebhook(`${PUBLIC_URL}/webhook/customer`);
-    console.log(`✅ Customer Bot Webhook Ready`);
-
+    console.log(`✅ Order Bot Menu Button configured for Mini App.`);
+    
+    // We explicitly DO NOT set up a webhook for the customer/order bot here.
+        
     // =========================================
     // ⏰ SCHEDULER
     // =========================================
@@ -120,20 +126,13 @@ async function startServer() {
     // =========================================
     // 🌐 [สำคัญ] FRONTEND ROUTING (SPA Fallback)
     // =========================================
-    // ดักจับ GET requests ทั้งหมดที่ยังไม่ถูก match (ที่ไม่ใช่ API/webhook)
-    // และส่ง index.html กลับไป เพื่อให้ client-side router ทำงาน
     app.get('*', (req, res, next) => {
-        // เช็คว่าเป็น request ที่ควรจะถูกจัดการโดย SPA หรือไม่
         if (req.url.startsWith('/api') || req.url.startsWith('/webhook')) {
-            // ถ้าเป็น API หรือ webhook ที่หลุดมาถึงตรงนี้ ให้ส่งต่อไปยัง 404 handler
             return next();
         }
-        
-        // สำหรับ route อื่นๆ ทั้งหมด, ส่งหน้าหลักของ SPA กลับไป
         res.sendFile(path.join(__dirname, 'public', 'index.html'));
     });
 
-    // Middleware สำหรับจัดการ 404 (เมื่อไม่มี route ไหน match)
     app.use((req, res, next) => {
         res.status(404).json({
             error: 'Not Found',

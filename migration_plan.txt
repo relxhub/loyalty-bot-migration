@@ -1,0 +1,377 @@
+# แผนการย้ายระบบ Telegram Bot และการเชื่อมต่อ Mini App (Migration Plan)
+
+เอกสารนี้สรุปขั้นตอนและข้อควรพิจารณาที่สำคัญในการย้ายระบบจากสถาปัตยกรรมเดิม (ที่มีบอท 3 ตัว) มาเป็นสถาปัตยกรรมใหม่ที่ใช้บอท 2 ตัว (Admin Bot และ Order Bot) โดย Order Bot จะทำหน้าที่หลักในการเปิด Mini App และส่งการแจ้งเตือนอัตโนมัติให้กับลูกค้า
+
+## 1. การตั้งค่าและกำหนดค่าบอท (Bot Configuration)
+
+**ขั้นตอน:**
+
+1.  **เตรียมไฟล์ `.env`:**
+    *   ตรวจสอบว่าไฟล์ `.env` ของคุณมีการตั้งค่าที่จำเป็นครบถ้วน:
+        ```env
+        DATABASE_URL="..."
+        ADMIN_BOT_TOKEN="..."
+        ORDER_BOT_TOKEN="..."
+        PUBLIC_URL="..."
+        SUPER_ADMIN_TELEGRAM_ID="..." 
+        ```
+
+2.  **ตั้งค่าไดนามิกผ่าน `SystemConfig`:**
+    *   **สำคัญ:** ระบบใหม่จะใช้ตาราง `SystemConfig` ในฐานข้อมูลเพื่อจัดการการตั้งค่าที่อาจเปลี่ยนแปลงได้
+    *   **แก้ไขไฟล์:** เปิดไฟล์ `prisma/seed_system_config.js` และ **เปลี่ยนค่า `YOUR_ORDER_BOT_USERNAME_HERE`** ให้เป็น Username ของ Order Bot ของคุณ (ไม่ต้องมี @)
+    *   **รันคำสั่ง Seed:** เพื่อนำการตั้งค่าเริ่มต้นเข้าสู่ฐานข้อมูล ให้รันคำสั่งนี้ **หนึ่งครั้ง**:
+        ```bash
+        npx prisma db seed
+        ```
+    *   หลังจากนี้ คุณสามารถจัดการค่าต่างๆ (เช่น แต้มโบนัส, ชื่อบอท) ได้โดยตรงผ่าน `npx prisma studio` ในตาราง `SystemConfig`
+
+---
+
+## 2. การเปลี่ยนจากระบบคำสั่งของลูกค้าไปเป็น Mini App
+
+เป้าหมายคือการปิดการใช้งานคำสั่งพิมพ์สำหรับลูกค้า และให้ลูกค้าใช้งานผ่าน Mini App ที่เปิดจากปุ่มเมนูใน Order Bot แทน
+
+**ขั้นตอน:**
+
+1.  **ตรวจสอบโค้ดใน `app.js`:**
+    *   ไฟล์ `app.js` ได้รับการแก้ไขแล้ว โดยจะ **ไม่ตั้งค่า Webhook ให้กับ `customerBot` (Order Bot)** ซึ่งถูกต้องแล้ว เพราะ Webhook จะถูกจัดการโดย Respond.io
+    *   โค้ดจะยังคง **ตั้งค่าปุ่มเมนู Mini App** ให้กับ Order Bot ซึ่งจะทำให้ลูกค้าสามารถเปิด Mini App ได้
+
+2.  **จัดการ Webhook ของคุณ:**
+    *   **สำหรับ Order Bot:** ให้คุณนำ Token ของ Order Bot ไปตั้งค่า Webhook ที่ **Respond.io**
+    *   **สำหรับ Admin Bot:** ไม่ต้องทำอะไรเพิ่มเติม สคริปต์ใน `app.js` จะตั้งค่า Webhook ให้โดยอัตโนมัติเมื่อคุณรันเซิร์ฟเวอร์
+
+
+3.  **(ทางเลือก) ล้างโค้ดเก่า:**
+    *   คุณสามารถลบไฟล์ `src/handlers/customer.handlers.js` และฟังก์ชันที่เกี่ยวข้องที่ไม่ถูกใช้งานแล้ว เพื่อให้โค้ดเบสสะอาดขึ้น
+
+## 3. การเชื่อมต่อ API สำหรับ Mini App (ส่วนที่สำคัญที่สุด)
+
+เมื่อลูกค้าเปิด Mini App, ตัวแอปพลิเคชัน (Frontend) จะต้องเรียก API ไปยังเซิร์ฟเวอร์ของคุณ (Backend) เพื่อดึงข้อมูลหรือทำธุรกรรมต่างๆ เช่น เช็คคะแนน, แลกของรางวัล สิ่งที่ขาดไม่ได้คือ **การยืนยันตัวตนและความปลอดภัย**
+
+**ปัญหา:** เซิร์ฟเวอร์จะรู้ได้อย่างไรว่า API request ที่ยิงมาจาก Mini App เป็นของลูกค้าคนไหน และเป็น request ที่ถูกต้องจริงๆ?
+
+**วิธีแก้ปัญหา:** ใช้ `initData` ที่ Telegram ส่งมาให้
+
+**ขั้นตอน:**
+
+1.  **ฝั่ง Frontend (ใน Mini App - .html/.js):**
+    *   เมื่อ Mini App โหลดขึ้นมา Telegram จะมี object `window.Telegram.WebApp` ให้ใช้งาน
+    *   ดึงข้อมูล `initData` จาก object นี้: `const initData = window.Telegram.WebApp.initData;`
+    *   ทุกครั้งที่เรียก API ไปยัง Backend ของคุณ ให้แนบ `initData` นี้ไปใน Header ของ HTTP Request เสมอ
+        ```javascript
+        // ตัวอย่างในฝั่ง Frontend
+        fetch('/api/customer/profile', {
+            method: 'GET',
+            headers: {
+                'Authorization': `tma ${initData}` // tma = Telegram Mini App
+            }
+        })
+        .then(response => response.json())
+        .then(data => console.log(data));
+        ```
+
+2.  **ฝั่ง Backend (ใน Express - Node.js):**
+    *   สร้าง Middleware ขึ้นมาเพื่อตรวจสอบและถอดรหัส `initData` ที่ส่งมาจาก Frontend ก่อนที่จะให้ middleware นี้ไปถึง route handler ที่แท้จริง
+    *   Middleware นี้จะทำหน้าที่:
+        1.  ดึง `initData` จาก Header
+        2.  ตรวจสอบลายเซ็น (Signature) ของ `initData` โดยใช้ `CUSTOMER_BOT_TOKEN` (หรือ `ORDER_BOT_TOKEN`) ของคุณเพื่อยืนยันว่าข้อมูลนี้ถูกสร้างโดย Telegram จริงๆ และไม่ถูกปลอมแปลง
+        3.  ถ้าถูกต้อง จะได้ข้อมูล user ออกมา (เช่น `id`, `first_name`)
+        4.  นำข้อมูล user ที่ได้ไปแนบกับ object `req` เพื่อให้ route handler ต่อๆ ไปสามารถนำไปใช้งานได้
+    *   **ตัวอย่างการสร้าง Middleware (`auth.middleware.js`):**
+        ```javascript
+        // สร้างไฟล์ใหม่ src/middleware/auth.middleware.js
+        import crypto from 'crypto';
+
+        export function validateTelegramAuth(req, res, next) {
+            const authHeader = req.headers['authorization'];
+            if (!authHeader || !authHeader.startsWith('tma ')) {
+                return res.status(401).json({ error: 'Unauthorized: Missing Telegram auth data' });
+            }
+
+            const initData = authHeader.split(' ')[1];
+            const params = new URLSearchParams(initData);
+            const hash = params.get('hash');
+            params.delete('hash');
+
+            const dataCheckString = Array.from(params.entries())
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([key, value]) => `${key}=${value}`)
+                .join('\n');
+            
+            try {
+                const secretKey = crypto.createHmac('sha256', 'WebAppData').update(process.env.CUSTOMER_BOT_TOKEN).digest();
+                const calculatedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+
+                if (calculatedHash === hash) {
+                    const user = JSON.parse(params.get('user'));
+                    req.user = user; // แนบข้อมูล user เข้าไปใน request
+                    next();
+                } else {
+                    return res.status(403).json({ error: 'Forbidden: Invalid hash' });
+                }
+            } catch (error) {
+                return res.status(500).json({ error: 'Internal Server Error: Could not validate auth' });
+            }
+        }
+        ```
+    *   **การนำ Middleware ไปใช้งานกับ API Routes:**
+        *   ในไฟล์ `src/routes/api.routes.js` ให้นำ Middleware นี้ไปใส่ไว้หน้า Route ที่ต้องการการยืนยันตัวตน
+        ```javascript
+        // src/routes/api.routes.js
+        import { Router } from 'express';
+        import { validateTelegramAuth } from '../middleware/auth.middleware.js'; // import เข้ามา
+        
+        const router = Router();
+
+        // ตัวอย่าง: Route นี้ต้องการการยืนยันตัวตน
+        router.get('/customer/profile', validateTelegramAuth, (req, res) => {
+            // ตอนนี้เราสามารถเข้าถึงข้อมูล user ได้จาก req.user
+            const telegramUser = req.user;
+            // ... เขียน logic เพื่อดึงข้อมูลลูกค้าจาก DB โดยใช้ telegramUser.id
+            res.json({ message: `Hello ${telegramUser.first_name}` });
+        });
+
+        // Route อื่นๆ ที่ไม่ต้องยืนยันตัวตนก็ไม่ต้องใส่ Middleware
+        router.get('/rewards/list', (req, res) => {
+            // ...
+        });
+        
+        export default router;
+        ```
+
+## 4. การจัดการข้อความแจ้งเตือนอัตโนมัติ (Automated Notifications)
+
+การแจ้งเตือนต่างๆ (เช่น ขอบคุณที่ชวนเพื่อน, ได้รับคะแนน) จะต้องถูกส่งผ่าน `Order Bot`
+
+**ขั้นตอน:**
+
+1.  **เข้าถึง Instance ของบอท:**
+    *   ใน `app.js` คุณได้สร้าง instance ของบอทไว้แล้ว (`customerBot`)
+    *   คุณต้องทำให้ instance นี้สามารถถูกเรียกใช้งานได้จากส่วนอื่นๆ ของแอปพลิเคชัน (เช่น จาก Service Layer)
+
+2.  **วิธีที่ 1: Export Bot Instance (ง่ายที่สุด)**
+    *   แก้ไข `app.js` เล็กน้อยเพื่อ export ตัว `customerBot` instance ออกไป
+        ```javascript
+        // app.js
+        // ...
+        const customerToken = getConfig('customerBotToken');
+        const customerBot = new Telegraf(customerToken);
+        // ... (ตั้งค่าอื่นๆ)
+
+        export { customerBot }; // Export ออกไป
+
+        async function startServer() {
+            // ...
+        }
+        ```
+    *   ในไฟล์ที่ต้องการส่งข้อความ (เช่น `src/services/notification.service.js`) ก็ import เข้าไปใช้งาน
+        ```javascript
+        // src/services/notification.service.js
+        import { customerBot } from '../../app.js'; // อาจจะต้องแก้ path ให้ถูกต้อง
+
+        async function sendWelcomeMessage(chatId, name) {
+            try {
+                await customerBot.telegram.sendMessage(chatId, `สวัสดีคุณ ${name}, ยินดีต้อนรับ!`);
+            } catch (error) {
+                console.error("Failed to send message:", error);
+            }
+        }
+        ```
+
+3.  **วิธีที่ 2: Dependency Injection (ขั้นสูงและดีกว่าสำหรับโปรเจกต์ใหญ่)**
+    *   สร้างไฟล์กลางสำหรับจัดการบอท และส่ง (inject) instance ของบอทเข้าไปใน service ที่ต้องการใช้งาน วิธีนี้จะทำให้โค้ดไม่ผูกติดกัน (less coupled) แต่มีความซับซ้อนในการตั้งค่าเริ่มต้นมากกว่า
+
+สำหรับโปรเจกต์ของคุณ **วิธีที่ 1** ก็เพียงพอและใช้งานได้ดีครับ
+
+## สรุปการเปลี่ยนแปลงโค้ดที่จำเป็น
+
+-   **`.env`**: อัปเดต `CUSTOMER_BOT_TOKEN` ให้เป็น Token ของ `Order Bot` ตัวใหม่
+-   **`app.js`**:
+    -   ลบ `customerBot.on('message', ...)`
+    -   เพิ่มโค้ด `setChatMenuButton` เพื่อสร้างปุ่มเปิด Mini App
+    -   (แนะนำ) Export `customerBot` instance ออกไปเพื่อให้ส่วนอื่นเรียกใช้ได้
+-   **`src/handlers/customer.handlers.js`**: (แนะนำ) ลบไฟล์นี้และส่วนที่เกี่ยวข้องทิ้ง
+-   **`สร้างไฟล์ใหม่ src/middleware/auth.middleware.js`**: เพิ่มโค้ดสำหรับ Middleware การยืนยันตัวตน `validateTelegramAuth`
+-   **`src/routes/api.routes.js`**: นำ `validateTelegramAuth` ไปใช้กับ Route ที่ต้องการความปลอดภัย
+-   **`src/services/notification.service.js`** (หรือไฟล์อื่นๆ ที่มีการแจ้งเตือน): แก้ไขให้เรียกใช้ `customerBot.telegram.sendMessage()` เพื่อส่งข้อความผ่านบอทที่ถูกต้อง
+
+เมื่อทำตามขั้นตอนเหล่านี้ครบถ้วน ระบบของคุณจะพร้อมใช้งานในสถาปัตยกรรมใหม่ตามที่ต้องการครับ
+
+---
+
+## 5. ขั้นตอนการ Migrate และการตรวจสอบข้อมูล (Migration & Validation Workflow)
+
+เพื่อให้มั่นใจว่าข้อมูลทั้งหมดถูกย้ายมายังฐานข้อมูลใหม่อย่างถูกต้อง 100% ให้ทำตามลำดับขั้นตอนต่อไปนี้
+
+**สิ่งที่ต้องเตรียม:**
+
+1.  **การจัดการข้อมูลลูกค้าเก่าที่ไม่มี Verification Code:**
+    *   **สำคัญมาก:** ก่อนเริ่มกระบวนการ Migrate คุณจะต้อง **ลบข้อมูลลูกค้าออกจาก `CustomerData.csv` (และอาจจะต้องลบออกจากฐานข้อมูลด้วย หากมีการ Migrate ไปแล้วบางส่วน) สำหรับลูกค้าที่ยังไม่ได้เชื่อมบัญชีและ `ไม่มี Verification Code`** คุณจะดำเนินการส่วนนี้ด้วยตนเอง เพื่อให้มั่นใจในความถูกต้องและความปลอดภัยสูงสุด
+    *   สำหรับลูกค้าที่ **มี Verification Code อยู่แล้ว** จะยังคงอยู่ในระบบและสามารถใช้รหัสเดิมเพื่อเชื่อมบัญชีผ่าน Mini App ได้ตามปกติ
+2.  ไฟล์ `.csv` ที่ได้รับการคัดกรองแล้ว (`CustomerData.csv`, `Admins.csv`, etc.) อยู่ใน root directory ของโปรเจกต์
+3.  ตั้งค่าการเชื่อมต่อฐานข้อมูลในไฟล์ `.env` ให้ถูกต้อง
+4.  ติดตั้ง dependencies ทั้งหมดด้วยคำสั่ง `npm install`
+
+---
+
+### **ขั้นตอนที่ 1: เตรียมฐานข้อมูล (Prepare Database)**
+
+ก่อนที่จะนำเข้าข้อมูลใดๆ เราต้องมั่นใจว่าโครงสร้างตารางในฐานข้อมูลเป็นเวอร์ชันล่าสุดและถูกต้อง
+
+1.  **รัน Database Migration:**
+    *   เปิด terminal แล้วรันคำสั่งของ Prisma เพื่อสร้างหรืออัปเดตตารางในฐานข้อมูลของคุณตาม `schema.prisma`
+    ```bash
+    npx prisma migrate dev
+    ```
+    *   คำสั่งนี้จะสร้างไฟล์ migration และ 적용 schema ล่าสุดลงบนฐานข้อมูลของคุณ
+
+---
+
+### **ขั้นตอนที่ 2: นำเข้าข้อมูล (Run Migration Scripts)**
+
+หลังจากที่ฐานข้อมูลพร้อมแล้ว ให้เริ่มนำเข้าข้อมูลจากไฟล์ `.csv` ทั้งหมด
+
+1.  **รันสคริปต์ Migrate ทั้งหมด:**
+    *   คุณมีไฟล์ `migrate.js` ที่ดูเหมือนจะเป็นไฟล์หลักสำหรับรันสคริปต์ย่อยๆ ทั้งหมด (ถ้าไม่ใช่ ให้รันทีละไฟล์ตามลำดับที่ถูกต้อง)
+    *   รันคำสั่ง:
+    ```bash
+    node migrate.js 
+    ```
+    *   **หรือ** ถ้ารันแยก ให้รันตามลำดับความสำคัญ เช่น:
+    ```bash
+    node migrate_admins.js
+    node migrate_customers.js
+    node migrate_rewards.js
+    node migrate_history.js 
+    # ... รันไฟล์อื่นๆ จนครบ
+    ```
+2.  **ตรวจสอบ Log:**
+    *   สังเกต output ใน terminal ระหว่างที่สคริปต์ทำงาน หากมี Error เกิดขึ้นกับข้อมูลแถวไหน สคริปต์ควรจะแสดงข้อความผิดพลาดออกมา ให้จดบันทึกไว้เพื่อตรวจสอบในภายหลัง
+
+---
+
+### **ขั้นตอนที่ 3: ตรวจสอบความถูกต้องของข้อมูล (Validate Data)**
+
+นี่คือขั้นตอนที่สำคัญที่สุดเพื่อยืนยันว่าข้อมูลที่นำเข้าไปนั้นถูกต้องสมบูรณ์
+
+1.  **รันสคริปต์ Validation:**
+    *   ใช้สคริปต์ `validate_migration.js` ที่เราได้สร้างขึ้น
+    *   รันคำสั่ง:
+    ```bash
+    node validate_migration.js
+    ```
+
+2.  **วิเคราะห์ผลลัพธ์:**
+    *   **กรณีที่ 1: ผลลัพธ์สมบูรณ์แบบ (Perfect Match)**
+        *   คุณจะเห็นข้อความ `✅ All customer records match perfectly!`
+        *   นี่หมายความว่าข้อมูลลูกค้าทั้งหมดตรงกับไฟล์ CSV ทุกประการ
+    *   **กรณีที่ 2: พบข้อผิดพลาด (Mismatch Found)**
+        *   สคริปต์จะแสดงรายการที่ไม่ตรงกันออกมาอย่างละเอียด เช่น:
+        ```
+        - [OT5678] ❌ MISMATCH found:
+            - Field 'points': CSV='200' | DB='20'
+        - [OT9101] ❌ MISMATCH found:
+            - Field 'expiryDate': CSV='2025-11-10' | DB='null'
+        ```
+    *   **สิ่งที่ต้องทำ:** ให้คุณนำ `customerId` ที่มีปัญหา (เช่น `OT5678`) ไปตรวจสอบข้อมูลในไฟล์ `CustomerData.csv` และในฐานข้อมูลโดยตรง (อาจจะใช้ `npx prisma studio` เพื่อดูข้อมูล) เพื่อหาสาเหตุของความผิดพลาดและทำการแก้ไข
+
+3.  **ขยายผลการตรวจสอบ:**
+    *   ใช้ `validate_migration.js` เป็นต้นแบบเพื่อเพิ่มฟังก์ชันสำหรับตรวจสอบไฟล์อื่นๆ เช่น `validateAdmins()`, `validateRewards()` จนครบทุกไฟล์ข้อมูลสำคัญของคุณ
+
+---
+
+### **ขั้นตอนที่ 4: เริ่มใช้งานระบบ (Go Live)**
+
+หลังจากที่คุณรันสคริปต์ `validate_migration.js` และผลลัพธ์ออกมาสมบูรณ์แบบสำหรับข้อมูลทุกส่วนแล้ว ก็เท่ากับว่าการย้ายข้อมูลสำเร็จลุล่วงด้วยดี คุณสามารถเริ่มรันแอปพลิเคชันหลักและเปิดให้ใช้งานได้
+
+1.  **รันแอปพลิเคชันหลัก:**
+    ```bash
+    npm start
+    ```
+    *   เซิร์ฟเวอร์จะเริ่มทำงาน, บอทจะเชื่อมต่อกับ Telegram และ Mini App จะพร้อมให้ลูกค้าเข้าใช้งาน
+
+การทำตาม Workflow นี้จะช่วยลดความเสี่ยงจากความผิดพลาดของข้อมูลได้อย่างมีประสิทธิภาพ และทำให้คุณมั่นใจในการย้ายระบบครั้งนี้ได้เต็มที่ครับ
+
+---
+
+## 6. สรุปขั้นตอนสุดท้าย (Final Workflow Summary)
+
+นี่คือ Checklist ภาพรวมทั้งหมดตั้งแต่ต้นจนจบ
+
+1.  **[✔️] เตรียมข้อมูล:**
+    *   **ทำด้วยตนเอง:** เปิดไฟล์ `CustomerData.csv` และลบแถวของลูกค้าที่ยังไม่เคยเชื่อมบัญชีและไม่มี `Verification Code` ออกทั้งหมด
+
+2.  **[✔️] เตรียมฐานข้อมูล:**
+    *   รันคำสั่ง `npx prisma migrate dev` เพื่อให้แน่ใจว่าโครงสร้างฐานข้อมูลถูกต้องและเป็นเวอร์ชันล่าสุด
+
+3.  **[✔️] นำเข้าข้อมูล:**
+    *   รันสคริปต์ `node migrate.js` (หรือรันสคริปต์ย่อยทีละไฟล์) เพื่อนำเข้าข้อมูลจากไฟล์ `.csv` ทั้งหมดเข้าสู่ฐานข้อมูล
+
+4.  **[✔️] ตรวจสอบข้อมูล:**
+    *   รันสคริปต์ `node validate_migration.js` เพื่อตรวจสอบว่าข้อมูลที่นำเข้าตรงกับไฟล์ `.csv` ต้นฉบับหรือไม่
+    *   หากพบข้อผิดพลาด ให้กลับไปแก้ไขที่ไฟล์ `.csv` แล้วเริ่มทำตั้งแต่ขั้นตอนที่ 2 ใหม่
+
+5.  **[✔️] ตั้งค่าและ Deploy ระบบใหม่:**
+    *   แก้ไขไฟล์ `app.js` เพื่อเปลี่ยน `customerBot` เป็น `orderBot` (ตามหัวข้อที่ 2)
+    *   ตั้งค่า `.env` ให้ถูกต้อง (Bot Tokens, Database URL, Public URL)
+    *   Deploy และรันแอปพลิเคชันด้วย `npm start`
+
+---
+
+## 7. สรุปคำสั่งสำหรับ Admin (Admin Commands)
+
+นี่คือรายการคำสั่งทั้งหมดที่ Admin สามารถใช้งานได้ผ่าน Admin Bot
+
+---
+
+### **คำสั่งทั่วไป (สำหรับ Admin ทุกระดับ)**
+
+*   `/start`
+    *   **การใช้งาน:** `/start`
+    *   **คำอธิบาย:** แสดงข้อความต้อนรับและรายการคำสั่งทั้งหมดที่ Admin คนนั้นสามารถใช้ได้
+
+*   `/check <รหัสลูกค้า>`
+    *   **การใช้งาน:** `/check OT1234`
+    *   **คำอธิบาย:** ตรวจสอบข้อมูลของลูกค้า เช่น แต้มคงเหลือ, วันหมดอายุ, และผู้แนะนำ
+
+*   `/new`
+    *   **การใช้งาน:** `/new`
+    *   **คำอธิบาย:** สร้างรหัสลูกค้าใหม่ (เรียงลำดับต่อจากรหัสสูงสุดในระบบ) พร้อมรหัสยืนยัน 4 หลัก
+
+*   `/gencode <รหัสลูกค้า>`
+    *   **การใช้งาน:** `/gencode OT105`
+    *   **คำอธิบาย:** สร้างรหัสลูกค้าใหม่แบบ "เจาะจง" สำหรับลูกค้าย้อนหลัง **(สำคัญ: รหัสที่สร้างต้องมีตัวเลขน้อยกว่ารหัสสูงสุดในระบบ)** พร้อมรหัสยืนยัน 4 หลัก
+
+*   `/refer <รหัสลูกค้า> <ยอดซื้อ>`
+    *   **การใช้งาน:** `/refer OT5678 1500`
+    *   **คำอธิบาย:** ยืนยันการซื้อครั้งแรกของลูกค้าที่ถูกแนะนำ เพื่อมอบแต้มโบนัสให้กับผู้แนะนำ
+
+*   `/redeem <รหัสลูกค้า> <รหัสรางวัล>`
+    *   **การใช้งาน:** `/redeem OT1234 R50`
+    *   **คำอธิบาย:** ทำการแลกของรางวัลให้ลูกค้าโดยการหักแต้ม
+
+*   `/reward`
+    *   **การใช้งาน:** `/reward`
+    *   **คำอธิบาย:** แสดงรายการของรางวัลทั้งหมดที่มีในระบบ
+
+*   `/undo`
+    *   **การใช้งาน:** `/undo`
+    *   **คำอธิบาย:** ยกเลิกการกระทำล่าสุดของ Admin คนนั้น (เช่น การเพิ่มแต้ม, การสร้างลูกค้า)
+
+---
+
+### **คำสั่งพิเศษ (สำหรับ SuperAdmin เท่านั้น)**
+
+*   `/add <รหัสลูกค้า> <แต้ม>`
+    *   **การใช้งาน:** `/add OT1234 100` หรือ `/add OT1234 -50`
+    *   **คำอธิบาย:** เพิ่มหรือลดแต้มให้กับลูกค้า
+
+*   `/addadmin <TelegramID> <Role> <ชื่อ>`
+    *   **การใช้งาน:** `/addadmin 123456789 Admin JohnDoe`
+    *   **คำอธิบาย:** เพิ่มหรืออัปเดตสิทธิ์แอดมิน (Role สามารถเป็น `Admin` หรือ `SuperAdmin`)
+
+*   `/fixreferrals`
+    *   **การใช้งาน:** `/fixreferrals`
+    *   **คำอธิบาย:** (คำสั่งสำหรับแก้ไขปัญหาเฉพาะทาง) ใช้สำหรับกู้คืนข้อมูลผู้แนะนำที่อาจตกหล่นไปในระบบเก่า
+

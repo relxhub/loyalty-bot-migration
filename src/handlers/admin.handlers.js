@@ -50,13 +50,17 @@ export async function handleAdminCommand(ctx) {
                 await handleNewCustomer(ctx, commandParts, adminUser, chatId);
                 break;
             
-            case "/refer": // New case for /refer command
+            case "/refer":
                 await handleReferCommand(ctx, commandParts, adminUser, chatId);
+                break;
+
+            case "/gencode":
+                await handleGencodeCommand(ctx, commandParts, adminUser, chatId);
                 break;
 
             case "/check":
                 if (commandParts.length !== 2) {
-                    sendAdminReply(chatId, "❗️รูปแบบคำสั่งผิด\nต้องเป็น: /check [รหัสลูกค้า]");
+                    sendAdminReply(chatId, "●รูปแบบคำสั่งผิด\nต้องเป็น: /check [รหัสลูกค้า]");
                 } else {
                     const result = await checkCustomerInfo(commandParts[1], adminUser);
                     sendAdminReply(chatId, result);
@@ -105,11 +109,81 @@ export async function handleAdminCommand(ctx) {
 // 🛠️ HELPER FUNCTIONS
 // ==================================================
 
+async function handleGencodeCommand(ctx, commandParts, adminUser, chatId) {
+    try {
+        const customerIdToCreate = commandParts[1]?.toUpperCase();
+
+        // 1. Validate input format
+        if (!customerIdToCreate) {
+            return sendAdminReply(chatId, "●รูปแบบคำสั่งผิด\nต้องเป็น: /gencode [รหัสลูกค้าที่ต้องการสร้าง]");
+        }
+        if (!isValidIdFormat(customerIdToCreate)) {
+            return sendAdminReply(chatId, `❌ รูปแบบรหัสลูกค้า '${customerIdToCreate}' ไม่ถูกต้อง (ต้องเป็น A-Z, 0-9)`);
+        }
+
+        // 2. Check if the Customer ID already exists
+        const existingCustomer = await prisma.customer.findUnique({
+            where: { customerId: customerIdToCreate }
+        });
+        if (existingCustomer) {
+            return sendAdminReply(chatId, `❌ผิดพลาด: รหัสลูกค้า ${customerIdToCreate} มีอยู่ในระบบแล้ว`);
+        }
+
+        // 3. Prevent creating an ID higher than the current max
+        const allCustomers = await prisma.customer.findMany({
+            select: { customerId: true }
+        });
+
+        // Extract numbers from IDs like 'OT1234', 'T5', etc.
+        const customerNumbers = allCustomers
+            .map(c => parseInt(c.customerId.replace(/[^0-9]/g, ''), 10))
+            .filter(n => !isNaN(n));
+
+        if (customerNumbers.length > 0) {
+            const maxIdNumber = Math.max(...customerNumbers);
+            const inputIdNumber = parseInt(customerIdToCreate.replace(/[^0-9]/g, ''), 10);
+
+            if (isNaN(inputIdNumber)) {
+                 return sendAdminReply(chatId, `❌ รหัสลูกค้า '${customerIdToCreate}' ต้องมีตัวเลข`);
+            }
+            
+            if (inputIdNumber > maxIdNumber) {
+                return sendAdminReply(chatId, `❌ผิดพลาด: รหัส ${customerIdToCreate} สูงกว่ารหัสสูงสุดในระบบ (สูงสุดคือ ~${maxIdNumber}).\nคำสั่งนี้ใช้สำหรับสร้างรหัสย้อนหลังเท่านั้น`);
+            }
+        }
+
+        // 4. All checks passed, create the new customer
+        const verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
+        const newCustomer = await prisma.customer.create({
+            data: {
+                customerId: customerIdToCreate,
+                verificationCode: verificationCode,
+                adminCreatedBy: adminUser
+            }
+        });
+
+        await createAdminLog(adminUser, "GENCODE_CUSTOMER", newCustomer.customerId, 0, `Generated specific customer ID`);
+
+        const msg = `✅ <b>สร้างรหัสสำเร็จ!</b>\n` +
+                    `\n👤 รหัสลูกค้า: <code>${newCustomer.customerId}</code>` +
+                    `\n🔑 รหัสยืนยัน: <code>${newCustomer.verificationCode}</code>\n` +
+                    `\nกรุณาส่งรหัสยืนยันนี้ให้ลูกค้าเพื่อใช้เชื่อมต่อบัญชีผ่าน Mini App`;
+
+        await sendAdminReply(chatId, msg);
+
+    } catch (error) {
+        console.error("Gencode Command Error:", error);
+        sendAdminReply(chatId, `❌ เกิดข้อผิดพลาดร้ายแรงในการสร้างรหัส: ${error.message}`);
+    }
+}
+
 // Function for /refer command
 async function handleReferCommand(ctx, commandParts, adminUser, chatId) {
     try {
         const refereeId = commandParts[1]?.toUpperCase();
         const purchaseAmount = parseFloat(commandParts[2]);
+
+
 
         // 1. Validation
         if (!refereeId || isNaN(purchaseAmount)) {
@@ -156,13 +230,13 @@ async function handleNewCustomer(ctx, commandParts, adminUser, chatId) {
             username: null,
             adminCreatedBy: adminUser
         };
-        const customer = await createCustomer(newCustomerData); // customer.service.js creates the customerId and verificationCode
+        const customer = await createCustomer(newCustomerData);
 
         // Log Creation
         await createAdminLog(adminUser, "CREATE_CUSTOMER", customer.customerId, 0, `Auto-generated customer via /new`);
 
         // 3. Generate Magic Link 🔗
-        const botUsername = 'ONEHUB_Customer_Backup_Bot'; // Or from config
+        const botUsername = getConfig('orderBotUsername', 'YOUR_ORDER_BOT_USERNAME_HERE'); // Fallback in case it's not in DB
         const magicLink = `https://t.me/${botUsername}/app?startapp=link_${customer.customerId}_${customer.verificationCode}`;
 
         const msg = `✅ <b>รหัสสมาชิกของคุณลูกค้า!</b>\n` +

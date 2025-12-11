@@ -56,19 +56,26 @@
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
-        const tg = window.Telegram.WebApp;
-        tg.ready();
+        document.addEventListener('DOMContentLoaded', function() {
+            const tg = window.Telegram.WebApp;
+            
+            // This tells Telegram that the app is ready to be displayed.
+            tg.ready();
 
-        // Disable vertical swipes to prevent closing the app when scrolling
-        if (tg.isVersionAtLeast('7.7')) {
-            tg.disableVerticalSwipes();
-        }
+            // *** This is the magic line that expands the app to full screen ***
+            tg.expand();
 
-        // Logic to redirect if opened from a special link (referral or admin)
-        if (tg.initDataUnsafe?.start_param) {
-            // If there's a start_param, redirect to the dashboard to handle the logic.
-            window.location.replace('dashboard.html');
-        }
+            // Disable vertical swipes to prevent closing the app when scrolling
+            if (tg.isVersionAtLeast('7.7')) {
+                tg.disableVerticalSwipes();
+            }
+
+            // Logic to redirect if opened from a special link (referral or admin)
+            if (tg.initDataUnsafe?.start_param) {
+                // If there's a start_param, redirect to the dashboard to handle the logic.
+                window.location.replace('dashboard.html');
+            }
+        });
     </script>
 </body>
 </html>

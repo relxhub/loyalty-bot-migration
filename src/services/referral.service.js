@@ -94,28 +94,45 @@ const completeReferral = async (refereeId, purchaseAmount) => {
       return { success: false, message: `ยอดซื้อไม่ถึงเกณฑ์ขั้นต่ำ ${minPurchaseForReferral} บาท` };
     }
 
-    // 3. Award Bonus to Referrer (using giveReferralBonus for its comprehensive logic)
-    // TODO: Refactor customerService.giveReferralBonus to accept a transaction client (tx)
-    // and potentially return the awarded points for this transaction context.
-    await customerService.giveReferralBonus(referral.referrerId, refereeId, 'System (Auto)');
-
-    // Recalculate awarded points for logging in the Referral table (giveReferralBonus doesn't return it)
+    // 3. Calculate Bonus Points
     const bonusPoints = activeCampaign?.baseReferral ?? parseInt(getConfig('standardReferralPoints')) ?? 50;
     let earnedMilestoneBonus = 0;
-    if (activeCampaign && activeCampaign.milestoneTarget > 0 && activeCampaign.milestoneBonus > 0) {
-        const campaignTag = activeCampaign.campaignName || activeCampaign.name || 'Standard';
-        const currentCampaignCount = await customerService.countCampaignReferralsByTag(referral.referrerId, campaignTag);
-        const newCampaignCount = currentCampaignCount + 1; 
+    let milestoneMessage = '';
 
-        if (newCampaignCount % activeCampaign.milestoneTarget === 0) {
+    if (activeCampaign && activeCampaign.milestoneTarget > 0 && activeCampaign.milestoneBonus > 0) {
+        // We need the latest count of referrals for the referrer to check for milestones
+        const referrer = await tx.customer.findUnique({ where: { customerId: referral.referrerId } });
+        const newReferralCount = (referrer.referralCount || 0) + 1;
+
+        if (newReferralCount > 0 && newReferralCount % activeCampaign.milestoneTarget === 0) {
             earnedMilestoneBonus = activeCampaign.milestoneBonus;
+            milestoneMessage = ` โบนัสแคมเปญ +${earnedMilestoneBonus}`;
         }
     }
     const totalPointsToAdd = bonusPoints + earnedMilestoneBonus;
 
+    // 4. Award points to the referrer and increment their referral count
+    await tx.customer.update({
+        where: { customerId: referral.referrerId },
+        data: {
+            points: { increment: totalPointsToAdd },
+            referralCount: { increment: 1 }
+        }
+    });
 
-    // 4. Update Referral record
-    const updatedReferral = await tx.referral.update({
+    // 5. Create a transaction log for the bonus points
+    await tx.pointTransaction.create({
+        data: {
+            customerId: referral.referrerId,
+            amount: totalPointsToAdd,
+            type: earnedMilestoneBonus > 0 ? 'CAMPAIGN_BONUS' : 'REFERRAL_BONUS',
+            detail: `Referral bonus from ${refereeId}.${milestoneMessage}`,
+            relatedId: refereeId
+        }
+    });
+
+    // 6. Update Referral record
+    await tx.referral.update({
       where: { refereeId },
       data: {
         status: 'COMPLETED',
@@ -125,7 +142,7 @@ const completeReferral = async (refereeId, purchaseAmount) => {
       }
     });
 
-    return { success: true, message: `การแนะนำสำเร็จ! ผู้แนะนำ ${referral.referrerId} ได้รับ ${totalPointsToAdd} แต้ม`, bonus: totalPointsToAdd };
+    return { success: true, message: `การแนะนำสำเร็จ! ผู้แนะนำ ${referral.referrerId} ได้รับ ${totalPointsToAdd} แต้ม${milestoneMessage}`, bonus: totalPointsToAdd };
   });
 };
 
