@@ -1413,6 +1413,13 @@
 
         // --- [START] Invite Logic ---
         async function openInviteModal() {
+            // Guard Clause: Ensure user data is loaded before proceeding.
+            if (!window.currentUser || !window.currentUser.customerId) {
+                try { Telegram.WebApp.hapticFeedback.notificationOccurred('error'); } catch(e) {}
+                Telegram.WebApp.showAlert("กำลังโหลดข้อมูลผู้ใช้ โปรดรอสักครู่แล้วลองอีกครั้ง");
+                return;
+            }
+
             hideBottomNav(); // Hide nav bar when modal opens
             const modal = document.getElementById('invite-modal');
             const content = document.getElementById('invite-content');
