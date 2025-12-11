@@ -1,4 +1,4 @@
-// app.js (Corrected Structure)
+// app.js (Corrected Structure with Debug Logging)
 
 import 'dotenv/config';
 import path from 'path';
@@ -35,12 +35,14 @@ const __dirname = path.dirname(__filename);
 const PORT = process.env.PORT || 3000;
 const app = express();
 
+// --- Immediately load configuration --- 
+// This must be called at the very beginning to ensure configs are available.
+await loadConfig();
+
 // =========================================
 // 🤖 BOT INSTANTIATION (Top Level)
 // =========================================
-// We instantiate bots here so they can be exported.
-// Tokens are loaded from process.env, which is available due to 'dotenv/config' import.
-// The main configuration (webhooks, etc.) happens inside startServer after config is fully loaded.
+// We instantiate bots here so they can be exported. Tokens are loaded from process.env.
 
 const adminToken = process.env.ADMIN_BOT_TOKEN;
 if (!adminToken) throw new Error("ADMIN_BOT_TOKEN is missing from .env");
@@ -57,7 +59,7 @@ async function startServer() {
     console.log("🚀 Starting Unified Server...");
 
     // 1. Load Config from DB and Cache Admins
-    await loadConfig();
+    // loadConfig() is now called at the top of the file.
     await loadAdminCache();
 
     const PUBLIC_URL = getConfig('publicUrl');
