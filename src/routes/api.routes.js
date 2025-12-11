@@ -39,6 +39,10 @@ function verifyTelegramWebAppData(telegramInitData) {
     }
 
     const secret = crypto.createHmac('sha256', 'WebAppData').update(token).digest();
+    const _hash = crypto.createHmac('sha256', secret).update(dataCheckString).digest('hex');
+
+    // Return the result of the comparison
+    return _hash === hash;
 }
 
 // ==================================================
