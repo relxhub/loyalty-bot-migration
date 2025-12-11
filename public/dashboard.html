@@ -654,6 +654,15 @@
 
         // --- [START] Helper Functions ---
 
+        // NEW: Client-side configuration store
+        window.appConfig = {
+            orderBotUsername: 'Onehub_bot' // This should ideally be fetched from the backend
+        };
+
+        function getConfig(key, defaultValue = '') {
+            return window.appConfig[key] || defaultValue;
+        }
+
         // Global User Cache
         window.currentUser = null;
 
