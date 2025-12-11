@@ -1412,8 +1412,6 @@
         // --- [END] Rewards Logic ---
 
         // --- [START] Invite Logic ---
-        let qrCodeStyling = null; // Declare qrCodeStyling outside to persist
-
         async function openInviteModal() {
             hideBottomNav(); // Hide nav bar when modal opens
             const modal = document.getElementById('invite-modal');
@@ -1428,40 +1426,39 @@
             const inviteLink = `https://t.me/${botUsername}/app?startapp=ref_${userId}`;
             linkInput.value = inviteLink;
             
-            // Clear previous QR Code
+            // Clear previous QR Code to prevent errors on re-opening
             qrCodeContainer.innerHTML = '';
 
-            // Generate QR Code with Logo
-            if (QRCodeStyling && userId !== "UNKNOWN") {
-                if (!qrCodeStyling) {
-                    qrCodeStyling = new QRCodeStyling({
-                        width: 200,
-                        height: 200,
-                        type: 'canvas',
-                        data: inviteLink,
-                        image: 'logo.png', // Use your existing logo
-                        dotsOptions: {
-                            color: "#F22233",
-                            type: "rounded"
-                        },
-                        backgroundOptions: {
-                            color: "transparent",
-                        },
-                        imageOptions: {
-                            hideBackgroundDots: true,
-                            imageSize: 0.4,
-                            margin: 0
-                        },
-                        qrOptions: {
-                            errorCorrectionLevel: 'H' // Required for logo
-                        }
-                    });
-                }
-                qrCodeStyling.update({ data: inviteLink }); // Update data if already initialized
-                qrCodeStyling.append(qrCodeContainer);
+            // Generate QR Code with Logo. Check if the library is loaded.
+            if (typeof QRCodeStyling !== 'undefined' && userId !== "UNKNOWN") {
+                // Create a NEW instance every time to avoid state issues with the library
+                const qrCodeInstance = new QRCodeStyling({
+                    width: 200,
+                    height: 200,
+                    type: 'canvas',
+                    data: inviteLink,
+                    image: 'logo.png', // Use your existing logo
+                    dotsOptions: {
+                        color: "#F22233",
+                        type: "rounded"
+                    },
+                    backgroundOptions: {
+                        color: "transparent",
+                    },
+                    imageOptions: {
+                        hideBackgroundDots: true,
+                        imageSize: 0.4,
+                        margin: 0
+                    },
+                    qrOptions: {
+                        errorCorrectionLevel: 'H' // Required for logo
+                    }
+                });
+                
+                qrCodeInstance.append(qrCodeContainer);
 
                 downloadQrBtn.onclick = () => {
-                    qrCodeStyling.download({
+                    qrCodeInstance.download({
                         name: `qr-invite-${userId}`,
                         extension: 'png'
                     });
@@ -1470,6 +1467,7 @@
                 downloadQrBtn.classList.remove('hidden');
 
             } else {
+                console.warn('QRCodeStyling library not found or user ID is UNKNOWN. QR will not be displayed.');
                 downloadQrBtn.classList.add('hidden');
             }
 
