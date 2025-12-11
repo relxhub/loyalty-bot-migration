@@ -48,7 +48,7 @@
             <i class="ri-shopping-cart-line text-xl"></i>
             <span>เมนูสินค้า</span>
         </a>
-        <a href="dashboard.html" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/3 py-1.5 rounded-xl transition active:scale-95">
+        <a href="dashboard.html?v=1" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/3 py-1.5 rounded-xl transition active:scale-95">
             <i class="ri-wallet-3-line text-xl"></i>
             <span>บัตรสมาชิก</span>
         </a>
@@ -73,7 +73,7 @@
             // Logic to redirect if opened from a special link (referral or admin)
             if (tg.initDataUnsafe?.start_param) {
                 // If there's a start_param, redirect to the dashboard to handle the logic.
-                window.location.replace('dashboard.html');
+                window.location.replace('dashboard.html?v=1');
             }
         });
     </script>
