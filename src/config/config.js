@@ -37,7 +37,16 @@ export async function loadConfig() {
         configCache[camelCaseKey] = process.env[key];
     });
 
-    // --- Railway specific fallback for PUBLIC_URL ---
+    // --- Debugging: Log essential environment variables to help diagnose missing values ---
+    console.log("--- Environment Variables ---");
+    console.log(`ADMIN_BOT_TOKEN: ${process.env.ADMIN_BOT_TOKEN ? '✅ FOUND' : '❌ MISSING'}`);
+    console.log(`ORDER_BOT_TOKEN: ${process.env.ORDER_BOT_TOKEN ? '✅ FOUND' : '❌ MISSING'}`); // <<< This is what we need to verify
+    console.log(`PUBLIC_URL: ${process.env.PUBLIC_URL ? '✅ FOUND' : '❌ MISSING'}`);
+    console.log(`SUPER_ADMIN_TELEGRAM_ID: ${process.env.SUPER_ADMIN_TELEGRAM_ID ? '✅ FOUND' : '❌ MISSING'}`);
+    console.log("---------------------------");
+    // --- End Debugging ---
+
+    // Railway specific fallback for PUBLIC_URL
     // If PUBLIC_URL is not set, try to build it from Railway's provided env vars.
     if (!configCache.publicUrl && process.env.RAILWAY_PUBLIC_DOMAIN) {
         configCache.publicUrl = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
@@ -46,6 +55,7 @@ export async function loadConfig() {
     // --- End Railway specific fallback ---
 
     console.log("👍 Configuration loaded.");
+
 }
 
 /**
