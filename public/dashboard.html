@@ -656,7 +656,7 @@
 
         // NEW: Client-side configuration store
         window.appConfig = {
-            orderBotUsername: 'Onehub_bot' // This should ideally be fetched from the backend
+            orderBotUsername: '' // This is fetched from the backend via the /api/auth response
         };
 
         function getConfig(key, defaultValue = '') {
@@ -946,6 +946,11 @@
                     const data = await response.json();
                     isMember = data.isMember;
                     user = data.customer;
+
+                    // Dynamically update the bot username from the backend response
+                    if (user && user.orderBotUsername) {
+                        window.appConfig.orderBotUsername = user.orderBotUsername;
+                    }
                 } catch (e) {
                     console.error("Error fetching user data:", e);
                     // If there's an error, show the login screen unless it's a silent refresh

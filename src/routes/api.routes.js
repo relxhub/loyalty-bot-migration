@@ -142,7 +142,8 @@ router.post('/auth', async (req, res) => {
             campaignStartAt: campaignStartAt,
             campaignEndAt: campaignEndAt,
             referralBasePoints: referralBasePoints,
-            isPendingReferral: !!pendingReferral // Add this flag
+            isPendingReferral: !!pendingReferral, // Add this flag
+            orderBotUsername: getConfig('orderBotUsername', 'Onehub_bot') // Add bot username
         };
 
         return res.json({ success: true, isMember: true, customer: customerDataForFrontend });
