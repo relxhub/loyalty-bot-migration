@@ -8,7 +8,7 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- QR Code Styling Library -->
-    <script src="/js/qr-code-styling.browser.js"></script>
+
 
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
@@ -1416,11 +1416,9 @@
         }
         // --- [END] Rewards Logic ---
 
-        // --- [START] Invite Logic ---
         async function openInviteModal() {
             console.log("[Invite Modal] Opening...");
 
-            // Guard Clause: Ensure user data is loaded before proceeding.
             if (!window.currentUser || !window.currentUser.customerId) {
                 console.error("[Invite Modal] Failed: currentUser or customerId not found.", window.currentUser);
                 try { Telegram.WebApp.hapticFeedback.notificationOccurred('error'); } catch(e) {}
@@ -1429,83 +1427,66 @@
             }
             console.log("[Invite Modal] currentUser is available:", window.currentUser);
 
-
-            hideBottomNav(); // Hide nav bar when modal opens
+            hideBottomNav();
             const modal = document.getElementById('invite-modal');
             const content = document.getElementById('invite-content');
             const linkInput = document.getElementById('invite-link');
             const qrCodeContainer = document.getElementById('qr-code-container');
             const downloadQrBtn = document.getElementById('download-qr-btn');
 
-            // Generate Link
-            const botUsername = getConfig('orderBotUsername', 'YOUR_ORDER_BOT_USERNAME_HERE'); // Use config value
+            const botUsername = getConfig('orderBotUsername', 'YOUR_ORDER_BOT_USERNAME_HERE');
             const userId = window.currentUser?.customerId || "UNKNOWN";
             const inviteLink = `https://t.me/${botUsername}/app?startapp=ref_${userId}`;
             linkInput.value = inviteLink;
             console.log(`[Invite Modal] Generated link: ${inviteLink}`);
+
+            qrCodeContainer.innerHTML = ''; // Clear previous QR code
             
-            // Clear previous QR Code to prevent errors on re-opening
-            qrCodeContainer.innerHTML = '';
-            console.log("[Invite Modal] Cleared previous QR code.");
+            // --- New API-based QR Code Generation ---
+            try {
+                const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(inviteLink)}&size=200x200&bgcolor=050C0D&color=ffffff&qzone=1`;
+                console.log(`[Invite Modal] QR API URL: ${qrApiUrl}`);
 
-            // Generate QR Code with Logo. Check if the library is loaded.
-            if (typeof QRCodeStyling !== 'undefined' && userId !== "UNKNOWN") {
-                console.log("[Invite Modal] QRCodeStyling library is loaded and userId is valid. Generating QR...");
-                try {
-                    const qrCodeInstance = new QRCodeStyling({
-                        width: 200,
-                        height: 200,
-                        type: 'canvas', // Still use canvas for data generation
-                        data: inviteLink,
-                        dotsOptions: {
-                            color: "#ffffff", // White dots
-                            type: "rounded"
-                        },
-                        backgroundOptions: {
-                            color: "transparent",
-                        },
-                        qrOptions: {
-                            errorCorrectionLevel: 'H'
-                        }
-                    });
+                const img = document.createElement('img');
+                img.src = qrApiUrl;
+                img.classList.add('w-full', 'h-full', 'rounded-lg');
+                img.onload = () => {
+                    console.log("[Invite Modal] QR Code image loaded successfully.");
+                };
+                img.onerror = () => {
+                     console.error("[Invite Modal] Failed to load QR Code image from API.");
+                     qrCodeContainer.innerHTML = '<p class="text-red-500 text-xs">ไม่สามารถโหลดรูป QR Code ได้</p>';
+                };
+                qrCodeContainer.appendChild(img);
 
-                    // Get the image URL and display it as an <img> for long-press-to-save
-                    qrCodeInstance.toDataUrl("png").then(url => {
-                        const img = document.createElement('img');
-                        img.src = url;
-                        img.classList.add('w-full', 'h-full', 'rounded-lg');
-                        qrCodeContainer.appendChild(img);
-                         console.log("[Invite Modal] QR Code displayed as an image for long-press saving.");
-                    }).catch(err => {
-                        console.error("[Invite Modal] Failed to generate QR data URL:", err);
-                        qrCodeContainer.innerHTML = '<p class="text-red-500 text-xs">เกิดข้อผิดพลาดในการสร้างข้อมูล QR Code</p>';
-                    });
-                    
-                    console.log("[Invite Modal] QR Code generation process started.");
-
-                    downloadQrBtn.onclick = () => {
-                        qrCodeInstance.download({
-                            name: `qr-invite-${userId}`,
-                            extension: 'png'
-                        });
+                downloadQrBtn.onclick = async () => {
+                    try {
+                        const response = await fetch(qrApiUrl);
+                        if (!response.ok) throw new Error('Network response was not ok.');
+                        const blob = await response.blob();
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `qr-invite-${userId}.png`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
                         showToast('กำลังดาวน์โหลด QR Code...', 'success');
-                    };
+                    } catch (downloadError) {
+                        console.error('Download failed:', downloadError);
+                        showToast('การดาวน์โหลดล้มเหลว', 'error');
+                    }
+                };
+                downloadQrBtn.classList.remove('hidden');
 
-                    downloadQrBtn.classList.remove('hidden');
-                    console.log("[Invite Modal] Download button is visible and configured.");
-                } catch (qrError) {
-                    console.error("[Invite Modal] Error during QR code generation:", qrError);
-                    qrCodeContainer.innerHTML = '<p class="text-red-500 text-xs">เกิดข้อผิดพลาดในการสร้าง QR Code</p>';
-                    downloadQrBtn.classList.add('hidden');
-                }
-
-            } else {
-                console.warn(`[Invite Modal] QR Code will not be displayed. Reason: QRCodeStyling library found: ${typeof QRCodeStyling !== 'undefined'}, userId is valid: ${userId !== "UNKNOWN"}`);
-                qrCodeContainer.innerHTML = '<p class="text-yellow-500 text-xs">ไม่สามารถแสดง QR Code ได้ในขณะนี้</p>';
+            } catch (error) {
+                console.error("[Invite Modal] Error during QR code generation:", error);
+                qrCodeContainer.innerHTML = '<p class="text-red-500 text-xs">เกิดข้อผิดพลาดในการสร้าง QR Code</p>';
                 downloadQrBtn.classList.add('hidden');
             }
 
-            // --- New Share Logic ---
+
             const universalBtn = document.getElementById('universal-share-btn');
             const fallbackContainer = document.getElementById('fallback-share-container');
 
@@ -1516,7 +1497,6 @@
                 universalBtn.classList.add('hidden');
                 fallbackContainer.classList.remove('hidden');
             }
-            // --- End New Share Logic ---
 
             document.body.classList.add('no-scroll');
             modal.classList.remove('hidden');
