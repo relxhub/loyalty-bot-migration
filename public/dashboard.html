@@ -780,21 +780,25 @@
                 const startParam = tg.initDataUnsafe?.start_param;
                 console.log(`[Init] start_param received: ${startParam}`);
 
-                if (startParam && startParam.startsWith('ref_')) {
-                    // Case 3 & 4 (Referral Link)
-                    console.log("[Init] Referral link detected.");
-                    const referrerId = startParam.split('_')[1];
-                    await handleReferralFlow(referrerId);
-                    return; 
-
-                } else if (startParam && startParam.startsWith('link_')) {
-                    // Case 2 (Admin's Magic Link)
-                    console.log("[Init] Magic link detected.");
-                    document.getElementById('loading-text').innerText = "กำลังเชื่อมต่ออัตโนมัติ...";
-                    const parts = startParam.split('_');
-                    if (parts.length === 3) {
-                        await performLink(parts[1], parts[2]); 
+                if (startParam) {
+                    if (startParam.startsWith('app-ref_')) {
+                        console.log("[Init] New format referral link detected.");
+                        const referrerId = startParam.substring('app-ref_'.length);
+                        await handleReferralFlow(referrerId);
                         return;
+                    } else if (startParam.startsWith('ref_')) {
+                        console.log("[Init] Old format referral link detected.");
+                        const referrerId = startParam.split('_')[1];
+                        await handleReferralFlow(referrerId);
+                        return; 
+                    } else if (startParam.startsWith('link_')) {
+                        console.log("[Init] Magic link detected.");
+                        document.getElementById('loading-text').innerText = "กำลังเชื่อมต่ออัตโนมัติ...";
+                        const parts = startParam.split('_');
+                        if (parts.length === 3) {
+                            await performLink(parts[1], parts[2]); 
+                            return;
+                        }
                     }
                 }
 
@@ -1436,7 +1440,7 @@
 
             const botUsername = getConfig('orderBotUsername', 'YOUR_ORDER_BOT_USERNAME_HERE');
             const userId = window.currentUser?.customerId || "UNKNOWN";
-            const inviteLink = `https://t.me/${botUsername}/app?startapp=ref_${userId}`;
+            const inviteLink = `https://t.me/${botUsername}?startapp=app-ref_${userId}`;
             linkInput.value = inviteLink;
             console.log(`[Invite Modal] Generated link: ${inviteLink}`);
 
