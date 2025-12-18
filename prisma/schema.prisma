@@ -28,6 +28,11 @@ enum TransactionType {
   OTHER             // อื่นๆ
 }
 
+enum ProductStatus {
+  IN_STOCK
+  OUT_OF_STOCK
+}
+
 // ---------------------------------------------------------
 // CORE MODELS
 // ---------------------------------------------------------
@@ -114,6 +119,33 @@ model Campaign {
 model SystemConfig {
   key   String @id
   value String
+}
+
+model Category {
+  id    Int     @id @default(autoincrement())
+  name  String  @unique
+
+  products Product[]
+}
+
+model Product {
+  id              Int      @id @default(autoincrement())
+  name            String   @unique
+  description     String?
+  imageUrl        String
+  price           Decimal  @db.Decimal(10, 2)
+  status          ProductStatus @default(IN_STOCK)
+
+  coolness        String?
+  sweetness       String?
+  flavorIntensity String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relation to Category
+  categoryId Int?
+  category   Category? @relation(fields: [categoryId], references: [id])
 }
 
 // ---------------------------------------------------------

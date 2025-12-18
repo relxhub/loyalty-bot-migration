@@ -78,16 +78,16 @@
                         const nav = document.getElementById('bottom-nav');
                         const homeButton = nav.children[0]; // The 'Home' button
 
-                        const comingSoonButton = document.createElement('a');
-                        comingSoonButton.href = "javascript:void(0)";
-                        comingSoonButton.className = "flex flex-col items-center text-xs font-medium text-gray-400 w-1/3 py-1.5 rounded-xl transition active:scale-95";
-                        comingSoonButton.innerHTML = `
-                            <i class="ri-rocket-line text-xl"></i>
-                            <span>Coming Soon</span>
+                        const menuButton = document.createElement('a');
+                        menuButton.href = "products.html"; // Link to the new product page
+                        menuButton.className = "flex flex-col items-center text-xs font-medium text-gray-400 w-1/3 py-1.5 rounded-xl transition active:scale-95";
+                        menuButton.innerHTML = `
+                            <i class="ri-shopping-cart-line text-xl"></i>
+                            <span>เมนูสินค้า</span>
                         `;
                         
                         // Insert the new button after the home button
-                        homeButton.parentNode.insertBefore(comingSoonButton, homeButton.nextSibling);
+                        homeButton.parentNode.insertBefore(menuButton, homeButton.nextSibling);
 
                         // Adjust width of all buttons since we now have 4
                         const allButtons = nav.querySelectorAll('a');
