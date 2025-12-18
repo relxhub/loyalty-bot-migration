@@ -83,10 +83,8 @@
                 // Haptic feedback for better UX
                 try { tg.hapticFeedback.impactOccurred('medium'); } catch(e) {}
                 
-                // Navigate to the main app page
-                // The bot username should be consistent with the one in your main app
-                const botUsername = "ONEHUB_Customer_Backup_Bot"; 
-                tg.openTelegramLink(`https://t.me/${botUsername}/app`);
+                // Close the webview, the main app will update automatically
+                tg.close();
             });
         };
     </script>
