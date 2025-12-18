@@ -1418,12 +1418,17 @@
 
         // --- [START] Invite Logic ---
         async function openInviteModal() {
+            console.log("[Invite Modal] Opening...");
+
             // Guard Clause: Ensure user data is loaded before proceeding.
             if (!window.currentUser || !window.currentUser.customerId) {
+                console.error("[Invite Modal] Failed: currentUser or customerId not found.", window.currentUser);
                 try { Telegram.WebApp.hapticFeedback.notificationOccurred('error'); } catch(e) {}
                 Telegram.WebApp.showAlert("กำลังโหลดข้อมูลผู้ใช้ โปรดรอสักครู่แล้วลองอีกครั้ง");
                 return;
             }
+            console.log("[Invite Modal] currentUser is available:", window.currentUser);
+
 
             hideBottomNav(); // Hide nav bar when modal opens
             const modal = document.getElementById('invite-modal');
@@ -1437,49 +1442,60 @@
             const userId = window.currentUser?.customerId || "UNKNOWN";
             const inviteLink = `https://t.me/${botUsername}/app?startapp=ref_${userId}`;
             linkInput.value = inviteLink;
+            console.log(`[Invite Modal] Generated link: ${inviteLink}`);
             
             // Clear previous QR Code to prevent errors on re-opening
             qrCodeContainer.innerHTML = '';
+            console.log("[Invite Modal] Cleared previous QR code.");
 
             // Generate QR Code with Logo. Check if the library is loaded.
             if (typeof QRCodeStyling !== 'undefined' && userId !== "UNKNOWN") {
-                // Create a NEW instance every time to avoid state issues with the library
-                const qrCodeInstance = new QRCodeStyling({
-                    width: 200,
-                    height: 200,
-                    type: 'canvas',
-                    data: inviteLink,
-                    image: 'logo.png', // Use your existing logo
-                    dotsOptions: {
-                        color: "#F22233",
-                        type: "rounded"
-                    },
-                    backgroundOptions: {
-                        color: "transparent",
-                    },
-                    imageOptions: {
-                        hideBackgroundDots: true,
-                        imageSize: 0.4,
-                        margin: 0
-                    },
-                    qrOptions: {
-                        errorCorrectionLevel: 'H' // Required for logo
-                    }
-                });
-                
-                qrCodeInstance.append(qrCodeContainer);
-
-                downloadQrBtn.onclick = () => {
-                    qrCodeInstance.download({
-                        name: `qr-invite-${userId}`,
-                        extension: 'png'
+                console.log("[Invite Modal] QRCodeStyling library is loaded and userId is valid. Generating QR...");
+                try {
+                    const qrCodeInstance = new QRCodeStyling({
+                        width: 200,
+                        height: 200,
+                        type: 'canvas',
+                        data: inviteLink,
+                        image: 'logo.png', // Use your existing logo
+                        dotsOptions: {
+                            color: "#F22233",
+                            type: "rounded"
+                        },
+                        backgroundOptions: {
+                            color: "transparent",
+                        },
+                        imageOptions: {
+                            hideBackgroundDots: true,
+                            imageSize: 0.4,
+                            margin: 0
+                        },
+                        qrOptions: {
+                            errorCorrectionLevel: 'H' // Required for logo
+                        }
                     });
-                    showToast('ดาวน์โหลด QR Code สำเร็จ!', 'success');
-                };
-                downloadQrBtn.classList.remove('hidden');
+                    
+                    qrCodeInstance.append(qrCodeContainer);
+                    console.log("[Invite Modal] QR Code appended to container.");
+
+                    downloadQrBtn.onclick = () => {
+                        qrCodeInstance.download({
+                            name: `qr-invite-${userId}`,
+                            extension: 'png'
+                        });
+                        showToast('ดาวน์โหลด QR Code สำเร็จ!', 'success');
+                    };
+                    downloadQrBtn.classList.remove('hidden');
+                    console.log("[Invite Modal] Download button is visible and configured.");
+                } catch (qrError) {
+                    console.error("[Invite Modal] Error during QR code generation:", qrError);
+                    qrCodeContainer.innerHTML = '<p class="text-red-500 text-xs">เกิดข้อผิดพลาดในการสร้าง QR Code</p>';
+                    downloadQrBtn.classList.add('hidden');
+                }
 
             } else {
-                console.warn('QRCodeStyling library not found or user ID is UNKNOWN. QR will not be displayed.');
+                console.warn(`[Invite Modal] QR Code will not be displayed. Reason: QRCodeStyling library found: ${typeof QRCodeStyling !== 'undefined'}, userId is valid: ${userId !== "UNKNOWN"}`);
+                qrCodeContainer.innerHTML = '<p class="text-yellow-500 text-xs">ไม่สามารถแสดง QR Code ได้ในขณะนี้</p>';
                 downloadQrBtn.classList.add('hidden');
             }
 
@@ -1502,6 +1518,7 @@
                 modal.classList.remove('opacity-0');
                 content.classList.remove('translate-y-full');
             }, 10);
+             console.log("[Invite Modal] Modal is now visible.");
         }
 
         function closeInviteModal() {
