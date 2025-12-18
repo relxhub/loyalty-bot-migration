@@ -1,13 +1,4 @@
-import express from 'express';
-import crypto from 'crypto';
-import { prisma } from '../db.js';
-import { getActiveCampaign } from '../services/campaign.service.js';
-import { getConfig } from '../config/config.js';
-import { addDays, formatToBangkok } from '../utils/date.utils.js';
-import { getCustomerByTelegramId, updateCustomer, countCampaignReferralsByTag } from '../services/customer.service.js';
-import { countMonthlyReferrals } from '../services/referral.service.js';
-import * as referralService from '../services/referral.service.js';
-import { getAllProducts } from '../services/product.service.js';
+import { getProductPageData } from '../services/product.service.js';
 // No longer import orderBotToken directly here due to module issues.
 
 const router = express.Router();
@@ -250,8 +241,8 @@ router.get('/rewards', async (req, res) => {
 // ==================================================
 router.get('/products', async (req, res) => {
     try {
-        const products = await getAllProducts();
-        res.json(products);
+        const productPageData = await getProductPageData();
+        res.json(productPageData);
     } catch (error) {
         console.error("Product API Error:", error);
         res.status(500).json({ error: "Could not fetch products." });

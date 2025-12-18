@@ -5,134 +5,121 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>เมนูสินค้า</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
+    <!-- Swiper.js for Banner Slider -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+
     <style>
         :root {
-            --bg-color: #050C0D;
-            --secondary-bg: #161B22;
-            --card-bg: #1C242C;
-            --primary-accent: #F22233;
+            --bg-color: #121212;
+            --secondary-bg: #1E1E1E;
+            --card-bg: #2A2A2A;
+            --primary-accent: #FFFFFF;
+            --text-primary: #FFFFFF;
+            --text-secondary: #B3B3B3;
+            --brand-red: #F22233;
         }
         body {
             background-color: var(--bg-color);
             font-family: 'Kanit', sans-serif;
-            color: white;
+            color: var(--text-primary);
+            overscroll-behavior: none;
         }
-        /* Styles for the product grid */
-        #product-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 1.5rem; /* Increased gap */
-            padding: 1.5rem; /* Increased padding */
-            padding-bottom: 120px; /* Space for bottom nav */
-        }
+        /* Make scrollbars less intrusive */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #555; border-radius: 5px; }
 
-        /* Styles for the flip card */
-        .flip-card {
-            background-color: transparent;
-            width: 100%;
-            aspect-ratio: 1 / 1.5; /* Make card taller */
-            perspective: 1000px;
-        }
-        .flip-card-inner {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            text-align: center;
-            transition: transform 0.6s;
-            transform-style: preserve-3d;
-            border-radius: 1rem; /* Rounded corners */
-        }
-        .flip-card.flipped .flip-card-inner {
-            transform: rotateY(180deg);
-        }
-        .flip-card-front, .flip-card-back {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            -webkit-backface-visibility: hidden;
-            backface-visibility: hidden;
-            border-radius: 1rem;
-            background-color: var(--card-bg);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 1rem;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-        .flip-card-front {
-            /* Styling for the front of the card */
-            justify-content: flex-start;
-        }
-        .flip-card-front img {
-            width: 100%;
-            height: 70%;
-            object-fit: cover;
-            border-radius: 0.5rem;
-            margin-bottom: 0.5rem;
-        }
-        .flip-card-front .product-name {
-            font-weight: 600;
-            margin-top: auto; /* Push to bottom */
-        }
-        .flip-card-back {
-            transform: rotateY(180deg);
-            justify-content: space-around;
-            font-size: 0.875rem;
-        }
-        .detail-item {
-            text-align: left;
-            width: 100%;
-        }
-        .detail-item strong {
-            color: var(--primary-accent);
-        }
+        /* --- Header --- */
+        #main-header { padding: 1rem 1.25rem; }
+        #search-input { background-color: var(--secondary-bg); border: 1px solid #444; }
+        #search-input::placeholder { color: var(--text-secondary); }
 
-        /* Loading spinner */
-        #loader {
-            border: 4px solid rgba(255, 255, 255, 0.2);
-            border-left-color: var(--primary-accent);
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+        /* --- Banner Slider (Swiper.js) --- */
+        .swiper-container { width: 100%; border-radius: 1rem; margin-bottom: 1.5rem; }
+        .swiper-slide img { display: block; width: 100%; height: 100%; object-fit: cover; }
+        .swiper-pagination-bullet-active { background: var(--brand-red); }
 
+        /* --- Category Selector --- */
+        #category-selector { display: flex; overflow-x: auto; gap: 1rem; padding: 0 1.25rem 1rem; scrollbar-width: none; -ms-overflow-style: none; }
+        .category-item { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer; border-bottom: 3px solid transparent; padding-bottom: 0.5rem; transition: all 0.2s ease; opacity: 0.6; }
+        .category-item.active { border-bottom-color: var(--brand-red); opacity: 1; }
+        .category-item img { width: 48px; height: 48px; border-radius: 50%; background-color: var(--card-bg); object-fit: cover; border: 2px solid #444; }
+        .category-item span { font-size: 0.8rem; font-weight: 500; }
+        
+        /* --- Product Grid --- */
+        .product-section-title { font-size: 1.5rem; font-weight: 600; padding: 0 1.25rem; margin-bottom: 1rem; }
+        #product-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; padding: 0 1.25rem 120px; }
+
+        /* --- New Flip Card Design --- */
+        .flip-card { background-color: transparent; width: 100%; aspect-ratio: 1 / 1.4; perspective: 1200px; }
+        .flip-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.7s; transform-style: preserve-d; }
+        .flip-card.flipped .flip-card-inner { transform: rotateY(180deg); }
+        .flip-card-front, .flip-card-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; flex-direction: column; border-radius: 1rem; background-color: var(--card-bg); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+        
+        .flip-card-front { padding: 0.75rem; align-items: center; }
+        .product-image { width: 100%; height: 65%; object-fit: cover; border-radius: 0.75rem; margin-bottom: 0.5rem; }
+        .flavor-icon { position: absolute; top: 0.5rem; left: 0.5rem; width: 28px; height: 28px; background-color: rgba(0,0,0,0.5); border-radius: 50%; padding: 4px; }
+        .product-name { font-weight: 600; font-size: 0.9rem; text-align: center; }
+        .product-price { color: var(--text-secondary); font-size: 0.8rem; }
+        
+        .flip-card-back { transform: rotateY(180deg); padding: 1rem; justify-content: space-around; }
+        .level-meter { display: flex; align-items: center; gap: 0.5rem; }
+        .level-label { font-size: 0.8rem; width: 80px; }
+        .level-dots { display: flex; gap: 3px; }
+        .level-dot { width: 12px; height: 12px; border-radius: 50%; background-color: #444; transition: background-color 0.2s; }
+        .level-dot.active { background-color: var(--brand-red); }
+
+        /* --- General & Loader --- */
+        #loader { display: flex; justify-content: center; align-items: center; height: 100vh; position: fixed; top: 0; left: 0; width: 100%; z-index: 100; background: var(--bg-color); }
+        .hidden { display: none; }
     </style>
 </head>
 <body class="min-h-screen">
 
-    <div id="loader"></div>
+    <div id="loader">
+        <div class="w-10 h-10 border-4 border-zinc-600 border-t-brand-red rounded-full animate-spin"></div>
+    </div>
 
-    <!-- Main content area for products -->
-    <main id="product-grid" class="hidden">
-        <!-- Product cards will be injected here by JavaScript -->
-    </main>
-    
-    <!-- Bottom Navigation Bar (Copied from home.html for consistency) -->
-    <div id="bottom-nav" class="fixed bottom-4 left-0 right-0 z-[70] mx-auto w-[calc(100%-2.5rem)] max-w-md bg-[var(--secondary-bg)] shadow-xl rounded-full p-2 flex justify-around items-center">
-        <!-- Note: Active state will need to be dynamically handled if needed -->
-        <a href="home.html" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/4 py-1.5 rounded-xl transition active:scale-95">
-            <i class="ri-home-4-line text-xl"></i>
-            <span>หน้าหลัก</span>
-        </a>
-        <a href="products.html" class="flex flex-col items-center text-xs font-medium text-[#F22233] w-1/4 py-1.5 rounded-xl transition active:scale-95">
-            <i class="ri-shopping-cart-line text-xl"></i>
-            <span>เมนูสินค้า</span>
-        </a>
-        <a href="dashboard.html?v=1" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/4 py-1.5 rounded-xl transition active:scale-95">
-            <i class="ri-wallet-3-line text-xl"></i>
-            <span>บัตรสมาชิก</span>
-        </a>
+    <div id="app-container" class="hidden">
+        <header id="main-header" class="flex items-center gap-4">
+            <img src="logo.png" alt="Logo" class="w-10 h-10">
+            <div class="relative flex-grow">
+                <i class="ri-search-line absolute top-1/2 left-3 -translate-y-1/2 text-zinc-400"></i>
+                <input id="search-input" type="search" placeholder="ค้นหากลิ่นที่ต้องการ..." class="w-full pl-10 pr-4 py-2 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-brand-red">
+            </div>
+        </header>
+
+        <main>
+            <!-- Banner Slider -->
+            <div id="banner-container" class="px-5"></div>
+
+            <!-- Category Selector -->
+            <div id="category-selector"></div>
+            
+            <h2 id="product-section-title" class="product-section-title"></h2>
+            
+            <!-- Product Grid -->
+            <div id="product-grid"></div>
+        </main>
+        
+        <!-- Bottom Navigation Bar -->
+        <div id="bottom-nav" class="fixed bottom-4 left-0 right-0 z-50 mx-auto w-[calc(100%-2.5rem)] max-w-md bg-zinc-800 shadow-xl rounded-full p-2 flex justify-around items-center">
+             <a href="home.html" class="flex flex-col items-center text-xs font-medium text-zinc-400 w-1/4 py-1.5 rounded-xl transition active:scale-95">
+                <i class="ri-home-4-line text-xl"></i>
+                <span>หน้าหลัก</span>
+            </a>
+            <a href="products.html" class="flex flex-col items-center text-xs font-medium text-brand-red w-1/4 py-1.5 rounded-xl transition active:scale-95">
+                <i class="ri-shopping-cart-fill text-xl"></i>
+                <span>เมนูสินค้า</span>
+            </a>
+            <a href="dashboard.html?v=1" class="flex flex-col items-center text-xs font-medium text-zinc-400 w-1/4 py-1.5 rounded-xl transition active:scale-95">
+                <i class="ri-wallet-3-line text-xl"></i>
+                <span>บัตรสมาชิก</span>
+            </a>
+        </div>
     </div>
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -141,64 +128,153 @@
             const tg = window.Telegram.WebApp;
             tg.ready();
             tg.expand();
+            tg.setHeaderColor('#121212');
+            tg.setBackgroundColor('#121212');
 
-            const productGrid = document.getElementById('product-grid');
+            // --- State Management ---
+            let allProducts = [];
+            let allCategories = [];
+            let currentFilter = {
+                categoryId: null,
+                searchTerm: ''
+            };
+
+            // --- DOM Elements ---
             const loader = document.getElementById('loader');
+            const appContainer = document.getElementById('app-container');
+            const bannerContainer = document.getElementById('banner-container');
+            const categorySelector = document.getElementById('category-selector');
+            const productGrid = document.getElementById('product-grid');
+            const searchInput = document.getElementById('search-input');
+            const sectionTitle = document.getElementById('product-section-title');
 
-            try {
-                // Fetch product data from the API
-                const response = await fetch('/api/products');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const products = await response.json();
-
-                // Hide loader and show grid
-                loader.style.display = 'none';
-                productGrid.classList.remove('hidden');
-
-                if (products.length === 0) {
-                    productGrid.innerHTML = '<p class="text-center col-span-full">ยังไม่มีสินค้าในขณะนี้</p>';
-                    return;
-                }
-
-                // Create a card for each product
-                products.forEach(product => {
-                    const card = document.createElement('div');
-                    card.className = 'flip-card';
-                    card.innerHTML = `
-                        <div class="flip-card-inner">
-                            <div class="flip-card-front">
-                                <img src="${product.imageUrl}" alt="${product.name}" onerror="this.src='logo.png'; this.onerror=null;">
-                                <div class="product-name">${product.name}</div>
-                                <div class="text-sm text-gray-400">${parseFloat(product.price).toLocaleString('th-TH', { style: 'currency', currency: 'THB', minimumFractionDigits: 0 })}</div>
-                            </div>
-                            <div class="flip-card-back">
-                                <h3 class="font-bold text-lg mb-2">${product.name}</h3>
-                                ${product.description ? `<p class="text-xs text-gray-300 mb-3">${product.description}</p>` : ''}
-                                <div class="space-y-1 text-xs w-full px-2">
-                                    ${product.coolness ? `<div class="detail-item"><strong>ความเย็น:</strong> ${product.coolness}</div>` : ''}
-                                    ${product.sweetness ? `<div class="detail-item"><strong>ความหวาน:</strong> ${product.sweetness}</div>` : ''}
-                                    ${product.flavorIntensity ? `<div class="detail-item"><strong>ความชัดของกลิ่น:</strong> ${product.flavorIntensity}</div>` : ''}
-                                </div>
-                                <div class="mt-auto text-base font-semibold">${parseFloat(product.price).toLocaleString('th-TH', { style: 'currency', currency: 'THB', minimumFractionDigits: 0 })}</div>
-                            </div>
+            // --- Render Functions ---
+            const renderBanners = (banners) => {
+                if (!banners || banners.length === 0) return;
+                bannerContainer.innerHTML = `
+                    <div class="swiper-container">
+                        <div class="swiper-wrapper">
+                            ${banners.map(b => `<div class="swiper-slide"><img src="${b.imageUrl}" alt="Banner"></div>`).join('')}
                         </div>
-                    `;
-                    
-                    // Add click event to flip the card
-                    card.addEventListener('click', () => {
-                        card.classList.toggle('flipped');
-                    });
+                        <div class="swiper-pagination"></div>
+                    </div>`;
+                new Swiper('.swiper-container', {
+                    loop: true,
+                    autoplay: { delay: 3000 },
+                    pagination: { el: '.swiper-pagination', clickable: true },
+                });
+            };
 
-                    productGrid.appendChild(card);
+            const renderCategories = (categories) => {
+                allCategories = categories;
+                categorySelector.innerHTML = categories.map(c => `
+                    <div class="category-item" data-category-id="${c.id}">
+                        <img src="${c.imageUrl || 'logo.png'}" alt="${c.name}">
+                        <span>${c.name}</span>
+                    </div>`).join('');
+                
+                // Set first category as active initially
+                if (categories.length > 0) {
+                    currentFilter.categoryId = categories[0].id;
+                    categorySelector.children[0].classList.add('active');
+                    updateSectionTitle();
+                }
+            };
+
+            const renderLevelDots = (level) => {
+                let dots = '';
+                for (let i = 1; i <= 6; i++) {
+                    dots += `<div class="level-dot ${i <= level ? 'active' : ''}"></div>`;
+                }
+                return `<div class="level-dots">${dots}</div>`;
+            };
+
+            const renderProducts = () => {
+                const filteredProducts = allProducts.filter(p => {
+                    const matchesCategory = p.categoryId === currentFilter.categoryId;
+                    const matchesSearch = p.name.toLowerCase().includes(currentFilter.searchTerm.toLowerCase());
+                    return matchesCategory && matchesSearch;
                 });
 
+                productGrid.innerHTML = filteredProducts.map(p => `
+                    <div class="flip-card">
+                        <div class="flip-card-inner">
+                            <div class="flip-card-front">
+                                ${p.flavorIconUrl ? `<img src="${p.flavorIconUrl}" class="flavor-icon">` : ''}
+                                <img src="${p.imageUrl}" alt="${p.name}" class="product-image">
+                                <div class="mt-auto text-center">
+                                    <div class="product-name">${p.name}</div>
+                                    <div class="product-price">${parseFloat(p.price).toLocaleString('th-TH')}฿</div>
+                                </div>
+                            </div>
+                            <div class="flip-card-back">
+                                <div class="level-meter">
+                                    <span class="level-label">ความเย็น</span>
+                                    ${renderLevelDots(p.coolnessLevel)}
+                                </div>
+                                <div class="level-meter">
+                                    <span class="level-label">ความหวาน</span>
+                                    ${renderLevelDots(p.sweetnessLevel)}
+                                </div>
+                                <div class="level-meter">
+                                    <span class="level-label">ความชัดของกลิ่น</span>
+                                    ${renderLevelDots(p.flavorIntensityLevel)}
+                                </div>
+                            </div>
+                        </div>
+                    </div>`).join('');
+            };
+
+            const updateSectionTitle = () => {
+                const activeCategory = allCategories.find(c => c.id === currentFilter.categoryId);
+                if(activeCategory) sectionTitle.textContent = activeCategory.name;
+            };
+
+
+            // --- Event Listeners ---
+            categorySelector.addEventListener('click', (e) => {
+                const target = e.target.closest('.category-item');
+                if (!target) return;
+
+                // Update active state
+                categorySelector.querySelector('.active')?.classList.remove('active');
+                target.classList.add('active');
+                
+                currentFilter.categoryId = parseInt(target.dataset.categoryId);
+                updateSectionTitle();
+                renderProducts();
+            });
+
+            searchInput.addEventListener('input', (e) => {
+                currentFilter.searchTerm = e.target.value;
+                renderProducts();
+            });
+
+            productGrid.addEventListener('click', (e) => {
+                const card = e.target.closest('.flip-card');
+                if (card) {
+                    card.classList.toggle('flipped');
+                }
+            });
+
+
+            // --- Main Fetch and Initialization ---
+            try {
+                const response = await fetch('/api/products');
+                if (!response.ok) throw new Error('Network response was not ok');
+                const data = await response.json();
+
+                allProducts = data.products;
+                renderBanners(data.banners);
+                renderCategories(data.categories);
+                renderProducts(); // Initial render
+
+                loader.classList.add('hidden');
+                appContainer.classList.remove('hidden');
+
             } catch (error) {
-                console.error('Failed to load products:', error);
-                loader.style.display = 'none';
-                productGrid.classList.remove('hidden');
-                productGrid.innerHTML = '<p class="text-center col-span-full text-red-400">เกิดข้อผิดพลาดในการโหลดข้อมูลสินค้า</p>';
+                console.error('Failed to load product page data:', error);
+                loader.innerHTML = '<p class="text-center text-red-400">เกิดข้อผิดพลาดในการโหลดข้อมูล</p>';
             }
         });
     </script>

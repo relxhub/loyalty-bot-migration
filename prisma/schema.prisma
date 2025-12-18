@@ -121,9 +121,18 @@ model SystemConfig {
   value String
 }
 
+model Banner {
+  id        Int      @id @default(autoincrement())
+  imageUrl  String
+  linkUrl   String?
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+}
+
 model Category {
-  id    Int     @id @default(autoincrement())
-  name  String  @unique
+  id        Int     @id @default(autoincrement())
+  name      String  @unique
+  imageUrl  String?
 
   products Product[]
 }
@@ -133,12 +142,19 @@ model Product {
   name            String   @unique
   description     String?
   imageUrl        String
+  flavorIconUrl   String?
   price           Decimal  @db.Decimal(10, 2)
   status          ProductStatus @default(IN_STOCK)
 
+  // Old string fields (kept for data migration)
   coolness        String?
   sweetness       String?
   flavorIntensity String?
+
+  // New integer fields for levels
+  coolnessLevel        Int? @default(0)
+  sweetnessLevel       Int? @default(0)
+  flavorIntensityLevel Int? @default(0)
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
