@@ -282,8 +282,8 @@
                 renderProducts(); // Initial render
                 console.log('[CLIENT TRACE] Initial product rendering complete.');
 
-                loader.classList.add('hidden');
                 appContainer.classList.remove('hidden');
+                loader.remove(); // Remove loader from DOM entirely
                 console.log('[CLIENT TRACE] App container is now visible.');
 
             } catch (error) {
