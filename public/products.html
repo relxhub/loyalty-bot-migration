@@ -260,7 +260,7 @@
 
             // --- Main Fetch and Initialization ---
             try {
-                const response = await fetch('/api/products');
+                const response = await fetch('/api/products', { cache: 'no-cache' });
                 if (!response.ok) throw new Error('Network response was not ok');
                 const data = await response.json();
 
