@@ -901,8 +901,8 @@
                 if (!response.ok) {
                     throw new Error(result.error || "การลงทะเบียนเบื้องต้นล้มเหลว");
                 } else {
-                    // Redirect to welcome page instead of showing a toast
-                    window.location.href = `/welcome.html?customerId=${result.refereeCustomerId}`;
+                    // Redirect to welcome page with customer ID and bot username
+                    window.location.href = `/welcome.html?customerId=${result.refereeCustomerId}&botUsername=${result.orderBotUsername}`;
                 }
             } catch (error) {
                 console.error("Referral Registration Failed:", error);

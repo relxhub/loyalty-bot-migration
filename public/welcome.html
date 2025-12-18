@@ -69,6 +69,7 @@
         window.onload = function() {
             const urlParams = new URLSearchParams(window.location.search);
             const customerId = urlParams.get('customerId');
+            const botUsername = urlParams.get('botUsername'); // Get bot username from URL
             const customerIdElement = document.getElementById('customerId');
             
             if (customerId) {
@@ -83,8 +84,14 @@
                 // Haptic feedback for better UX
                 try { tg.hapticFeedback.impactOccurred('medium'); } catch(e) {}
                 
-                // Close the webview, the main app will update automatically
-                tg.close();
+                if (botUsername) {
+                    // Navigate to the main app page using the dynamic bot username
+                    tg.openTelegramLink(`https://t.me/${botUsername}/app`);
+                } else {
+                    // Fallback or error if bot username isn't passed
+                    console.error("Bot username not found in URL. Cannot redirect.");
+                    tg.showAlert("เกิดข้อผิดพลาด: ไม่สามารถกลับไปหน้าหลักได้");
+                }
             });
         };
     </script>

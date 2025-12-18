@@ -307,7 +307,8 @@ router.post('/referral/register', async (req, res) => {
         res.status(201).json({ 
             success: true, 
             message: 'Pending referral created successfully.',
-            refereeCustomerId: result.refereeId // Send back the new customer ID
+            refereeCustomerId: result.refereeId, // Send back the new customer ID
+            orderBotUsername: getConfig('orderBotUsername', 'Onehub_bot') // Include bot username
         });
     } catch (error) {
         console.error("🚨 Referral Registration API Error:", error);
