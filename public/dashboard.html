@@ -1457,33 +1457,40 @@
                         height: 200,
                         type: 'canvas',
                         data: inviteLink,
-                        image: 'logo.png', // Use your existing logo
                         dotsOptions: {
-                            color: "#F22233",
+                            color: "#ffffff", // Change color to white
                             type: "rounded"
                         },
                         backgroundOptions: {
                             color: "transparent",
                         },
-                        imageOptions: {
-                            hideBackgroundDots: true,
-                            imageSize: 0.4,
-                            margin: 0
-                        },
                         qrOptions: {
-                            errorCorrectionLevel: 'H' // Required for logo
+                            errorCorrectionLevel: 'H'
                         }
                     });
                     
                     qrCodeInstance.append(qrCodeContainer);
                     console.log("[Invite Modal] QR Code appended to container.");
 
-                    downloadQrBtn.onclick = () => {
-                        qrCodeInstance.download({
-                            name: `qr-invite-${userId}`,
-                            extension: 'png'
-                        });
-                        showToast('ดาวน์โหลด QR Code สำเร็จ!', 'success');
+                    downloadQrBtn.onclick = async () => {
+                        try {
+                            const blob = await qrCodeInstance.getRawData('png');
+                            if (!blob) {
+                                throw new Error('Could not get QR code data.');
+                            }
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `qr-invite-${userId}.png`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                            showToast('กำลังดาวน์โหลด QR Code...', 'success');
+                        } catch (downloadError) {
+                            console.error('Download failed:', downloadError);
+                            showToast('การดาวน์โหลดล้มเหลว', 'error');
+                        }
                     };
                     downloadQrBtn.classList.remove('hidden');
                     console.log("[Invite Modal] Download button is visible and configured.");
