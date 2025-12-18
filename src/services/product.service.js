@@ -6,6 +6,7 @@ import { prisma } from '../db.js';
  * @returns {Promise<object>} A promise that resolves to an object containing banners, categories, and products.
  */
 export const getProductPageData = async () => {
+  console.log('[SERVICE TRACE] getProductPageData: Starting...');
   try {
     const [banners, categories, products] = await prisma.$transaction([
       prisma.banner.findMany({
@@ -25,9 +26,10 @@ export const getProductPageData = async () => {
       }),
     ]);
 
+    console.log('[SERVICE TRACE] getProductPageData: Database transaction successful.');
     return { banners, categories, products };
   } catch (error) {
-    console.error('Error fetching product page data:', error);
+    console.error('[SERVICE ERROR] Error in getProductPageData:', error);
     throw new Error('Could not fetch product page data.');
   }
 };

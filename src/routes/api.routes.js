@@ -249,11 +249,13 @@ router.get('/rewards', async (req, res) => {
 // 📦 PRODUCTS
 // ==================================================
 router.get('/products', async (req, res) => {
+    console.log('[API TRACE] Received request for /api/products');
     try {
         const productPageData = await getProductPageData();
+        console.log('[API TRACE] Successfully fetched data. Sending response...');
         res.json(productPageData);
     } catch (error) {
-        console.error("Product API Error:", error);
+        console.error("[API ERROR] in /api/products:", error);
         res.status(500).json({ error: "Could not fetch products." });
     }
 });
