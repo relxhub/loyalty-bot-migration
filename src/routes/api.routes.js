@@ -1,3 +1,12 @@
+import express from 'express';
+import crypto from 'crypto';
+import { prisma } from '../db.js';
+import { getActiveCampaign } from '../services/campaign.service.js';
+import { getConfig } from '../config/config.js';
+import { addDays, formatToBangkok } from '../utils/date.utils.js';
+import { getCustomerByTelegramId, updateCustomer, countCampaignReferralsByTag } from '../services/customer.service.js';
+import { countMonthlyReferrals } from '../services/referral.service.js';
+import * as referralService from '../services/referral.service.js';
 import { getProductPageData } from '../services/product.service.js';
 // No longer import orderBotToken directly here due to module issues.
 
