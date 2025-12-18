@@ -260,21 +260,35 @@
 
             // --- Main Fetch and Initialization ---
             try {
+                console.log('[CLIENT TRACE] Fetching /api/products...');
                 const response = await fetch('/api/products', { cache: 'no-cache' });
-                if (!response.ok) throw new Error('Network response was not ok');
+                console.log('[CLIENT TRACE] Fetch response received. Status:', response.status);
+                if (!response.ok) throw new Error(`Network response was not ok. Status: ${response.status}`);
+                
                 const data = await response.json();
+                console.log('[CLIENT TRACE] API Data received:', data);
 
                 allProducts = data.products;
+
+                console.log('[CLIENT TRACE] Rendering banners...');
                 renderBanners(data.banners);
+                console.log('[CLIENT TRACE] Banner rendering complete.');
+
+                console.log('[CLIENT TRACE] Rendering categories...');
                 renderCategories(data.categories);
+                console.log('[CLIENT TRACE] Category rendering complete.');
+
+                console.log('[CLIENT TRACE] Rendering initial products...');
                 renderProducts(); // Initial render
+                console.log('[CLIENT TRACE] Initial product rendering complete.');
 
                 loader.classList.add('hidden');
                 appContainer.classList.remove('hidden');
+                console.log('[CLIENT TRACE] App container is now visible.');
 
             } catch (error) {
-                console.error('Failed to load product page data:', error);
-                loader.innerHTML = '<p class="text-center text-red-400">เกิดข้อผิดพลาดในการโหลดข้อมูล</p>';
+                console.error('[CLIENT ERROR] Failed to load product page data:', error);
+                loader.innerHTML = `<p class="text-center text-red-400">เกิดข้อผิดพลาดในการโหลดข้อมูล: ${error.message}</p>`;
             }
         });
     </script>
