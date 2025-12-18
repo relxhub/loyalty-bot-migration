@@ -55,7 +55,7 @@
 
         /* --- New Flip Card Design --- */
         .flip-card { background-color: transparent; width: 100%; aspect-ratio: 1 / 1.4; perspective: 1200px; }
-        .flip-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.7s; transform-style: preserve-d; }
+        .flip-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.7s; transform-style: preserve-3d; }
         .flip-card.flipped .flip-card-inner { transform: rotateY(180deg); }
         .flip-card-front, .flip-card-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; flex-direction: column; border-radius: 1rem; background-color: var(--card-bg); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
         
@@ -65,8 +65,10 @@
         .product-name { font-weight: 600; font-size: 0.9rem; text-align: center; }
         .product-price { color: var(--text-secondary); font-size: 0.8rem; }
         
-        .flip-card-back { transform: rotateY(180deg); padding: 1rem; justify-content: space-around; }
-        .level-meter { display: flex; align-items: center; gap: 0.5rem; }
+        .flip-card-back { transform: rotateY(180deg); padding: 1rem; justify-content: flex-start; text-align: left; }
+        .back-product-name { font-weight: 700; font-size: 1.1rem; margin-bottom: 0.25rem; }
+        .back-product-desc { font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 1rem; flex-grow: 1; }
+        .level-meter { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;}
         .level-label { font-size: 0.8rem; width: 80px; }
         .level-dots { display: flex; gap: 3px; }
         .level-dot { width: 12px; height: 12px; border-radius: 50%; background-color: #444; transition: background-color 0.2s; }
@@ -85,7 +87,7 @@
 
     <div id="app-container" class="hidden">
         <header id="main-header" class="flex items-center gap-4">
-            <img src="logo.png" alt="Logo" class="w-10 h-10">
+            <img src="logo.png" alt="Logo" class="h-10 flex-shrink-0">
             <div class="relative flex-grow">
                 <i class="ri-search-line absolute top-1/2 left-3 -translate-y-1/2 text-zinc-400"></i>
                 <input id="search-input" type="search" placeholder="ค้นหากลิ่นที่ต้องการ..." class="w-full pl-10 pr-4 py-2 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-brand-red">
@@ -150,19 +152,21 @@
 
             // --- Render Functions ---
             const renderBanners = (banners) => {
-                if (!banners || banners.length === 0) return;
                 bannerContainer.innerHTML = `
-                    <div class="swiper-container">
+                    <div id="banner-swiper" class="swiper-container">
                         <div class="swiper-wrapper">
                             ${banners.map(b => `<div class="swiper-slide"><img src="${b.imageUrl}" alt="Banner"></div>`).join('')}
                         </div>
                         <div class="swiper-pagination"></div>
                     </div>`;
-                new Swiper('.swiper-container', {
-                    loop: true,
-                    autoplay: { delay: 3000 },
-                    pagination: { el: '.swiper-pagination', clickable: true },
-                });
+                
+                if (banners && banners.length > 0) {
+                    new Swiper('#banner-swiper', {
+                        loop: true,
+                        autoplay: { delay: 3000 },
+                        pagination: { el: '.swiper-pagination', clickable: true },
+                    });
+                }
             };
 
             const renderCategories = (categories) => {
@@ -208,6 +212,8 @@
                                 </div>
                             </div>
                             <div class="flip-card-back">
+                                <div class="back-product-name">${p.name}</div>
+                                <div class="back-product-desc">${p.description || ''}</div>
                                 <div class="level-meter">
                                     <span class="level-label">ความเย็น</span>
                                     ${renderLevelDots(p.coolnessLevel)}
