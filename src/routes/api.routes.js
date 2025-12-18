@@ -77,6 +77,14 @@ router.post('/auth', async (req, res) => {
             return res.json({ success: true, isMember: false });
         }
 
+        // Check if the user is also an admin to get their role
+        const admin = await prisma.admin.findUnique({
+            where: { telegramId: telegramId }
+        });
+        if (admin) {
+            customer.role = admin.role; // Add role to customer object
+        }
+
         // Update Info
         if (customer.firstName !== userData.first_name || customer.lastName !== userData.last_name || customer.username !== userData.username) {
              await updateCustomer(customer.customerId, {

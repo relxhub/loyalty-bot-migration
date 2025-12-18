@@ -1156,6 +1156,38 @@
                 }
             }
             // -----------------------------------------------------
+
+            // --- [START] SuperAdmin Button Logic ---
+            const comingSoonBtn = document.getElementById('coming-soon-btn');
+            if (user.role === 'SuperAdmin') {
+                if (!comingSoonBtn) {
+                    const nav = document.getElementById('bottom-nav');
+                    const homeButton = nav.children[0];
+
+                    const newButton = document.createElement('a');
+                    newButton.id = 'coming-soon-btn';
+                    newButton.href = "javascript:void(0)";
+                    newButton.className = "flex flex-col items-center text-xs font-medium text-gray-400 w-1/4 py-1.5 rounded-xl transition active:scale-95";
+                    newButton.innerHTML = `
+                        <i class="ri-rocket-line text-xl"></i>
+                        <span>Coming Soon</span>
+                    `;
+                    
+                    homeButton.parentNode.insertBefore(newButton, homeButton.nextSibling);
+
+                    // Adjust widths for 4 buttons
+                    const allButtons = nav.querySelectorAll('a');
+                    allButtons.forEach(btn => btn.style.width = '25%');
+                }
+            } else {
+                if (comingSoonBtn) {
+                    comingSoonBtn.remove();
+                    // Adjust widths back to 3 buttons
+                    const allButtons = document.querySelectorAll('#bottom-nav a');
+                    allButtons.forEach(btn => btn.style.width = '33.33%');
+                }
+            }
+            // --- [END] SuperAdmin Button Logic ---
         }
 
         // --- Logic การเชื่อมต่อ (Link) ---
