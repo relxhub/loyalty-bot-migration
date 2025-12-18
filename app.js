@@ -139,7 +139,7 @@ async function startServer() {
         if (req.url.startsWith('/api') || req.url.startsWith('/webhook')) {
             return next();
         }
-        res.sendFile(path.join(__dirname, 'public', 'index.html'));
+        res.sendFile(path.join(__dirname, 'public', 'home.html'));
     });
 
     // 404 Handler
