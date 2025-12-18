@@ -1,10 +1,10 @@
-const prisma = require('../db');
+import { prisma } from '../db.js';
 
 /**
  * Fetches all products with their associated category.
  * @returns {Promise<Array>} A promise that resolves to an array of products.
  */
-const getAllProducts = async () => {
+export const getAllProducts = async () => {
   try {
     const products = await prisma.product.findMany({
       include: {
@@ -19,8 +19,4 @@ const getAllProducts = async () => {
     console.error('Error fetching all products:', error);
     throw new Error('Could not fetch products.');
   }
-};
-
-module.exports = {
-  getAllProducts,
 };
