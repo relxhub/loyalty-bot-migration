@@ -777,17 +777,20 @@
 
         async function initApp() {
             try {
-                const startParam = tg.initDataUnsafe?.start_param;
-                console.log(`[Init] start_param received: ${startParam}`);
+                // Priority 1: Get start_param from URL query string
+                const urlParams = new URLSearchParams(window.location.search);
+                let startParam = urlParams.get('start_param');
+                console.log(`[Init] start_param from URL: ${startParam}`);
+
+                // Priority 2: Fallback to Telegram's initData if not in URL
+                if (!startParam) {
+                    startParam = tg.initDataUnsafe?.start_param;
+                    console.log(`[Init] start_param from initData: ${startParam}`);
+                }
 
                 if (startParam) {
-                    if (startParam.startsWith('app-ref_')) {
-                        console.log("[Init] New format referral link detected.");
-                        const referrerId = startParam.substring('app-ref_'.length);
-                        await handleReferralFlow(referrerId);
-                        return;
-                    } else if (startParam.startsWith('ref_')) {
-                        console.log("[Init] Old format referral link detected.");
+                    if (startParam.startsWith('ref_')) {
+                        console.log("[Init] Referral link detected.");
                         const referrerId = startParam.split('_')[1];
                         await handleReferralFlow(referrerId);
                         return; 
@@ -1440,7 +1443,7 @@
 
             const botUsername = getConfig('orderBotUsername', 'YOUR_ORDER_BOT_USERNAME_HERE');
             const userId = window.currentUser?.customerId || "UNKNOWN";
-            const inviteLink = `https://t.me/${botUsername}?startapp=app-ref_${userId}`;
+            const inviteLink = `https://t.me/${botUsername}/app?startapp=ref_${userId}`;
             linkInput.value = inviteLink;
             console.log(`[Invite Modal] Generated link: ${inviteLink}`);
 

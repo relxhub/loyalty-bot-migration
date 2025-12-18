@@ -72,8 +72,8 @@
 
             // Logic to redirect if opened from a special link (referral or admin)
             if (tg.initDataUnsafe?.start_param) {
-                // If there's a start_param, redirect to the dashboard to handle the logic.
-                window.location.replace('dashboard.html?v=1');
+                // If there's a start_param, redirect to the dashboard and pass the param along
+                window.location.replace(`dashboard.html?start_param=${tg.initDataUnsafe.start_param}`);
             }
         });
     </script>
