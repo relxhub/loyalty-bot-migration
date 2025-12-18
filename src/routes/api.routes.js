@@ -292,6 +292,34 @@ router.get('/history/:telegramId', async (req, res) => {
 // ==================================================
 // 👥 REFERRALS
 // ==================================================
+
+router.post('/referral/register', async (req, res) => {
+    const { referrerId, telegramId, firstName, lastName, username } = req.body;
+
+    if (!referrerId || !telegramId || !firstName) {
+        return res.status(400).json({ error: 'Missing required referral data.' });
+    }
+
+    try {
+        const refereeData = { telegramId, firstName, lastName, username };
+        const result = await referralService.createPendingReferral(referrerId, refereeData);
+        
+        res.status(201).json({ 
+            success: true, 
+            message: 'Pending referral created successfully.',
+            refereeCustomerId: result.refereeId // Send back the new customer ID
+        });
+    } catch (error) {
+        console.error("🚨 Referral Registration API Error:", error);
+        
+        if (error.message.includes("unique constraint")) {
+             return res.status(409).json({ error: 'This user is already registered or has a pending referral.' });
+        }
+        
+        res.status(500).json({ error: 'Failed to create pending referral.' });
+    }
+});
+
 router.get('/referrals/:telegramId', async (req, res) => {
     console.log("==================== DEBUG: /api/referrals ====================");
     try {
