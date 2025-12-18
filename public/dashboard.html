@@ -1455,10 +1455,10 @@
                     const qrCodeInstance = new QRCodeStyling({
                         width: 200,
                         height: 200,
-                        type: 'canvas',
+                        type: 'canvas', // Still use canvas for data generation
                         data: inviteLink,
                         dotsOptions: {
-                            color: "#ffffff", // Change color to white
+                            color: "#ffffff", // White dots
                             type: "rounded"
                         },
                         backgroundOptions: {
@@ -1468,30 +1468,26 @@
                             errorCorrectionLevel: 'H'
                         }
                     });
-                    
-                    qrCodeInstance.append(qrCodeContainer);
-                    console.log("[Invite Modal] QR Code appended to container.");
 
-                    downloadQrBtn.onclick = async () => {
-                        try {
-                            const blob = await qrCodeInstance.getRawData('png');
-                            if (!blob) {
-                                throw new Error('Could not get QR code data.');
-                            }
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `qr-invite-${userId}.png`;
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            URL.revokeObjectURL(url);
-                            showToast('กำลังดาวน์โหลด QR Code...', 'success');
-                        } catch (downloadError) {
-                            console.error('Download failed:', downloadError);
-                            showToast('การดาวน์โหลดล้มเหลว', 'error');
-                        }
+                    // Get the image URL and display it as an <img> for long-press-to-save
+                    qrCodeInstance.getImageUrl("png").then(url => {
+                        const img = document.createElement('img');
+                        img.src = url;
+                        img.classList.add('w-full', 'h-full', 'rounded-lg');
+                        qrCodeContainer.appendChild(img);
+                         console.log("[Invite Modal] QR Code displayed as an image for long-press saving.");
+                    });
+                    
+                    console.log("[Invite Modal] QR Code generation process started.");
+
+                    downloadQrBtn.onclick = () => {
+                        qrCodeInstance.download({
+                            name: `qr-invite-${userId}`,
+                            extension: 'png'
+                        });
+                        showToast('กำลังดาวน์โหลด QR Code...', 'success');
                     };
+
                     downloadQrBtn.classList.remove('hidden');
                     console.log("[Invite Modal] Download button is visible and configured.");
                 } catch (qrError) {
