@@ -1470,12 +1470,15 @@
                     });
 
                     // Get the image URL and display it as an <img> for long-press-to-save
-                    qrCodeInstance.getImageUrl("png").then(url => {
+                    qrCodeInstance.toDataUrl("png").then(url => {
                         const img = document.createElement('img');
                         img.src = url;
                         img.classList.add('w-full', 'h-full', 'rounded-lg');
                         qrCodeContainer.appendChild(img);
                          console.log("[Invite Modal] QR Code displayed as an image for long-press saving.");
+                    }).catch(err => {
+                        console.error("[Invite Modal] Failed to generate QR data URL:", err);
+                        qrCodeContainer.innerHTML = '<p class="text-red-500 text-xs">เกิดข้อผิดพลาดในการสร้างข้อมูล QR Code</p>';
                     });
                     
                     console.log("[Invite Modal] QR Code generation process started.");
