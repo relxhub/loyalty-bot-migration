@@ -1464,18 +1464,32 @@
                         const response = await fetch(qrApiUrl);
                         if (!response.ok) throw new Error('Network response was not ok.');
                         const blob = await response.blob();
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `qr-invite-${userId}.png`;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                        showToast('กำลังดาวน์โหลด QR Code...', 'success');
-                    } catch (downloadError) {
-                        console.error('Download failed:', downloadError);
-                        showToast('การดาวน์โหลดล้มเหลว', 'error');
+                        const file = new File([blob], `qr-invite-${userId}.png`, { type: blob.type });
+
+                        // Use Web Share API if available
+                        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                            await navigator.share({
+                                files: [file],
+                                title: 'QR Code เชิญเพื่อน',
+                                text: 'สแกน QR Code นี้เพื่อเข้าร่วม',
+                            });
+                            showToast('แชร์สำเร็จ!', 'success');
+                        } else {
+                            // Fallback for browsers that don't support sharing files
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `qr-invite-${userId}.png`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                        }
+                    } catch (err) {
+                        console.error('Share/Download failed:', err);
+                        // Final fallback: open the image in a new tab
+                        window.open(qrApiUrl, '_blank');
+                        showToast('เปิด QR Code ในแท็บใหม่', 'info');
                     }
                 };
                 downloadQrBtn.classList.remove('hidden');
