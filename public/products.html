@@ -50,43 +50,65 @@
         .category-item span { font-size: 0.8rem; font-weight: 500; }
         
         /* --- Product Grid --- */
-        .product-section-title { font-size: 1.5rem; font-weight: 600; padding: 0 1.25rem; margin-bottom: 1rem; }
+        .product-section-title { font-size: 1.5rem; font-weight: 600; padding: 0 1.25rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+        .category-price-badge {
+            font-size: 0.9rem;
+            font-weight: 600;
+            background-color: var(--brand-red);
+            color: var(--text-primary);
+            padding: 0.25rem 0.65rem;
+            border-radius: 0.5rem;
+            vertical-align: middle;
+        }
         #product-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; padding: 0 1.25rem 120px; } /* 3 columns, smaller gap */
 
-        /* --- New Compact Product Card Design (V3) --- */
+        /* --- New Compact Product Card Design (V4 - Image Replica) --- */
         .product-card {
-            background-color: var(--card-bg);
-            border-radius: 0.75rem; /* Slightly less rounded for density */
-            box-shadow: 0 6px 18px rgba(0,0,0,0.25); /* Lighter shadow */
+            background-color: #FFFFFF; /* White bottom section */
+            border-radius: 1rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             overflow: hidden;
             display: flex;
             flex-direction: column;
             width: 100%;
             height: 100%;
-            aspect-ratio: 1 / 1.7; /* Adjust aspect ratio for a taller, narrower card */
+            aspect-ratio: 1 / 1.5; /* Adjust aspect ratio */
             position: relative;
             cursor: pointer;
             transition: transform 0.2s ease;
+            border: 1px solid #E0E0E0;
         }
         .product-card:active { transform: scale(0.98); }
+
         .product-card-top {
-            background-color: #388E3C; /* Green background for top section */
+            background-color: #388E3C; /* Green background */
             padding: 0.5rem;
-            border-radius: 0.75rem 0.75rem 0 0;
             display: flex;
-            flex-direction: column;
             align-items: center;
+            gap: 0.5rem;
             position: relative;
-            z-index: 1; /* Ensure text is above any potential background graphic */
+            z-index: 1;
         }
-        .product-card-top::before { /* Background graphic similar to the image */
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-image: url('data:image/svg+xml;utf8,<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><path opacity="0.1" d="M0 0H20C31.0457 0 40 8.95431 40 20V40H20C8.95431 40 0 31.0457 0 20V0Z" fill="white"/></svg>');
-            background-size: 30px;
-            opacity: 0.15;
-            z-index: -1;
+        .product-card-flavor-icon {
+            flex-shrink: 0;
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+        }
+        .product-card-names {
+            flex-grow: 1;
+        }
+        .product-card-name-th {
+            font-weight: 700;
+            font-size: 0.8rem;
+            color: var(--primary-accent);
+            line-height: 1.2;
+        }
+        .product-card-name-en {
+            font-weight: 500;
+            font-size: 0.9rem;
+            color: var(--primary-accent);
+            line-height: 1.1;
         }
         .product-card-nic-badge {
             background-color: rgba(0,0,0,0.3);
@@ -96,89 +118,69 @@
             padding: 0.2rem 0.4rem;
             border-radius: 0.5rem;
             position: absolute;
-            top: 0.5rem;
-            right: 0.5rem;
+            top: 0.3rem;
+            right: 0.3rem;
             z-index: 2;
-        }
-        .product-card-name-th {
-            font-weight: 700;
-            font-size: 0.85rem; /* Larger Thai name */
-            color: var(--primary-accent);
-            text-align: center;
-            line-height: 1.2;
-            margin-top: 0.25rem;
-        }
-        .product-card-name-en {
-            font-weight: 500;
-            font-size: 0.7rem; /* Smaller English name */
-            color: rgba(255,255,255,0.7);
-            text-align: center;
-            line-height: 1.2;
-            margin-bottom: 0.5rem;
-            opacity: 0.9;
         }
 
         .product-card-content {
-            padding: 0.5rem;
+            padding: 0.6rem;
             display: flex;
             flex-direction: column;
             flex-grow: 1;
             justify-content: space-between;
         }
 
-        /* 7-dot level system */
-        .level-dots-container {
-            display: flex;
-            flex-direction: column;
-            gap: 0.2rem;
+        /* 3-column, 7-dot level system */
+        .level-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            text-align: center;
             margin-bottom: 0.5rem;
         }
-        .level-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 0.65rem; /* Smaller level label */
-            color: var(--text-secondary);
+        .level-column .level-label {
+            font-size: 0.6rem;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 0.25rem;
         }
         .level-dots-wrapper {
             display: flex;
+            justify-content: center;
             gap: 2px;
         }
         .level-dot-item {
-            width: 8px; /* Smaller dots */
-            height: 8px;
+            width: 7px; /* Smaller dots for a 3-col layout */
+            height: 7px;
             border-radius: 50%;
-            background-color: #444; /* Inactive dot color */
-            transition: background-color 0.2s;
-            border: 1px solid rgba(255,255,255,0.1); /* Subtle border for empty dots */
+            background-color: #E0E0E0; /* Inactive dot color */
+            border: 1px solid #F5F5F5;
         }
         .level-dot-item.active {
-            background-color: var(--primary-accent); /* Active dot color (white) */
+            background-color: #42A5F5; /* Blue active dot color from image */
         }
 
         .product-card-bottom-info {
             display: flex;
-            justify-content: space-between;
+            justify-content: center; /* Center the rating */
             align-items: center;
             padding-top: 0.5rem;
-            border-top: 1px solid #333;
-            margin-top: auto; /* Push to bottom */
+            border-top: 1px solid #E0E0E0;
+            margin-top: auto;
             font-size: 0.75rem;
         }
         .product-card-avg-rating {
             display: flex;
             align-items: center;
             gap: 0.2rem;
-            color: var(--text-secondary);
+            color: #757575;
         }
         .product-card-avg-rating i {
             color: gold;
             font-size: 0.85rem;
         }
-        .product-card-price {
-            font-weight: 700;
-            color: var(--primary-accent);
-        }
+        .product-card-price { display: none; } /* Price is no longer on the card */
 
         /* --- General & Loader --- */
         #loader { display: flex; justify-content: center; align-items: center; height: 100vh; position: fixed; top: 0; left: 0; width: 100%; z-index: 100; background: var(--bg-color); }
@@ -459,32 +461,35 @@
 
             const renderProducts = () => {
                 const filteredProducts = allProducts.filter(p => {
-                    // Search by both Thai and English names
-                    const matchesSearch = (p.nameTh || '').toLowerCase().includes(currentFilter.searchTerm.toLowerCase()) ||
-                                          (p.nameEn || '').toLowerCase().includes(currentFilter.searchTerm.toLowerCase());
                     const matchesCategory = p.categoryId === currentFilter.categoryId;
+                    const searchTerm = currentFilter.searchTerm.toLowerCase();
+                    const matchesSearch = (p.nameTh || '').toLowerCase().includes(searchTerm) ||
+                                          (p.nameEn || '').toLowerCase().includes(searchTerm);
                     return matchesCategory && matchesSearch;
                 });
 
                 productGrid.innerHTML = filteredProducts.map(p => `
                     <div class="product-card" data-product-id="${p.id}">
                         <div class="product-card-top">
+                            <img src="${p.flavorIconUrl || ''}" class="product-card-flavor-icon" alt="">
+                            <div class="product-card-names">
+                                <div class="product-card-name-th">${p.nameTh || 'ชื่อสินค้า'}</div>
+                                <div class="product-card-name-en">${p.nameEn || 'Product Name'}</div>
+                            </div>
                             ${p.tagline ? `<span class="product-card-nic-badge">${p.tagline}</span>` : ''}
-                            <div class="product-card-name-th">${p.nameTh || ''}</div>
-                            <div class="product-card-name-en">${p.nameEn || ''}</div>
                         </div>
                         <div class="product-card-content">
-                            <div class="level-dots-container">
-                                <div class="level-row">
-                                    <span>Sweetness</span>
+                            <div class="level-grid">
+                                <div class="level-column">
+                                    <div class="level-label">Sweetness</div>
                                     ${renderLevelDots(p.sweetnessLevel)}
                                 </div>
-                                <div class="level-row">
-                                    <span>Cooling</span>
+                                <div class="level-column">
+                                    <div class="level-label">Cooling</div>
                                     ${renderLevelDots(p.coolnessLevel)}
                                 </div>
-                                <div class="level-row">
-                                    <span>Richness</span>
+                                <div class="level-column">
+                                    <div class="level-label">Richness</div>
                                     ${renderLevelDots(p.flavorIntensityLevel)}
                                 </div>
                             </div>
@@ -493,18 +498,21 @@
                                     ${p.reviewCount > 0 ? `
                                         <i class="ri-star-fill"></i>
                                         ${p.averageRating.toFixed(1)}
-                                        <span class="text-zinc-500 text-xs">(${p.reviewCount})</span>
-                                    ` : '<span>N/A</span>'}
+                                    ` : '<span></span>'}
                                 </div>
-                                <div class="product-card-price">${parseFloat(p.price).toLocaleString('th-TH')}฿</div>
                             </div>
                         </div>
-                    </div>`).join('');
+                    </div>
+                `).join('');
             };
 
             const updateSectionTitle = () => {
                 const activeCategory = allCategories.find(c => c.id === currentFilter.categoryId);
-                if(activeCategory) sectionTitle.textContent = activeCategory.name;
+                if(activeCategory) {
+                    const firstProductOfCategory = allProducts.find(p => p.categoryId === activeCategory.id);
+                    const price = firstProductOfCategory ? parseFloat(firstProductOfCategory.price).toLocaleString('th-TH') + '฿' : '';
+                    sectionTitle.innerHTML = `${activeCategory.name} <span class="category-price-badge">${price}</span>`;
+                }
             };
 
 
