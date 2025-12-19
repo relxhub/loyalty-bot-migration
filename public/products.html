@@ -532,6 +532,7 @@
                     currentFilter.categoryId = categories[0].id;
                     categorySelector.children[0].classList.add('active');
                     updateSectionTitle();
+                    renderProducts(); // Ensure products are rendered after initial category and filters are set
                 }
             };
 
