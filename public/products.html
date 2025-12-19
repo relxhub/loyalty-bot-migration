@@ -103,25 +103,25 @@
             color: var(--text-secondary);
             margin-bottom: 0.5rem;
         }
-        .info-card-rating {
+        .info-card-stock-status {
             margin-top: auto; /* Push to bottom */
-            font-size: 0.8rem;
-            color: #888;
+            font-size: 0.75rem;
+            font-weight: 600;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 0.2rem;
+            gap: 0.3rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid #444;
         }
-        .info-card-rating i {
-            color: gold;
+        .info-card-stock-status.in-stock {
+            color: #4ade80; /* Green text */
         }
-        .info-card.out-of-stock {
-            background-color: #222;
-            cursor: not-allowed;
+        .info-card-stock-status.in-stock i {
+            text-shadow: 0 0 8px #4ade80; /* Glowing effect */
         }
-        .info-card.out-of-stock .info-card-name-th,
-        .info-card.out-of-stock .info-card-name-en {
-            color: #666;
+        .info-card-stock-status.sold-out {
+            color: #666; /* Gray text */
         }
 
         /* --- Modal Level Bar Styles --- */
@@ -503,10 +503,14 @@
                 });
 
                 productGrid.innerHTML = filteredProducts.map(p => `
-                    <div class="info-card ${p.status === 'OUT_OF_STOCK' ? 'out-of-stock' : ''}" data-product-id="${p.id}">
+                    <div class="info-card" data-product-id="${p.id}">
                         <div>
                             <div class="info-card-name-th">${p.nameTh || 'N/A'}</div>
                             <div class="info-card-name-en">${p.nameEn || ''}</div>
+                        </div>
+                        <div class="info-card-stock-status ${p.status === 'OUT_OF_STOCK' ? 'sold-out' : 'in-stock'}">
+                           <i class="${p.status === 'OUT_OF_STOCK' ? 'ri-close-circle-fill' : 'ri-checkbox-blank-circle-fill'}"></i>
+                           <span>${p.status === 'OUT_OF_STOCK' ? 'Sold Out' : 'In Stock'}</span>
                         </div>
                     </div>
                 `).join('');
