@@ -123,6 +123,13 @@
         .info-card-stock-status.sold-out {
             color: #666; /* Gray text */
         }
+        .info-card.out-of-stock {
+            cursor: not-allowed;
+        }
+        .info-card.out-of-stock .info-card-name-th,
+        .info-card.out-of-stock .info-card-name-en {
+            color: #666;
+        }
 
         /* --- Modal Level Bar Styles --- */
         .level-bar-container {
@@ -503,7 +510,7 @@
                 });
 
                 productGrid.innerHTML = filteredProducts.map(p => `
-                    <div class="info-card" data-product-id="${p.id}">
+                    <div class="info-card ${p.status === 'OUT_OF_STOCK' ? 'out-of-stock' : ''}" data-product-id="${p.id}">
                         <div>
                             <div class="info-card-name-th">${p.nameTh || 'N/A'}</div>
                             <div class="info-card-name-en">${p.nameEn || ''}</div>
@@ -550,6 +557,11 @@
             productGrid.addEventListener('click', (e) => {
                 const card = e.target.closest('.info-card');
                 if (card) {
+                    // Prevent opening modal for out-of-stock items
+                    if (card.classList.contains('out-of-stock')) {
+                        try { tg.hapticFeedback.notificationOccurred('error'); } catch (err) { /* ignore on unsupported devices */ }
+                        return;
+                    }
                     const productId = parseInt(card.dataset.productId);
                     const product = allProducts.find(p => p.id === productId);
                     if (product) {
