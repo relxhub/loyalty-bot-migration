@@ -548,6 +548,7 @@
 
                 productGrid.innerHTML = filteredProducts.map(p => `
                     <div class="info-card ${p.status === 'OUT_OF_STOCK' ? 'out-of-stock' : ''}" data-product-id="${p.id}">
+                        ${currentFilter.nicotine === null && p.nicotine !== null ? `<span class="nicotine-tag">${p.nicotine}%</span>` : ''}
                         <div>
                             <div class="info-card-name-th">${p.nameTh || 'N/A'}</div>
                             <div class="info-card-name-en">${p.nameEn || ''}</div>
@@ -593,7 +594,8 @@
                 const activeCategory = allCategories.find(c => c.id === currentFilter.categoryId);
                 if(activeCategory) {
                     const price = parseFloat(activeCategory.price).toLocaleString('th-TH') + '฿';
-                    categoryNameAndPrice.innerHTML = `${activeCategory.name} <span class="category-price-badge">${price}</span>`;
+                    document.getElementById('category-name-display').textContent = activeCategory.name;
+                    document.getElementById('category-price-display').textContent = price;
                     renderNicotineFilters(); // Render filters when category changes
                 }
             };
@@ -623,7 +625,6 @@
             productGrid.addEventListener('click', (e) => {
                 const card = e.target.closest('.info-card');
                 if (card) {
-                    // Prevent opening modal for out-of-stock items
                     if (card.classList.contains('out-of-stock')) {
                         try { tg.hapticFeedback.notificationOccurred('error'); } catch (err) { /* ignore on unsupported devices */ }
                         return;
