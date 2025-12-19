@@ -87,16 +87,33 @@
         }
         
         /* --- Product Grid --- */
-        .product-section-title { font-size: 1.5rem; font-weight: 600; padding: 0 1.25rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+        .product-section-title { 
+            font-size: 1.5rem; 
+            font-weight: 600; 
+            padding: 0 1.25rem; 
+            margin-bottom: 1rem; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; /* To align items on same line */
+            gap: 0.5rem; /* Ensure gap between elements */
+            
+            position: sticky; /* Make it sticky */
+            top: 0; /* Stick to the top */
+            z-index: 10; /* Ensure it's above other content */
+            background-color: var(--bg-color); /* Match body background */
+            padding-top: 1rem; /* Add padding for visual separation */
+            padding-bottom: 1rem;
+        }
         .category-price-badge {
             font-size: 0.9rem;
-            font-weight: 600;
+            font-weight: 700; /* Make it extra bold */
             background-color: var(--brand-red); /* Make it stand out */
             color: var(--text-primary);
             padding: 0.1rem 0.5rem; /* Adjust padding for compactness */
             border-radius: 0.5rem;
             vertical-align: middle;
             line-height: 1; /* Adjust line height for better vertical alignment */
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3); /* Add a subtle shadow */
         }
         #product-grid {
             display: flex;
