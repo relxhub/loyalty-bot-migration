@@ -39,7 +39,17 @@
         ::-webkit-scrollbar-thumb { background: #555; border-radius: 5px; }
 
         /* --- Header --- */
-        #main-header { padding: 1rem 1.25rem; }
+        #main-header { 
+            padding: 1rem 0; /* Vertical padding, horizontal padding will be on inner elements */
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            background-color: var(--bg-color);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+        #search-container {
+            padding: 0 1.25rem 1rem;
+        }
         #search-input { background-color: var(--secondary-bg); border: 1px solid #444; }
         #search-input::placeholder { color: var(--text-secondary); }
 
@@ -96,13 +106,11 @@
             align-items: center; 
             justify-content: space-between; /* To align items on same line */
             gap: 0.5rem; /* Ensure gap between elements */
-            
-            position: sticky; /* Make it sticky */
-            top: 0; /* Stick to the top */
-            z-index: 10; /* Ensure it's above other content */
-            background-color: var(--bg-color); /* Match body background */
-            padding-top: 1rem; /* Add padding for visual separation */
-            padding-bottom: 1rem;
+        }
+        .category-name-and-price-wrapper { /* New wrapper for alignment */
+            display: flex;
+            align-items: baseline; /* Align text baselines */
+            gap: 0.5rem;
         }
         .category-price-badge {
             font-size: 0.9rem;
@@ -118,12 +126,12 @@
         #product-grid {
             display: flex;
             flex-wrap: wrap;
-            justify-content: center;
+            justify-content: flex-start; /* Align items to the left */
             gap: 0.5rem; /* Smaller gap */
             padding: 0 0.5rem 120px; /* Smaller side padding */
         }
 
-        /* --- New Text-Only Info-Card Design (V8 - Final Centered) --- */
+        /* --- Info-Card Design (Final) --- */
         .info-card {
             background-color: var(--secondary-bg);
             border-radius: 0.75rem;
@@ -137,6 +145,7 @@
             justify-content: space-between;
             min-height: 110px;
             width: calc(33.333% - 0.5rem); /* Adjusted for smaller gap */
+            position: relative; /* For nicotine tag positioning */
         }
         .info-card:active {
             transform: scale(0.95);
@@ -157,6 +166,18 @@
             overflow: hidden;
             text-overflow: ellipsis;
             margin-bottom: 0.5rem;
+        }
+        .nicotine-tag { /* New nicotine tag style */
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            font-size: 0.65rem;
+            padding: 0.1rem 0.4rem;
+            border-radius: 0.3rem;
+            font-weight: 600;
+            line-height: 1; /* Adjust for compactness */
         }
         .info-card-stock-status {
             margin-top: auto;
@@ -276,28 +297,29 @@
     </div>
 
     <div id="app-container" class="hidden">
-        <header id="main-header" class="flex items-center gap-4">
-            <img src="logo.png" alt="Logo" class="h-10 flex-shrink-0">
-            <div class="relative flex-grow">
-                <i class="ri-search-line absolute top-1/2 left-3 -translate-y-1/2 text-zinc-400"></i>
-                <input id="search-input" type="search" placeholder="ค้นหากลิ่นที่ต้องการ..." class="w-full pl-10 pr-4 py-2 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-brand-red">
+        <header id="main-header">
+            <div id="search-container" class="flex items-center gap-4">
+                <img src="logo.png" alt="Logo" class="h-10 flex-shrink-0">
+                <div class="relative flex-grow">
+                    <i class="ri-search-line absolute top-1/2 left-3 -translate-y-1/2 text-zinc-400"></i>
+                    <input id="search-input" type="search" placeholder="ค้นหากลิ่นที่ต้องการ..." class="w-full pl-10 pr-4 py-2 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-brand-red">
+                </div>
             </div>
-        </header>
-
-        <main>
-            <!-- Banner Slider -->
-            <div id="banner-container" class="px-5"></div>
-
             <!-- Category Selector -->
             <div id="category-selector"></div>
             
             <div id="product-section-title" class="product-section-title">
                 <span class="category-name-and-price-wrapper">
                     <span id="category-name-display"></span>
-                    <span id="category-price-display"></span>
+                    <span id="category-price-display" class="category-price-badge"></span>
                 </span>
                 <div id="nicotine-filter-container" class="flex items-center gap-2"></div>
             </div>
+        </header>
+
+        <main>
+            <!-- Banner Slider -->
+            <div id="banner-container" class="px-5"></div>
             
             <!-- Product Grid -->
             <div id="product-grid"></div>
@@ -348,7 +370,8 @@
             const productGrid = document.getElementById('product-grid');
             const searchInput = document.getElementById('search-input');
             const sectionTitle = document.getElementById('product-section-title');
-            const categoryNameAndPrice = document.getElementById('category-name-and-price'); // Moved this declaration
+            const categoryNameDisplay = document.getElementById('category-name-display');
+            const categoryPriceDisplay = document.getElementById('category-price-display');
             const nicotineFilterContainer = document.getElementById('nicotine-filter-container');
             const modal = document.getElementById('product-modal');
             const modalContent = document.getElementById('product-modal-content');
@@ -552,6 +575,7 @@
                 
                 if (categories.length > 0) {
                     currentFilter.categoryId = categories[0].id;
+                    currentFilter.nicotine = null; // Ensure nicotine is reset
                     categorySelector.children[0].classList.add('active');
                     updateSectionTitle();
                     renderProducts(); // Ensure products are rendered after initial category and filters are set
@@ -616,8 +640,8 @@
                 const activeCategory = allCategories.find(c => c.id === currentFilter.categoryId);
                 if(activeCategory) {
                     const price = parseFloat(activeCategory.price).toLocaleString('th-TH') + '฿';
-                    document.getElementById('category-name-display').textContent = activeCategory.name;
-                    document.getElementById('category-price-display').textContent = price;
+                    categoryNameDisplay.textContent = activeCategory.name;
+                    categoryPriceDisplay.textContent = price;
                     renderNicotineFilters(); // Render filters when category changes
                 }
             };
@@ -664,7 +688,7 @@
                 if (e.target === modal) {
                     closeQuickViewModal();
                 }
-});
+            });
 
 
             // --- Main Fetch and Initialization ---
@@ -692,14 +716,25 @@
                 }
                 
                 const data = await response.json();
+                console.log('[CLIENT TRACE] API Data received:', data);
+
                 allProducts = data.products;
 
+                console.log('[CLIENT TRACE] Rendering banners...');
                 renderBanners(data.banners);
+                console.log('[CLIENT TRACE] Banner rendering complete.');
+
+                console.log('[CLIENT TRACE] Rendering categories...');
                 renderCategories(data.categories);
+                console.log('[CLIENT TRACE] Category rendering complete.');
+
+                console.log('[CLIENT TRACE] Rendering initial products...');
                 renderProducts(); // Initial render
+                console.log('[CLIENT TRACE] Initial product rendering complete.');
 
                 appContainer.classList.remove('hidden');
-                loader.remove();
+                loader.remove(); // Remove loader from DOM entirely
+                console.log('[CLIENT TRACE] App container is now visible.');
 
             } catch (error) {
                 console.error('[CLIENT ERROR] Failed to load product page data:', error);
