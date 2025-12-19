@@ -67,6 +67,24 @@
             color: var(--text-primary);
             border-color: var(--brand-red);
         }
+
+        /* --- Nicotine Filter Styles --- */
+        .nic-filter-btn {
+            padding: 0.25rem 0.65rem;
+            border-radius: 0.5rem;
+            border: 1px solid #555;
+            background-color: transparent;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .nic-filter-btn.active {
+            background-color: var(--primary-accent);
+            color: var(--bg-color);
+            border-color: var(--primary-accent);
+        }
         
         /* --- Product Grid --- */
         .product-section-title { font-size: 1.5rem; font-weight: 600; padding: 0 1.25rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
@@ -83,8 +101,8 @@
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
-            gap: 0.75rem;
-            padding: 0 1.25rem 120px;
+            gap: 0.5rem; /* Smaller gap */
+            padding: 0 0.5rem 120px; /* Smaller side padding */
         }
 
         /* --- New Text-Only Info-Card Design (V8 - Final Centered) --- */
@@ -100,7 +118,7 @@
             flex-direction: column;
             justify-content: space-between;
             min-height: 110px;
-            width: calc(33.333% - 0.75rem); /* Width for 3 columns with gap */
+            width: calc(33.333% - 0.5rem); /* Adjusted for smaller gap */
         }
         .info-card:active {
             transform: scale(0.95);
@@ -255,7 +273,10 @@
             <!-- Category Selector -->
             <div id="category-selector"></div>
             
-            <h2 id="product-section-title" class="product-section-title"></h2>
+            <div id="product-section-title" class="product-section-title">
+                <span id="category-name-and-price"></span>
+                <div id="nicotine-filter-container" class="flex items-center gap-2"></div>
+            </div>
             
             <!-- Product Grid -->
             <div id="product-grid"></div>

@@ -149,11 +149,10 @@ model Product {
   imageUrl        String
   flavorIconUrl   String?
   status          ProductStatus @default(IN_STOCK)
+  nicotine        Int?
 
-  // New integer fields for levels
-  coolnessLevel        Int? @default(0)
-  sweetnessLevel       Int? @default(0)
-  flavorIntensityLevel Int? @default(0)
+  // Old string fields (kept for data migration)
+  coolness        String?
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
