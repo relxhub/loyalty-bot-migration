@@ -30,6 +30,8 @@
         }
         #app-container {
             overflow: hidden; /* Prevent child elements from causing horizontal scroll */
+            max-width: 28rem; /* 448px, matches max-w-md of bottom nav */
+            margin: 0 auto; /* Center the container */
         }
         /* Make scrollbars less intrusive */
         ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -83,7 +85,7 @@
         .info-card {
             background-color: var(--secondary-bg);
             border-radius: 0.75rem;
-            padding: 0.75rem;
+            padding: 0.5rem; /* Reduced padding */
             border: 1px solid #444;
             cursor: pointer;
             transition: all 0.2s ease;
@@ -91,7 +93,7 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between; /* To ensure uniform height behavior */
-            aspect-ratio: 1 / 1.3; /* To enforce uniform height */
+            aspect-ratio: 1 / 1.1; /* Made shorter */
         }
         .info-card:active {
             transform: scale(0.95);
