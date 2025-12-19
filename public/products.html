@@ -85,7 +85,7 @@
         .info-card {
             background-color: var(--secondary-bg);
             border-radius: 0.75rem;
-            padding: 0.5rem; /* Reduced padding */
+            padding: 0.6rem;
             border: 1px solid #444;
             cursor: pointer;
             transition: all 0.2s ease;
@@ -93,7 +93,7 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between; /* To ensure uniform height behavior */
-            aspect-ratio: 1 / 1.1; /* Made shorter */
+            min-height: 110px; /* Set a fixed min-height */
         }
         .info-card:active {
             transform: scale(0.95);
@@ -101,7 +101,7 @@
         }
         .info-card-name-th {
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 0.85rem; /* Slightly smaller font */
             color: var(--text-primary);
             white-space: nowrap;
             overflow: hidden;
