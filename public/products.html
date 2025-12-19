@@ -26,6 +26,7 @@
             font-family: 'Kanit', sans-serif;
             color: var(--text-primary);
             overscroll-behavior: none;
+            overflow-x: hidden; /* Prevent horizontal scroll */
         }
         /* Make scrollbars less intrusive */
         ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -79,15 +80,13 @@
         .info-card {
             background-color: var(--secondary-bg);
             border-radius: 0.75rem;
-            padding: 0.75rem;
+            padding: 0.5rem;
             border: 1px solid #444;
             cursor: pointer;
             transition: all 0.2s ease;
             text-align: center;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
-            aspect-ratio: 1 / 1.2; /* Adjust aspect ratio */
         }
         .info-card:active {
             transform: scale(0.95);
@@ -555,7 +554,9 @@
             });
 
             productGrid.addEventListener('click', (e) => {
+                console.log("Grid clicked. Target:", e.target);
                 const card = e.target.closest('.info-card');
+                console.log("Found card:", card);
                 if (card) {
                     // Prevent opening modal for out-of-stock items
                     if (card.classList.contains('out-of-stock')) {
