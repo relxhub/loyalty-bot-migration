@@ -64,6 +64,7 @@ model Customer {
   auditLogs         AdminAuditLog[]
   referralsMade     Referral[] @relation("ReferredBy") // People this customer has referred
   referredBy        Referral?  @relation("Referred")   // The referral record for how this customer joined
+  reviews           ProductReview[] // Relation to reviews
 
   @@index([verificationCode])
   @@index([referrerId])
@@ -162,6 +163,7 @@ model Product {
   // Relation to Category
   categoryId Int?
   category   Category? @relation(fields: [categoryId], references: [id])
+  reviews    ProductReview[] // Relation to reviews
 }
 
 // ---------------------------------------------------------
@@ -212,4 +214,22 @@ model SystemLog {
   
   message     String   // รายละเอียดอื่นๆ หรือข้อความสรุป
   createdAt   DateTime @default(now())
+}
+
+model ProductReview {
+  id         Int      @id @default(autoincrement())
+  rating     Int
+  comment    String   @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  productId  Int
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
+
+  @@unique([productId, customerId])
+  @@index([productId])
+  @@index([customerId])
 }

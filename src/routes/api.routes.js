@@ -441,4 +441,84 @@ router.get('/referrals/:telegramId', async (req, res) => {
 });
 
 
+// ==================================================
+// ⭐️ REVIEWS
+// ==================================================
+
+router.get('/reviews/:productId', async (req, res) => {
+    try {
+        const { productId } = req.params;
+        const reviews = await prisma.productReview.findMany({
+            where: { productId: parseInt(productId) },
+            orderBy: { createdAt: 'desc' },
+            include: {
+                customer: {
+                    select: { firstName: true }
+                }
+            }
+        });
+
+        const formattedReviews = reviews.map(r => ({
+            id: r.id,
+            rating: r.rating,
+            comment: r.comment,
+            createdAt: formatToBangkok(r.createdAt),
+            author: r.customer.firstName || 'Anonymous'
+        }));
+
+        res.json({ success: true, reviews: formattedReviews });
+
+    } catch (error) {
+        console.error("Review Fetch Error:", error);
+        res.status(500).json({ error: "Could not fetch reviews." });
+    }
+});
+
+router.post('/reviews', async (req, res) => {
+    try {
+        const { productId, customerId, rating, comment, initData } = req.body;
+
+        // 1. Validate user identity
+        if (!verifyTelegramWebAppData(initData)) {
+            return res.status(401).json({ error: "Invalid Telegram Data. Please reload the app." });
+        }
+        
+        const urlParams = new URLSearchParams(initData);
+        const userData = JSON.parse(urlParams.get('user'));
+        const telegramId = userData.id.toString();
+
+        const customer = await getCustomerByTelegramId(telegramId);
+        if (!customer || customer.customerId !== customerId) {
+            return res.status(403).json({ error: "User identity mismatch." });
+        }
+
+        // 2. Validate input
+        if (!productId || !rating || !comment) {
+            return res.status(400).json({ error: "Product, rating, and comment are required." });
+        }
+        if (rating < 1 || rating > 5) {
+            return res.status(400).json({ error: "Rating must be between 1 and 5." });
+        }
+
+        // 3. Create review
+        const newReview = await prisma.productReview.create({
+            data: {
+                productId: parseInt(productId),
+                customerId: customerId,
+                rating: rating,
+                comment: comment,
+            }
+        });
+
+        res.status(201).json({ success: true, review: newReview });
+
+    } catch (error) {
+        if (error.code === 'P2002') { // Prisma unique constraint violation code
+            return res.status(409).json({ error: "You have already reviewed this product." });
+        }
+        console.error("Review Submission Error:", error);
+        res.status(500).json({ error: "Failed to submit review." });
+    }
+});
+
 export default router;
