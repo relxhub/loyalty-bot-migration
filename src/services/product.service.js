@@ -22,7 +22,7 @@ export const getProductPageData = async () => {
           category: true,
         },
         orderBy: {
-          name: 'asc',
+          nameTh: 'asc',
         },
       }),
     ]);
