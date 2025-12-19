@@ -140,7 +140,9 @@ model Category {
 
 model Product {
   id              Int      @id @default(autoincrement())
-  name            String   @unique
+  nameTh          String?
+  nameEn          String?
+  tagline         String?
   description     String?
   imageUrl        String
   flavorIconUrl   String?
