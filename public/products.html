@@ -535,11 +535,12 @@
 
             const renderProducts = () => {
                 const filteredProducts = allProducts.filter(p => {
-                    const matchesCategory = p.categoryId === currentFilter.categoryId;
+                    const matchesCategory = currentFilter.categoryId === null || p.categoryId === currentFilter.categoryId;
                     const searchTerm = currentFilter.searchTerm.toLowerCase();
                     const matchesSearch = (p.nameTh || '').toLowerCase().includes(searchTerm) ||
                                           (p.nameEn || '').toLowerCase().includes(searchTerm);
-                    return matchesCategory && matchesSearch;
+                    const matchesNicotine = currentFilter.nicotine === null || p.nicotine === currentFilter.nicotine;
+                    return matchesCategory && matchesSearch && matchesNicotine;
                 });
 
                 productGrid.innerHTML = filteredProducts.map(p => `
@@ -556,11 +557,41 @@
                 `).join('');
             };
 
+            const renderNicotineFilters = () => {
+                const productsInCategory = allProducts.filter(p => p.categoryId === currentFilter.categoryId);
+                const uniqueNicLevels = [...new Set(productsInCategory.map(p => p.nicotine).filter(n => n !== null))].sort((a, b) => a - b);
+
+                if (uniqueNicLevels.length <= 1) { // Only show filter if there's more than one unique nicotine level
+                    nicotineFilterContainer.innerHTML = '';
+                    currentFilter.nicotine = null; // Reset filter if buttons are hidden
+                    return;
+                }
+
+                let buttonsHTML = `<button class="nic-filter-btn ${currentFilter.nicotine === null ? 'active' : ''}" data-nic="null">All</button>`;
+                buttonsHTML += uniqueNicLevels.map(nic => 
+                    `<button class="nic-filter-btn ${currentFilter.nicotine === nic ? 'active' : ''}" data-nic="${nic}">${nic}%</button>`
+                ).join('');
+                
+                nicotineFilterContainer.innerHTML = buttonsHTML;
+
+                nicotineFilterContainer.querySelectorAll('.nic-filter-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        nicotineFilterContainer.querySelector('.active')?.classList.remove('active');
+                        e.currentTarget.classList.add('active');
+                        
+                        const nicValue = e.currentTarget.dataset.nic;
+                        currentFilter.nicotine = nicValue === 'null' ? null : parseInt(nicValue);
+                        renderProducts();
+                    });
+                });
+            };
+
             const updateSectionTitle = () => {
                 const activeCategory = allCategories.find(c => c.id === currentFilter.categoryId);
                 if(activeCategory) {
                     const price = parseFloat(activeCategory.price).toLocaleString('th-TH') + '฿';
-                    sectionTitle.innerHTML = `${activeCategory.name} <span class="category-price-badge">${price}</span>`;
+                    categoryNameAndPrice.innerHTML = `${activeCategory.name} <span class="category-price-badge">${price}</span>`;
+                    renderNicotineFilters(); // Render filters when category changes
                 }
             };
 
@@ -570,14 +601,13 @@
                 const target = e.target.closest('.category-item');
                 if (!target) return;
 
-                // Update active state
                 categorySelector.querySelector('.active')?.classList.remove('active');
                 target.classList.add('active');
                 
-                // Scroll the active item into view
                 target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
                 
                 currentFilter.categoryId = parseInt(target.dataset.categoryId);
+                currentFilter.nicotine = null; // Reset nicotine filter on category change
                 updateSectionTitle();
                 renderProducts();
             });
@@ -588,9 +618,7 @@
             });
 
             productGrid.addEventListener('click', (e) => {
-                console.log("Grid clicked. Target:", e.target);
                 const card = e.target.closest('.info-card');
-                console.log("Found card:", card);
                 if (card) {
                     // Prevent opening modal for out-of-stock items
                     if (card.classList.contains('out-of-stock')) {
