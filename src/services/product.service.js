@@ -18,7 +18,22 @@ export const getProductPageData = async () => {
         orderBy: { order: 'asc' },
       }),
       prisma.product.findMany({
-        include: {
+        select: {
+          id: true,
+          nameTh: true,
+          nameEn: true,
+          tagline: true,
+          description: true,
+          imageUrl: true,
+          flavorIconUrl: true,
+          status: true,
+          nicotine: true,
+          coolnessLevel: true,
+          sweetnessLevel: true,
+          flavorIntensityLevel: true,
+          createdAt: true,
+          updatedAt: true,
+          categoryId: true,
           category: true,
         },
         orderBy: {
