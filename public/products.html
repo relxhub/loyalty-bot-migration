@@ -493,7 +493,7 @@
             });
 
             productGrid.addEventListener('click', (e) => {
-                const card = e.target.closest('.product-card');
+                const card = e.target.closest('.info-card');
                 if (card) {
                     const productId = parseInt(card.dataset.productId);
                     const product = allProducts.find(p => p.id === productId);
