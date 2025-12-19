@@ -28,6 +28,9 @@
             overscroll-behavior: none;
             overflow-x: hidden; /* Prevent horizontal scroll */
         }
+        #app-container {
+            overflow: hidden; /* Prevent child elements from causing horizontal scroll */
+        }
         /* Make scrollbars less intrusive */
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -76,17 +79,19 @@
         }
         #product-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; padding: 0 1.25rem 120px; }
 
-        /* --- New Text-Only Info-Card Design (V6) --- */
+        /* --- New Text-Only Info-Card Design (V7 - Final) --- */
         .info-card {
             background-color: var(--secondary-bg);
             border-radius: 0.75rem;
-            padding: 0.5rem;
+            padding: 0.75rem;
             border: 1px solid #444;
             cursor: pointer;
             transition: all 0.2s ease;
             text-align: center;
             display: flex;
             flex-direction: column;
+            justify-content: space-between; /* To ensure uniform height behavior */
+            aspect-ratio: 1 / 1.3; /* To enforce uniform height */
         }
         .info-card:active {
             transform: scale(0.95);
@@ -103,13 +108,13 @@
         .info-card-name-en {
             font-size: 0.75rem;
             color: var(--text-secondary);
-            margin-bottom: 0.5rem;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            margin-bottom: 0.5rem;
         }
         .info-card-stock-status {
-            margin-top: auto; /* Push to bottom */
+            margin-top: auto;
             font-size: 0.75rem;
             font-weight: 600;
             display: flex;
@@ -202,10 +207,7 @@
             color: #ddd;
             line-height: 1.5;
         }
-
-        /* Hide the old chip styles */
-        .product-chip { display: none; }
-
+        
         /* --- General & Loader --- */
         #loader { display: flex; justify-content: center; align-items: center; height: 100vh; position: fixed; top: 0; left: 0; width: 100%; z-index: 100; background: var(--bg-color); }
         .hidden { display: none; }
@@ -303,11 +305,9 @@
             const openQuickViewModal = (product) => {
                 activeProduct = product;
                 
-                // Populate modal with product data
                 document.getElementById('modal-product-name').textContent = product.nameTh || product.nameEn;
                 document.getElementById('modal-product-description').textContent = product.description || '';
 
-                // Render Level Bars
                 const levelBarsContainer = document.getElementById('modal-level-bars');
                 const levels = [
                     { label: 'ความหวาน', value: product.sweetnessLevel },
@@ -496,7 +496,6 @@
                         <span>${c.name}</span>
                     </div>`).join('');
                 
-                // Set first category as active initially
                 if (categories.length > 0) {
                     currentFilter.categoryId = categories[0].id;
                     categorySelector.children[0].classList.add('active');
@@ -559,7 +558,9 @@
             });
 
             productGrid.addEventListener('click', (e) => {
+                console.log("Grid clicked. Target:", e.target);
                 const card = e.target.closest('.info-card');
+                console.log("Found card:", card);
                 if (card) {
                     // Prevent opening modal for out-of-stock items
                     if (card.classList.contains('out-of-stock')) {
@@ -579,7 +580,7 @@
                 if (e.target === modal) {
                     closeQuickViewModal();
                 }
-            });
+});
 
 
             // --- Main Fetch and Initialization ---
