@@ -135,6 +135,7 @@ model Category {
   name      String  @unique
   imageUrl  String?
   order     Int     @default(0)
+  price     Decimal @default(0) @db.Decimal(10, 2)
 
   products Product[]
 }
@@ -147,13 +148,7 @@ model Product {
   description     String?
   imageUrl        String
   flavorIconUrl   String?
-  price           Decimal  @db.Decimal(10, 2)
   status          ProductStatus @default(IN_STOCK)
-
-  // Old string fields (kept for data migration)
-  coolness        String?
-  sweetness       String?
-  flavorIntensity String?
 
   // New integer fields for levels
   coolnessLevel        Int? @default(0)

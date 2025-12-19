@@ -467,8 +467,7 @@
             const updateSectionTitle = () => {
                 const activeCategory = allCategories.find(c => c.id === currentFilter.categoryId);
                 if(activeCategory) {
-                    const firstProductOfCategory = allProducts.find(p => p.categoryId === activeCategory.id);
-                    const price = firstProductOfCategory ? parseFloat(firstProductOfCategory.price).toLocaleString('th-TH') + '฿' : '';
+                    const price = parseFloat(activeCategory.price).toLocaleString('th-TH') + '฿';
                     sectionTitle.innerHTML = `${activeCategory.name} <span class="category-price-badge">${price}</span>`;
                 }
             };
