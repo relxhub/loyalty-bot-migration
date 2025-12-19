@@ -140,16 +140,55 @@
         .level-bar-bg {
             flex-grow: 1;
             height: 10px;
-            background-color: #444;
+            background-color: #333; /* Darker background */
             border-radius: 5px;
             overflow: hidden;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.5); /* Inset shadow for depth */
         }
         .level-bar-fill {
             height: 100%;
             width: var(--level-width, 0%);
-            background-color: var(--brand-red);
+            background-image: linear-gradient(to right, #F97316, #EF4444); /* Orange to Red gradient */
             border-radius: 5px;
             transition: width 0.5s ease-out;
+            box-shadow: 0 0 5px rgba(239, 68, 68, 0.5); /* Outer glow */
+        }
+
+        /* --- Modal Review List Styles --- */
+        .review-item {
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #444;
+        }
+        .review-item:last-child {
+            border-bottom: none;
+        }
+        .review-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.25rem;
+        }
+        .review-author {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .review-meta {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        .review-stars {
+            display: flex;
+            gap: 2px;
+            margin-bottom: 0.5rem;
+            color: #666; /* Inactive star color */
+        }
+        .review-stars i.active {
+            color: gold;
+        }
+        .review-comment {
+            font-size: 0.9rem;
+            color: #ddd;
+            line-height: 1.5;
         }
 
         /* Hide the old chip styles */
@@ -324,15 +363,15 @@
                     return;
                 }
                 reviewContentContainer.innerHTML = reviews.map(r => `
-                    <div class="border-b border-zinc-700 py-2">
-                        <div class="flex justify-between items-center text-xs">
-                            <span class="font-bold text-white">${r.author}</span>
-                            <span class="text-zinc-400">${r.createdAt}</span>
+                    <div class="review-item">
+                        <div class="review-header">
+                            <span class="review-author">${r.author}</span>
+                            <span class="review-meta">${r.createdAt}</span>
                         </div>
-                        <div class="flex items-center gap-1 my-1">
-                            ${[...Array(5)].map((_, i) => `<i class="ri-star-fill ${i < r.rating ? 'text-yellow-400' : 'text-zinc-600'}"></i>`).join('')}
+                        <div class="review-stars">
+                            ${[...Array(5)].map((_, i) => `<i class="ri-star-s-fill ${i < r.rating ? 'active' : ''}"></i>`).join('')}
                         </div>
-                        <p class="text-sm text-zinc-300">${r.comment}</p>
+                        <p class="review-comment">${r.comment}</p>
                     </div>
                 `).join('');
             };
@@ -347,13 +386,13 @@
 
             const renderReviewForm = () => {
                 reviewContentContainer.innerHTML = `
-                    <div class="space-y-3">
-                        <div class="text-center">ให้คะแนนสินค้า</div>
-                        <div id="star-rating" class="flex justify-center gap-2 text-2xl cursor-pointer">
-                            ${[...Array(5)].map((_, i) => `<i class="ri-star-line" data-value="${i+1}"></i>`).join('')}
+                    <div class="space-y-4 pt-2">
+                        <div class="text-center font-semibold text-white">ให้คะแนนสินค้า</div>
+                        <div id="star-rating" class="flex justify-center gap-3 text-3xl cursor-pointer text-zinc-600">
+                            ${[...Array(5)].map((_, i) => `<i class="ri-star-fill" data-value="${i+1}"></i>`).join('')}
                         </div>
-                        <textarea id="review-comment" class="w-full bg-zinc-700 rounded-lg p-2 text-sm" rows="3" placeholder="เขียนรีวิวของคุณ..."></textarea>
-                        <button id="submit-review-btn" class="w-full py-2 bg-green-600 hover:bg-green-500 rounded-lg font-semibold">ส่งรีวิว</button>
+                        <textarea id="review-comment" class="w-full bg-zinc-900 rounded-lg p-3 text-sm focus:ring-2 focus:ring-brand-red focus:outline-none" rows="4" placeholder="บอกเล่าประสบการณ์ของคุณ..."></textarea>
+                        <button id="submit-review-btn" class="w-full py-3 bg-green-600 hover:bg-green-500 rounded-lg font-bold text-lg">ส่งรีวิว</button>
                     </div>
                 `;
                 
@@ -361,18 +400,33 @@
                 const starContainer = document.getElementById('star-rating');
                 const stars = starContainer.querySelectorAll('i');
 
+                starContainer.addEventListener('mouseover', e => {
+                    if (e.target.tagName === 'I') {
+                        const hoverValue = parseInt(e.target.dataset.value);
+                        stars.forEach(star => {
+                            star.classList.toggle('text-yellow-400', parseInt(star.dataset.value) <= hoverValue);
+                        });
+                    }
+                });
+
+                starContainer.addEventListener('mouseout', () => {
+                     stars.forEach(star => {
+                        star.classList.toggle('text-yellow-400', parseInt(star.dataset.value) <= selectedRating);
+                    });
+                });
+
                 starContainer.addEventListener('click', e => {
                     if (e.target.tagName === 'I') {
                         selectedRating = parseInt(e.target.dataset.value);
                         stars.forEach(star => {
-                            star.className = parseInt(star.dataset.value) <= selectedRating ? 'ri-star-fill text-yellow-400' : 'ri-star-line';
+                           star.classList.toggle('text-yellow-400', parseInt(star.dataset.value) <= selectedRating);
                         });
                     }
                 });
 
                 document.getElementById('submit-review-btn').onclick = async () => {
                     const comment = document.getElementById('review-comment').value;
-                    if (selectedRating === 0 || !comment) {
+                    if (selectedRating === 0 || !comment.trim()) {
                         tg.showAlert('กรุณาให้ดาวและเขียนคอมเมนต์');
                         return;
                     }
@@ -454,12 +508,6 @@
                             <div class="info-card-name-th">${p.nameTh || 'N/A'}</div>
                             <div class="info-card-name-en">${p.nameEn || ''}</div>
                         </div>
-                        <div class="info-card-rating">
-                            ${p.reviewCount > 0 ? `
-                                <i class="ri-star-fill"></i>
-                                ${p.averageRating.toFixed(1)}
-                            ` : '<span>-</span>'}
-                        </div>
                     </div>
                 `).join('');
             };
@@ -481,6 +529,9 @@
                 // Update active state
                 categorySelector.querySelector('.active')?.classList.remove('active');
                 target.classList.add('active');
+                
+                // Scroll the active item into view
+                target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
                 
                 currentFilter.categoryId = parseInt(target.dataset.categoryId);
                 updateSectionTitle();
@@ -571,7 +622,6 @@
             
             <!-- Body -->
             <div class="flex-grow overflow-y-auto p-4 space-y-4">
-                <img id="modal-product-image" src="" alt="Product Image" class="w-full h-48 object-cover rounded-lg">
                 
                 <div>
                     <p id="modal-product-description" class="text-sm text-zinc-300"></p>
