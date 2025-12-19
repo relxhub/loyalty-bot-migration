@@ -256,7 +256,12 @@ router.get('/products', async (req, res) => {
         res.json(productPageData);
     } catch (error) {
         console.error("[API ERROR] in /api/products:", error);
-        res.status(500).json({ error: "Could not fetch products." });
+        // Send detailed error back to the client for debugging
+        res.status(500).json({ 
+            error: "Could not fetch products.",
+            message: error.message,
+            stack: error.stack 
+        });
     }
 });
 
