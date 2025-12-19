@@ -141,26 +141,26 @@ model Category {
 }
 
 model Product {
-  id              Int      @id @default(autoincrement())
-  nameTh          String?
-  nameEn          String?
-  tagline         String?
-  description     String?
-  imageUrl        String
-  flavorIconUrl   String?
-  status          ProductStatus @default(IN_STOCK)
-  nicotine        Int?
+  id                   Int      @id @default(autoincrement())
+  nameTh               String?
+  nameEn               String?
+  tagline              String?
+  description          String?
+  imageUrl             String
+  flavorIconUrl        String?
+  status               ProductStatus @default(IN_STOCK)
+  nicotine             Int?
+  coolnessLevel        Int?     @default(0)
+  sweetnessLevel       Int?     @default(0)
+  flavorIntensityLevel Int?     @default(0)
 
-  // Old string fields (kept for data migration)
-  coolness        String?
-
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   // Relation to Category
-  categoryId Int?
-  category   Category? @relation(fields: [categoryId], references: [id])
-  reviews    ProductReview[] // Relation to reviews
+  categoryId           Int?
+  category             Category? @relation(fields: [categoryId], references: [id])
+  reviews              ProductReview[] // Relation to reviews
 }
 
 // ---------------------------------------------------------
