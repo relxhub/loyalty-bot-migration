@@ -1158,32 +1158,35 @@
             // -----------------------------------------------------
 
             // --- [START] SuperAdmin Button Logic ---
-            const comingSoonBtn = document.getElementById('coming-soon-btn');
-            if (user.role === 'SuperAdmin') {
-                if (!comingSoonBtn) {
-                    const nav = document.getElementById('bottom-nav');
-                    const homeButton = nav.children[0];
+            const adminButton = document.getElementById('coming-soon-btn');
 
+            // Find the main navigation bar
+            const nav = document.getElementById('bottom-nav');
+
+            if (user.role === 'SuperAdmin') {
+                // If the button doesn't exist, create and append it once.
+                if (nav && !adminButton) {
                     const newButton = document.createElement('a');
                     newButton.id = 'coming-soon-btn';
-                    newButton.href = "javascript:void(0)";
+                    newButton.href = "products.html"; // Link to actual products page for admin
                     newButton.className = "flex flex-col items-center text-xs font-medium text-gray-400 w-1/4 py-1.5 rounded-xl transition active:scale-95";
                     newButton.innerHTML = `
-                        <i class="ri-rocket-line text-xl"></i>
-                        <span>Coming Soon</span>
+                        <i class="ri-settings-3-line text-xl"></i>
+                        <span>จัดการร้าน</span>
                     `;
-                    
-                    homeButton.parentNode.insertBefore(newButton, homeButton.nextSibling);
+                    // Insert it before the last element (Member Card)
+                    nav.insertBefore(newButton, nav.lastElementChild);
 
-                    // Adjust widths for 4 buttons
+                    // Adjust widths for all 4 buttons
                     const allButtons = nav.querySelectorAll('a');
                     allButtons.forEach(btn => btn.style.width = '25%');
                 }
             } else {
-                if (comingSoonBtn) {
-                    comingSoonBtn.remove();
-                    // Adjust widths back to 3 buttons
-                    const allButtons = document.querySelectorAll('#bottom-nav a');
+                // If the user is not a SuperAdmin and the button exists, remove it.
+                if (adminButton) {
+                    adminButton.remove();
+                    // Readjust widths for the remaining 3 buttons
+                    const allButtons = nav.querySelectorAll('a');
                     allButtons.forEach(btn => btn.style.width = '33.33%');
                 }
             }
