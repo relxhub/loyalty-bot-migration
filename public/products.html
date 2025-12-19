@@ -299,7 +299,6 @@
                 
                 // Populate modal with product data
                 document.getElementById('modal-product-name').textContent = product.nameTh || product.nameEn;
-                document.getElementById('modal-product-image').src = product.imageUrl;
                 document.getElementById('modal-product-description').textContent = product.description || '';
 
                 // Render Level Bars
@@ -554,9 +553,7 @@
             });
 
             productGrid.addEventListener('click', (e) => {
-                console.log("Grid clicked. Target:", e.target);
                 const card = e.target.closest('.info-card');
-                console.log("Found card:", card);
                 if (card) {
                     // Prevent opening modal for out-of-stock items
                     if (card.classList.contains('out-of-stock')) {
