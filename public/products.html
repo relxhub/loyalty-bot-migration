@@ -43,11 +43,24 @@
         .swiper-pagination-bullet-active { background: var(--brand-red); }
 
         /* --- Category Selector --- */
-        #category-selector { display: flex; overflow-x: auto; gap: 1rem; padding: 0 1.25rem 1rem; scrollbar-width: none; -ms-overflow-style: none; }
-        .category-item { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer; border-bottom: 3px solid transparent; padding-bottom: 0.5rem; transition: all 0.2s ease; opacity: 0.6; }
-        .category-item.active { border-bottom-color: var(--brand-red); opacity: 1; }
-        .category-item img { width: 48px; height: 48px; border-radius: 0.75rem; background-color: var(--card-bg); object-fit: cover; border: 2px solid #444; }
-        .category-item span { font-size: 0.8rem; font-weight: 500; }
+        #category-selector { display: flex; overflow-x: auto; gap: 0.5rem; padding: 0 1.25rem 1rem; scrollbar-width: none; -ms-overflow-style: none; }
+        .category-item {
+            flex-shrink: 0;
+            padding: 0.5rem 1rem;
+            border-radius: 999px; /* Pill shape */
+            background-color: var(--secondary-bg);
+            color: var(--text-secondary);
+            border: 1px solid #444;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .category-item.active {
+            background-color: var(--brand-red);
+            color: var(--text-primary);
+            border-color: var(--brand-red);
+        }
         
         /* --- Product Grid --- */
         .product-section-title { font-size: 1.5rem; font-weight: 600; padding: 0 1.25rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
@@ -60,38 +73,87 @@
             border-radius: 0.5rem;
             vertical-align: middle;
         }
-        #product-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; padding: 0 1.25rem 120px; }
+        #product-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; padding: 0 1.25rem 120px; }
 
-        /* --- New Text-Only Chip Design (V5) --- */
-        .product-chip {
+        /* --- New Text-Only Info-Card Design (V6) --- */
+        .info-card {
             background-color: var(--secondary-bg);
-            color: var(--text-primary);
-            padding: 0.75rem 0.5rem;
             border-radius: 0.75rem;
-            text-align: center;
-            font-size: 0.8rem;
-            font-weight: 500;
+            padding: 0.75rem;
+            border: 1px solid #444;
             cursor: pointer;
             transition: all 0.2s ease;
-            border: 1px solid #444;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            aspect-ratio: 1 / 1.2; /* Adjust aspect ratio */
         }
-        .product-chip:active {
+        .info-card:active {
             transform: scale(0.95);
             background-color: var(--brand-red);
         }
-        .product-chip.out-of-stock {
-            color: #666; /* Gray text for out of stock */
-            cursor: not-allowed;
+        .info-card-name-th {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+        }
+        .info-card-name-en {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+        .info-card-rating {
+            margin-top: auto; /* Push to bottom */
+            font-size: 0.8rem;
+            color: #888;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.2rem;
+        }
+        .info-card-rating i {
+            color: gold;
+        }
+        .info-card.out-of-stock {
             background-color: #222;
+            cursor: not-allowed;
+        }
+        .info-card.out-of-stock .info-card-name-th,
+        .info-card.out-of-stock .info-card-name-en {
+            color: #666;
         }
 
-        /* Hide all previous complex card styles */
-        .product-card, .product-card-top, .product-card-content, .level-grid, .product-card-bottom-info {
-             display: none;
+        /* --- Modal Level Bar Styles --- */
+        .level-bar-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
+        .level-bar-label {
+            flex-shrink: 0;
+            width: 90px; /* Fixed width for alignment */
+            text-align: right;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        .level-bar-bg {
+            flex-grow: 1;
+            height: 10px;
+            background-color: #444;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .level-bar-fill {
+            height: 100%;
+            width: var(--level-width, 0%);
+            background-color: var(--brand-red);
+            border-radius: 5px;
+            transition: width 0.5s ease-out;
+        }
+
+        /* Hide the old chip styles */
+        .product-chip { display: none; }
 
         /* --- General & Loader --- */
         #loader { display: flex; justify-content: center; align-items: center; height: 100vh; position: fixed; top: 0; left: 0; width: 100%; z-index: 100; background: var(--bg-color); }
@@ -190,12 +252,29 @@
             const openQuickViewModal = (product) => {
                 activeProduct = product;
                 
-                document.getElementById('modal-product-name').textContent = product.name;
+                // Populate modal with product data
+                document.getElementById('modal-product-name').textContent = product.nameTh || product.nameEn;
                 document.getElementById('modal-product-image').src = product.imageUrl;
                 document.getElementById('modal-product-description').textContent = product.description || '';
-                document.getElementById('modal-level-cool').textContent = product.coolnessLevel;
-                document.getElementById('modal-level-sweet').textContent = product.sweetnessLevel;
-                document.getElementById('modal-level-flavor').textContent = product.flavorIntensityLevel;
+
+                // Render Level Bars
+                const levelBarsContainer = document.getElementById('modal-level-bars');
+                const levels = [
+                    { label: 'ความหวาน', value: product.sweetnessLevel },
+                    { label: 'ความเย็น', value: product.coolnessLevel },
+                    { label: 'ความชัดของกลิ่น', value: product.flavorIntensityLevel }
+                ];
+                levelBarsContainer.innerHTML = levels.map(level => {
+                    const percentage = (level.value / 6) * 100;
+                    return `
+                        <div class="level-bar-container">
+                            <span class="level-bar-label">${level.label}</span>
+                            <div class="level-bar-bg">
+                                <div class="level-bar-fill" style="--level-width: ${percentage}%"></div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
 
                 const avgRatingEl = document.getElementById('modal-avg-rating');
                 if (product.reviewCount > 0) {
@@ -203,7 +282,7 @@
                 } else {
                     avgRatingEl.innerHTML = `<span class="text-xs text-zinc-500">ยังไม่มีรีวิว</span>`;
                 }
-
+                
                 document.getElementById('read-reviews-btn').onclick = handleReadReviews;
                 document.getElementById('write-review-btn').onclick = handleWriteReview;
                 
@@ -211,7 +290,6 @@
                 modal.classList.remove('hidden');
                 setTimeout(() => modal.classList.add('show'), 10);
                 
-                // Automatically show reviews on open
                 handleReadReviews();
             };
 
@@ -350,7 +428,6 @@
                 allCategories = categories;
                 categorySelector.innerHTML = categories.map(c => `
                     <div class="category-item" data-category-id="${c.id}">
-                        <img src="${c.imageUrl || 'logo.png'}" alt="${c.name}">
                         <span>${c.name}</span>
                     </div>`).join('');
                 
@@ -372,8 +449,17 @@
                 });
 
                 productGrid.innerHTML = filteredProducts.map(p => `
-                    <div class="product-chip ${p.status === 'OUT_OF_STOCK' ? 'out-of-stock' : ''}" data-product-id="${p.id}">
-                        ${p.nameTh || 'N/A'}
+                    <div class="info-card ${p.status === 'OUT_OF_STOCK' ? 'out-of-stock' : ''}" data-product-id="${p.id}">
+                        <div>
+                            <div class="info-card-name-th">${p.nameTh || 'N/A'}</div>
+                            <div class="info-card-name-en">${p.nameEn || ''}</div>
+                        </div>
+                        <div class="info-card-rating">
+                            ${p.reviewCount > 0 ? `
+                                <i class="ri-star-fill"></i>
+                                ${p.averageRating.toFixed(1)}
+                            ` : '<span>-</span>'}
+                        </div>
                     </div>
                 `).join('');
             };
@@ -493,19 +579,8 @@
                 </div>
                 
                 <!-- Levels -->
-                <div class="grid grid-cols-3 gap-2 text-center text-sm">
-                    <div class="bg-zinc-700/50 p-2 rounded-lg">
-                        <div class="text-xs text-zinc-400">ความเย็น</div>
-                        <div id="modal-level-cool" class="font-bold text-lg"></div>
-                    </div>
-                    <div class="bg-zinc-700/50 p-2 rounded-lg">
-                        <div class="text-xs text-zinc-400">ความหวาน</div>
-                        <div id="modal-level-sweet" class="font-bold text-lg"></div>
-                    </div>
-                    <div class="bg-zinc-700/50 p-2 rounded-lg">
-                        <div class="text-xs text-zinc-400">ความชัดของกลิ่น</div>
-                        <div id="modal-level-flavor" class="font-bold text-lg"></div>
-                    </div>
+                <div id="modal-level-bars" class="space-y-2">
+                    <!-- Level bars will be injected here by JS -->
                 </div>
 
                 <!-- Review Section -->
