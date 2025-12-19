@@ -46,11 +46,16 @@ await loadConfig();
 
 const adminToken = process.env.ADMIN_BOT_TOKEN;
 if (!adminToken) throw new Error("ADMIN_BOT_TOKEN is missing from .env");
-const adminBot = new Telegraf(adminToken);
+export const adminBot = new Telegraf(adminToken); // Export adminBot
 
 const orderBotToken = process.env.ORDER_BOT_TOKEN;
 if (!orderBotToken) throw new Error("ORDER_BOT_TOKEN is missing from .env");
 export const customerBot = new Telegraf(orderBotToken); // Exported for use in other services
+
+// Inject bot instances into notification service
+import { setAdminBotInstance, setOrderBotInstance } from './src/services/notification.service.js';
+setAdminBotInstance(adminBot);
+setOrderBotInstance(customerBot);
 
 // =========================================
 // 🚀 SERVER STARTUP

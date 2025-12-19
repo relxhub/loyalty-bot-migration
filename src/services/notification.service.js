@@ -1,30 +1,20 @@
 // src/services/notification.service.js
 
-import { Telegraf } from 'telegraf';
 import { getConfig } from '../config/config.js';
+// Telegraf is no longer imported here as instances will be injected from app.js
 
-// ประกาศตัวแปรเปล่าๆ ไว้ก่อน
-let adminBotInstance = null;
-let orderBotInstance = null;
+// ประกาศตัวแปรสำหรับเก็บ Telegraf instance ที่ถูก inject มา
+let injectedAdminBotInstance = null;
+let injectedOrderBotInstance = null;
 
-// ฟังก์ชันช่วย: ดึง Admin Bot (สร้างเมื่อจำเป็นต้องใช้เท่านั้น)
-function getAdminBot() {
-    if (!adminBotInstance) {
-        const token = getConfig('adminBotToken');
-        if (!token) throw new Error("Admin Bot Token not found during initialization");
-        adminBotInstance = new Telegraf(token);
-    }
-    return adminBotInstance;
+// ฟังก์ชันสำหรับ inject adminBot instance
+export function setAdminBotInstance(bot) {
+    injectedAdminBotInstance = bot;
 }
 
-// ฟังก์ชันช่วย: ดึง Order Bot (สร้างเมื่อจำเป็นต้องใช้เท่านั้น)
-function getOrderBot() {
-    if (!orderBotInstance) {
-        const token = getConfig('orderBotToken');
-        if (!token) throw new Error("Order Bot Token not found during initialization");
-        orderBotInstance = new Telegraf(token);
-    }
-    return orderBotInstance;
+// ฟังก์ชันสำหรับ inject orderBot instance
+export function setOrderBotInstance(bot) {
+    injectedOrderBotInstance = bot;
 }
 
 // ---------------------------------------------------------------------
@@ -33,9 +23,12 @@ function getOrderBot() {
  * 1. ส่งข้อความตอบกลับไปยังแอดมิน
  */
 export async function sendAdminReply(chatId, text) {
+    if (!injectedAdminBotInstance) {
+        console.error("Admin bot instance not set for sendAdminReply.");
+        return;
+    }
     try {
-        // เรียกใช้ getAdminBot() แทนตัวแปรตรงๆ
-        await getAdminBot().telegram.sendMessage(chatId, text, { parse_mode: 'HTML' });
+        await injectedAdminBotInstance.telegram.sendMessage(chatId, text, { parse_mode: 'HTML' });
     } catch (e) {
         console.error("Failed to send simple admin reply:", e.message);
     }
@@ -45,12 +38,16 @@ export async function sendAdminReply(chatId, text) {
  * 2. ส่งข้อความแจ้งเตือนไปหา Super Admin
  */
 export async function sendAlertToSuperAdmin(text) {
-    const superAdminChatId = getConfig('superAdminChatId');
+    if (!injectedAdminBotInstance) {
+        console.error("Admin bot instance not set for sendAlertToSuperAdmin.");
+        return;
+    }
+    const superAdminChatId = getConfig('superAdminTelegramId'); // Use camelCase
     if (!superAdminChatId) return;
     try {
-        await getAdminBot().telegram.sendMessage(superAdminChatId, text, { parse_mode: 'HTML' });
+        await injectedAdminBotInstance.telegram.sendMessage(superAdminChatId, text, { parse_mode: 'HTML' });
     } catch (e) {
-        console.error("Failed to send alert to super admin.");
+        console.error("Failed to send alert to super admin:", e.message);
     }
 }
 
@@ -58,9 +55,13 @@ export async function sendAlertToSuperAdmin(text) {
  * 3. ส่งข้อความแจ้งเตือนไปหาลูกค้า/ผู้แนะนำ
  */
 export async function sendNotificationToCustomer(telegramUserId, text) {
+    if (!injectedOrderBotInstance) {
+        console.error("Order bot instance not set for sendNotificationToCustomer.");
+        return;
+    }
     if (!telegramUserId) return;
     try {
-        await getOrderBot().telegram.sendMessage(telegramUserId, text, { parse_mode: 'HTML' });
+        await injectedOrderBotInstance.telegram.sendMessage(telegramUserId, text, { parse_mode: 'HTML' });
     } catch (e) {
         console.error(`Failed to notify customer ${telegramUserId}: ${e.message}`);
     }
