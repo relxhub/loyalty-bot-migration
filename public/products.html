@@ -205,6 +205,7 @@
         .info-card.out-of-stock .info-card-name-en,
         .info-card.out-of-stock .nicotine-tag {
             color: #666;
+            background-color: rgba(102, 102, 102, 0.1); /* Grayed out background */
         }
 
         /* --- Modal Level Bar Styles --- */
@@ -314,7 +315,7 @@
 
         <main>
             <!-- Banner Slider -->
-            <div id="banner-container" class="px-5"></div>
+            <div id="banner-container" class="px-5 hidden"></div>
             
             <!-- Product Grid -->
             <div id="product-grid"></div>
@@ -543,20 +544,24 @@
 
             // --- Render Functions ---
             const renderBanners = (banners) => {
-                bannerContainer.innerHTML = `
-                    <div id="banner-swiper" class="swiper-container">
-                        <div class="swiper-wrapper">
-                            ${banners.map(b => `<div class="swiper-slide"><img src="${b.imageUrl}" alt="Banner"></div>`).join('')}
-                        </div>
-                        <div class="swiper-pagination"></div>
-                    </div>`;
-                
                 if (banners && banners.length > 0) {
+                    bannerContainer.innerHTML = `
+                        <div id="banner-swiper" class="swiper-container">
+                            <div class="swiper-wrapper">
+                                ${banners.map(b => `<div class="swiper-slide"><img src="${b.imageUrl}" alt="Banner"></div>`).join('')}
+                            </div>
+                            <div class="swiper-pagination"></div>
+                        </div>`;
+                    
                     new Swiper('#banner-swiper', {
                         loop: banners.length > 2, // Only loop if there are more than 2 banners
                         autoplay: { delay: 3000 },
                         pagination: { el: '.swiper-pagination', clickable: true },
                     });
+                    bannerContainer.classList.remove('hidden'); // Ensure it's visible if there are banners
+                } else {
+                    bannerContainer.classList.add('hidden'); // Hide if no banners
+                    bannerContainer.innerHTML = ''; // Clear content to prevent Swiper from initializing on empty markup
                 }
             };
 
