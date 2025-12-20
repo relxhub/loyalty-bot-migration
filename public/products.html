@@ -593,6 +593,8 @@
 
                 productGrid.innerHTML = filteredProducts.map(p => `
                     <div class="info-card ${p.status === 'OUT_OF_STOCK' ? 'out-of-stock' : ''}" data-product-id="${p.id}">
+                        <div>
+                            <div class="info-card-name-th">${p.nameTh || 'N/A'}</div>
                             <div class="info-card-name-en">${p.nameEn || ''}</div>
                             ${currentFilter.nicotine === null && p.nicotine !== null ? `<span class="nicotine-tag ${p.nicotine === 5 ? 'nicotine-5-percent' : ''}">${p.nicotine}%</span>` : ''}
                         </div>
