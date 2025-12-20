@@ -130,42 +130,49 @@
         /* --- Info-Card Design (Final) --- */
         .info-card {
             background-color: var(--secondary-bg);
-            border-radius: 0.75rem;
+            border-radius: 1rem; /* Increased border-radius */
             padding: 0.6rem;
             border: 1px solid #444;
             cursor: pointer;
             transition: all 0.2s ease;
-            text-align: center;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
-            min-height: 110px;
-            width: calc(33.333% - 0.5rem); /* Adjusted for smaller gap */
-            position: relative; /* For nicotine tag positioning */
+            width: calc(33.333% - 0.5rem);
+            position: relative;
         }
         .info-card:active {
             transform: scale(0.95);
             background-color: var(--brand-red);
         }
-        .info-card-name-th {
-            font-weight: 600;
-            font-size: 0.85rem; /* Smaller font */
+
+        .card-image-container {
+            width: 100%;
+            aspect-ratio: 1 / 1; /* Make it a square */
+            margin-bottom: 0.5rem;
+            overflow: hidden; /* To clip the image corners */
+            border-radius: 0.75rem; /* Rounded corners for the image container */
+        }
+        .product-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Cover the container */
+        }
+
+        .card-info-container {
+            text-align: center; /* Center the text below the image */
+            margin-bottom: 0.5rem;
+        }
+
+        .info-card-name-en {
+            font-size: 0.85rem; /* A bit larger */
+            font-weight: 600; /* Bolder */
             color: var(--text-primary);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        .info-card-name-en {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            margin-bottom: 0.5rem;
-        }
         .nicotine-tag { /* New nicotine tag style */
             display: inline-block; /* Make it inline but allows padding/margin */
-            /* Removed absolute positioning */
             background-color: rgba(255, 255, 255, 0.1);
             color: var(--text-primary);
             font-size: 0.65rem;
@@ -178,6 +185,7 @@
         .nicotine-tag.nicotine-5-percent {
             color: #F24E29; /* Orange-red color */
         }
+
         .info-card-stock-status {
             margin-top: auto;
             font-size: 0.75rem;
@@ -201,11 +209,15 @@
         .info-card.out-of-stock {
             cursor: not-allowed;
         }
-        .info-card.out-of-stock .info-card-name-th,
+        .info-card.out-of-stock .product-image {
+            filter: grayscale(100%);
+        }
         .info-card.out-of-stock .info-card-name-en,
         .info-card.out-of-stock .nicotine-tag {
             color: #666;
-            background-color: rgba(102, 102, 102, 0.1); /* Grayed out background */
+        }
+        .info-card.out-of-stock .nicotine-tag {
+            background-color: rgba(102, 102, 102, 0.1);
         }
 
         /* --- Modal Level Bar Styles --- */
@@ -593,8 +605,10 @@
 
                 productGrid.innerHTML = filteredProducts.map(p => `
                     <div class="info-card ${p.status === 'OUT_OF_STOCK' ? 'out-of-stock' : ''}" data-product-id="${p.id}">
-                        <div>
-                            <div class="info-card-name-th">${p.nameTh || 'N/A'}</div>
+                        <div class="card-image-container">
+                            <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" class="product-image">
+                        </div>
+                        <div class="card-info-container">
                             <div class="info-card-name-en">${p.nameEn || ''}</div>
                             ${currentFilter.nicotine === null && p.nicotine !== null ? `<span class="nicotine-tag ${p.nicotine === 5 ? 'nicotine-5-percent' : ''}">${p.nicotine}%</span>` : ''}
                         </div>
