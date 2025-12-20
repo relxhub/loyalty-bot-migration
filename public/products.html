@@ -363,7 +363,6 @@
             const bannerContainer = document.getElementById('banner-container');
             const categorySelector = document.getElementById('category-selector');
             const productGrid = document.getElementById('product-grid');
-            const searchInput = document.getElementById('search-input');
             const sectionTitle = document.getElementById('product-section-title');
             const categoryNameDisplay = document.getElementById('category-name-display');
             const categoryPriceDisplay = document.getElementById('category-price-display');
@@ -656,10 +655,7 @@
                 renderProducts();
             });
 
-            searchInput.addEventListener('input', (e) => {
-                currentFilter.searchTerm = e.target.value;
-                renderProducts();
-            });
+
 
             productGrid.addEventListener('click', (e) => {
                 const card = e.target.closest('.info-card');
