@@ -11,6 +11,8 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/>
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.2/color-thief.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tinycolor/1.6.0/tinycolor.min.js"></script>
     <style>
         :root {
             --bg-color: #121212;
@@ -606,7 +608,7 @@
                 productGrid.innerHTML = filteredProducts.map(p => `
                     <div class="info-card ${p.status === 'OUT_OF_STOCK' ? 'out-of-stock' : ''}" data-product-id="${p.id}">
                         <div class="card-image-container">
-                            <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" class="product-image">
+                            <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" class="product-image" crossorigin="anonymous">
                         </div>
                         <div class="card-info-container">
                             <div class="info-card-name-en">${p.nameEn || ''}</div>
@@ -618,6 +620,38 @@
                         </div>
                     </div>
                 `).join('');
+
+                applyCardBackgrounds();
+            };
+
+            const applyCardBackgrounds = () => {
+                const cards = productGrid.querySelectorAll('.info-card:not(.out-of-stock)');
+                const colorThief = new ColorThief();
+
+                cards.forEach(card => {
+                    const img = card.querySelector('.product-image');
+                    const imageContainer = card.querySelector('.card-image-container');
+
+                    const process = () => {
+                        try {
+                            const dominantColor = colorThief.getColor(img);
+                            const color = tinycolor({ r: dominantColor[0], g: dominantColor[1], b: dominantColor[2] });
+
+                            const color1 = color.clone().lighten(15).saturate(10).toRgbString();
+                            const color2 = color.clone().darken(10).toRgbString();
+
+                            imageContainer.style.background = `linear-gradient(to right, ${color1}, ${color2})`;
+                        } catch (e) {
+                            console.error('Error processing image color:', e);
+                        }
+                    };
+
+                    if (img.complete) {
+                        process();
+                    } else {
+                        img.addEventListener('load', process);
+                    }
+                });
             };
 
             const renderNicotineFilters = () => {
