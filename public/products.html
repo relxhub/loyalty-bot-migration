@@ -47,11 +47,7 @@
             background-color: var(--bg-color);
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
         }
-        #search-container {
-            padding: 0 1.25rem 1rem;
-        }
-        #search-input { background-color: var(--secondary-bg); border: 1px solid #444; }
-        #search-input::placeholder { color: var(--text-secondary); }
+
 
         /* --- Banner Slider (Swiper.js) --- */
         .swiper-container { width: 100%; border-radius: 1rem; margin-bottom: 1.5rem; }
@@ -97,13 +93,13 @@
         }
         
         /* --- Product Grid --- */
-        .product-section-title { 
-            font-size: 1.5rem; 
-            font-weight: 600; 
-            padding: 0 1.25rem; 
-            margin-bottom: 1rem; 
-            display: flex; 
-            align-items: center; 
+        .product-section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            padding: 0 1.25rem;
+            margin-bottom: 0.5rem; /* Reduced margin to bring products closer */
+            display: flex;
+            align-items: center;
             justify-content: space-between; /* To align items on same line */
             gap: 0.5rem; /* Ensure gap between elements */
         }
@@ -113,11 +109,11 @@
             gap: 0.5rem;
         }
         .category-price-badge {
-            font-size: 0.9rem;
+            font-size: 1.1rem; /* Larger font size */
             font-weight: 700; /* Make it extra bold */
             background-color: var(--brand-red); /* Make it stand out */
             color: var(--text-primary);
-            padding: 0.1rem 0.5rem; /* Adjust padding for compactness */
+            padding: 0.2rem 0.6rem; /* Adjust padding for new size */
             border-radius: 0.5rem;
             vertical-align: middle;
             line-height: 1; /* Adjust line height for better vertical alignment */
@@ -168,9 +164,8 @@
             margin-bottom: 0.5rem;
         }
         .nicotine-tag { /* New nicotine tag style */
-            position: absolute;
-            top: 0.5rem;
-            right: 0.5rem;
+            display: inline-block; /* Make it inline but allows padding/margin */
+            /* Removed absolute positioning */
             background-color: rgba(255, 255, 255, 0.1);
             color: var(--text-primary);
             font-size: 0.65rem;
@@ -178,6 +173,10 @@
             border-radius: 0.3rem;
             font-weight: 600;
             line-height: 1; /* Adjust for compactness */
+            margin-top: 0.25rem; /* Add some space below English name */
+        }
+        .nicotine-tag.nicotine-5-percent {
+            color: #F24E29; /* Orange-red color */
         }
         .info-card-stock-status {
             margin-top: auto;
@@ -203,7 +202,8 @@
             cursor: not-allowed;
         }
         .info-card.out-of-stock .info-card-name-th,
-        .info-card.out-of-stock .info-card-name-en {
+        .info-card.out-of-stock .info-card-name-en,
+        .info-card.out-of-stock .nicotine-tag {
             color: #666;
         }
 
@@ -298,14 +298,9 @@
 
     <div id="app-container" class="hidden">
         <header id="main-header">
-            <div id="search-container" class="flex items-center gap-4">
-                <img src="logo.png" alt="Logo" class="h-10 flex-shrink-0">
-                <div class="relative flex-grow">
-                    <i class="ri-search-line absolute top-1/2 left-3 -translate-y-1/2 text-zinc-400"></i>
-                    <input id="search-input" type="search" placeholder="ค้นหากลิ่นที่ต้องการ..." class="w-full pl-10 pr-4 py-2 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-brand-red">
-                </div>
-            </div>
-            <!-- Category Selector -->
+                        <div class="flex justify-center mb-4">
+                            <img src="logo.png" alt="Company Logo" class="w-48">
+                        </div>            <!-- Category Selector -->
             <div id="category-selector"></div>
             
             <div id="product-section-title" class="product-section-title">
@@ -594,10 +589,8 @@
 
                 productGrid.innerHTML = filteredProducts.map(p => `
                     <div class="info-card ${p.status === 'OUT_OF_STOCK' ? 'out-of-stock' : ''}" data-product-id="${p.id}">
-                        ${currentFilter.nicotine === null && p.nicotine !== null ? `<span class="nicotine-tag">${p.nicotine}%</span>` : ''}
-                        <div>
-                            <div class="info-card-name-th">${p.nameTh || 'N/A'}</div>
                             <div class="info-card-name-en">${p.nameEn || ''}</div>
+                            ${currentFilter.nicotine === null && p.nicotine !== null ? `<span class="nicotine-tag ${p.nicotine === 5 ? 'nicotine-5-percent' : ''}">${p.nicotine}%</span>` : ''}
                         </div>
                         <div class="info-card-stock-status ${p.status === 'OUT_OF_STOCK' ? 'sold-out' : 'in-stock'}">
                            <i class="${p.status === 'OUT_OF_STOCK' ? 'ri-close-circle-fill' : 'ri-checkbox-blank-circle-fill'}"></i>
