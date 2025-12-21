@@ -779,7 +779,7 @@
                     return `
                     <div class="info-card" data-product-id="${p.id}">
                         <div class="card-image-container ${isOutOfStock ? 'grayscale' : ''}">
-                            <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" class="product-image">
+                            <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" class="product-image" crossorigin="anonymous">
                         </div>
                         <div class="card-info-container">
                              <div class="info-card-name-en ${isOutOfStock ? 'text-gray-500' : ''}">${p.nameEn || ''}</div>
