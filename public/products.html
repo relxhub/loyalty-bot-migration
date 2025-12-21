@@ -419,6 +419,8 @@
             tg.setHeaderColor('#121212');
             tg.setBackgroundColor('#121212');
 
+            window.hasShownCORSAlert = false;
+
             // --- State Management ---
             let allProducts = [];
             let allCategories = [];
@@ -839,6 +841,15 @@
                     imageContainer.style.background = `linear-gradient(90deg, ${color1}, ${color2})`;
                     
                 } catch (e) {
+                    // Show the error for debugging purposes ONLY for the first error encountered.
+                    if (!window.hasShownCORSAlert) {
+                        try {
+                            tg.showAlert(`Error Details: ${e.message}`);
+                        } catch (tgError) {
+                            alert(`Fallback Alert! Error: ${e.message}`);
+                        }
+                        window.hasShownCORSAlert = true;
+                    }
                     console.error('Error processing image color on card:', card.dataset.productId, e);
                     // Optional: apply a fallback background
                     const imageContainer = card.querySelector('.card-image-container');
