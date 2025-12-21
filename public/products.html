@@ -638,7 +638,7 @@
                         </div>
                         <div class="card-info-container">
                             <div class="info-card-name-en">${p.nameEn || ''}</div>
-                            <div class="info-card-name-th">${p.nameTh || ''} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
+                            <div class="info-card-name-th">${category.name || ''} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
                             <div class="info-card-price-badge">${price} Baht</div>
                         </div>
                         <div class="info-card-stock-status ${p.status === 'OUT_OF_STOCK' ? 'sold-out' : 'in-stock'}">
