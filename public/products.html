@@ -422,32 +422,36 @@
             opacity: 1;
         }
 
-        /* --- Mini Level Bar (Card Slide 2) --- */
-        .mini-level-row {
+        /* --- Level Dots (Card Slide 2) --- */
+        .level-row {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 0.25rem;
+            justify-content: space-between;
+            margin-bottom: 0.2rem;
         }
-        .mini-level-label {
-            font-size: 0.65rem;
-            width: 40px;
-            text-align: right;
+        .level-label {
+            font-size: 0.7rem;
             color: var(--text-secondary);
-            flex-shrink: 0;
         }
-        .mini-level-track {
-            flex-grow: 1;
-            height: 4px;
-            background: #333;
-            border-radius: 99px;
-            overflow: hidden;
+        .level-dots-container {
+            display: flex;
+            gap: 3px;
         }
-        .mini-level-fill {
-            height: 100%;
-            background: var(--brand-gradient);
-            border-radius: 99px;
+        .level-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #333; /* Inactive dot color */
         }
+        /* Gradient colors for active dots */
+        .level-dot.active-1 { background-color: #FACC15; } /* Yellow-400 */
+        .level-dot.active-2 { background-color: #FACC15; }
+        .level-dot.active-3 { background-color: #FB923C; } /* Orange-400 */
+        .level-dot.active-4 { background-color: #FB923C; }
+        .level-dot.active-5 { background-color: #EF4444; } /* Red-500 */
+        .level-dot.active-6 { background-color: #DC2626; } /* Red-600 */
+
+        /* --- Mini Level Bar (Card Slide 2) - DEPRECATED (Removed) --- */
         
         /* --- General & Loader --- */
         #loader { display: flex; justify-content: center; align-items: center; height: 100vh; position: fixed; top: 0; left: 0; width: 100%; z-index: 100; background: var(--bg-color); }
@@ -616,6 +620,10 @@
             const addrName = document.getElementById('addr-name');
             const addrPhone = document.getElementById('addr-phone');
             const addrDetail = document.getElementById('addr-detail');
+            const addrTambon = document.getElementById('addr-tambon');
+            const addrAmphoe = document.getElementById('addr-amphoe');
+            const addrProvince = document.getElementById('addr-province');
+            const addrZipcode = document.getElementById('addr-zipcode');
             const saveAddrBtn = document.getElementById('save-addr-btn');
 
             // --- Cart Functions ---
@@ -636,6 +644,10 @@
                     addrName.value = savedAddr.name || '';
                     addrPhone.value = savedAddr.phone || '';
                     addrDetail.value = savedAddr.detail || '';
+                    addrTambon.value = savedAddr.tambon || '';
+                    addrAmphoe.value = savedAddr.amphoe || '';
+                    addrProvince.value = savedAddr.province || '';
+                    addrZipcode.value = savedAddr.zipcode || '';
                 }
             };
 
@@ -643,7 +655,11 @@
                 const addressData = {
                     name: addrName.value.trim(),
                     phone: addrPhone.value.trim(),
-                    detail: addrDetail.value.trim()
+                    detail: addrDetail.value.trim(),
+                    tambon: addrTambon.value.trim(),
+                    amphoe: addrAmphoe.value.trim(),
+                    province: addrProvince.value.trim(),
+                    zipcode: addrZipcode.value.trim()
                 };
                 localStorage.setItem('shippingAddress', JSON.stringify(addressData));
                 showToast('บันทึกที่อยู่แล้ว', 'success');
@@ -723,17 +739,21 @@
                 clearCartBtn.classList.remove('hidden');
                 
                 cartListWrapper.innerHTML = cart.map(item => `
-                    <div class="flex items-center gap-4 text-white mb-3 last:mb-0">
+                    <div class="flex items-center gap-3 text-white mb-3 last:mb-0 p-3 bg-zinc-800/50 rounded-xl border border-zinc-700/50">
                         <div class="flex-grow">
-                            <p class="font-semibold">${item.nameEn}</p>
-                            <p class="text-sm text-zinc-400">${item.categoryName} (${item.nicotine}%)</p>
+                            <p class="font-semibold text-base">${item.nameEn}</p>
+                            <p class="text-xs text-zinc-400">${item.categoryName} ${item.nicotine !== null ? `(${item.nicotine}%)` : ''}</p>
+                            <p class="text-brand-red font-bold text-sm mt-1">${(item.price * item.quantity).toLocaleString('th-TH')} ฿</p>
                         </div>
-                        <div class="flex items-center gap-3">
-                            <button class="quantity-btn w-7 h-7 rounded-full bg-zinc-700" data-product-id="${item.id}" data-change="-1">-</button>
-                            <span class="font-bold w-4 text-center">${item.quantity}</span>
-                            <button class="quantity-btn w-7 h-7 rounded-full bg-zinc-700" data-product-id="${item.id}" data-change="1">+</button>
+                        <div class="flex items-center bg-zinc-900 rounded-lg p-1 border border-zinc-700">
+                            <button class="quantity-btn w-7 h-7 rounded bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-300 transition active:scale-95" data-product-id="${item.id}" data-change="-1">
+                                <i class="ri-subtract-line"></i>
+                            </button>
+                            <span class="font-bold w-8 text-center text-white text-sm">${item.quantity}</span>
+                            <button class="quantity-btn w-7 h-7 rounded bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-300 transition active:scale-95" data-product-id="${item.id}" data-change="1">
+                                <i class="ri-add-line"></i>
+                            </button>
                         </div>
-                        <p class="font-semibold w-20 text-right">${(item.price * item.quantity).toLocaleString('th-TH')} Baht</p>
                     </div>
                 `).join('');
 
@@ -765,12 +785,24 @@
                 // Save address before copying (auto-save)
                 saveAddress();
 
-                let textToCopy = "ที่อยู่สำหรับจัดส่ง\n";
-                textToCopy += `ชื่อ : ${addrName.value.trim() || '-'}\n`;
-                textToCopy += `เบอร์ : ${addrPhone.value.trim() || '-'}\n`;
-                textToCopy += `ที่อยู่ : ${addrDetail.value.trim() || '-'}\n\n`;
+                const name = addrName.value.trim() || '-';
+                const phone = addrPhone.value.trim() || '-';
+                const detail = addrDetail.value.trim() || '';
+                const tambon = addrTambon.value.trim() || '';
+                const amphoe = addrAmphoe.value.trim() || '';
+                const province = addrProvince.value.trim() || '';
+                const zipcode = addrZipcode.value.trim() || '';
+
+                // Construct full address string
+                let fullAddress = detail;
+                if (tambon) fullAddress += ` ${tambon}`;
+                if (amphoe) fullAddress += ` ${amphoe}`;
+                if (province) fullAddress += ` ${province}`;
+                if (zipcode) fullAddress += ` ${zipcode}`;
+                if (!fullAddress.trim()) fullAddress = '-';
+
+                let textToCopy = `ที่อยู่สำหรับจัดส่ง\nชื่อ : ${name}\nเบอร์ : ${phone}\nที่อยู่ : ${fullAddress}\n\nรายการสั่งซื้อสินค้า\n`;
                 
-                textToCopy += "รายการสั่งซื้อสินค้า\n";
                 cart.forEach(item => {
                     textToCopy += `- ${item.nameEn} (${item.categoryName} ${item.nicotine}%) จำนวน ${item.quantity} ชิ้น\n`;
                 });
@@ -976,8 +1008,16 @@
                     const price = category ? parseFloat(category.price).toLocaleString('th-TH') : '';
                     const isOutOfStock = p.status === 'OUT_OF_STOCK';
                     
-                    // Helper to calc width %
-                    const getWidth = (val) => Math.min((val / 5) * 100, 100) + '%';
+                    // Helper to render 6 dots
+                    const renderDots = (level) => {
+                        let dotsHtml = '<div class="level-dots-container">';
+                        for (let i = 1; i <= 6; i++) {
+                            const activeClass = i <= level ? `active-${i}` : '';
+                            dotsHtml += `<div class="level-dot ${activeClass}"></div>`;
+                        }
+                        dotsHtml += '</div>';
+                        return dotsHtml;
+                    };
 
                     return `
                     <div class="info-card swiper-container-card" data-product-id="${p.id}">
@@ -999,40 +1039,34 @@
                                 </div>
 
                                 <!-- Slide 2: Details View -->
-                                <div class="swiper-slide px-1">
-                                    <div class="text-left mb-2">
-                                        <div class="font-bold text-base text-white truncate">${p.nameEn || ''}</div>
-                                        <div class="text-xs text-gray-400 truncate">${p.nameTh || category.name} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
+                                <div class="swiper-slide px-2 pt-2">
+                                    <div class="text-left mb-3">
+                                        <div class="font-bold text-base text-white truncate leading-tight">${p.nameEn || ''}</div>
+                                        <div class="text-xs text-zinc-400 truncate">${p.nameTh || category.name} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
                                     </div>
                                     
-                                    <div class="flex-grow flex flex-col justify-center space-y-1 mb-2">
-                                        <!-- Coolness -->
-                                        <div class="mini-level-row">
-                                            <span class="mini-level-label">ความเย็น</span>
-                                            <div class="mini-level-track">
-                                                <div class="mini-level-fill" style="width: ${getWidth(p.coolnessLevel || 0)}"></div>
-                                            </div>
+                                    <div class="flex-grow flex flex-col justify-start space-y-1 mb-2">
+                                        <!-- Cooling -->
+                                        <div class="level-row">
+                                            <span class="level-label">Cooling</span>
+                                            ${renderDots(p.coolnessLevel || 0)}
                                         </div>
                                         <!-- Sweetness -->
-                                        <div class="mini-level-row">
-                                            <span class="mini-level-label">ความหวาน</span>
-                                            <div class="mini-level-track">
-                                                <div class="mini-level-fill" style="width: ${getWidth(p.sweetnessLevel || 0)}"></div>
-                                            </div>
+                                        <div class="level-row">
+                                            <span class="level-label">Sweetness</span>
+                                            ${renderDots(p.sweetnessLevel || 0)}
                                         </div>
-                                        <!-- Scent -->
-                                        <div class="mini-level-row">
-                                            <span class="mini-level-label">กลิ่น</span>
-                                            <div class="mini-level-track">
-                                                <div class="mini-level-fill" style="width: ${getWidth(p.flavorIntensityLevel || 0)}"></div>
-                                            </div>
+                                        <!-- Richness (Scent) -->
+                                        <div class="level-row">
+                                            <span class="level-label">Richness</span>
+                                            ${renderDots(p.flavorIntensityLevel || 0)}
                                         </div>
                                     </div>
 
-                                    <div class="relative h-10 flex items-center">
-                                         <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''}">${price} Baht</div>
-                                         <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
-                                            <i class="ri-shopping-cart-2-line"></i>
+                                    <div class="relative h-10 flex items-center justify-between mt-auto">
+                                         <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''} text-lg">${price} Baht</div>
+                                         <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" style="position: static; width: auto; height: auto; padding: 0.3rem 1rem; font-size: 0.9rem; border-radius: 99px;" data-product-id="${p.id}">
+                                            <i class="ri-shopping-cart-2-line mr-1"></i> Add
                                         </button>
                                     </div>
                                 </div>
@@ -1301,10 +1335,7 @@
         <div id="cart-modal-content" class="bg-zinc-800 w-full max-w-md rounded-t-2xl flex flex-col max-h-[80vh] transform translate-y-full transition-transform duration-300">
             <!-- Header -->
             <div class="flex-shrink-0 p-4 border-b border-zinc-700 flex justify-between items-center">
-                <div class="flex items-center gap-3">
-                    <h3 class="text-lg font-bold">ตะกร้าสินค้า</h3>
-                    <button id="clear-cart-btn" class="text-xs text-red-400 hover:text-red-300 underline hidden">ล้างตะกร้า</button>
-                </div>
+                <h3 class="text-lg font-bold">ตะกร้าสินค้า</h3>
                 <button id="close-cart-modal-btn" class="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center hover:bg-zinc-600 transition">
                     <i class="ri-close-line"></i>
                 </button>
@@ -1312,14 +1343,22 @@
             <!-- Body (Cart Items) -->
             <div id="cart-items-container" class="flex-grow overflow-y-auto p-4 space-y-3">
                 <!-- Address Form -->
-                <div id="address-form-container" class="mb-4 p-3 bg-zinc-900 rounded-lg border border-zinc-700">
-                    <div class="flex justify-between items-center mb-2">
+                <div id="address-form-container" class="mb-4 p-3 bg-zinc-900 rounded-lg border border-zinc-700 space-y-2">
+                    <div class="flex justify-between items-center mb-1">
                         <h4 class="text-sm font-semibold text-white">ข้อมูลจัดส่ง</h4>
                         <button id="save-addr-btn" class="text-xs text-green-400 hover:text-green-300">บันทึก</button>
                     </div>
-                    <input type="text" id="addr-name" placeholder="ชื่อผู้รับ" class="w-full bg-zinc-800 border border-zinc-600 rounded p-2 mb-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-red placeholder-zinc-500">
-                    <input type="tel" id="addr-phone" placeholder="เบอร์โทรศัพท์" class="w-full bg-zinc-800 border border-zinc-600 rounded p-2 mb-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-red placeholder-zinc-500">
-                    <textarea id="addr-detail" rows="2" placeholder="ที่อยู่จัดส่ง..." class="w-full bg-zinc-800 border border-zinc-600 rounded p-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-red placeholder-zinc-500"></textarea>
+                    <input type="text" id="addr-name" placeholder="ชื่อผู้รับ" class="w-full bg-zinc-800 border border-zinc-600 rounded p-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-red placeholder-zinc-500">
+                    <input type="tel" id="addr-phone" placeholder="เบอร์โทรศัพท์" class="w-full bg-zinc-800 border border-zinc-600 rounded p-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-red placeholder-zinc-500">
+                    <input type="text" id="addr-detail" placeholder="บ้านเลขที่, หมู่, ซอย, ถนน" class="w-full bg-zinc-800 border border-zinc-600 rounded p-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-red placeholder-zinc-500">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="addr-tambon" placeholder="แขวง/ตำบล" class="bg-zinc-800 border border-zinc-600 rounded p-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-red placeholder-zinc-500">
+                        <input type="text" id="addr-amphoe" placeholder="เขต/อำเภอ" class="bg-zinc-800 border border-zinc-600 rounded p-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-red placeholder-zinc-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="addr-province" placeholder="จังหวัด" class="bg-zinc-800 border border-zinc-600 rounded p-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-red placeholder-zinc-500">
+                        <input type="text" id="addr-zipcode" placeholder="รหัสไปรษณีย์" class="bg-zinc-800 border border-zinc-600 rounded p-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-red placeholder-zinc-500">
+                    </div>
                 </div>
                 
                 <div id="cart-list-wrapper">
@@ -1333,9 +1372,14 @@
                     <span>ยอดรวม</span>
                     <span id="cart-total-price">0 Baht</span>
                 </div>
-                <button id="copy-cart-btn" class="w-full py-3 bg-green-600 hover:bg-green-500 rounded-lg font-bold text-lg transition-all duration-200 active:scale-95 disabled:bg-gray-500 disabled:cursor-not-allowed">
-                    คัดลอกรายการสั่งซื้อ
-                </button>
+                <div class="flex gap-2">
+                    <button id="clear-cart-btn" class="w-1/4 py-3 bg-zinc-700 hover:bg-red-900/50 text-red-400 rounded-xl font-bold text-lg transition active:scale-95 flex items-center justify-center border border-zinc-600 hidden">
+                        <i class="ri-delete-bin-line"></i>
+                    </button>
+                    <button id="copy-cart-btn" class="w-3/4 py-3 bg-green-600 hover:bg-green-500 rounded-xl font-bold text-lg text-white transition active:scale-95 disabled:bg-gray-500 disabled:cursor-not-allowed">
+                        คัดลอกรายการ
+                    </button>
+                </div>
             </div>
         </div>
     </div>
