@@ -162,11 +162,11 @@
         }
 
         .card-info-container {
-            text-align: center;
+            text-align: left;
         }
 
         .info-card-name-en {
-            font-size: 0.8rem; /* Adjusted for space */
+            font-size: 0.92rem; /* Adjusted for space */
             font-weight: 600;
             color: var(--text-primary);
             white-space: nowrap;
@@ -205,7 +205,6 @@
             justify-content: center;
             gap: 0.2rem;
             padding-top: 0.25rem;
-            border-top: 1px solid #444;
         }
         .info-card-stock-status.in-stock {
             color: #4ade80;
@@ -223,21 +222,26 @@
             filter: grayscale(100%);
         }
         .info-card.out-of-stock .info-card-name-en,
+        .info-card.out-of-stock .info-card-name-th,
         .info-card.out-of-stock .nicotine-tag {
             color: #666;
+        }
+        .info-card.out-of-stock .info-card-price-badge {
+            background: none;
+            -webkit-text-fill-color: #666;
         }
         .info-card.out-of-stock .nicotine-tag {
             background-color: rgba(102, 102, 102, 0.1);
         }
 
         .info-card-price-badge {
-            display: inline-block;
-            font-size: 0.8rem;
+            font-size: 0.9rem;
             font-weight: 700;
-            background-image: linear-gradient(to right, #f6971f, #e32622);
-            color: var(--text-primary);
-            padding: 0.1rem 0.5rem;
-            border-radius: 0.4rem;
+            background: linear-gradient(to right, #f6971f, #e32622);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-fill-color: transparent;
             margin-top: 0.25rem;
         }
 
