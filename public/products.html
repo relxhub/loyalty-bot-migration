@@ -559,9 +559,8 @@
             if (topBar && mainHeader) {
                 const adjustHeaderOffset = () => {
                     const height = topBar.offsetHeight;
-                    // Apply slightly less than full height if needed, or exact height.
-                    // Since both have bg-zinc-900, exact height is best to avoid gaps.
-                    mainHeader.style.top = `${height}px`;
+                    // Subtract 1px to ensure overlap and prevent sub-pixel rendering gaps
+                    mainHeader.style.top = `${height - 1}px`;
                 };
 
                 // Initial adjustment
