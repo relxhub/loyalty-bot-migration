@@ -208,9 +208,6 @@
         .info-card-stock-status.sold-out {
             color: #666;
         }
-        .info-card.out-of-stock {
-            cursor: not-allowed;
-        }
         .info-card.out-of-stock .product-image {
             filter: grayscale(100%);
         }
@@ -362,8 +359,8 @@
     </div>
 
     <div id="app-container" class="hidden">
-        <header id="main-header" class="px-5 pt-4">
-            <div class="flex justify-between items-center mb-4">
+        <header id="main-header" class="pt-4 sticky top-0 z-20 bg-zinc-900 shadow-md">
+            <div class="flex justify-between items-center mb-4 px-5">
                 <div class="w-1/4"></div> <!-- Spacer -->
                 <div class="w-1/2 flex justify-center">
                     <img src="logo.png" alt="Company Logo" class="w-40">
@@ -375,6 +372,7 @@
                     </button>
                 </div>
             </div>
+            
             <!-- Category Selector -->
             <div id="category-selector"></div>
             
@@ -481,7 +479,7 @@
                 if (cartItem) {
                     cartItem.quantity++;
                 } else {
-                    cart.push({ 
+                    cart.push({
                         id: product.id, 
                         nameEn: product.nameEn,
                         nameTh: product.nameTh,
@@ -627,12 +625,122 @@
                 }, 300);
             };
             
-            // --- Review Functions (unchanged, simplified for brevity) ---
-            const handleReadReviews = async () => { /* ... */ };
-            const renderReviews = (reviews) => { /* ... */ };
-            const handleWriteReview = () => { /* ... */ };
-            const renderReviewForm = () => { /* ... */ };
-            const handleSubmitReview = async (rating, comment) => { /* ... */ };
+            const handleReadReviews = async () => {
+                reviewContentContainer.innerHTML = `<div class="text-center text-zinc-400">Loading reviews...</div>`;
+                try {
+                    const response = await fetch(`/api/reviews/${activeProduct.id}`);
+                    const data = await response.json();
+                    if (data.success) {
+                        renderReviews(data.reviews);
+                    } else {
+                        reviewContentContainer.innerHTML = `<div class="text-center text-red-400">${data.error}</div>`;
+                    }
+                } catch (error) {
+                    reviewContentContainer.innerHTML = `<div class="text-center text-red-400">Error loading reviews.</div>`;
+                }
+            };
+            
+            const renderReviews = (reviews) => {
+                if (reviews.length === 0) {
+                    reviewContentContainer.innerHTML = `<div class="text-center text-zinc-500 text-sm py-4">ยังไม่มีรีวิวสำหรับสินค้านี้</div>`;
+                    return;
+                }
+                reviewContentContainer.innerHTML = reviews.map(r => `
+                    <div class="review-item">
+                        <div class="review-header">
+                            <span class="review-author">${r.author}</span>
+                            <span class="review-meta">${r.createdAt}</span>
+                        </div>
+                        <div class="review-stars">
+                            ${[...Array(5)].map((_, i) => `<i class="ri-star-s-fill ${i < r.rating ? 'active' : ''}"></i>`).join('')}
+                        </div>
+                        <p class="review-comment">${r.comment}</p>
+                    </div>
+                `).join('');
+            };
+
+            const handleWriteReview = () => {
+                if (!currentUser) {
+                    tg.showAlert('You must be logged in to write a review.');
+                    return;
+                }
+                renderReviewForm();
+            };
+
+            const renderReviewForm = () => {
+                reviewContentContainer.innerHTML = `
+                    <div class="space-y-4 pt-2">
+                        <div class="text-center font-semibold text-white">ให้คะแนนสินค้า</div>
+                        <div id="star-rating" class="flex justify-center gap-3 text-3xl cursor-pointer text-zinc-600">
+                            ${[...Array(5)].map((_, i) => `<i class="ri-star-fill" data-value="${i+1}"></i>`).join('')}
+                        </div>
+                        <textarea id="review-comment" class="w-full bg-zinc-900 rounded-lg p-3 text-sm focus:ring-2 focus:ring-brand-red focus:outline-none" rows="4" placeholder="บอกเล่าประสบการณ์ของคุณ..."></textarea>
+                        <button id="submit-review-btn" class="w-full py-3 bg-green-600 hover:bg-green-500 rounded-lg font-bold text-lg">ส่งรีวิว</button>
+                    </div>
+                `;
+                
+                let selectedRating = 0;
+                const starContainer = document.getElementById('star-rating');
+                const stars = starContainer.querySelectorAll('i');
+
+                starContainer.addEventListener('mouseover', e => {
+                    if (e.target.tagName === 'I') {
+                        const hoverValue = parseInt(e.target.dataset.value);
+                        stars.forEach(star => {
+                            star.classList.toggle('text-yellow-400', parseInt(star.dataset.value) <= hoverValue);
+                        });
+                    }
+                });
+
+                starContainer.addEventListener('mouseout', () => {
+                     stars.forEach(star => {
+                        star.classList.toggle('text-yellow-400', parseInt(star.dataset.value) <= selectedRating);
+                    });
+                });
+
+                starContainer.addEventListener('click', e => {
+                    if (e.target.tagName === 'I') {
+                        selectedRating = parseInt(e.target.dataset.value);
+                        stars.forEach(star => {
+                           star.classList.toggle('text-yellow-400', parseInt(star.dataset.value) <= selectedRating);
+                        });
+                    }
+                });
+
+                document.getElementById('submit-review-btn').onclick = async () => {
+                    const comment = document.getElementById('review-comment').value;
+                    if (selectedRating === 0 || !comment.trim()) {
+                        tg.showAlert('กรุณาให้ดาวและเขียนคอมเมนต์');
+                        return;
+                    }
+                    await handleSubmitReview(selectedRating, comment);
+                };
+            };
+            
+            const handleSubmitReview = async (rating, comment) => {
+                try {
+                    const response = await fetch('/api/reviews', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            productId: activeProduct.id,
+                            customerId: currentUser.customerId,
+                            rating: rating,
+                            comment: comment,
+                            initData: tg.initData
+                        })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        tg.showAlert('ขอบคุณสำหรับรีวิวของคุณ!');
+                        handleReadReviews(); // Refresh review list
+                    } else {
+                        tg.showAlert(result.error || 'Failed to submit review.');
+                    }
+                } catch (error) {
+                    tg.showAlert('An error occurred.');
+                }
+            };
 
             // --- Render Functions ---
             const renderBanners = (banners) => {
@@ -678,7 +786,7 @@
                              <div class="info-card-name-th ${isOutOfStock ? 'text-gray-500' : ''}">${category.name || ''} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
                              <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''}">${price} Baht</div>
                         </div>
-                        <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}" ${isOutOfStock ? 'disabled' : ''}>
+                        <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
                             <i class="ri-shopping-cart-2-line"></i>
                         </button>
                     </div>
@@ -687,9 +795,71 @@
                 applyCardBackgrounds();
             };
 
-            const applyCardBackgrounds = () => { /* ... */ };
-            const renderNicotineFilters = () => { /* ... */ };
-            const updateSectionTitle = () => { /* ... */ };
+            const applyCardBackgrounds = () => {
+                const cards = productGrid.querySelectorAll('.info-card:not(.out-of-stock)');
+                const colorThief = new ColorThief();
+
+                cards.forEach(card => {
+                    const img = card.querySelector('.product-image');
+                    if (img.complete) {
+                        processImage(img, card);
+                    } else {
+                        img.addEventListener('load', () => processImage(img, card));
+                    }
+                });
+            };
+            
+            const processImage = (img, card) => {
+                try {
+                    const imageContainer = card.querySelector('.card-image-container');
+                    const dominantColor = colorThief.getColor(img);
+                    const color = tinycolor({ r: dominantColor[0], g: dominantColor[1], b: dominantColor[2] });
+                    const color1 = color.clone().lighten(15).saturate(10).toRgbString();
+                    const color2 = color.clone().darken(10).toRgbString();
+                    imageContainer.style.background = `linear-gradient(to right, ${color1}, ${color2})`;
+                } catch (e) {
+                    console.error('Error processing image color:', e);
+                }
+            };
+
+            const renderNicotineFilters = () => {
+                const productsInCategory = allProducts.filter(p => p.categoryId === currentFilter.categoryId);
+                const uniqueNicLevels = [...new Set(productsInCategory.map(p => p.nicotine).filter(n => n !== null))].sort((a, b) => a - b);
+
+                if (uniqueNicLevels.length <= 1) {
+                    nicotineFilterContainer.innerHTML = '';
+                    currentFilter.nicotine = null;
+                    return;
+                }
+
+                let buttonsHTML = `<button class="nic-filter-btn ${currentFilter.nicotine === null ? 'active' : ''}" data-nic="null">All</button>`;
+                buttonsHTML += uniqueNicLevels.map(nic => 
+                    `<button class="nic-filter-btn ${currentFilter.nicotine === nic ? 'active' : ''}" data-nic="${nic}">${nic}%</button>`
+                ).join('');
+                
+                nicotineFilterContainer.innerHTML = buttonsHTML;
+
+                nicotineFilterContainer.querySelectorAll('.nic-filter-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        nicotineFilterContainer.querySelector('.active')?.classList.remove('active');
+                        e.currentTarget.classList.add('active');
+                        const nicValue = e.currentTarget.dataset.nic;
+                        currentFilter.nicotine = nicValue === 'null' ? null : parseInt(nicValue);
+                        renderProducts();
+                    });
+                });
+            };
+
+            const updateSectionTitle = () => {
+                const activeCategory = allCategories.find(c => c.id === currentFilter.categoryId);
+                if(activeCategory) {
+                    const price = parseFloat(activeCategory.price).toLocaleString('th-TH') + '฿';
+                    categoryNameDisplay.textContent = activeCategory.name;
+                    categoryPriceDisplay.textContent = price;
+                    renderNicotineFilters();
+                }
+            };
+
 
             // --- Event Listeners ---
             categorySelector.addEventListener('click', (e) => {
@@ -706,10 +876,8 @@
 
             productGrid.addEventListener('click', (e) => {
                 const addToCartBtn = e.target.closest('.add-to-cart-btn');
-                const card = e.target.closest('.info-card');
-
                 if (addToCartBtn) {
-                    e.stopPropagation(); // Prevent card click from firing
+                    e.stopPropagation();
                     const productId = parseInt(addToCartBtn.dataset.productId);
                     const product = allProducts.find(p => p.id === productId);
                     if (product.status === 'OUT_OF_STOCK') {
@@ -717,7 +885,11 @@
                     } else {
                         addToCart(productId);
                     }
-                } else if (card) {
+                    return;
+                }
+                
+                const card = e.target.closest('.info-card');
+                if (card) {
                     const productId = parseInt(card.dataset.productId);
                     const product = allProducts.find(p => p.id === productId);
                     if (product) {
@@ -776,8 +948,6 @@
             }
         });
     </script>
-
-    <!-- Product Detail Modal -->
     <div id="product-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 opacity-0 transition-opacity duration-300">
         <div id="product-modal-content" class="bg-zinc-800 w-full max-w-md max-h-[90vh] rounded-2xl flex flex-col transform scale-95 transition-transform duration-300">
             <!-- Header -->
@@ -819,6 +989,7 @@
         </div>
     </div>
 
+    
     <!-- Cart Modal -->
     <div id="cart-modal" class="hidden fixed inset-0 z-[70] flex items-end justify-center bg-black/60 backdrop-blur-sm">
         <div id="cart-modal-content" class="bg-zinc-800 w-full max-w-md rounded-t-2xl flex flex-col max-h-[80vh] transform translate-y-full transition-transform duration-300">
