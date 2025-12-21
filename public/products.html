@@ -180,7 +180,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            margin-top: 0.1rem;
+            margin-top: 0;
         }
         .nicotine-tag {
             display: inline-block;
@@ -242,7 +242,7 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
             text-fill-color: transparent;
-            margin-top: 0.25rem;
+            margin-top: 0.1rem;
         }
 
         /* --- Modal Level Bar Styles --- */
@@ -638,7 +638,7 @@
                         </div>
                         <div class="card-info-container">
                             <div class="info-card-name-en">${p.nameEn || ''}</div>
-                            <div class="info-card-name-th">${p.nameTh || ''} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
+                            <div class="info-card-name-th">${p.nameTh || ''} ${p.nicotine !== null ? `(${p.nicotine}% Nicotine)` : ''}</div>
                             <div class="info-card-price-badge">${price} Baht</div>
                         </div>
                         <div class="info-card-stock-status ${p.status === 'OUT_OF_STOCK' ? 'sold-out' : 'in-stock'}">
