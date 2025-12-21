@@ -452,6 +452,11 @@
 
         /* --- Mini Level Bar (Card Slide 2) - DEPRECATED (Removed) --- */
         
+        .text-micro {
+            font-size: 0.45rem;
+            line-height: 1;
+        }
+        
         /* --- General & Loader --- */
         #loader { display: flex; justify-content: center; align-items: center; height: 100vh; position: fixed; top: 0; left: 0; width: 100%; z-index: 100; background: var(--bg-color); }
         .hidden { display: none; }
@@ -610,17 +615,6 @@
             const cartModalContent = document.getElementById('cart-modal-content');
             const closeCartModalBtn = document.getElementById('close-cart-modal-btn');
             // const cartItemsContainer = document.getElementById('cart-items-container'); // No longer direct render target
-            const cartListWrapper = document.getElementById('cart-list-wrapper'); // New render target
-            const cartTotalPrice = document.getElementById('cart-total-price');
-            const copyCartBtn = document.getElementById('copy-cart-btn');
-            const clearCartBtn = document.getElementById('clear-cart-btn');
-            
-            // Cart Elements
-            const cartButton = document.getElementById('cart-button');
-            const cartItemCount = document.getElementById('cart-item-count');
-            const cartModal = document.getElementById('cart-modal');
-            const cartModalContent = document.getElementById('cart-modal-content');
-            const closeCartModalBtn = document.getElementById('close-cart-modal-btn');
             const cartListWrapper = document.getElementById('cart-list-wrapper'); // New render target
             const cartTotalPrice = document.getElementById('cart-total-price');
             const copyCartBtn = document.getElementById('copy-cart-btn');
@@ -949,96 +943,96 @@
                 }
             };
 
-            const renderProducts = () => {
-                const filteredProducts = allProducts.filter(p => 
-                    (currentFilter.categoryId === null || p.categoryId === currentFilter.categoryId) &&
-                    ((p.nameTh || '').toLowerCase().includes(currentFilter.searchTerm) || (p.nameEn || '').toLowerCase().includes(currentFilter.searchTerm)) &&
-                    (currentFilter.nicotine === null || p.nicotine === currentFilter.nicotine)
-                );
-
-                productGrid.innerHTML = filteredProducts.map(p => {
-                    const category = allCategories.find(c => c.id === p.categoryId);
-                    const price = category ? parseFloat(category.price).toLocaleString('th-TH') : '';
-                    const isOutOfStock = p.status === 'OUT_OF_STOCK';
-                    
-                    // Helper to render 6 dots
-                    const renderDots = (level) => {
-                        let dotsHtml = '<div class="level-dots-container">';
-                        for (let i = 1; i <= 6; i++) {
-                            const activeClass = i <= level ? `active-${i}` : '';
-                            dotsHtml += `<div class="level-dot ${activeClass}"></div>`;
-                        }
-                        dotsHtml += '</div>';
-                        return dotsHtml;
-                    };
-
-                    return `
-                    <div class="info-card swiper-container-card" data-product-id="${p.id}">
-                        <div class="swiper product-card-swiper" id="swiper-${p.id}">
-                            <div class="swiper-wrapper">
-                                <!-- Slide 1: Main View -->
-                                <div class="swiper-slide">
-                                    <div class="card-image-container ${isOutOfStock ? 'grayscale' : ''}">
-                                        <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" class="product-image" crossorigin="anonymous">
-                                    </div>
-                                    <div class="card-info-container mb-1">
-                                        <div class="info-card-name-en ${isOutOfStock ? 'text-gray-500' : ''}">${p.nameEn || ''}</div>
-                                        <div class="info-card-name-th ${isOutOfStock ? 'text-gray-500' : ''}">${category.name || ''} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
-                                    </div>
-                                    
-                                    <!-- Unified Bottom Section (Price & Button) -->
-                                    <div class="relative h-10 flex items-center justify-between mt-auto px-1">
-                                         <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''} text-lg">${price} Baht</div>
-                                         <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" style="position: static; width: auto; height: auto; padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 99px;" data-product-id="${p.id}">
-                                            <i class="ri-shopping-cart-2-line mr-1"></i> Add
-                                        </button>
+                        const renderProducts = () => {
+                            const filteredProducts = allProducts.filter(p => 
+                                (currentFilter.categoryId === null || p.categoryId === currentFilter.categoryId) &&
+                                ((p.nameTh || '').toLowerCase().includes(currentFilter.searchTerm) || (p.nameEn || '').toLowerCase().includes(currentFilter.searchTerm)) &&
+                                (currentFilter.nicotine === null || p.nicotine === currentFilter.nicotine)
+                            );
+            
+                            productGrid.innerHTML = filteredProducts.map(p => {
+                                const category = allCategories.find(c => c.id === p.categoryId);
+                                const price = category ? parseFloat(category.price).toLocaleString('th-TH') : '';
+                                const isOutOfStock = p.status === 'OUT_OF_STOCK';
+                                
+                                // Helper to render 6 dots
+                                const renderDots = (level) => {
+                                    let dotsHtml = '<div class="level-dots-container">';
+                                    for (let i = 1; i <= 6; i++) {
+                                        const activeClass = i <= level ? `active-${i}` : '';
+                                        dotsHtml += `<div class="level-dot ${activeClass}"></div>`;
+                                    }
+                                    dotsHtml += '</div>';
+                                    return dotsHtml;
+                                };
+            
+                                return `
+                                <div class="info-card swiper-container-card" data-product-id="${p.id}">
+                                    <div class="swiper product-card-swiper" id="swiper-${p.id}">
+                                        <div class="swiper-wrapper">
+                                            <!-- Slide 1: Main View -->
+                                            <div class="swiper-slide">
+                                                <div class="card-image-container ${isOutOfStock ? 'grayscale' : ''}">
+                                                    <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" class="product-image" crossorigin="anonymous">
+                                                </div>
+                                                <div class="card-info-container mb-1">
+                                                    <div class="info-card-name-en ${isOutOfStock ? 'text-gray-500' : ''}">${p.nameEn || ''}</div>
+                                                    <div class="info-card-name-th ${isOutOfStock ? 'text-gray-500' : ''}">${category.name || ''} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
+                                                </div>
+                                                
+                                                <!-- Unified Bottom Section (Slide 1) -->
+                                                <div class="relative h-10 flex items-center justify-between mt-auto px-1">
+                                                     <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''} text-lg">${price} Baht</div>
+                                                     <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" style="position: static; width: auto; height: auto; padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 99px;" data-product-id="${p.id}">
+                                                        <i class="ri-shopping-cart-2-line mr-1"></i> Add
+                                                     </button>
+                                                </div>
+                                            </div>
+            
+                                            <!-- Slide 2: Details View -->
+                                            <div class="swiper-slide px-2 pt-1">
+                                                <div class="text-left mb-2 px-1">
+                                                    <div class="font-bold text-base text-white truncate leading-tight">${p.nameEn || ''}</div>
+                                                    <!-- Updated Thai Name with .text-micro -->
+                                                    <div class="text-micro text-zinc-400 truncate -mt-1">${p.nameTh || category.name} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
+                                                </div>
+                                                
+                                                <div class="flex-grow flex flex-col justify-start space-y-1 mb-2 px-1">
+                                                    <!-- Cooling -->
+                                                    <div class="level-row">
+                                                        <span class="level-label text-[10px]">Cooling</span>
+                                                        ${renderDots(p.coolnessLevel || 0)}
+                                                    </div>
+                                                    <!-- Sweetness -->
+                                                    <div class="level-row">
+                                                        <span class="level-label text-[10px]">Sweetness</span>
+                                                        ${renderDots(p.sweetnessLevel || 0)}
+                                                    </div>
+                                                    <!-- Richness (Scent) -->
+                                                    <div class="level-row">
+                                                        <span class="level-label text-[10px]">Richness</span>
+                                                        ${renderDots(p.flavorIntensityLevel || 0)}
+                                                    </div>
+                                                </div>
+            
+                                                <!-- Unified Bottom Section (Slide 2) -->
+                                                <div class="relative h-10 flex items-center justify-between mt-auto px-1">
+                                                     <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''} text-lg">${price} Baht</div>
+                                                     <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" style="position: static; width: auto; height: auto; padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 99px;" data-product-id="${p.id}">
+                                                        <i class="ri-shopping-cart-2-line mr-1"></i> Add
+                                                     </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="swiper-pagination"></div>
                                     </div>
                                 </div>
-
-                                <!-- Slide 2: Details View -->
-                                <div class="swiper-slide px-2 pt-1">
-                                    <div class="text-left mb-2 px-1">
-                                        <div class="font-bold text-base text-white truncate leading-tight">${p.nameEn || ''}</div>
-                                        <div class="text-[6px] text-zinc-400 truncate -mt-1.5">${p.nameTh || category.name} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
-                                    </div>
-                                    
-                                    <div class="flex-grow flex flex-col justify-start space-y-1 mb-2 px-1">
-                                        <!-- Cooling -->
-                                        <div class="level-row">
-                                            <span class="level-label text-[10px]">Cooling</span>
-                                            ${renderDots(p.coolnessLevel || 0)}
-                                        </div>
-                                        <!-- Sweetness -->
-                                        <div class="level-row">
-                                            <span class="level-label text-[10px]">Sweetness</span>
-                                            ${renderDots(p.sweetnessLevel || 0)}
-                                        </div>
-                                        <!-- Richness (Scent) -->
-                                        <div class="level-row">
-                                            <span class="level-label text-[10px]">Richness</span>
-                                            ${renderDots(p.flavorIntensityLevel || 0)}
-                                        </div>
-                                    </div>
-
-                                    <!-- Unified Bottom Section (Price & Button) -->
-                                    <div class="relative h-10 flex items-center justify-between mt-auto px-1">
-                                         <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''} text-lg">${price} Baht</div>
-                                         <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" style="position: static; width: auto; height: auto; padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 99px;" data-product-id="${p.id}">
-                                            <i class="ri-shopping-cart-2-line mr-1"></i> Add
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="swiper-pagination"></div>
-                        </div>
-                    </div>
-                    `;
-                }).join('');
-                
-                applyCardBackgrounds();
-                initCardSwipers();
-            };
-
+                                `;
+                            }).join('');
+                            
+                            applyCardBackgrounds();
+                            initCardSwipers();
+                        };
             const initCardSwipers = () => {
                 document.querySelectorAll('.product-card-swiper').forEach(el => {
                     new Swiper(el, {
