@@ -71,9 +71,9 @@
             transition: all 0.2s ease;
         }
         .category-item.active {
-            background-color: var(--brand-red);
+            background-image: linear-gradient(to right, #f6971f, #e32622);
             color: var(--text-primary);
-            border-color: var(--brand-red);
+            border: none;
         }
 
         /* --- Nicotine Filter Styles --- */
@@ -173,6 +173,15 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+        .info-card-name-th {
+            font-size: 0.7rem;
+            font-weight: 400;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 0.1rem;
+        }
         .nicotine-tag {
             display: inline-block;
             background-color: rgba(255, 255, 255, 0.1);
@@ -219,6 +228,17 @@
         }
         .info-card.out-of-stock .nicotine-tag {
             background-color: rgba(102, 102, 102, 0.1);
+        }
+
+        .info-card-price-badge {
+            display: inline-block;
+            font-size: 0.8rem;
+            font-weight: 700;
+            background-image: linear-gradient(to right, #f6971f, #e32622);
+            color: var(--text-primary);
+            padding: 0.1rem 0.5rem;
+            border-radius: 0.4rem;
+            margin-top: 0.25rem;
         }
 
         /* --- Modal Level Bar Styles --- */
@@ -604,20 +624,23 @@
                     return matchesCategory && matchesSearch && matchesNicotine;
                 });
 
-                productGrid.innerHTML = filteredProducts.map(p => `
+                productGrid.innerHTML = filteredProducts.map(p => {
+                    const category = allCategories.find(c => c.id === p.categoryId);
+                    const price = category ? parseFloat(category.price).toLocaleString('th-TH') : '';
+                    return `
                     <div class="info-card ${p.status === 'OUT_OF_STOCK' ? 'out-of-stock' : ''}" data-product-id="${p.id}">
                         <div class="card-image-container">
                             <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" class="product-image" crossorigin="anonymous">
                         </div>
                         <div class="card-info-container">
                             <div class="info-card-name-en">${p.nameEn || ''}</div>
-                            ${currentFilter.nicotine === null && p.nicotine !== null ? `<span class="nicotine-tag ${p.nicotine === 5 ? 'nicotine-5-percent' : ''}">${p.nicotine}%</span>` : ''}
+                            <div class="info-card-name-th">${p.nameTh || ''} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
+                            <div class="info-card-price-badge">${price} Baht</div>
                         </div>
                         <div class="info-card-stock-status ${p.status === 'OUT_OF_STOCK' ? 'sold-out' : 'in-stock'}">
-                           <i class="text-lg ${p.status === 'OUT_OF_STOCK' ? 'ri-close-circle-fill' : 'ri-checkbox-blank-circle-fill'}"></i>
                         </div>
                     </div>
-                `).join('');
+                `}).join('');
 
                 applyCardBackgrounds();
             };
