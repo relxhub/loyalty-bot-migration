@@ -87,6 +87,7 @@
             width: 100%; 
             border-radius: 1rem; 
             margin-bottom: 1.5rem; 
+            margin-top: 1.5rem; 
             position: relative; 
             overflow: hidden;
         }
@@ -199,9 +200,9 @@
         }
 
         .card-image-container {
-            width: 100%;
+            width: 110%;
             height: 42%; /* Adjusted for new card aspect ratio */
-            margin-bottom: 0.35rem;
+            margin-bottom: 0.5rem;
             overflow: hidden;
             border-radius: 999px; /* Maximize rounded corners */
         }
@@ -224,6 +225,7 @@
             overflow: hidden;
             text-overflow: ellipsis;
             line-height: 1.1;
+            margin-top: 0.25rem; /* Move down slightly from image */
         }
         .info-card-name-th {
             font-size: 0.7rem;
@@ -232,7 +234,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            margin-top: -1px; /* Bring closer */
+            margin-top: -2px; /* Closer to EN name */
         }
         .nicotine-tag {
             display: inline-block;
@@ -395,7 +397,7 @@
         .product-card-swiper {
             width: 100%;
             height: 100%;
-            padding-bottom: 1.5rem !important; /* Space for pagination */
+            padding-bottom: 1.1rem !important; /* Closer to bottom */
         }
         .product-card-swiper .swiper-slide {
             height: auto;
@@ -404,7 +406,7 @@
             justify-content: space-between;
         }
         .product-card-swiper .swiper-pagination {
-            bottom: 0px !important;
+            bottom: -2px !important; /* Closer to bottom */
         }
         .product-card-swiper .swiper-pagination-bullet {
             width: 6px;
@@ -1032,7 +1034,7 @@
                                     </div>
                                     <div class="relative h-10 flex items-center justify-between mt-auto px-1">
                                          <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''} text-lg">${price} Baht</div>
-                                         <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" style="position: static; width: auto; height: auto; padding: 0.35rem 0.8rem; font-size: 0.85rem; border-radius: 99px;" data-product-id="${p.id}">
+                                         <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" style="position: static; width: auto; height: auto; padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 99px;" data-product-id="${p.id}">
                                             <i class="ri-shopping-cart-2-line mr-1"></i> Add
                                         </button>
                                     </div>
@@ -1042,7 +1044,7 @@
                                 <div class="swiper-slide px-2 pt-1">
                                     <div class="text-left mb-2 px-1">
                                         <div class="font-bold text-base text-white truncate leading-tight">${p.nameEn || ''}</div>
-                                        <div class="text-[10px] text-zinc-400 truncate -mt-0.5">${p.nameTh || category.name} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
+                                        <div class="text-[8px] text-zinc-400 truncate -mt-1">${p.nameTh || category.name} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
                                     </div>
                                     
                                     <div class="flex-grow flex flex-col justify-start space-y-1 mb-2 px-1">
@@ -1065,7 +1067,7 @@
 
                                     <div class="relative h-10 flex items-center justify-between mt-auto px-1">
                                          <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''} text-lg">${price} Baht</div>
-                                         <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" style="position: static; width: auto; height: auto; padding: 0.35rem 0.8rem; font-size: 0.85rem; border-radius: 99px;" data-product-id="${p.id}">
+                                         <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" style="position: static; width: auto; height: auto; padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 99px;" data-product-id="${p.id}">
                                             <i class="ri-shopping-cart-2-line mr-1"></i> Add
                                         </button>
                                     </div>
