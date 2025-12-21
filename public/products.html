@@ -89,9 +89,9 @@
             transition: all 0.2s ease;
         }
         .nic-filter-btn.active {
-            background-color: var(--primary-accent);
-            color: var(--bg-color);
-            border-color: var(--primary-accent);
+            background-image: linear-gradient(to right, #f6971f, #e32622);
+            color: var(--text-primary);
+            border: none;
         }
         
         /* --- Product Grid --- */
@@ -113,7 +113,7 @@
         .category-price-badge {
             font-size: 1.1rem; /* Larger font size */
             font-weight: 700; /* Make it extra bold */
-            background-color: var(--brand-red); /* Make it stand out */
+            background-image: linear-gradient(to right, #f6971f, #e32622); /* Make it stand out */
             color: var(--text-primary);
             padding: 0.2rem 0.6rem; /* Adjust padding for new size */
             border-radius: 0.5rem;
@@ -134,7 +134,6 @@
             background-color: var(--secondary-bg);
             border-radius: 1.75rem; /* Increased border-radius */
             padding: 0.5rem;
-            border: 1px solid #444;
             cursor: pointer;
             transition: all 0.2s ease;
             display: flex;
@@ -615,8 +614,7 @@
                             ${currentFilter.nicotine === null && p.nicotine !== null ? `<span class="nicotine-tag ${p.nicotine === 5 ? 'nicotine-5-percent' : ''}">${p.nicotine}%</span>` : ''}
                         </div>
                         <div class="info-card-stock-status ${p.status === 'OUT_OF_STOCK' ? 'sold-out' : 'in-stock'}">
-                           <i class="${p.status === 'OUT_OF_STOCK' ? 'ri-close-circle-fill' : 'ri-checkbox-blank-circle-fill'}"></i>
-                           <span>${p.status === 'OUT_OF_STOCK' ? 'Sold Out' : 'In Stock'}</span>
+                           <i class="text-lg ${p.status === 'OUT_OF_STOCK' ? 'ri-close-circle-fill' : 'ri-checkbox-blank-circle-fill'}"></i>
                         </div>
                     </div>
                 `).join('');
