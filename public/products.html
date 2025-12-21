@@ -396,7 +396,7 @@
         .product-card-swiper {
             width: 100%;
             height: 100%;
-            padding-bottom: 0.5rem !important; /* Closer to bottom */
+            padding-bottom: 0.1rem !important; /* Closer to bottom */
         }
         .product-card-swiper .swiper-slide {
             height: auto;
@@ -615,15 +615,16 @@
             const copyCartBtn = document.getElementById('copy-cart-btn');
             const clearCartBtn = document.getElementById('clear-cart-btn');
             
-            // Address Elements
-            const addrName = document.getElementById('addr-name');
-            const addrPhone = document.getElementById('addr-phone');
-            const addrDetail = document.getElementById('addr-detail');
-            const addrTambon = document.getElementById('addr-tambon');
-            const addrAmphoe = document.getElementById('addr-amphoe');
-            const addrProvince = document.getElementById('addr-province');
-            const addrZipcode = document.getElementById('addr-zipcode');
-            const saveAddrBtn = document.getElementById('save-addr-btn');
+            // Cart Elements
+            const cartButton = document.getElementById('cart-button');
+            const cartItemCount = document.getElementById('cart-item-count');
+            const cartModal = document.getElementById('cart-modal');
+            const cartModalContent = document.getElementById('cart-modal-content');
+            const closeCartModalBtn = document.getElementById('close-cart-modal-btn');
+            const cartListWrapper = document.getElementById('cart-list-wrapper'); // New render target
+            const cartTotalPrice = document.getElementById('cart-total-price');
+            const copyCartBtn = document.getElementById('copy-cart-btn');
+            const clearCartBtn = document.getElementById('clear-cart-btn');
 
             // --- Cart Functions ---
             const saveCart = () => {
@@ -636,34 +637,6 @@
                 updateCartUI();
             };
             
-            // --- Address Functions ---
-            const loadAddress = () => {
-                const savedAddr = JSON.parse(localStorage.getItem('shippingAddress') || '{}');
-                if (savedAddr) {
-                    addrName.value = savedAddr.name || '';
-                    addrPhone.value = savedAddr.phone || '';
-                    addrDetail.value = savedAddr.detail || '';
-                    addrTambon.value = savedAddr.tambon || '';
-                    addrAmphoe.value = savedAddr.amphoe || '';
-                    addrProvince.value = savedAddr.province || '';
-                    addrZipcode.value = savedAddr.zipcode || '';
-                }
-            };
-
-            const saveAddress = () => {
-                const addressData = {
-                    name: addrName.value.trim(),
-                    phone: addrPhone.value.trim(),
-                    detail: addrDetail.value.trim(),
-                    tambon: addrTambon.value.trim(),
-                    amphoe: addrAmphoe.value.trim(),
-                    province: addrProvince.value.trim(),
-                    zipcode: addrZipcode.value.trim()
-                };
-                localStorage.setItem('shippingAddress', JSON.stringify(addressData));
-                showToast('บันทึกที่อยู่แล้ว', 'success');
-            };
-
             const clearCart = () => {
                 if (confirm('ยืนยันล้างตะกร้าสินค้าทั้งหมด?')) {
                     cart = [];
@@ -687,6 +660,7 @@
                         nameEn: product.nameEn,
                         nameTh: product.nameTh,
                         nicotine: product.nicotine,
+                        imageUrl: product.imageUrl, // Save image URL for cart UI
                         price: allCategories.find(c => c.id === product.categoryId)?.price || 0,
                         categoryName: allCategories.find(c => c.id === product.categoryId)?.name || '',
                         quantity: 1 
@@ -739,18 +713,19 @@
                 
                 cartListWrapper.innerHTML = cart.map(item => `
                     <div class="flex items-center gap-3 text-white mb-3 last:mb-0 p-3 bg-zinc-800/50 rounded-xl border border-zinc-700/50">
+                        <img src="${item.imageUrl || 'logo.png'}" class="w-12 h-12 object-cover rounded-lg border border-zinc-700" crossorigin="anonymous">
                         <div class="flex-grow">
-                            <p class="font-semibold text-base">${item.nameEn}</p>
-                            <p class="text-xs text-zinc-400">${item.categoryName} ${item.nicotine !== null ? `(${item.nicotine}%)` : ''}</p>
-                            <p class="text-brand-red font-bold text-sm mt-1">${(item.price * item.quantity).toLocaleString('th-TH')} ฿</p>
+                            <p class="font-semibold text-sm leading-tight">${item.nameEn}</p>
+                            <p class="text-[10px] text-zinc-400">${item.categoryName} ${item.nicotine !== null ? `(${item.nicotine}%)` : ''}</p>
+                            <p class="text-brand-red font-bold text-xs mt-1">${(item.price * item.quantity).toLocaleString('th-TH')} ฿</p>
                         </div>
                         <div class="flex items-center bg-zinc-900 rounded-lg p-1 border border-zinc-700">
-                            <button class="quantity-btn w-7 h-7 rounded bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-300 transition active:scale-95" data-product-id="${item.id}" data-change="-1">
-                                <i class="ri-subtract-line"></i>
+                            <button class="quantity-btn w-6 h-6 rounded bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-300 transition active:scale-95" data-product-id="${item.id}" data-change="-1">
+                                <i class="ri-subtract-line text-xs"></i>
                             </button>
-                            <span class="font-bold w-8 text-center text-white text-sm">${item.quantity}</span>
-                            <button class="quantity-btn w-7 h-7 rounded bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-300 transition active:scale-95" data-product-id="${item.id}" data-change="1">
-                                <i class="ri-add-line"></i>
+                            <span class="font-bold w-6 text-center text-white text-xs">${item.quantity}</span>
+                            <button class="quantity-btn w-6 h-6 rounded bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-300 transition active:scale-95" data-product-id="${item.id}" data-change="1">
+                                <i class="ri-add-line text-xs"></i>
                             </button>
                         </div>
                     </div>
@@ -761,7 +736,6 @@
             };
 
             const openCartModal = () => {
-                loadAddress(); // Load address when opening
                 updateCartModalDisplay();
                 cartModal.classList.remove('hidden');
                 document.body.classList.add('modal-open');
@@ -781,27 +755,7 @@
             const copyCartToClipboard = () => {
                 if (cart.length === 0) return;
 
-                // Save address before copying (auto-save)
-                saveAddress();
-
-                const name = addrName.value.trim() || '-';
-                const phone = addrPhone.value.trim() || '-';
-                const detail = addrDetail.value.trim() || '';
-                const tambon = addrTambon.value.trim() || '';
-                const amphoe = addrAmphoe.value.trim() || '';
-                const province = addrProvince.value.trim() || '';
-                const zipcode = addrZipcode.value.trim() || '';
-
-                // Construct full address string
-                let fullAddress = detail;
-                if (tambon) fullAddress += ` ${tambon}`;
-                if (amphoe) fullAddress += ` ${amphoe}`;
-                if (province) fullAddress += ` ${province}`;
-                if (zipcode) fullAddress += ` ${zipcode}`;
-                if (!fullAddress.trim()) fullAddress = '-';
-
-                let textToCopy = `ที่อยู่สำหรับจัดส่ง\nชื่อ : ${name}\nเบอร์ : ${phone}\nที่อยู่ : ${fullAddress}\n\nรายการสั่งซื้อสินค้า\n`;
-                
+                let textToCopy = "รายการสั่งซื้อสินค้า\n";
                 cart.forEach(item => {
                     textToCopy += `- ${item.nameEn} (${item.categoryName} ${item.nicotine}%) จำนวน ${item.quantity} ชิ้น\n`;
                 });
@@ -1256,7 +1210,6 @@
             cartModal.addEventListener('click', (e) => e.target === cartModal && closeCartModal());
             copyCartBtn.addEventListener('click', copyCartToClipboard);
             clearCartBtn.addEventListener('click', clearCart);
-            saveAddrBtn.addEventListener('click', saveAddress);
 
             // --- Main Fetch and Initialization ---
             try {
@@ -1346,25 +1299,6 @@
             </div>
             <!-- Body (Cart Items) -->
             <div id="cart-items-container" class="flex-grow overflow-y-auto p-4 space-y-3">
-                <!-- Address Form -->
-                <div id="address-form-container" class="mb-4 p-3 bg-zinc-900 rounded-lg border border-zinc-700 space-y-2">
-                    <div class="flex justify-between items-center mb-1">
-                        <h4 class="text-sm font-semibold text-white">ข้อมูลจัดส่ง</h4>
-                        <button id="save-addr-btn" class="text-xs text-green-400 hover:text-green-300">บันทึก</button>
-                    </div>
-                    <input type="text" id="addr-name" placeholder="ชื่อผู้รับ" class="w-full bg-zinc-800 border border-zinc-600 rounded p-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-red placeholder-zinc-500">
-                    <input type="tel" id="addr-phone" placeholder="เบอร์โทรศัพท์" class="w-full bg-zinc-800 border border-zinc-600 rounded p-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-red placeholder-zinc-500">
-                    <input type="text" id="addr-detail" placeholder="บ้านเลขที่, หมู่, ซอย, ถนน" class="w-full bg-zinc-800 border border-zinc-600 rounded p-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-red placeholder-zinc-500">
-                    <div class="grid grid-cols-2 gap-2">
-                        <input type="text" id="addr-tambon" placeholder="แขวง/ตำบล" class="bg-zinc-800 border border-zinc-600 rounded p-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-red placeholder-zinc-500">
-                        <input type="text" id="addr-amphoe" placeholder="เขต/อำเภอ" class="bg-zinc-800 border border-zinc-600 rounded p-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-red placeholder-zinc-500">
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <input type="text" id="addr-province" placeholder="จังหวัด" class="bg-zinc-800 border border-zinc-600 rounded p-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-red placeholder-zinc-500">
-                        <input type="text" id="addr-zipcode" placeholder="รหัสไปรษณีย์" class="bg-zinc-800 border border-zinc-600 rounded p-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-red placeholder-zinc-500">
-                    </div>
-                </div>
-                
                 <div id="cart-list-wrapper">
                     <!-- Cart items will be injected here by JS -->
                     <p class="text-zinc-400 text-center py-4">ตะกร้าของคุณว่างเปล่า</p>
