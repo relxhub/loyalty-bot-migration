@@ -419,8 +419,6 @@
             tg.setHeaderColor('#121212');
             tg.setBackgroundColor('#121212');
 
-            window.hasShownCORSAlert = false;
-
             // --- State Management ---
             let allProducts = [];
             let allCategories = [];
@@ -803,15 +801,23 @@
 
                 cards.forEach(card => {
                     const img = card.querySelector('.product-image');
+                    const process = () => processImage(img, card, colorThief);
+                    
                     if (img.complete) {
-                        processImage(img, card);
+                        process();
                     } else {
-                        img.addEventListener('load', () => processImage(img, card));
+                        img.addEventListener('load', process);
+                        img.addEventListener('error', () => {
+                             const imageContainer = card.querySelector('.card-image-container');
+                            if(imageContainer) {
+                                imageContainer.style.background = `linear-gradient(90deg, #444, #222)`;
+                            }
+                        });
                     }
                 });
             };
             
-            const processImage = (img, card) => {
+            const processImage = (img, card, colorThief) => {
                 try {
                     const imageContainer = card.querySelector('.card-image-container');
                     if (!imageContainer) return;
@@ -841,15 +847,6 @@
                     imageContainer.style.background = `linear-gradient(90deg, ${color1}, ${color2})`;
                     
                 } catch (e) {
-                    // Show the error for debugging purposes ONLY for the first error encountered.
-                    if (!window.hasShownCORSAlert) {
-                        try {
-                            tg.showAlert(`Error Details: ${e.message}`);
-                        } catch (tgError) {
-                            alert(`Fallback Alert! Error: ${e.message}`);
-                        }
-                        window.hasShownCORSAlert = true;
-                    }
                     console.error('Error processing image color on card:', card.dataset.productId, e);
                     // Optional: apply a fallback background
                     const imageContainer = card.querySelector('.card-image-container');
