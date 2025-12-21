@@ -106,7 +106,7 @@
             flex-shrink: 0;
             padding: 0.5rem 1rem;
             border-radius: 999px; /* Pill shape */
-            background-color: var(--secondary-bg);
+            background-color: var(--bg-color);
             color: var(--text-secondary);
             border: 1px solid #444;
             font-size: 0.9rem;
@@ -427,23 +427,25 @@
             </div>
         </div>
 
-        <!-- Scrollable Header Part -->
-        <header id="main-header" class="pt-2 bg-zinc-900 sticky z-10 shadow-sm" style="top: 76px;">
-            <!-- Banner Slider -->
-            <div id="banner-container" class="px-5 hidden"></div>
-
-            <!-- Category Selector -->
-            <div id="category-selector"></div>
-            
-            <div id="product-section-title" class="product-section-title">
-                <span class="category-name-and-price-wrapper">
-                    <span id="category-name-display"></span>
-                    <span id="category-price-display" class="category-price-badge"></span>
-                </span>
-                <div id="nicotine-filter-container" class="flex items-center gap-2"></div>
-            </div>
-        </header>
-
+                <!-- Scrollable Header Content (Banner & Categories) -->
+                <div id="scrollable-header-content" class="bg-zinc-900 pt-2">
+                    <!-- Banner Slider -->
+                    <div id="banner-container" class="px-5 hidden"></div>
+                    
+                    <!-- Category Selector -->
+                    <div id="category-selector"></div>
+                </div>
+        
+                <!-- Sticky Filter Bar -->
+                <header id="main-header" class="pt-2 pb-2 bg-zinc-900 sticky z-10 shadow-sm" style="top: 76px;">
+                    <div id="product-section-title" class="product-section-title">
+                        <span class="category-name-and-price-wrapper">
+                            <span id="category-name-display"></span>
+                            <span id="category-price-display" class="category-price-badge"></span>
+                        </span>
+                        <div id="nicotine-filter-container" class="flex items-center gap-2"></div>
+                    </div>
+                </header>
         <main>
             <!-- Product Grid -->
             <div id="product-grid"></div>
