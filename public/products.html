@@ -87,7 +87,6 @@
             width: 100%; 
             border-radius: 1rem; 
             margin-bottom: 1.5rem; 
-            margin-top: 1.5rem; 
             position: relative; 
             overflow: hidden;
         }
@@ -200,7 +199,7 @@
         }
 
         .card-image-container {
-            width: 110%;
+            width: 100%;
             height: 42%; /* Adjusted for new card aspect ratio */
             margin-bottom: 0.5rem;
             overflow: hidden;
@@ -234,7 +233,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            margin-top: -2px; /* Closer to EN name */
+            margin-top: -1px; /* Closer to EN name */
         }
         .nicotine-tag {
             display: inline-block;
@@ -397,7 +396,7 @@
         .product-card-swiper {
             width: 100%;
             height: 100%;
-            padding-bottom: 1.1rem !important; /* Closer to bottom */
+            padding-bottom: 0.5rem !important; /* Closer to bottom */
         }
         .product-card-swiper .swiper-slide {
             height: auto;
@@ -479,7 +478,7 @@
 
     <div id="app-container" class="hidden">
         <!-- Sticky Header Part -->
-        <div class="sticky top-0 z-20 bg-zinc-900">
+        <div class="sticky top-0 z-20 bg-zinc-900 pb-4">
             <div class="flex justify-between items-center px-5 pt-4">
                 <div class="w-1/4"></div> <!-- Spacer -->
                 <div class="w-1/2 flex justify-center">
@@ -1032,6 +1031,8 @@
                                         <div class="info-card-name-en ${isOutOfStock ? 'text-gray-500' : ''}">${p.nameEn || ''}</div>
                                         <div class="info-card-name-th ${isOutOfStock ? 'text-gray-500' : ''}">${category.name || ''} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
                                     </div>
+                                    
+                                    <!-- Unified Bottom Section (Price & Button) -->
                                     <div class="relative h-10 flex items-center justify-between mt-auto px-1">
                                          <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''} text-lg">${price} Baht</div>
                                          <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" style="position: static; width: auto; height: auto; padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 99px;" data-product-id="${p.id}">
@@ -1044,7 +1045,7 @@
                                 <div class="swiper-slide px-2 pt-1">
                                     <div class="text-left mb-2 px-1">
                                         <div class="font-bold text-base text-white truncate leading-tight">${p.nameEn || ''}</div>
-                                        <div class="text-[8px] text-zinc-400 truncate -mt-1">${p.nameTh || category.name} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
+                                        <div class="text-[6px] text-zinc-400 truncate -mt-1.5">${p.nameTh || category.name} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
                                     </div>
                                     
                                     <div class="flex-grow flex flex-col justify-start space-y-1 mb-2 px-1">
@@ -1065,6 +1066,7 @@
                                         </div>
                                     </div>
 
+                                    <!-- Unified Bottom Section (Price & Button) -->
                                     <div class="relative h-10 flex items-center justify-between mt-auto px-1">
                                          <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''} text-lg">${price} Baht</div>
                                          <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" style="position: static; width: auto; height: auto; padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 99px;" data-product-id="${p.id}">
