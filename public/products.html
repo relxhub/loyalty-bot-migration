@@ -316,7 +316,7 @@
 
         .info-card-price-badge {
             font-size: 0.81rem; /* Reduced by 10% */
-            font-weight: 700;
+            font-weight: 600; /* Reduced from 700 */
             background: linear-gradient(to right, #f6971f, #e32622);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -405,7 +405,7 @@
             justify-content: space-between;
         }
         .product-card-swiper .swiper-pagination {
-            bottom: -2px !important; /* Closer to bottom */
+            bottom: -6px !important; /* Moved even lower */
         }
         .product-card-swiper .swiper-pagination-bullet {
             width: 6px;
@@ -707,7 +707,6 @@
                 
                 cartListWrapper.innerHTML = cart.map(item => `
                     <div class="flex items-center gap-3 text-white mb-3 last:mb-0 p-3 bg-zinc-800/50 rounded-xl border border-zinc-700/50">
-                        <img src="${item.imageUrl || 'logo.png'}" class="w-12 h-12 object-cover rounded-lg border border-zinc-700" crossorigin="anonymous">
                         <div class="flex-grow">
                             <p class="font-semibold text-sm leading-tight">${item.nameEn}</p>
                             <p class="text-[10px] text-zinc-400">${item.categoryName} ${item.nicotine !== null ? `(${item.nicotine}%)` : ''}</p>
@@ -994,7 +993,7 @@
                                                 <div class="text-left mb-2 px-1">
                                                     <div class="font-bold text-base text-white truncate leading-tight">${p.nameEn || ''}</div>
                                                     <!-- Updated Thai Name with .text-micro -->
-                                                    <div class="text-micro text-zinc-400 truncate -mt-1">${p.nameTh || category.name} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
+                                        <div class="text-[0.42rem] text-zinc-400 truncate -mt-1.5">${p.nameTh || category.name} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
                                                 </div>
                                                 
                                                 <div class="flex-grow flex flex-col justify-start space-y-1 mb-2 px-1">
