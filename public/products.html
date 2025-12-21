@@ -606,9 +606,17 @@
             const cartModal = document.getElementById('cart-modal');
             const cartModalContent = document.getElementById('cart-modal-content');
             const closeCartModalBtn = document.getElementById('close-cart-modal-btn');
-            const cartItemsContainer = document.getElementById('cart-items-container');
+            // const cartItemsContainer = document.getElementById('cart-items-container'); // No longer direct render target
+            const cartListWrapper = document.getElementById('cart-list-wrapper'); // New render target
             const cartTotalPrice = document.getElementById('cart-total-price');
             const copyCartBtn = document.getElementById('copy-cart-btn');
+            const clearCartBtn = document.getElementById('clear-cart-btn');
+            
+            // Address Elements
+            const addrName = document.getElementById('addr-name');
+            const addrPhone = document.getElementById('addr-phone');
+            const addrDetail = document.getElementById('addr-detail');
+            const saveAddrBtn = document.getElementById('save-addr-btn');
 
             // --- Cart Functions ---
             const saveCart = () => {
@@ -619,6 +627,34 @@
                 const savedCart = localStorage.getItem('shoppingCart');
                 cart = savedCart ? JSON.parse(savedCart) : [];
                 updateCartUI();
+            };
+            
+            // --- Address Functions ---
+            const loadAddress = () => {
+                const savedAddr = JSON.parse(localStorage.getItem('shippingAddress') || '{}');
+                if (savedAddr) {
+                    addrName.value = savedAddr.name || '';
+                    addrPhone.value = savedAddr.phone || '';
+                    addrDetail.value = savedAddr.detail || '';
+                }
+            };
+
+            const saveAddress = () => {
+                const addressData = {
+                    name: addrName.value.trim(),
+                    phone: addrPhone.value.trim(),
+                    detail: addrDetail.value.trim()
+                };
+                localStorage.setItem('shippingAddress', JSON.stringify(addressData));
+                showToast('บันทึกที่อยู่แล้ว', 'success');
+            };
+
+            const clearCart = () => {
+                if (confirm('ยืนยันล้างตะกร้าสินค้าทั้งหมด?')) {
+                    cart = [];
+                    updateCartUI();
+                    showToast('ล้างตะกร้าเรียบร้อย', 'info');
+                }
             };
             
             const addToCart = (productId) => {
@@ -676,15 +712,18 @@
             
             const updateCartModalDisplay = () => {
                 if (cart.length === 0) {
-                    cartItemsContainer.innerHTML = `<p class="text-zinc-400 text-center">ตะกร้าของคุณว่างเปล่า</p>`;
+                    cartListWrapper.innerHTML = `<p class="text-zinc-400 text-center py-4">ตะกร้าของคุณว่างเปล่า</p>`;
                     cartTotalPrice.textContent = '0 Baht';
                     copyCartBtn.disabled = true;
+                    clearCartBtn.classList.add('hidden');
                     return;
                 }
 
                 copyCartBtn.disabled = false;
-                cartItemsContainer.innerHTML = cart.map(item => `
-                    <div class="flex items-center gap-4 text-white">
+                clearCartBtn.classList.remove('hidden');
+                
+                cartListWrapper.innerHTML = cart.map(item => `
+                    <div class="flex items-center gap-4 text-white mb-3 last:mb-0">
                         <div class="flex-grow">
                             <p class="font-semibold">${item.nameEn}</p>
                             <p class="text-sm text-zinc-400">${item.categoryName} (${item.nicotine}%)</p>
@@ -703,6 +742,7 @@
             };
 
             const openCartModal = () => {
+                loadAddress(); // Load address when opening
                 updateCartModalDisplay();
                 cartModal.classList.remove('hidden');
                 document.body.classList.add('modal-open');
@@ -722,7 +762,15 @@
             const copyCartToClipboard = () => {
                 if (cart.length === 0) return;
 
-                let textToCopy = "สรุปรายการสั่งซื้อ:\n";
+                // Save address before copying (auto-save)
+                saveAddress();
+
+                let textToCopy = "ที่อยู่สำหรับจัดส่ง\n";
+                textToCopy += `ชื่อ : ${addrName.value.trim() || '-'}\n`;
+                textToCopy += `เบอร์ : ${addrPhone.value.trim() || '-'}\n`;
+                textToCopy += `ที่อยู่ : ${addrDetail.value.trim() || '-'}\n\n`;
+                
+                textToCopy += "รายการสั่งซื้อสินค้า\n";
                 cart.forEach(item => {
                     textToCopy += `- ${item.nameEn} (${item.categoryName} ${item.nicotine}%) จำนวน ${item.quantity} ชิ้น\n`;
                 });
@@ -730,10 +778,10 @@
                 textToCopy += `\nยอดรวม: ${total.toLocaleString('th-TH')} บาท`;
 
                 navigator.clipboard.writeText(textToCopy).then(() => {
-                    tg.showAlert('คัดลอกรายการแล้ว!');
+                    showToast('คัดลอกรายการแล้ว!', 'success');
                     closeCartModal();
                 }).catch(err => {
-                    tg.showAlert('ไม่สามารถคัดลอกได้');
+                    showToast('ไม่สามารถคัดลอกได้', 'error');
                     console.error('Failed to copy: ', err);
                 });
             };
@@ -1154,7 +1202,7 @@
                 }
             });
 
-            cartItemsContainer.addEventListener('click', (e) => {
+            cartListWrapper.addEventListener('click', (e) => {
                 const target = e.target.closest('.quantity-btn');
                 if (!target) return;
                 const productId = parseInt(target.dataset.productId);
@@ -1169,6 +1217,8 @@
             closeCartModalBtn.addEventListener('click', closeCartModal);
             cartModal.addEventListener('click', (e) => e.target === cartModal && closeCartModal());
             copyCartBtn.addEventListener('click', copyCartToClipboard);
+            clearCartBtn.addEventListener('click', clearCart);
+            saveAddrBtn.addEventListener('click', saveAddress);
 
             // --- Main Fetch and Initialization ---
             try {
@@ -1251,15 +1301,31 @@
         <div id="cart-modal-content" class="bg-zinc-800 w-full max-w-md rounded-t-2xl flex flex-col max-h-[80vh] transform translate-y-full transition-transform duration-300">
             <!-- Header -->
             <div class="flex-shrink-0 p-4 border-b border-zinc-700 flex justify-between items-center">
-                <h3 class="text-lg font-bold">ตะกร้าสินค้า</h3>
+                <div class="flex items-center gap-3">
+                    <h3 class="text-lg font-bold">ตะกร้าสินค้า</h3>
+                    <button id="clear-cart-btn" class="text-xs text-red-400 hover:text-red-300 underline hidden">ล้างตะกร้า</button>
+                </div>
                 <button id="close-cart-modal-btn" class="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center hover:bg-zinc-600 transition">
                     <i class="ri-close-line"></i>
                 </button>
             </div>
             <!-- Body (Cart Items) -->
             <div id="cart-items-container" class="flex-grow overflow-y-auto p-4 space-y-3">
-                <!-- Cart items will be injected here by JS -->
-                <p class="text-zinc-400 text-center">ตะกร้าของคุณว่างเปล่า</p>
+                <!-- Address Form -->
+                <div id="address-form-container" class="mb-4 p-3 bg-zinc-900 rounded-lg border border-zinc-700">
+                    <div class="flex justify-between items-center mb-2">
+                        <h4 class="text-sm font-semibold text-white">ข้อมูลจัดส่ง</h4>
+                        <button id="save-addr-btn" class="text-xs text-green-400 hover:text-green-300">บันทึก</button>
+                    </div>
+                    <input type="text" id="addr-name" placeholder="ชื่อผู้รับ" class="w-full bg-zinc-800 border border-zinc-600 rounded p-2 mb-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-red placeholder-zinc-500">
+                    <input type="tel" id="addr-phone" placeholder="เบอร์โทรศัพท์" class="w-full bg-zinc-800 border border-zinc-600 rounded p-2 mb-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-red placeholder-zinc-500">
+                    <textarea id="addr-detail" rows="2" placeholder="ที่อยู่จัดส่ง..." class="w-full bg-zinc-800 border border-zinc-600 rounded p-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-red placeholder-zinc-500"></textarea>
+                </div>
+                
+                <div id="cart-list-wrapper">
+                    <!-- Cart items will be injected here by JS -->
+                    <p class="text-zinc-400 text-center py-4">ตะกร้าของคุณว่างเปล่า</p>
+                </div>
             </div>
             <!-- Footer -->
             <div class="flex-shrink-0 p-4 border-t border-zinc-700 space-y-3">
