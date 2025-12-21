@@ -98,7 +98,14 @@
             transform: translateX(-50%);
             width: auto !important;
         }
-        .swiper-pagination-bullet-active { background: var(--brand-gradient); }
+        .swiper-pagination-bullet {
+            background: #444 !important;
+            opacity: 0.7;
+        }
+        .swiper-pagination-bullet-active { 
+            background: #BBB !important; 
+            opacity: 1;
+        }
 
         /* --- Category Selector --- */
         #category-selector { display: flex; overflow-x: auto; gap: 0.5rem; padding: 0 1.25rem 1rem; scrollbar-width: none; -ms-overflow-style: none; }
@@ -386,6 +393,62 @@
             line-height: 1.5;
         }
         
+        /* --- Product Card Swiper --- */
+        .product-card-swiper {
+            width: 100%;
+            height: 100%;
+            padding-bottom: 1.5rem !important; /* Space for pagination */
+        }
+        .product-card-swiper .swiper-slide {
+            height: auto;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .product-card-swiper .swiper-pagination {
+            bottom: 0px !important;
+        }
+        .product-card-swiper .swiper-pagination-bullet {
+            width: 6px;
+            height: 6px;
+            background: #444 !important;
+            opacity: 0.7;
+            transition: all 0.3s;
+        }
+        .product-card-swiper .swiper-pagination-bullet-active {
+            width: 12px;
+            border-radius: 4px;
+            background: #BBB !important;
+            opacity: 1;
+        }
+
+        /* --- Mini Level Bar (Card Slide 2) --- */
+        .mini-level-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.25rem;
+        }
+        .mini-level-label {
+            font-size: 0.65rem;
+            width: 40px;
+            text-align: right;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+        .mini-level-track {
+            flex-grow: 1;
+            height: 4px;
+            background: #333;
+            border-radius: 99px;
+            overflow: hidden;
+        }
+        .mini-level-fill {
+            height: 100%;
+            background: var(--brand-gradient);
+            border-radius: 99px;
+        }
+        
         /* --- General & Loader --- */
         #loader { display: flex; justify-content: center; align-items: center; height: 100vh; position: fixed; top: 0; left: 0; width: 100%; z-index: 100; background: var(--bg-color); }
         .hidden { display: none; }
@@ -437,7 +500,7 @@
                 </div>
         
                         <!-- Sticky Filter Bar -->
-                        <header id="main-header" class="pt-2 pb-2 bg-zinc-900 sticky z-10 shadow-sm" style="top: 60px;">                    <div id="product-section-title" class="product-section-title">
+                        <header id="main-header" class="pt-2 pb-2 bg-zinc-900 sticky z-10 shadow-sm" style="top: 52px;">                    <div id="product-section-title" class="product-section-title">
                         <span class="category-name-and-price-wrapper">
                             <span id="category-name-display"></span>
                             <span id="category-price-display" class="category-price-badge"></span>
@@ -864,24 +927,91 @@
                     const category = allCategories.find(c => c.id === p.categoryId);
                     const price = category ? parseFloat(category.price).toLocaleString('th-TH') : '';
                     const isOutOfStock = p.status === 'OUT_OF_STOCK';
+                    
+                    // Helper to calc width %
+                    const getWidth = (val) => Math.min((val / 5) * 100, 100) + '%';
 
                     return `
-                    <div class="info-card" data-product-id="${p.id}">
-                        <div class="card-image-container ${isOutOfStock ? 'grayscale' : ''}">
-                            <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" class="product-image" crossorigin="anonymous">
+                    <div class="info-card swiper-container-card" data-product-id="${p.id}">
+                        <div class="swiper product-card-swiper" id="swiper-${p.id}">
+                            <div class="swiper-wrapper">
+                                <!-- Slide 1: Main View -->
+                                <div class="swiper-slide">
+                                    <div class="card-image-container ${isOutOfStock ? 'grayscale' : ''}">
+                                        <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" class="product-image" crossorigin="anonymous">
+                                    </div>
+                                    <div class="card-info-container">
+                                        <div class="info-card-name-en ${isOutOfStock ? 'text-gray-500' : ''}">${p.nameEn || ''}</div>
+                                        <div class="info-card-name-th ${isOutOfStock ? 'text-gray-500' : ''}">${category.name || ''} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
+                                        <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''}">${price} Baht</div>
+                                    </div>
+                                    <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
+                                        <i class="ri-shopping-cart-2-line"></i>
+                                    </button>
+                                </div>
+
+                                <!-- Slide 2: Details View -->
+                                <div class="swiper-slide px-1">
+                                    <div class="text-left mb-2">
+                                        <div class="font-bold text-base text-white truncate">${p.nameEn || ''}</div>
+                                        <div class="text-xs text-gray-400 truncate">${p.nameTh || category.name} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
+                                    </div>
+                                    
+                                    <div class="flex-grow flex flex-col justify-center space-y-1 mb-2">
+                                        <!-- Coolness -->
+                                        <div class="mini-level-row">
+                                            <span class="mini-level-label">ความเย็น</span>
+                                            <div class="mini-level-track">
+                                                <div class="mini-level-fill" style="width: ${getWidth(p.coolnessLevel || 0)}"></div>
+                                            </div>
+                                        </div>
+                                        <!-- Sweetness -->
+                                        <div class="mini-level-row">
+                                            <span class="mini-level-label">ความหวาน</span>
+                                            <div class="mini-level-track">
+                                                <div class="mini-level-fill" style="width: ${getWidth(p.sweetnessLevel || 0)}"></div>
+                                            </div>
+                                        </div>
+                                        <!-- Scent -->
+                                        <div class="mini-level-row">
+                                            <span class="mini-level-label">กลิ่น</span>
+                                            <div class="mini-level-track">
+                                                <div class="mini-level-fill" style="width: ${getWidth(p.flavorIntensityLevel || 0)}"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="relative h-10 flex items-center">
+                                         <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''}">${price} Baht</div>
+                                         <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
+                                            <i class="ri-shopping-cart-2-line"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="swiper-pagination"></div>
                         </div>
-                        <div class="card-info-container">
-                             <div class="info-card-name-en ${isOutOfStock ? 'text-gray-500' : ''}">${p.nameEn || ''}</div>
-                             <div class="info-card-name-th ${isOutOfStock ? 'text-gray-500' : ''}">${category.name || ''} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
-                             <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''}">${price} Baht</div>
-                        </div>
-                        <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
-                            <i class="ri-shopping-cart-2-line"></i>
-                        </button>
                     </div>
                     `;
                 }).join('');
+                
                 applyCardBackgrounds();
+                initCardSwipers();
+            };
+
+            const initCardSwipers = () => {
+                document.querySelectorAll('.product-card-swiper').forEach(el => {
+                    new Swiper(el, {
+                        pagination: {
+                            el: el.querySelector('.swiper-pagination'),
+                            clickable: true,
+                        },
+                        nested: true,
+                        allowTouchMove: true,
+                        observer: true,
+                        observeParents: true
+                    });
+                });
             };
 
             const applyCardBackgrounds = () => {
