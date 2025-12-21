@@ -396,7 +396,7 @@
         .product-card-swiper {
             width: 100%;
             height: 100%;
-            padding-bottom: 0.1rem !important; /* Closer to bottom */
+            padding-bottom: 0.4rem !important; /* Increased padding to allow dots to move lower */
         }
         .product-card-swiper .swiper-slide {
             height: auto;
@@ -405,7 +405,7 @@
             justify-content: space-between;
         }
         .product-card-swiper .swiper-pagination {
-            bottom: -6px !important; /* Moved even lower */
+            bottom: -10px !important; /* Moved further down towards the edge of the card */
         }
         .product-card-swiper .swiper-pagination-bullet {
             width: 6px;
@@ -483,7 +483,7 @@
 
     <div id="app-container" class="hidden">
         <!-- Sticky Header Part -->
-        <div class="sticky top-0 z-20 bg-zinc-900 pb-4">
+        <div id="top-bar" class="sticky top-0 z-20 bg-zinc-900 pb-4">
             <div class="flex justify-between items-center px-5 pt-4">
                 <div class="w-1/4"></div> <!-- Spacer -->
                 <div class="w-1/2 flex justify-center">
@@ -507,8 +507,9 @@
                     <div id="category-selector"></div>
                 </div>
         
-                        <!-- Sticky Filter Bar -->
-                        <header id="main-header" class="pt-2 pb-2 bg-zinc-900 sticky z-10 shadow-sm mb-3" style="top: 52px;">                    <div id="product-section-title" class="product-section-title">
+                                <!-- Sticky Filter Bar -->
+        
+                                <header id="main-header" class="pt-2 pb-2 bg-zinc-900 sticky z-10 shadow-sm mb-3" style="top: 80px;">                    <div id="product-section-title" class="product-section-title">
                         <span class="category-name-and-price-wrapper">
                             <span id="category-name-display"></span>
                             <span id="category-price-display" class="category-price-badge"></span>
@@ -541,6 +542,32 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async function() {
+            // --- Header Layout Adjustment ---
+            const topBar = document.getElementById('top-bar');
+            const mainHeader = document.getElementById('main-header');
+            
+            if (topBar && mainHeader) {
+                const adjustHeaderOffset = () => {
+                    const height = topBar.offsetHeight;
+                    // Apply slightly less than full height if needed, or exact height.
+                    // Since both have bg-zinc-900, exact height is best to avoid gaps.
+                    mainHeader.style.top = `${height}px`;
+                };
+
+                // Initial adjustment
+                adjustHeaderOffset();
+
+                // Watch for size changes (e.g. image loading, window resize)
+                const resizeObserver = new ResizeObserver(adjustHeaderOffset);
+                resizeObserver.observe(topBar);
+                
+                // Fallback for image load specifically
+                const logoImg = topBar.querySelector('img');
+                if (logoImg && !logoImg.complete) {
+                    logoImg.onload = adjustHeaderOffset;
+                }
+            }
+
             const tg = window.Telegram.WebApp;
             tg.ready();
             tg.expand();
@@ -706,19 +733,19 @@
                 clearCartBtn.classList.remove('hidden');
                 
                 cartListWrapper.innerHTML = cart.map(item => `
-                    <div class="flex items-center gap-3 text-white mb-3 last:mb-0 p-3 bg-zinc-800/50 rounded-xl border border-zinc-700/50">
+                    <div class="flex items-center gap-3 text-white mb-3 last:mb-0 p-3 bg-zinc-800/50 rounded-xl">
                         <div class="flex-grow">
-                            <p class="font-semibold text-sm leading-tight">${item.nameEn}</p>
-                            <p class="text-[10px] text-zinc-400">${item.categoryName} ${item.nicotine !== null ? `(${item.nicotine}%)` : ''}</p>
-                            <p class="text-brand-red font-bold text-xs mt-1">${(item.price * item.quantity).toLocaleString('th-TH')} ฿</p>
+                            <p class="font-semibold text-[1.1rem] leading-tight">${item.nameEn}</p>
+                            <p class="text-xs text-zinc-400">${item.nameTh || ''} ${item.nicotine !== null ? `(${item.nicotine}%)` : ''}</p>
+                            <p class="text-brand-red font-bold text-sm mt-1">${(item.price * item.quantity).toLocaleString('th-TH')} ฿</p>
                         </div>
-                        <div class="flex items-center bg-zinc-900 rounded-lg p-1 border border-zinc-700">
-                            <button class="quantity-btn w-6 h-6 rounded bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-300 transition active:scale-95" data-product-id="${item.id}" data-change="-1">
-                                <i class="ri-subtract-line text-xs"></i>
+                        <div class="flex items-center bg-zinc-900 rounded-lg p-1.5 gap-2">
+                            <button class="quantity-btn w-8 h-8 rounded bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-300 transition active:scale-95" data-product-id="${item.id}" data-change="-1">
+                                <i class="ri-subtract-line text-sm"></i>
                             </button>
-                            <span class="font-bold w-6 text-center text-white text-xs">${item.quantity}</span>
-                            <button class="quantity-btn w-6 h-6 rounded bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-300 transition active:scale-95" data-product-id="${item.id}" data-change="1">
-                                <i class="ri-add-line text-xs"></i>
+                            <span class="font-bold min-w-[1.5rem] text-center text-white text-base">${item.quantity}</span>
+                            <button class="quantity-btn w-8 h-8 rounded bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-300 transition active:scale-95" data-product-id="${item.id}" data-change="1">
+                                <i class="ri-add-line text-sm"></i>
                             </button>
                         </div>
                     </div>
@@ -991,9 +1018,8 @@
                                             <!-- Slide 2: Details View -->
                                             <div class="swiper-slide px-2 pt-1">
                                                 <div class="text-left mb-2 px-1">
-                                                    <div class="font-bold text-base text-white truncate leading-tight">${p.nameEn || ''}</div>
-                                                    <!-- Updated Thai Name with .text-micro -->
-                                        <div style="font-size: 0.35rem;" class="text-zinc-400 truncate -mt-1.5">${p.nameTh || category.name} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
+                                                    <div class="info-card-name-en ${isOutOfStock ? 'text-gray-500' : ''}">${p.nameEn || ''}</div>
+                                                    <div class="info-card-name-th ${isOutOfStock ? 'text-gray-500' : ''}">${p.nameTh || category.name} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
                                                 </div>
                                                 
                                                 <div class="flex-grow flex flex-col justify-start space-y-1 mb-2 px-1">
