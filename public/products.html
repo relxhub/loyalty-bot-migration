@@ -396,7 +396,7 @@
         .product-card-swiper {
             width: 100%;
             height: 100%;
-            padding-bottom: 1.5rem !important; /* Significantly increased padding for dots */
+            padding-bottom: 1.6rem !important; /* Optimized padding for dots */
         }
         .product-card-swiper .swiper-slide {
             height: auto;
@@ -405,7 +405,7 @@
             justify-content: space-between;
         }
         .product-card-swiper .swiper-pagination {
-            bottom: 2px !important; /* Positioned safely inside the padding area */
+            bottom: -2px !important; /* Pushed low as possible */
         }
         .product-card-swiper .swiper-pagination-bullet {
             width: 6px;
@@ -1054,26 +1054,26 @@
                                 };
             
                                 return `
-                                <div class="info-card swiper-container-card" data-product-id="${p.id}">
+                                <div class="info-card swiper-container-card ${isOutOfStock ? 'out-of-stock' : ''}" data-product-id="${p.id}">
                                     <div class="swiper product-card-swiper" id="swiper-${p.id}">
                                         <div class="swiper-wrapper">
                                             <!-- Slide 1: Main View -->
-                                            <div class="swiper-slide">
-                                                <div class="card-image-container ${isOutOfStock ? 'grayscale' : ''}">
-                                                    <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" class="product-image" crossorigin="anonymous">
+                                            <div class="swiper-slide px-1">
+                                                <div class="card-image-container">
+                                                    <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" class="product-image ${isOutOfStock ? 'grayscale' : ''}" crossorigin="anonymous">
                                                 </div>
                                                 <div class="card-info-container mb-1">
                                                     <div class="info-card-name-en ${isOutOfStock ? 'text-gray-500' : ''}">${p.nameEn || ''}</div>
                                                     <div class="info-card-name-th ${isOutOfStock ? 'text-gray-500' : ''}">${category.name || ''} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
                                                 </div>
                                                 
-                                    <!-- Unified Bottom Section (Slide 1) -->
-                                    <div class="relative h-10 flex items-center justify-between mt-auto px-1">
-                                         <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''} text-lg">${price} Baht</div>
-                                         <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" style="position: static; width: auto; height: auto; padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 99px;" data-product-id="${p.id}">
-                                            <i class="ri-shopping-cart-2-line mr-1"></i> Add
-                                         </button>
-                                    </div>
+                                                <!-- Unified Bottom Section (Slide 1 - Matched with Slide 2) -->
+                                                <div class="relative h-10 flex items-center justify-between mt-auto px-1">
+                                                     <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''} text-lg">${price} Baht</div>
+                                                     <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" style="position: static; width: auto; height: auto; padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 99px;" data-product-id="${p.id}">
+                                                        <i class="ri-shopping-cart-2-line mr-1"></i> Add
+                                                     </button>
+                                                </div>
                                             </div>
             
                                             <!-- Slide 2: Details View -->
