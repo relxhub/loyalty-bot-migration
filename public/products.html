@@ -184,13 +184,13 @@
         .info-card {
             background-color: var(--secondary-bg);
             border-radius: 1.75rem; /* Increased border-radius */
-            padding: 0.75rem; /* Increased padding */
+            padding: 0.85rem; /* Increased padding */
             cursor: pointer;
             transition: all 0.2s ease;
             display: flex;
             flex-direction: column;
             width: 48%;
-            aspect-ratio: 1 / 1; /* Make the card a square */
+            aspect-ratio: 1 / 0.82; /* Reduced height by ~20% */
             position: relative;
             justify-content: space-between;
         }
@@ -200,8 +200,8 @@
 
         .card-image-container {
             width: 100%;
-            height: 40%; /* Reduced height for smaller rectangle */
-            margin-bottom: 0.5rem;
+            height: 42%; /* Adjusted for new card aspect ratio */
+            margin-bottom: 0.35rem;
             overflow: hidden;
             border-radius: 999px; /* Maximize rounded corners */
         }
@@ -213,15 +213,17 @@
 
         .card-info-container {
             text-align: left;
+            padding: 0 0.15rem;
         }
 
         .info-card-name-en {
-            font-size: 1.1rem; /* Increased size by ~20% */
+            font-size: 1.1rem; /* English name size */
             font-weight: 600;
             color: var(--text-primary);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            line-height: 1.1;
         }
         .info-card-name-th {
             font-size: 0.7rem;
@@ -230,7 +232,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            margin-top: 0;
+            margin-top: -1px; /* Bring closer */
         }
         .nicotine-tag {
             display: inline-block;
@@ -282,18 +284,14 @@
         }
 
         .add-to-cart-btn {
-            position: absolute;
-            bottom: 0.75rem;
-            right: 0.75rem;
-            width: 2.25rem;
-            height: 2.25rem;
+            width: auto;
+            height: auto;
             border-radius: 999px;
             background-image: linear-gradient(to right, #f6971f, #e32622);
             color: white;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.25rem;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
             transition: all 0.2s ease;
         }
@@ -316,7 +314,7 @@
         }
 
         .info-card-price-badge {
-            font-size: 0.9rem;
+            font-size: 0.81rem; /* Reduced by 10% */
             font-weight: 700;
             background: linear-gradient(to right, #f6971f, #e32622);
             -webkit-background-clip: text;
@@ -438,8 +436,8 @@
             gap: 3px;
         }
         .level-dot {
-            width: 8px;
-            height: 8px;
+            width: 9px; /* Increased by 10% */
+            height: 9px; /* Increased by 10% */
             border-radius: 50%;
             background-color: #333; /* Inactive dot color */
         }
@@ -504,7 +502,7 @@
                 </div>
         
                         <!-- Sticky Filter Bar -->
-                        <header id="main-header" class="pt-2 pb-2 bg-zinc-900 sticky z-10 shadow-sm" style="top: 52px;">                    <div id="product-section-title" class="product-section-title">
+                        <header id="main-header" class="pt-2 pb-2 bg-zinc-900 sticky z-10 shadow-sm mb-3" style="top: 52px;">                    <div id="product-section-title" class="product-section-title">
                         <span class="category-name-and-price-wrapper">
                             <span id="category-name-display"></span>
                             <span id="category-price-display" class="category-price-badge"></span>
@@ -1028,46 +1026,46 @@
                                     <div class="card-image-container ${isOutOfStock ? 'grayscale' : ''}">
                                         <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" class="product-image" crossorigin="anonymous">
                                     </div>
-                                    <div class="card-info-container mb-2">
+                                    <div class="card-info-container mb-1">
                                         <div class="info-card-name-en ${isOutOfStock ? 'text-gray-500' : ''}">${p.nameEn || ''}</div>
                                         <div class="info-card-name-th ${isOutOfStock ? 'text-gray-500' : ''}">${category.name || ''} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
                                     </div>
-                                    <div class="relative h-10 flex items-center justify-between mt-auto">
+                                    <div class="relative h-10 flex items-center justify-between mt-auto px-1">
                                          <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''} text-lg">${price} Baht</div>
-                                         <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" style="position: static; width: auto; height: auto; padding: 0.3rem 1rem; font-size: 0.9rem; border-radius: 99px;" data-product-id="${p.id}">
+                                         <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" style="position: static; width: auto; height: auto; padding: 0.35rem 0.8rem; font-size: 0.85rem; border-radius: 99px;" data-product-id="${p.id}">
                                             <i class="ri-shopping-cart-2-line mr-1"></i> Add
                                         </button>
                                     </div>
                                 </div>
 
                                 <!-- Slide 2: Details View -->
-                                <div class="swiper-slide px-2 pt-2">
-                                    <div class="text-left mb-3">
+                                <div class="swiper-slide px-2 pt-1">
+                                    <div class="text-left mb-2 px-1">
                                         <div class="font-bold text-base text-white truncate leading-tight">${p.nameEn || ''}</div>
-                                        <div class="text-xs text-zinc-400 truncate">${p.nameTh || category.name} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
+                                        <div class="text-[10px] text-zinc-400 truncate -mt-0.5">${p.nameTh || category.name} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
                                     </div>
                                     
-                                    <div class="flex-grow flex flex-col justify-start space-y-1 mb-2">
+                                    <div class="flex-grow flex flex-col justify-start space-y-1 mb-2 px-1">
                                         <!-- Cooling -->
                                         <div class="level-row">
-                                            <span class="level-label">Cooling</span>
+                                            <span class="level-label text-[10px]">Cooling</span>
                                             ${renderDots(p.coolnessLevel || 0)}
                                         </div>
                                         <!-- Sweetness -->
                                         <div class="level-row">
-                                            <span class="level-label">Sweetness</span>
+                                            <span class="level-label text-[10px]">Sweetness</span>
                                             ${renderDots(p.sweetnessLevel || 0)}
                                         </div>
                                         <!-- Richness (Scent) -->
                                         <div class="level-row">
-                                            <span class="level-label">Richness</span>
+                                            <span class="level-label text-[10px]">Richness</span>
                                             ${renderDots(p.flavorIntensityLevel || 0)}
                                         </div>
                                     </div>
 
-                                    <div class="relative h-10 flex items-center justify-between mt-auto">
+                                    <div class="relative h-10 flex items-center justify-between mt-auto px-1">
                                          <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''} text-lg">${price} Baht</div>
-                                         <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" style="position: static; width: auto; height: auto; padding: 0.3rem 1rem; font-size: 0.9rem; border-radius: 99px;" data-product-id="${p.id}">
+                                         <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" style="position: static; width: auto; height: auto; padding: 0.35rem 0.8rem; font-size: 0.85rem; border-radius: 99px;" data-product-id="${p.id}">
                                             <i class="ri-shopping-cart-2-line mr-1"></i> Add
                                         </button>
                                     </div>
