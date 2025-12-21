@@ -396,16 +396,16 @@
         .product-card-swiper {
             width: 100%;
             height: 100%;
-            padding-bottom: 1.6rem !important; /* Optimized padding for dots */
+            padding-bottom: 1.8rem !important; /* Maximized padding for low dots */
         }
         .product-card-swiper .swiper-slide {
-            height: auto;
+            height: 100%; /* Force full height for consistent alignment */
             display: flex;
             flex-direction: column;
             justify-content: space-between;
         }
         .product-card-swiper .swiper-pagination {
-            bottom: -2px !important; /* Pushed low as possible */
+            bottom: -5px !important; /* Pushed to the absolute limit */
         }
         .product-card-swiper .swiper-pagination-bullet {
             width: 6px;
@@ -785,14 +785,28 @@
             const copyCartToClipboard = () => {
                 if (cart.length === 0) return;
 
-                let textToCopy = "รายการสั่งซื้อสินค้า\n";
-                cart.forEach(item => {
-                    textToCopy += `- ${item.nameEn} (${item.categoryName} ${item.nicotine}%) จำนวน ${item.quantity} ชิ้น\n`;
-                });
-                const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                textToCopy += `\nยอดรวม: ${total.toLocaleString('th-TH')} บาท`;
+                let textToCopy = "รายการสั่งซื้อสินค้า\n\n";
+                
+                // Group items by categoryName (รุ่นสินค้า)
+                const groups = cart.reduce((acc, item) => {
+                    if (!acc[item.categoryName]) acc[item.categoryName] = [];
+                    acc[item.categoryName].push(item);
+                    return acc;
+                }, {});
 
-                navigator.clipboard.writeText(textToCopy).then(() => {
+                // Format text by groups
+                Object.keys(groups).forEach(category => {
+                    textToCopy += `[${category}]\n`;
+                    groups[category].forEach(item => {
+                        textToCopy += `- ${item.nameEn} (${item.nicotine}%) จำนวน ${item.quantity} ชิ้น\n`;
+                    });
+                    textToCopy += "\n"; // Space between groups
+                });
+
+                const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                textToCopy += `ยอดรวม: ${total.toLocaleString('th-TH')} บาท`;
+
+                navigator.clipboard.writeText(textToCopy.trim()).then(() => {
                     showToast('คัดลอกรายการแล้ว!', 'success');
                     closeCartModal();
                 }).catch(err => {
