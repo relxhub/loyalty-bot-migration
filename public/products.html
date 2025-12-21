@@ -22,6 +22,7 @@
             --text-primary: #FFFFFF;
             --text-secondary: #B3B3B3;
             --brand-red: #F22233;
+            --brand-gradient: linear-gradient(to right, #f6971f, #e32622);
         }
         body {
             background-color: var(--bg-color);
@@ -97,7 +98,7 @@
             transform: translateX(-50%);
             width: auto !important;
         }
-        .swiper-pagination-bullet-active { background: var(--brand-red); }
+        .swiper-pagination-bullet-active { background: var(--brand-gradient); }
 
         /* --- Category Selector --- */
         #category-selector { display: flex; overflow-x: auto; gap: 0.5rem; padding: 0 1.25rem 1rem; scrollbar-width: none; -ms-overflow-style: none; }
@@ -188,7 +189,7 @@
         }
         .info-card:active {
             transform: scale(0.95);
-            background-color: var(--brand-red);
+            background: var(--brand-gradient);
         }
 
         .card-image-container {
@@ -429,6 +430,9 @@
 
         <!-- Scrollable Header Part -->
         <header id="main-header" class="pt-4 bg-zinc-900">
+            <!-- Banner Slider -->
+            <div id="banner-container" class="px-5 hidden"></div>
+
             <!-- Category Selector -->
             <div id="category-selector"></div>
             
@@ -442,9 +446,6 @@
         </header>
 
         <main>
-            <!-- Banner Slider -->
-            <div id="banner-container" class="px-5 hidden"></div>
-            
             <!-- Product Grid -->
             <div id="product-grid"></div>
         </main>
