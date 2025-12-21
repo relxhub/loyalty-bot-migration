@@ -184,7 +184,7 @@
         .info-card {
             background-color: var(--secondary-bg);
             border-radius: 1.75rem; /* Increased border-radius */
-            padding: 0.5rem;
+            padding: 0.75rem; /* Increased padding */
             cursor: pointer;
             transition: all 0.2s ease;
             display: flex;
@@ -201,7 +201,7 @@
         .card-image-container {
             width: 100%;
             height: 40%; /* Reduced height for smaller rectangle */
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.5rem;
             overflow: hidden;
             border-radius: 999px; /* Maximize rounded corners */
         }
@@ -216,7 +216,7 @@
         }
 
         .info-card-name-en {
-            font-size: 0.92rem; /* Adjusted for space */
+            font-size: 1.1rem; /* Increased size by ~20% */
             font-weight: 600;
             color: var(--text-primary);
             white-space: nowrap;
@@ -479,8 +479,8 @@
 
     <div id="app-container" class="hidden">
         <!-- Sticky Header Part -->
-        <div class="sticky top-0 z-20 bg-zinc-900 pt-4">
-            <div class="flex justify-between items-center mb-4 px-5">
+        <div class="sticky top-0 z-20 bg-zinc-900">
+            <div class="flex justify-between items-center px-5 pt-4">
                 <div class="w-1/4"></div> <!-- Spacer -->
                 <div class="w-1/2 flex justify-center">
                     <img src="logo.png" alt="Company Logo" class="w-40">
@@ -495,7 +495,7 @@
         </div>
 
                 <!-- Scrollable Header Content (Banner & Categories) -->
-                <div id="scrollable-header-content" class="bg-zinc-900 pt-2">
+                <div id="scrollable-header-content" class="bg-zinc-900">
                     <!-- Banner Slider -->
                     <div id="banner-container" class="px-5 hidden"></div>
                     
@@ -1028,14 +1028,16 @@
                                     <div class="card-image-container ${isOutOfStock ? 'grayscale' : ''}">
                                         <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" class="product-image" crossorigin="anonymous">
                                     </div>
-                                    <div class="card-info-container">
+                                    <div class="card-info-container mb-2">
                                         <div class="info-card-name-en ${isOutOfStock ? 'text-gray-500' : ''}">${p.nameEn || ''}</div>
                                         <div class="info-card-name-th ${isOutOfStock ? 'text-gray-500' : ''}">${category.name || ''} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
-                                        <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''}">${price} Baht</div>
                                     </div>
-                                    <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
-                                        <i class="ri-shopping-cart-2-line"></i>
-                                    </button>
+                                    <div class="relative h-10 flex items-center justify-between mt-auto">
+                                         <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''} text-lg">${price} Baht</div>
+                                         <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" style="position: static; width: auto; height: auto; padding: 0.3rem 1rem; font-size: 0.9rem; border-radius: 99px;" data-product-id="${p.id}">
+                                            <i class="ri-shopping-cart-2-line mr-1"></i> Add
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <!-- Slide 2: Details View -->
