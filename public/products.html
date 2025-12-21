@@ -16,7 +16,7 @@
     <style>
         :root {
             --bg-color: #121212;
-            --secondary-bg: #1E1E1E;
+            --secondary-bg: #121212;
             --card-bg: #2A2A2A;
             --primary-accent: #FFFFFF;
             --text-primary: #FFFFFF;
@@ -82,8 +82,21 @@
         /* --- [END] CSS Notification Toast --- */
         
         /* --- Banner Slider (Swiper.js) --- */
-        .swiper-container { width: 100%; border-radius: 1rem; margin-bottom: 1.5rem; }
+        .swiper-container { 
+            width: 100%; 
+            border-radius: 1rem; 
+            margin-bottom: 1.5rem; 
+            position: relative; 
+            overflow: hidden;
+        }
         .swiper-slide img { display: block; width: 100%; height: 100%; object-fit: cover; }
+        .swiper-pagination {
+            position: absolute;
+            bottom: 8px !important;
+            left: 50% !important;
+            transform: translateX(-50%);
+            width: auto !important;
+        }
         .swiper-pagination-bullet-active { background: var(--brand-red); }
 
         /* --- Category Selector --- */
