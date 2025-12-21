@@ -812,13 +812,39 @@
             const processImage = (img, card) => {
                 try {
                     const imageContainer = card.querySelector('.card-image-container');
-                    const dominantColor = colorThief.getColor(img);
-                    const color = tinycolor({ r: dominantColor[0], g: dominantColor[1], b: dominantColor[2] });
-                    const color1 = color.clone().lighten(15).saturate(10).toRgbString();
-                    const color2 = color.clone().darken(10).toRgbString();
-                    imageContainer.style.background = `linear-gradient(to right, ${color1}, ${color2})`;
+                    if (!imageContainer) return;
+
+                    const dominantColorRgb = colorThief.getColor(img);
+                    let dominantColor = tinycolor({ r: dominantColorRgb[0], g: dominantColorRgb[1], b: dominantColorRgb[2] });
+
+                    // If the color is very dark or very light, it might not be a good representative color.
+                    // Let's try to get a palette and pick a more vibrant color.
+                    if (dominantColor.getBrightness() < 50 || dominantColor.getBrightness() > 220) {
+                        const palette = colorThief.getPalette(img, 5); // Get 5 colors
+                        const betterColorRgb = palette.find(p => {
+                            const c = tinycolor({ r: p[0], g: p[1], b: p[2] });
+                            const brightness = c.getBrightness();
+                            return brightness > 50 && brightness < 220; // Find a color that's not too dark or light
+                        });
+                        
+                        // If we found a better color in the palette, use it.
+                        if (betterColorRgb) {
+                            dominantColor = tinycolor({ r: betterColorRgb[0], g: betterColorRgb[1], b: betterColorRgb[2] });
+                        }
+                    }
+
+                    const color1 = dominantColor.clone().lighten(20).desaturate(10).toRgbString();
+                    const color2 = dominantColor.clone().darken(15).saturate(5).toRgbString();
+                    
+                    imageContainer.style.background = `linear-gradient(90deg, ${color1}, ${color2})`;
+                    
                 } catch (e) {
-                    console.error('Error processing image color:', e);
+                    console.error('Error processing image color on card:', card.dataset.productId, e);
+                    // Optional: apply a fallback background
+                    const imageContainer = card.querySelector('.card-image-container');
+                    if(imageContainer) {
+                        imageContainer.style.background = `linear-gradient(90deg, #444, #222)`;
+                    }
                 }
             };
 
