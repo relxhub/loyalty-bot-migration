@@ -134,6 +134,7 @@ model Category {
   id        Int     @id @default(autoincrement())
   name      String  @unique
   imageUrl  String?
+  productIcon String? // รูปสินค้าตัวแทนสำหรับ Animation (fly to cart)
   order     Int     @default(0)
   price     Decimal @default(0) @db.Decimal(10, 2)
 

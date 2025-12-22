@@ -16,6 +16,14 @@ export const getProductPageData = async () => {
       }),
       prisma.category.findMany({
         orderBy: { order: 'asc' },
+        select: {
+          id: true,
+          name: true,
+          imageUrl: true,
+          productIcon: true,
+          order: true,
+          price: true,
+        },
       }),
       prisma.product.findMany({
         select: {

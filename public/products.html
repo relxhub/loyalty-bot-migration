@@ -948,10 +948,24 @@
                 
                 if (!img) return;
 
+                // Identify Product and Category for custom icon
+                const productId = parseInt(btn.dataset.productId);
+                const product = allProducts.find(p => p.id === productId);
+                const category = product ? allCategories.find(c => c.id === product.categoryId) : null;
+                const customIconUrl = category?.productIcon;
+
                 const imgRect = img.getBoundingClientRect();
                 const cartRect = cartBtn.getBoundingClientRect();
 
-                const clone = img.cloneNode();
+                let clone;
+                if (customIconUrl) {
+                    clone = document.createElement('img');
+                    clone.src = customIconUrl;
+                    clone.style.objectFit = 'contain';
+                } else {
+                    clone = img.cloneNode();
+                }
+
                 clone.style.position = 'fixed';
                 clone.style.left = `${imgRect.left}px`;
                 clone.style.top = `${imgRect.top}px`;
