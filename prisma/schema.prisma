@@ -149,6 +149,9 @@ model Product {
   imageUrl             String
   flavorIconUrl        String?
   status               ProductStatus @default(IN_STOCK)
+  isNew                Boolean       @default(false)
+  isHot                Boolean       @default(false)
+  viewCount            Int           @default(0)
   nicotine             Int?
   coolnessLevel        Int?     @default(0)
   sweetnessLevel       Int?     @default(0)
