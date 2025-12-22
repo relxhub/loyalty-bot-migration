@@ -108,23 +108,60 @@
         }
 
         /* --- Category Selector --- */
-        #category-selector { display: flex; overflow-x: auto; gap: 0.5rem; padding: 0 1.25rem 1rem; scrollbar-width: none; -ms-overflow-style: none; }
-        .category-item {
-            flex-shrink: 0;
-            padding: 0.5rem 1rem;
-            border-radius: 999px; /* Pill shape */
-            background-color: var(--secondary-bg);
-            color: var(--text-secondary);
-            border: 0px solid #444;
-            font-size: 0.9rem;
-            font-weight: 500;
+        #category-selector { display: flex; overflow-x: auto; gap: 1rem; padding: 0 1.25rem 1rem; scrollbar-width: none; -ms-overflow-style: none; }
+        
+        .category-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
             cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .category-item {
+            width: 80px; /* Fixed width for uniformity */
+            height: 50px; /* Increased height (~20%) */
+            border-radius: 9999px; /* Capsule */
+            background-color: var(--secondary-bg);
+            border: 1px solid #444;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
             transition: all 0.2s ease;
         }
-        .category-item.active {
-            background-image: linear-gradient(to right, #f6971f, #e32622);
-            color: var(--text-primary);
-            border: none;
+        
+        .category-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .category-wrapper.active .category-item {
+            border: 2px solid transparent;
+            background-image: linear-gradient(var(--secondary-bg), var(--secondary-bg)), var(--brand-gradient);
+            background-origin: border-box;
+            background-clip: padding-box, border-box;
+            box-shadow: 0 4px 12px rgba(242, 34, 51, 0.3);
+        }
+
+        .category-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            text-align: center;
+            white-space: nowrap;
+            max-width: 90px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .category-wrapper.active .category-label {
+            background: var(--brand-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
         }
 
         /* --- Nicotine Filter Styles --- */
@@ -1189,7 +1226,14 @@
 
             const renderCategories = (categories) => {
                 allCategories = categories;
-                categorySelector.innerHTML = categories.map(c => `<div class="category-item" data-category-id="${c.id}"><span>${c.name}</span></div>`).join('');
+                categorySelector.innerHTML = categories.map(c => `
+                    <div class="category-wrapper" data-category-id="${c.id}">
+                        <div class="category-item">
+                            ${c.imageUrl ? `<img src="${c.imageUrl}" alt="${c.name}">` : '<i class="ri-image-line text-gray-500 text-xl"></i>'}
+                        </div>
+                        <span class="category-label">${c.name}</span>
+                    </div>
+                `).join('');
                 if (categories.length > 0) {
                     currentFilter.categoryId = categories[0].id;
                     categorySelector.children[0].classList.add('active');
@@ -1423,7 +1467,7 @@
 
             // --- Event Listeners ---
             categorySelector.addEventListener('click', (e) => {
-                const target = e.target.closest('.category-item');
+                const target = e.target.closest('.category-wrapper');
                 if (!target) return;
                 categorySelector.querySelector('.active')?.classList.remove('active');
                 target.classList.add('active');
