@@ -182,60 +182,74 @@
         /* --- Info-Card Design (Final) --- */
         .info-card {
             background-color: var(--secondary-bg);
-            border-radius: 1.75rem; /* Increased border-radius */
-            padding: 0.85rem; /* Increased padding */
+            border-radius: 1.5rem;
+            padding: 0.75rem;
             cursor: pointer;
             transition: all 0.2s ease;
             display: flex;
             flex-direction: column;
             width: 100%;
-            aspect-ratio: 1 / 0.82; /* Reduced height by ~20% */
+            aspect-ratio: 9 / 14; /* Taller portrait aspect ratio */
             position: relative;
-            justify-content: space-between;
-            overflow: hidden; /* Ensure content stays inside */
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
         .info-card:active {
-            transform: scale(0.95);
+            transform: scale(0.98);
         }
 
         .card-image-container {
             width: 100%;
-            height: 42%; /* Adjusted for new card aspect ratio */
+            height: 48%; /* Takes up top half */
             margin-bottom: 0.5rem;
             overflow: hidden;
-            border-radius: 999px; /* Maximize rounded corners */
+            border-radius: 1rem;
+            position: relative;
+            flex-shrink: 0;
         }
         .product-image {
             width: 100%;
             height: 100%;
             object-fit: cover;
+            transition: transform 0.3s ease;
         }
 
-        .card-info-container {
-            text-align: left;
-            padding: 0 0.15rem;
-            flex-grow: 1; /* Push bottom content down */
-            min-height: 0; /* Allow flex shrinking */
+        .card-content-wrapper {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.1rem;
+            min-height: 0;
         }
 
         .info-card-name-en {
-            font-size: 1.0rem; /* Slightly reduced for safety */
+            font-size: 0.95rem;
             font-weight: 600;
             color: var(--text-primary);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
             line-height: 1.2;
-            margin-top: 0.25rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
         }
         .info-card-name-th {
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             font-weight: 400;
             color: var(--text-secondary);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            margin-top: 2px;
+        }
+        
+        /* Bottom Row */
+        .card-bottom-row {
+            margin-top: auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-top: 0.5rem;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            gap: 0.5rem;
         }
         .nicotine-tag {
             display: inline-block;
@@ -287,24 +301,30 @@
         }
 
         .add-to-cart-btn {
-            width: auto;
-            height: auto;
             border-radius: 999px;
             background-image: linear-gradient(to right, #f6971f, #e32622);
             color: white;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 5px rgba(246, 151, 31, 0.3);
             transition: all 0.2s ease;
+            padding: 0.35rem 0.8rem !important;
+            font-size: 0.8rem !important;
+            font-weight: 500;
+            border: none;
+            flex-shrink: 0;
+            width: auto !important;
+            height: auto !important;
         }
         .add-to-cart-btn:active {
             transform: scale(0.9);
         }
         .add-to-cart-btn.disabled {
             background-image: none;
-            background-color: #444;
-            color: #666;
+            background-color: #333;
+            color: #555;
+            box-shadow: none;
             cursor: not-allowed;
         }
 
@@ -317,14 +337,61 @@
         }
 
         .info-card-price-badge {
-            font-size: 0.81rem; /* Reduced by 10% */
-            font-weight: 600; /* Reduced from 700 */
+            font-size: 0.9rem;
+            font-weight: 700;
             background: linear-gradient(to right, #f6971f, #e32622);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
             text-fill-color: transparent;
-            margin-top: 0.1rem;
+            white-space: nowrap;
+        }
+        
+        /* Swiper Fixes */
+        .product-card-swiper {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 0 !important; /* Reset padding */
+        }
+        .product-card-swiper .swiper-wrapper {
+            height: 100%;
+        }
+        .product-card-swiper .swiper-slide {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-sizing: border-box;
+            padding-bottom: 1.5rem !important; /* Space for pagination */
+        }
+
+        /* Pagination Dots - Positioned safely */
+        .product-card-swiper .swiper-pagination {
+            position: absolute;
+            bottom: 0 !important;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            pointer-events: none;
+            z-index: 10;
+            padding-bottom: 0.5rem;
+        }
+        .product-card-swiper .swiper-pagination-bullet {
+            width: 4px;
+            height: 4px;
+            background: rgba(255,255,255,0.3) !important;
+            opacity: 1;
+            margin: 0 !important;
+            transition: all 0.3s;
+        }
+        .product-card-swiper .swiper-pagination-bullet-active {
+            width: 12px;
+            background: #fff !important;
+            border-radius: 2px;
         }
 
         /* --- Modal Level Bar Styles --- */
@@ -392,35 +459,6 @@
             font-size: 0.9rem;
             color: #ddd;
             line-height: 1.5;
-        }
-        
-        /* --- Product Card Swiper --- */
-        .product-card-swiper {
-            width: 100%;
-            height: 100%;
-            padding-bottom: 1.8rem !important; /* Maximized padding for low dots */
-        }
-        .product-card-swiper .swiper-slide {
-            height: 100%; /* Force full height for consistent alignment */
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-        .product-card-swiper .swiper-pagination {
-            bottom: -5px !important; /* Pushed to the absolute limit */
-        }
-        .product-card-swiper .swiper-pagination-bullet {
-            width: 6px;
-            height: 6px;
-            background: #444 !important;
-            opacity: 0.7;
-            transition: all 0.3s;
-        }
-        .product-card-swiper .swiper-pagination-bullet-active {
-            width: 12px;
-            border-radius: 4px;
-            background: #BBB !important;
-            opacity: 1;
         }
         
         /* --- Fly to Cart Animation --- */
@@ -1072,58 +1110,56 @@
                                 <div class="info-card swiper-container-card ${isOutOfStock ? 'out-of-stock' : ''}" data-product-id="${p.id}">
                                     <div class="swiper product-card-swiper" id="swiper-${p.id}">
                                         <div class="swiper-wrapper">
+                                            
                                             <!-- Slide 1: Main View -->
-                                            <div class="swiper-slide px-1">
+                                            <div class="swiper-slide">
                                                 <div class="card-image-container">
                                                     <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" class="product-image ${isOutOfStock ? 'grayscale' : ''}" crossorigin="anonymous">
                                                 </div>
-                                                <div class="card-info-container mb-1">
+                                                
+                                                <div class="card-content-wrapper">
                                                     <div class="info-card-name-en ${isOutOfStock ? 'text-gray-500' : ''}">${p.nameEn || ''}</div>
                                                     <div class="info-card-name-th ${isOutOfStock ? 'text-gray-500' : ''}">${category.name || ''} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
                                                 </div>
                                                 
-                                                <!-- Unified Bottom Section (Slide 1 - Matched with Slide 2) -->
-                                                <div class="relative h-10 flex items-center justify-between mt-auto px-1">
-                                                     <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''} text-lg">${price} Baht</div>
-                                                     <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" style="position: static; width: auto; height: auto; padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 99px;" data-product-id="${p.id}">
+                                                <div class="card-bottom-row">
+                                                     <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''}">${price} Baht</div>
+                                                     <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
                                                         <i class="ri-shopping-cart-2-line mr-1"></i> Add
                                                      </button>
                                                 </div>
                                             </div>
             
                                             <!-- Slide 2: Details View -->
-                                            <div class="swiper-slide px-2 pt-1">
-                                                <div class="text-left mb-2 px-1">
+                                            <div class="swiper-slide">
+                                                <div class="card-content-wrapper pt-2">
                                                     <div class="info-card-name-en ${isOutOfStock ? 'text-gray-500' : ''}">${p.nameEn || ''}</div>
-                                                    <div class="info-card-name-th ${isOutOfStock ? 'text-gray-500' : ''}">${p.nameTh || category.name} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
-                                                </div>
-                                                
-                                                <div class="flex-grow flex flex-col justify-start space-y-1 mb-2 px-1">
-                                                    <!-- Cooling -->
-                                                    <div class="level-row">
-                                                        <span class="level-label text-[10px]">Cooling</span>
-                                                        ${renderDots(p.coolnessLevel || 0)}
-                                                    </div>
-                                                    <!-- Sweetness -->
-                                                    <div class="level-row">
-                                                        <span class="level-label text-[10px]">Sweetness</span>
-                                                        ${renderDots(p.sweetnessLevel || 0)}
-                                                    </div>
-                                                    <!-- Richness (Scent) -->
-                                                    <div class="level-row">
-                                                        <span class="level-label text-[10px]">Richness</span>
-                                                        ${renderDots(p.flavorIntensityLevel || 0)}
+                                                    <div class="info-card-name-th ${isOutOfStock ? 'text-gray-500' : ''} mb-2">${p.nameTh || category.name} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
+                                                    
+                                                    <div class="space-y-1">
+                                                        <div class="level-row">
+                                                            <span class="level-label">Cooling</span>
+                                                            ${renderDots(p.coolnessLevel || 0)}
+                                                        </div>
+                                                        <div class="level-row">
+                                                            <span class="level-label">Sweetness</span>
+                                                            ${renderDots(p.sweetnessLevel || 0)}
+                                                        </div>
+                                                        <div class="level-row">
+                                                            <span class="level-label">Richness</span>
+                                                            ${renderDots(p.flavorIntensityLevel || 0)}
+                                                        </div>
                                                     </div>
                                                 </div>
             
-                                                <!-- Unified Bottom Section (Slide 2) -->
-                                                <div class="relative h-10 flex items-center justify-between mt-auto px-1">
-                                                     <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''} text-lg">${price} Baht</div>
-                                                     <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" style="position: static; width: auto; height: auto; padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 99px;" data-product-id="${p.id}">
+                                                <div class="card-bottom-row">
+                                                     <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''}">${price} Baht</div>
+                                                     <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
                                                         <i class="ri-shopping-cart-2-line mr-1"></i> Add
                                                      </button>
                                                 </div>
                                             </div>
+                                            
                                         </div>
                                         <div class="swiper-pagination"></div>
                                     </div>
