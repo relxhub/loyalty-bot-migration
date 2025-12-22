@@ -27,6 +27,8 @@ export const getProductPageData = async () => {
           imageUrl: true,
           flavorIconUrl: true,
           status: true,
+          isNew: true,
+          isHot: true,
           nicotine: true,
           coolnessLevel: true,
           sweetnessLevel: true,

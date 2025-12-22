@@ -184,7 +184,7 @@
         .badge-capsule {
             position: absolute;
             top: 0.5rem;
-            z-index: 10;
+            z-index: 5; /* Reduced from 10 to be below sticky headers */
             padding: 0.2rem 0.5rem;
             border-radius: 999px;
             font-size: 0.65rem;
@@ -1149,13 +1149,13 @@
 
                                 return `
                                 <div class="info-card swiper-container-card ${isOutOfStock ? 'out-of-stock' : ''}" data-product-id="${p.id}">
-                                    ${leftBadgeHtml}
-                                    ${rightBadgeHtml}
                                     <div class="swiper product-card-swiper" id="swiper-${p.id}">
                                         <div class="swiper-wrapper">
                                             
                                             <!-- Slide 1: Main View -->
                                             <div class="swiper-slide">
+                                                ${leftBadgeHtml}
+                                                ${rightBadgeHtml}
                                                 <div class="card-image-container">
                                                     <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" class="product-image ${isOutOfStock ? 'grayscale' : ''}" crossorigin="anonymous">
                                                 </div>
