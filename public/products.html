@@ -198,7 +198,7 @@
             gap: 0.5rem;
         }
         .category-price-badge {
-            font-size: 1.1rem; /* Larger font size */
+            font-size: 1.5rem; /* Match height of category name (1.5rem) */
             font-weight: 700; /* Make it extra bold */
             background: linear-gradient(to right, #f6971f, #e32622);
             -webkit-background-clip: text;
@@ -969,8 +969,8 @@
                 clone.style.position = 'fixed';
                 clone.style.left = `${imgRect.left}px`;
                 clone.style.top = `${imgRect.top}px`;
-                clone.style.width = `${imgRect.width}px`;
-                clone.style.height = `${imgRect.height}px`;
+                clone.style.width = `${imgRect.width * 1.3}px`;
+                clone.style.height = `${imgRect.height * 1.3}px`;
                 clone.style.zIndex = '9999';
                 clone.style.borderRadius = '1rem'; // Match card radius initially
                 clone.style.transition = 'all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1)';
@@ -986,7 +986,7 @@
 
                     clone.style.left = `${targetX}px`;
                     clone.style.top = `${targetY}px`;
-                    clone.style.transform = 'scale(0.1)';
+                    clone.style.transform = 'scale(0.3)';
                     clone.style.opacity = '0.5';
                     clone.style.borderRadius = '50%';
                 });
