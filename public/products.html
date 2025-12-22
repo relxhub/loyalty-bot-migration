@@ -200,13 +200,14 @@
         .category-price-badge {
             font-size: 1.1rem; /* Larger font size */
             font-weight: 700; /* Make it extra bold */
-            background-image: linear-gradient(to right, #f6971f, #e32622); /* Make it stand out */
-            color: var(--text-primary);
-            padding: 0.2rem 0.6rem; /* Adjust padding for new size */
-            border-radius: 0.5rem;
+            background: linear-gradient(to right, #f6971f, #e32622);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-fill-color: transparent;
+            padding: 0.2rem 0; /* Removed horizontal padding */
             vertical-align: middle;
             line-height: 1; /* Adjust line height for better vertical alignment */
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3); /* Add a subtle shadow */
         }
         #product-grid {
             display: grid;
