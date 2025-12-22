@@ -144,6 +144,42 @@
             color: var(--text-primary);
             border: none;
         }
+
+        /* --- Special Filter Styles --- */
+        .special-filter-btn {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            border: 1px solid #444;
+            background-color: rgba(255,255,255,0.05);
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+        }
+        .special-filter-btn:active { transform: scale(0.95); }
+        
+        .special-filter-btn.active.filter-hot {
+            background: linear-gradient(135deg, #FF4D4D, #F22233);
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 2px 6px rgba(242, 34, 51, 0.4);
+        }
+        .special-filter-btn.active.filter-new {
+            background: linear-gradient(135deg, #10B981, #059669);
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 2px 6px rgba(16, 185, 129, 0.4);
+        }
+        .special-filter-btn.active.filter-cool {
+            background: linear-gradient(135deg, #3B82F6, #2563EB);
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 2px 6px rgba(59, 130, 246, 0.4);
+        }
         
         /* --- Product Grid --- */
         .product-section-title {
@@ -594,6 +630,19 @@
                         </span>
                         <div id="nicotine-filter-container" class="flex items-center gap-2"></div>
                     </div>
+                    
+                    <!-- Special Filters (Hot, New, Cool) -->
+                    <div id="special-filter-container" class="px-5 pb-2 flex gap-2 overflow-x-auto scrollbar-hide">
+                        <button class="special-filter-btn filter-hot" data-filter="hot">
+                            <i class="ri-fire-fill mr-1"></i>กลิ่นยอดนิยม
+                        </button>
+                        <button class="special-filter-btn filter-new" data-filter="new">
+                            <i class="ri-sparkling-fill mr-1"></i>กลิ่นใหม่
+                        </button>
+                        <button class="special-filter-btn filter-cool" data-filter="cool">
+                            <i class="ri-snowy-line mr-1"></i>เย็นเต็มแม็กส์
+                        </button>
+                    </div>
                 </header>
         <main>
             <!-- Product Grid -->
@@ -693,6 +742,7 @@
                 categoryId: null,
                 searchTerm: '',
                 nicotine: null,
+                special: null, // 'hot', 'new', 'cool'
             };
 
             // --- DOM Elements ---
@@ -705,6 +755,7 @@
             const categoryNameDisplay = document.getElementById('category-name-display');
             const categoryPriceDisplay = document.getElementById('category-price-display');
             const nicotineFilterContainer = document.getElementById('nicotine-filter-container');
+            const specialFilterContainer = document.getElementById('special-filter-container');
             
             // Product Modal Elements
             const productModal = document.getElementById('product-modal');
@@ -1090,6 +1141,27 @@
             };
 
             // --- Render Functions ---
+            // --- Event Listeners for Special Filters ---
+            specialFilterContainer.addEventListener('click', (e) => {
+                const btn = e.target.closest('.special-filter-btn');
+                if (!btn) return;
+
+                const filterType = btn.dataset.filter; // hot, new, cool
+
+                // Toggle logic
+                if (currentFilter.special === filterType) {
+                    currentFilter.special = null; // Turn off
+                    btn.classList.remove('active');
+                } else {
+                    currentFilter.special = filterType; // Turn on
+                    // Deactivate others
+                    specialFilterContainer.querySelectorAll('.special-filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                }
+
+                renderProducts();
+            });
+
             const renderBanners = (banners) => {
                 if (!banners || banners.length === 0) {
                     bannerContainer.classList.add('hidden');
@@ -1115,7 +1187,12 @@
                             const filteredProducts = allProducts.filter(p => 
                                 (currentFilter.categoryId === null || p.categoryId === currentFilter.categoryId) &&
                                 ((p.nameTh || '').toLowerCase().includes(currentFilter.searchTerm) || (p.nameEn || '').toLowerCase().includes(currentFilter.searchTerm)) &&
-                                (currentFilter.nicotine === null || p.nicotine === currentFilter.nicotine)
+                                (currentFilter.nicotine === null || p.nicotine === currentFilter.nicotine) &&
+                                (currentFilter.special === null || 
+                                    (currentFilter.special === 'hot' && p.isHot) ||
+                                    (currentFilter.special === 'new' && p.isNew) ||
+                                    (currentFilter.special === 'cool' && (p.coolnessLevel >= 6))
+                                )
                             );
             
                             productGrid.innerHTML = filteredProducts.map(p => {
