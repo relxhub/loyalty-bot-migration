@@ -180,32 +180,31 @@
         }
 
         /* --- Info-Card Design (Final) --- */
-        /* --- Product Badges (Floating Capsules) --- */
-        .badge-capsule {
-            position: absolute;
-            top: 0.5rem;
-            z-index: 5; /* Reduced from 10 to be below sticky headers */
-            padding: 0.2rem 0.5rem;
-            border-radius: 999px;
-            font-size: 0.65rem;
-            font-weight: 700;
-            color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        /* --- Product Badges (Inline Row) --- */
+        .badge-row {
             display: flex;
-            align-items: center;
-            gap: 0.2rem;
-            line-height: 1;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
-            backdrop-filter: blur(4px);
+            gap: 0.35rem;
+            margin-bottom: 0.25rem;
+            flex-wrap: wrap;
+            min-height: 1.25rem; /* Reserve height to avoid layout jump if possible, or remove if unwanted */
         }
         
-        /* Top Left: Status (New / Hot) */
-        .badge-left { left: 0.5rem; }
+        .badge-capsule {
+            /* Static position */
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: white;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.15rem;
+            line-height: 1;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.1);
+        }
+        
         .badge-hot { background: linear-gradient(135deg, #FF4D4D, #F22233); }
         .badge-new { background: linear-gradient(135deg, #10B981, #059669); }
-
-        /* Top Right: Feature (Cool) */
-        .badge-right { right: 0.5rem; }
         .badge-cool { background: linear-gradient(135deg, #3B82F6, #2563EB); }
 
         .info-card {
@@ -1135,17 +1134,18 @@
                                 };
             
                                 // Badge Logic
-                                let leftBadgeHtml = '';
+                                let badgesHtml = '';
                                 if (p.isNew) {
-                                    leftBadgeHtml = `<div class="badge-capsule badge-left badge-new"><i class="ri-sparkling-fill"></i> NEW</div>`;
+                                    badgesHtml += `<div class="badge-capsule badge-new"><i class="ri-sparkling-fill"></i> NEW</div>`;
                                 } else if (p.isHot) {
-                                    leftBadgeHtml = `<div class="badge-capsule badge-left badge-hot"><i class="ri-fire-fill"></i> HOT</div>`;
+                                    badgesHtml += `<div class="badge-capsule badge-hot"><i class="ri-fire-fill"></i> HOT</div>`;
                                 }
 
-                                let rightBadgeHtml = '';
                                 if (p.coolnessLevel >= 6) {
-                                    rightBadgeHtml = `<div class="badge-capsule badge-right badge-cool"><i class="ri-snowy-line"></i> COOL</div>`;
+                                    badgesHtml += `<div class="badge-capsule badge-cool"><i class="ri-snowy-line"></i> COOL</div>`;
                                 }
+                                
+                                const badgeRow = badgesHtml ? `<div class="badge-row">${badgesHtml}</div>` : `<div class="badge-row" style="visibility: hidden;"></div>`; // Maintain height alignment
 
                                 return `
                                 <div class="info-card swiper-container-card ${isOutOfStock ? 'out-of-stock' : ''}" data-product-id="${p.id}">
@@ -1154,13 +1154,12 @@
                                             
                                             <!-- Slide 1: Main View -->
                                             <div class="swiper-slide">
-                                                ${leftBadgeHtml}
-                                                ${rightBadgeHtml}
                                                 <div class="card-image-container">
                                                     <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" class="product-image ${isOutOfStock ? 'grayscale' : ''}" crossorigin="anonymous">
                                                 </div>
                                                 
                                                 <div class="card-content-wrapper">
+                                                    ${badgeRow}
                                                     <div class="info-card-name-en ${isOutOfStock ? 'text-gray-500' : ''}">${p.nameEn || ''}</div>
                                                     <div class="info-card-name-th ${isOutOfStock ? 'text-gray-500' : ''}">${category.name || ''} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
                                                 </div>
