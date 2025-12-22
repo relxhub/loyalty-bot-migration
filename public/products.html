@@ -173,11 +173,10 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.3); /* Add a subtle shadow */
         }
         #product-grid {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: space-around; /* Align items to the left */
-            gap: 0.5rem; /* Smaller gap */
-            padding: 0 1rem 120px; /* Smaller side padding */
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* Fixed 2 columns */
+            gap: 0.75rem; 
+            padding: 0 1rem 120px;
         }
 
         /* --- Info-Card Design (Final) --- */
@@ -189,10 +188,11 @@
             transition: all 0.2s ease;
             display: flex;
             flex-direction: column;
-            width: 48%;
+            width: 100%;
             aspect-ratio: 1 / 0.82; /* Reduced height by ~20% */
             position: relative;
             justify-content: space-between;
+            overflow: hidden; /* Ensure content stays inside */
         }
         .info-card:active {
             transform: scale(0.95);
@@ -214,17 +214,19 @@
         .card-info-container {
             text-align: left;
             padding: 0 0.15rem;
+            flex-grow: 1; /* Push bottom content down */
+            min-height: 0; /* Allow flex shrinking */
         }
 
         .info-card-name-en {
-            font-size: 1.1rem; /* English name size */
+            font-size: 1.0rem; /* Slightly reduced for safety */
             font-weight: 600;
             color: var(--text-primary);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            line-height: 1.1;
-            margin-top: 0.25rem; /* Move down slightly from image */
+            line-height: 1.2;
+            margin-top: 0.25rem;
         }
         .info-card-name-th {
             font-size: 0.7rem;
@@ -233,7 +235,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            margin-top: -1px; /* Closer to EN name */
+            margin-top: 2px;
         }
         .nicotine-tag {
             display: inline-block;
