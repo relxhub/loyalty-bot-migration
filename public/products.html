@@ -430,10 +430,10 @@
         .r-badge-color { font-size: 6.75cqi; } /* Reduced by 10% from r-text-xs */
 
         /* Pod/Disposable Specific Overrides (Non-Device) */
-        .info-card[data-is-device="false"] {
+        .info-card.type-pod {
             aspect-ratio: 9 / 16 !important; /* Significantly taller */
         }
-        .info-card[data-is-device="false"] .card-image-container {
+        .info-card.type-pod .card-image-container {
             height: 25% !important; /* Reduced % to keep image size consistent */
         }
         .pod-badge-row {
@@ -873,8 +873,8 @@
             // --- UI Enhancements: Skeleton Loading ---
             const renderSkeletons = () => {
                 const skeletonHTML = `
-                    <div class="info-card p-0 overflow-hidden bg-zinc-800 border border-zinc-700/50" style="aspect-ratio: 9/12;">
-                        <div class="w-full h-[40%] skeleton rounded-none"></div>
+                    <div class="info-card p-0 overflow-hidden bg-zinc-800 border border-zinc-700/50" style="aspect-ratio: 9/16;">
+                        <div class="w-full h-[30%] skeleton rounded-none"></div>
                         <div class="p-3 space-y-2 flex-grow flex flex-col justify-end">
                             <div class="h-4 w-3/4 skeleton"></div>
                             <div class="h-3 w-1/2 skeleton"></div>
@@ -1761,7 +1761,7 @@
                 }
 
                 return `
-                <div class="info-card swiper-container-card" data-product-id="${p.id}" data-is-device="${isDevice}">
+                <div class="info-card ${isDevice ? 'type-device' : 'type-pod'} swiper-container-card" data-product-id="${p.id}" data-is-device="${isDevice}">
                     <div class="swiper product-card-swiper" id="swiper-${p.id}">
                         <div class="swiper-wrapper">
                             
