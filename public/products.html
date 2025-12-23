@@ -1315,7 +1315,7 @@
                     slide1Content = `
                         <div class="flex flex-row h-full gap-2">
                             <div class="w-1/4 h-full rounded-2xl overflow-hidden relative flex-shrink-0 card-image-container">
-                                <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" style="object-fit: contain !important;" class="product-image w-full h-full ${isOutOfStock ? 'grayscale' : ''}" crossorigin="anonymous">
+                                <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" style="object-fit: contain !important;" class="product-image w-full h-full" crossorigin="anonymous">
                             </div>
                             <div class="w-3/4 flex flex-col h-full py-1 pr-1 relative">
                                 
@@ -1334,7 +1334,7 @@
 
                                 <!-- Bottom: Price above Button -->
                                 <div class="flex flex-col items-end gap-2 mt-2">
-                                     <div class="info-card-price-badge text-lg font-bold leading-none ${isOutOfStock ? 'text-gray-500' : ''}">${price} Baht</div>
+                                     <div class="info-card-price-badge text-lg font-bold leading-none">${price} Baht</div>
                                      <button class="add-to-cart-btn w-full justify-center ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
                                         <i class="ri-shopping-cart-2-line mr-1"></i> Add
                                      </button>
@@ -1348,16 +1348,16 @@
                         ${leftBadgeHtml}
                         ${rightBadgeHtml}
                         <div class="card-image-container">
-                            <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" class="product-image ${isOutOfStock ? 'grayscale' : ''}" crossorigin="anonymous">
+                            <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" class="product-image" crossorigin="anonymous">
                         </div>
                         
                         <div class="card-content-wrapper">
-                            <div class="info-card-name-en ${isOutOfStock ? 'text-gray-500' : ''}">${p.nameEn || ''}</div>
-                            <div class="info-card-name-th ${isOutOfStock ? 'text-gray-500' : ''}">${category.name || ''} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
+                            <div class="info-card-name-en">${p.nameEn || ''}</div>
+                            <div class="info-card-name-th">${category.name || ''} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
                         </div>
                         
                         <div class="card-bottom-row">
-                                <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''}">${price} Baht</div>
+                                <div class="info-card-price-badge">${price} Baht</div>
                                 <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
                                 <i class="ri-shopping-cart-2-line mr-1"></i> Add
                                 </button>
@@ -1381,7 +1381,7 @@
                                     </div>
                                     <span class="text-sm font-medium text-white">${p.battery || '-'}</span>
                                 </div>
-                                <div class="flex items-center justify-between border-b border-zinc-700/50 pb-2">
+                                <div class="flex items-center justify-between pb-2">
                                     <div class="flex items-center gap-2 text-zinc-400">
                                         <i class="ri-flashlight-line"></i>
                                         <span class="text-xs">Output</span>
@@ -1391,7 +1391,7 @@
                             </div>
 
                             <div class="mt-auto card-bottom-row">
-                                 <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''}">${price} Baht</div>
+                                 <div class="info-card-price-badge">${price} Baht</div>
                                  <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
                                     <i class="ri-shopping-cart-2-line mr-1"></i> Add
                                  </button>
@@ -1402,8 +1402,8 @@
                     // POD FLAVOR BARS
                     slide2Content = `
                         <div class="card-content-wrapper pt-2">
-                            <div class="info-card-name-en ${isOutOfStock ? 'text-gray-500' : ''}">${p.nameEn || ''}</div>
-                            <div class="info-card-name-th ${isOutOfStock ? 'text-gray-500' : ''} mb-2">${p.nameTh || category.name} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
+                            <div class="info-card-name-en">${p.nameEn || ''}</div>
+                            <div class="info-card-name-th mb-2">${p.nameTh || category.name} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
                             
                             <div class="space-y-1">
                                 <div class="level-row">
@@ -1422,7 +1422,7 @@
                         </div>
 
                         <div class="card-bottom-row">
-                                <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''}">${price} Baht</div>
+                                <div class="info-card-price-badge">${price} Baht</div>
                                 <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
                                 <i class="ri-shopping-cart-2-line mr-1"></i> Add
                                 </button>
@@ -1431,7 +1431,7 @@
                 }
 
                 return `
-                <div class="info-card swiper-container-card ${isOutOfStock ? 'out-of-stock' : ''}" data-product-id="${p.id}" data-is-device="${isDevice}">
+                <div class="info-card swiper-container-card" data-product-id="${p.id}" data-is-device="${isDevice}">
                     <div class="swiper product-card-swiper" id="swiper-${p.id}">
                         <div class="swiper-wrapper">
                             
