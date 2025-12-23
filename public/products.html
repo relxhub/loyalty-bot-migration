@@ -291,6 +291,7 @@
         .badge-cool { background: linear-gradient(135deg, #3B82F6, #2563EB); }
 
         .info-card {
+            container-type: inline-size;
             background-color: var(--secondary-bg);
             border-radius: 1.5rem;
             padding: 0.75rem;
@@ -304,6 +305,44 @@
             overflow: hidden;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
+
+        /* --- Responsive Utility Classes (cqi) --- */
+        /* Text Sizes */
+        .r-text-xs { font-size: 7.5cqi; }     /* ~12px */
+        .r-text-sm { font-size: 8.75cqi; }    /* ~14px */
+        .r-text-base { font-size: 10cqi; }    /* ~16px */
+        .r-text-lg { font-size: 11.25cqi; }   /* ~18px */
+        .r-text-xl { font-size: 12.5cqi; }    /* ~20px */
+        
+        /* Spacing & Layout */
+        .r-p-1 { padding: 2.5cqi; }
+        .r-p-2 { padding: 5cqi; }
+        .r-mb-1 { margin-bottom: 2.5cqi; }
+        .r-mb-2 { margin-bottom: 5cqi; }
+        .r-mb-3 { margin-bottom: 7.5cqi; }
+        .r-gap-1 { gap: 2.5cqi; }
+        .r-gap-2 { gap: 5cqi; }
+        .r-gap-3 { gap: 7.5cqi; }
+        
+        /* Components */
+        .r-btn {
+            font-size: 8cqi !important;
+            padding: 2.2cqi 5cqi !important;
+        }
+        .r-badge-sm {
+            font-size: 6cqi; /* ~0.6rem -> 9.6px -> ~6cqi */
+        }
+        .r-badge-xs {
+            font-size: 5.5cqi; /* ~0.55rem */
+            padding: 1.25cqi 3cqi;
+        }
+        
+        /* Override specific existing elements to use cqi if they have specific classes */
+        .info-card-name-en { font-size: 11.5cqi; } /* ~1.15rem */
+        .info-card-name-th { font-size: 7.5cqi; } /* ~0.75rem */
+        .info-card-price-badge { font-size: 11cqi; } /* ~1.1rem */
+        .nicotine-tag { font-size: 6cqi; padding: 1cqi 3cqi; }
+
         .info-card:active {
             transform: scale(0.98);
         }
@@ -1299,9 +1338,9 @@
                         : 'bg-zinc-800 text-zinc-600 border border-zinc-700/50';
 
                     deviceStatusBadge = `
-                        <div class="flex items-center gap-1">
-                            <div class="inline-flex items-center justify-center text-[0.55rem] font-bold px-2 py-0.5 rounded-full ${hotClass}"><i class="ri-fire-fill mr-0.5 text-[0.6rem]"></i>HOT</div>
-                            <div class="inline-flex items-center justify-center text-[0.55rem] font-bold px-2 py-0.5 rounded-full ${newClass}"><i class="ri-sparkling-fill mr-0.5 text-[0.6rem]"></i>NEW</div>
+                        <div class="flex items-center r-gap-1">
+                            <div class="inline-flex items-center justify-center r-badge-xs font-bold rounded-full ${hotClass}"><i class="ri-fire-fill mr-0.5 r-badge-sm"></i>HOT</div>
+                            <div class="inline-flex items-center justify-center r-badge-xs font-bold rounded-full ${newClass}"><i class="ri-sparkling-fill mr-0.5 r-badge-sm"></i>NEW</div>
                         </div>
                     `;
                 }
@@ -1313,29 +1352,29 @@
                 if (isDevice) {
                     // DEVICE LAYOUT: Image Left, Info Right
                     slide1Content = `
-                        <div class="flex flex-row h-full gap-2">
+                        <div class="flex flex-row h-full r-gap-1">
                             <div class="w-1/4 h-full rounded-2xl overflow-hidden relative flex-shrink-0 card-image-container">
                                 <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" style="object-fit: contain !important;" class="product-image w-full h-full" crossorigin="anonymous">
                             </div>
-                            <div class="w-3/4 flex flex-col h-full pt-1 pb-2 pr-1 relative">
+                            <div class="w-3/4 flex flex-col h-full pt-[2.5cqi] pb-[5cqi] pr-[2.5cqi] relative">
                                 
                                 <div class="mb-auto flex flex-col items-start w-full">
                                     <!-- Row 1: Status Badge (Hot/New) -->
-                                    <div class="min-h-[1.25rem] mb-0.5">
+                                    <div class="min-h-[1.25rem] r-mb-1">
                                         ${deviceStatusBadge}
                                     </div>
 
                                     <!-- Row 2: Name -->
-                                    <div class="info-card-name-en text-sm leading-tight line-clamp-2 font-semibold mb-1">${p.nameEn || ''}</div>
+                                    <div class="info-card-name-en leading-tight line-clamp-2 font-semibold r-mb-1">${p.nameEn || ''}</div>
 
                                     <!-- Row 3: Color Badge -->
-                                    ${p.color ? `<div class="inline-flex items-center text-[0.65rem] font-bold px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-200 border border-zinc-600 shadow-sm"><i class="ri-palette-line mr-1"></i>${p.color}</div>` : ''}
+                                    ${p.color ? `<div class="inline-flex items-center r-text-xs font-bold px-[5cqi] py-[1.25cqi] rounded-full bg-zinc-700 text-zinc-200 border border-zinc-600 shadow-sm"><i class="ri-palette-line mr-1"></i>${p.color}</div>` : ''}
                                 </div>
 
                                 <!-- Bottom: Price above Button -->
-                                <div class="flex flex-col items-end gap-2 mt-2">
-                                     <div class="info-card-price-badge text-lg font-bold leading-none">${price} Baht</div>
-                                     <button class="add-to-cart-btn w-full justify-center ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
+                                <div class="flex flex-col items-end r-gap-1 mt-[5cqi]">
+                                     <div class="info-card-price-badge font-bold leading-none">${price} Baht</div>
+                                     <button class="add-to-cart-btn r-btn w-full justify-center ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
                                         <i class="ri-shopping-cart-2-line mr-1"></i> Add
                                      </button>
                                 </div>
@@ -1358,7 +1397,7 @@
                         
                         <div class="card-bottom-row">
                                 <div class="info-card-price-badge">${price} Baht</div>
-                                <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
+                                <button class="add-to-cart-btn r-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
                                 <i class="ri-shopping-cart-2-line mr-1"></i> Add
                                 </button>
                         </div>
@@ -1370,29 +1409,29 @@
                 if (isDevice) {
                      // DEVICE SPECS LIST (Redesigned)
                      slide2Content = `
-                        <div class="flex flex-col h-full pt-1">
-                            <div class="text-sm font-bold text-white mb-3">Specifications</div>
+                        <div class="flex flex-col h-full pt-[2.5cqi]">
+                            <div class="r-text-sm font-bold text-white r-mb-3">Specifications</div>
                             
-                            <div class="space-y-3 flex-grow">
-                                <div class="flex items-center justify-between border-b border-zinc-700/50 pb-2">
-                                    <div class="flex items-center gap-2 text-zinc-400">
+                            <div class="r-gap-3 flex-grow flex flex-col">
+                                <div class="flex items-center justify-between border-b border-zinc-700/50 pb-[5cqi]">
+                                    <div class="flex items-center r-gap-1 text-zinc-400">
                                         <i class="ri-battery-charge-line"></i>
-                                        <span class="text-xs">Battery</span>
+                                        <span class="r-text-xs">Battery</span>
                                     </div>
-                                    <span class="text-sm font-medium text-white">${p.battery || '-'}</span>
+                                    <span class="r-text-sm font-medium text-white">${p.battery || '-'}</span>
                                 </div>
-                                <div class="flex items-center justify-between pb-2">
-                                    <div class="flex items-center gap-2 text-zinc-400">
+                                <div class="flex items-center justify-between pb-[5cqi]">
+                                    <div class="flex items-center r-gap-1 text-zinc-400">
                                         <i class="ri-flashlight-line"></i>
-                                        <span class="text-xs">Output</span>
+                                        <span class="r-text-xs">Output</span>
                                     </div>
-                                    <span class="text-sm font-medium text-white">${p.wattage || '-'}</span>
+                                    <span class="r-text-sm font-medium text-white">${p.wattage || '-'}</span>
                                 </div>
                             </div>
 
                             <div class="mt-auto card-bottom-row">
                                  <div class="info-card-price-badge">${price} Baht</div>
-                                 <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
+                                 <button class="add-to-cart-btn r-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
                                     <i class="ri-shopping-cart-2-line mr-1"></i> Add
                                  </button>
                             </div>
@@ -1401,9 +1440,9 @@
                 } else {
                     // POD FLAVOR BARS
                     slide2Content = `
-                        <div class="card-content-wrapper pt-2">
+                        <div class="card-content-wrapper pt-[5cqi]">
                             <div class="info-card-name-en">${p.nameEn || ''}</div>
-                            <div class="info-card-name-th mb-2">${p.nameTh || category.name} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
+                            <div class="info-card-name-th r-mb-2">${p.nameTh || category.name} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
                             
                             <div class="space-y-1">
                                 <div class="level-row">
@@ -1423,7 +1462,7 @@
 
                         <div class="card-bottom-row">
                                 <div class="info-card-price-badge">${price} Baht</div>
-                                <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
+                                <button class="add-to-cart-btn r-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
                                 <i class="ri-shopping-cart-2-line mr-1"></i> Add
                                 </button>
                         </div>
