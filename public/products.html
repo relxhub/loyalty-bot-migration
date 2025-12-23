@@ -1354,67 +1354,41 @@
                     )
                 );
 
-                // Check if we are in "All Nicotine" mode (grouped view)
+                // Check if we are in "All Nicotine" mode
                 // Only if filtering by category (usually implies viewing a product line) and nicotine is ALL
                 if (currentFilter.nicotine === null && filteredProducts.length > 0) {
-                    // Group mode
-                    productGrid.style.display = 'block'; // Disable grid layout on main container to use internal groups
+                    // Unified Sorted Grid View (Nicotine Low -> High)
+                    productGrid.style.display = 'block'; // Block to contain header + grid
                     
-                    const uniqueNicLevels = [...new Set(filteredProducts.map(p => p.nicotine).filter(n => n !== null))].sort((a, b) => a - b);
-                    
-                    // If we have distinct levels to group by
-                    if (uniqueNicLevels.length > 0) {
-                        let htmlContent = '';
+                    const sortedProducts = [...filteredProducts].sort((a, b) => {
+                        // Handle nulls: push to end (matches previous "Others" at bottom behavior)
+                        if (a.nicotine === null && b.nicotine !== null) return 1;
+                        if (a.nicotine !== null && b.nicotine === null) return -1;
+                        if (a.nicotine === null && b.nicotine === null) return 0;
                         
-                        uniqueNicLevels.forEach((level) => {
-                            const productsInLevel = filteredProducts.filter(p => p.nicotine === level);
-                            if (productsInLevel.length === 0) return;
+                        // Both have nicotine: compare values (3% -> 5%)
+                        return a.nicotine - b.nicotine;
+                    });
 
-                            htmlContent += `
-                                <div class="mb-10">
-                                    <div class="flex items-baseline gap-2 mb-4 px-1">
-                                        <h2 class="text-2xl font-bold text-white">Nicotine ${level}%</h2>
-                                        <span class="text-sm text-zinc-500 font-medium">(${productsInLevel.length} items)</span>
-                                    </div>
-                                    <div class="product-group-grid">
-                                        ${productsInLevel.map(createProductCardHtml).join('')}
-                                    </div>
-                                </div>
-                            `;
-                        });
-
-                        // Handle products with no nicotine value (if any)
-                        const productsNoNic = filteredProducts.filter(p => p.nicotine === null);
-                        if (productsNoNic.length > 0) {
-                             htmlContent += `
-                                <div class="mb-10">
-                                    <div class="flex items-baseline gap-2 mb-4 px-1">
-                                        <h2 class="text-2xl font-bold text-white">Others</h2>
-                                        <span class="text-sm text-zinc-500 font-medium">(${productsNoNic.length} items)</span>
-                                    </div>
-                                    <div class="product-group-grid">
-                                        ${productsNoNic.map(createProductCardHtml).join('')}
-                                    </div>
-                                </div>
-                            `;
-                        }
-
-                        productGrid.innerHTML = htmlContent;
-                    } else {
-                         // Fallback if no nicotine levels found
-                         productGrid.style.display = 'grid';
-                         productGrid.innerHTML = filteredProducts.map(createProductCardHtml).join('');
-                    }
+                    productGrid.innerHTML = `
+                        <div class="mb-4 px-1">
+                            <span class="text-xs text-zinc-500 font-medium">[${sortedProducts.length} items]</span>
+                        </div>
+                        <div class="product-group-grid">
+                            ${sortedProducts.map(createProductCardHtml).join('')}
+                        </div>
+                    `;
 
                 } else {
                     // Standard Filtered View (specific nicotine selected OR no results)
                     if (currentFilter.nicotine !== null && filteredProducts.length > 0) {
                         productGrid.style.display = 'block';
                         productGrid.innerHTML = `
-                            <div class="mb-8">
-                                <div class="product-group-grid">
-                                    ${filteredProducts.map(createProductCardHtml).join('')}
-                                </div>
+                            <div class="mb-4 px-1">
+                                <span class="text-xs text-zinc-500 font-medium">[${filteredProducts.length} items]</span>
+                            </div>
+                            <div class="product-group-grid">
+                                ${filteredProducts.map(createProductCardHtml).join('')}
                             </div>
                         `;
                     } else {
