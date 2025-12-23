@@ -1147,7 +1147,17 @@
                 const product = allProducts.find(p => p.id === productId);
                 if (!product) return;
 
-                if (tg.hapticFeedback) tg.hapticFeedback.impactOccurred('medium');
+                // --- Haptic Feedback Fix ---
+                // Try multiple methods to ensure vibration on different devices
+                try {
+                    if (window.Telegram?.WebApp?.HapticFeedback) {
+                        window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+                    } else if (window.Telegram?.WebApp?.hapticFeedback) {
+                        window.Telegram.WebApp.hapticFeedback.impactOccurred('medium');
+                    }
+                } catch (err) {
+                    console.warn('Haptic Error:', err);
+                }
 
                 const cartItem = cart.find(item => item.id === productId);
                 if (cartItem) {
@@ -1983,14 +1993,20 @@
 
 
             // --- Event Listeners ---
-            categorySelector.addEventListener('click', (e) => {
-                const target = e.target.closest('.category-wrapper');
-                if (!target) return;
-                
-                if (tg.hapticFeedback) tg.hapticFeedback.selectionChanged();
-                
-                categorySelector.querySelector('.active')?.classList.remove('active');
-                target.classList.add('active');
+                        categorySelector.addEventListener('click', (e) => {
+                            const target = e.target.closest('.category-wrapper');
+                            if (!target) return;
+            
+                            // --- Haptic Feedback Fix ---
+                            try {
+                                if (window.Telegram?.WebApp?.HapticFeedback) {
+                                    window.Telegram.WebApp.HapticFeedback.selectionChanged();
+                                } else if (window.Telegram?.WebApp?.hapticFeedback) {
+                                    window.Telegram.WebApp.hapticFeedback.selectionChanged();
+                                }
+                            } catch (err) {}
+            
+                            categorySelector.querySelector('.active')?.classList.remove('active');                target.classList.add('active');
                 target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
                 currentFilter.categoryId = parseInt(target.dataset.categoryId);
                 currentFilter.nicotine = null;
