@@ -1287,14 +1287,23 @@
                     }
                 }
 
-                // Inline Status Badge for Devices
+                // Inline Status Badge for Devices (Always show HOT/NEW, change style based on active state)
                 let deviceStatusBadge = '';
                 if (isDevice) {
-                    if (p.isNew) {
-                        deviceStatusBadge = `<div class="inline-flex items-center text-[0.6rem] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 text-white mb-1 shadow-sm self-start"><i class="ri-sparkling-fill mr-1"></i>NEW</div>`;
-                    } else if (p.isHot) {
-                        deviceStatusBadge = `<div class="inline-flex items-center text-[0.6rem] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-red-500 to-red-600 text-white mb-1 shadow-sm self-start"><i class="ri-fire-fill mr-1"></i>HOT</div>`;
-                    }
+                    const hotClass = p.isHot 
+                        ? 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-sm border-transparent' 
+                        : 'bg-zinc-800 text-zinc-600 border border-zinc-700/50';
+                    
+                    const newClass = p.isNew 
+                        ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-sm border-transparent' 
+                        : 'bg-zinc-800 text-zinc-600 border border-zinc-700/50';
+
+                    deviceStatusBadge = `
+                        <div class="flex items-center gap-1">
+                            <div class="inline-flex items-center justify-center text-[0.55rem] font-bold px-1.5 py-0.5 rounded ${hotClass}">HOT</div>
+                            <div class="inline-flex items-center justify-center text-[0.55rem] font-bold px-1.5 py-0.5 rounded ${newClass}">NEW</div>
+                        </div>
+                    `;
                 }
 
                 // --- CONTENT GENERATION ---
