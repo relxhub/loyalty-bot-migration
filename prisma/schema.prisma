@@ -157,6 +157,11 @@ model Product {
   coolnessLevel        Int?     @default(0)
   sweetnessLevel       Int?     @default(0)
   flavorIntensityLevel Int?     @default(0)
+  
+  // Device Specific Fields
+  color                String?
+  battery              String?
+  wattage              String?
 
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
