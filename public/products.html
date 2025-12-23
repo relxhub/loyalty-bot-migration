@@ -303,13 +303,13 @@
         .ticker-wrapper {
             position: sticky;
             z-index: 19;
-            background: linear-gradient(to right, #27272a, #18181b);
-            color: #fbbf24; /* Default Gold/Amber text */
+            background: white;
+            color: black;
             overflow: hidden;
             height: 32px;
             display: flex;
             align-items: center;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            border-bottom: 1px solid #e5e5e5;
             transition: all 0.3s ease;
         }
         .ticker-wrapper.hidden {
@@ -324,7 +324,7 @@
             display: inline-block;
             animation: ticker-scroll 20s linear infinite;
             font-size: 0.85rem;
-            font-weight: 500;
+            font-weight: 400; /* Thinner font */
         }
         .ticker-item {
             display: inline-flex;
@@ -334,6 +334,16 @@
         @keyframes ticker-scroll {
             0% { transform: translate3d(0, 0, 0); }
             100% { transform: translate3d(-100%, 0, 0); }
+        }
+        
+        /* --- Banner Slider (Swiper.js) --- */
+        .swiper-container { 
+            width: 100%; 
+            border-radius: 1rem; 
+            margin-bottom: 1.5rem; 
+            margin-top: 1rem; /* Added space from top (Ticker) */
+            position: relative; 
+            overflow: hidden;
         }
 
         /* Top Right: Feature (Cool) */
@@ -500,21 +510,7 @@
         .info-card-stock-status.sold-out {
             color: #666;
         }
-        .info-card.out-of-stock .product-image {
-            filter: grayscale(100%);
-        }
-        .info-card.out-of-stock .info-card-name-en,
-        .info-card.out-of-stock .info-card-name-th,
-        .info-card.out-of-stock .nicotine-tag {
-            color: #666;
-        }
-        .info-card.out-of-stock .info-card-price-badge {
-            background: none;
-            -webkit-text-fill-color: #666;
-        }
-        .info-card.out-of-stock .nicotine-tag {
-            background-color: rgba(102, 102, 102, 0.1);
-        }
+        /* REMOVED: .info-card.out-of-stock styling to keep original colors per user request */
 
         .add-to-cart-btn {
             border-radius: 999px;
@@ -867,8 +863,8 @@
                 if (type === 'DEFAULT') icon = '<i class="ri-store-2-fill text-brand-red"></i>';
 
                 const msgHtml = `<span class="ticker-item">${icon} ${message}</span>`;
-                // Duplicate for smooth marquee
-                tickerContent.innerHTML = msgHtml + '<span class="mx-8"></span>' + msgHtml + '<span class="mx-8"></span>' + msgHtml;
+                // Duplicate for smooth marquee with wider spacing
+                tickerContent.innerHTML = msgHtml + '<span style="margin: 0 4rem;"></span>' + msgHtml + '<span style="margin: 0 4rem;"></span>' + msgHtml;
                 
                 tickerBar.classList.remove('hidden');
                 adjustHeaderOffset();
@@ -930,23 +926,14 @@
                         // Set to Out of Stock
                         if (addBtn) {
                             addBtn.classList.add('disabled');
-                            // Determine button text size class based on card type
-                            const isDevice = productCard.dataset.isDevice === 'true';
-                            // Reuse existing logic or just set content. 
-                            // Note: innerHTML replacement might lose specific classes if we reconstruct it fully, 
-                            // but usually we just change text/icon and disabled class.
-                            // However, the button structure has specific classes like `r-btn` or `d-btn` (removed).
-                            // Let's just update content and class.
-                            addBtn.innerHTML = '<i class="ri-close-circle-line mr-1"></i> หมด';
                         }
-                        productCard.classList.add('out-of-stock');
+                        // productCard.classList.add('out-of-stock'); // Removed per user request
                     } else {
                         // Set to In Stock
                         if (addBtn) {
                             addBtn.classList.remove('disabled');
-                            addBtn.innerHTML = '<i class="ri-shopping-cart-2-line mr-1"></i> Add';
                         }
-                        productCard.classList.remove('out-of-stock');
+                        // productCard.classList.remove('out-of-stock'); // Removed per user request
                     }
                 }
             });
