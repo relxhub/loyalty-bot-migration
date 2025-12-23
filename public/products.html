@@ -283,12 +283,15 @@
         
         /* Top Left: Status (New / Hot) */
         .badge-left { left: 0.25rem; }
-        .badge-hot { background: linear-gradient(135deg, #FF4D4D, #F22233); }
-        .badge-new { background: linear-gradient(135deg, #10B981, #059669); }
+        .badge-hot, .badge-bg-hot { background: linear-gradient(135deg, #FF4D4D, #F22233); color: white; border: none; }
+        .badge-new, .badge-bg-new { background: linear-gradient(135deg, #10B981, #059669); color: white; border: none; }
+        .badge-cool, .badge-bg-cool { background: linear-gradient(135deg, #3B82F6, #2563EB); color: white; border: none; }
+        .badge-bg-zinc { background: #27272a; color: #52525b; border: 1px solid rgba(63, 63, 70, 0.5); }
+        
+        .badge-text-shadow { text-shadow: 0 1px 2px rgba(0,0,0,0.4); }
 
         /* Top Right: Feature (Cool) */
         .badge-right { right: 0.25rem; }
-        .badge-cool { background: linear-gradient(135deg, #3B82F6, #2563EB); }
 
         .info-card {
             container-type: inline-size;
@@ -1332,12 +1335,12 @@
                 let deviceStatusBadge = '';
                 if (isDevice) {
                     const hotClass = p.isHot 
-                        ? 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-sm border-transparent' 
-                        : 'bg-zinc-800 text-zinc-600 border border-zinc-700/50';
+                        ? 'badge-bg-hot badge-text-shadow shadow-sm' 
+                        : 'badge-bg-zinc';
                     
                     const newClass = p.isNew 
-                        ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-sm border-transparent' 
-                        : 'bg-zinc-800 text-zinc-600 border border-zinc-700/50';
+                        ? 'badge-bg-new badge-text-shadow shadow-sm' 
+                        : 'badge-bg-zinc';
 
                     deviceStatusBadge = `
                         <div class="flex items-center r-gap-1">
@@ -1347,29 +1350,31 @@
                     `;
                 }
 
-                // 2. Pod/Disposable Badges (Dynamic row above name)
+                // 2. Pod/Disposable Badges (Always show HOT, NEW, COOL placeholders)
                 let podStatusBadge = '';
                 if (!isDevice) {
-                    let badges = [];
-                    // Priority: HOT > NEW (Usually mutually exclusive or HOT takes precedence visually)
-                    if (p.isHot) {
-                        badges.push({text: 'HOT', class: 'bg-gradient-to-r from-red-500 to-red-600', icon: 'ri-fire-fill'});
-                    } else if (p.isNew) {
-                        badges.push({text: 'NEW', class: 'bg-gradient-to-r from-emerald-500 to-emerald-600', icon: 'ri-sparkling-fill'});
-                    }
+                    // HOT Badge
+                    const hotClass = p.isHot 
+                        ? 'badge-bg-hot badge-text-shadow shadow-sm' 
+                        : 'badge-bg-zinc';
                     
-                    if (p.coolnessLevel >= 6) {
-                        badges.push({text: 'COOL', class: 'bg-gradient-to-r from-blue-500 to-blue-600', icon: 'ri-snowy-line'});
-                    }
+                    // NEW Badge
+                    const newClass = p.isNew 
+                        ? 'badge-bg-new badge-text-shadow shadow-sm' 
+                        : 'badge-bg-zinc';
+                        
+                    // COOL Badge
+                    const coolClass = (p.coolnessLevel >= 6) 
+                        ? 'badge-bg-cool badge-text-shadow shadow-sm' 
+                        : 'badge-bg-zinc';
 
-                    if (badges.length > 0) {
-                        podStatusBadge = `<div class="pod-badge-row r-gap-1">` + 
-                            badges.map(b => `<div class="inline-flex items-center justify-center r-badge-xs font-bold rounded-full ${b.class} text-white shadow-sm border-transparent"><i class="${b.icon} mr-0.5 r-badge-sm"></i>${b.text}</div>`).join('') +
-                            `</div>`;
-                    } else {
-                        // Empty spacer or nothing, letting name shift up
-                         podStatusBadge = `<div class="pod-badge-row"></div>`; 
-                    }
+                    podStatusBadge = `
+                        <div class="pod-badge-row r-gap-1">
+                            <div class="inline-flex items-center justify-center r-badge-xs font-bold rounded-full ${hotClass}"><i class="ri-fire-fill mr-0.5 r-badge-sm"></i>HOT</div>
+                            <div class="inline-flex items-center justify-center r-badge-xs font-bold rounded-full ${newClass}"><i class="ri-sparkling-fill mr-0.5 r-badge-sm"></i>NEW</div>
+                            <div class="inline-flex items-center justify-center r-badge-xs font-bold rounded-full ${coolClass}"><i class="ri-snowy-line mr-0.5 r-badge-sm"></i>COOL</div>
+                        </div>
+                    `;
                 }
 
                 // --- CONTENT GENERATION ---
