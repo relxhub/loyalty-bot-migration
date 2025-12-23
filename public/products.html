@@ -1409,7 +1409,7 @@
                 }
 
                 return `
-                <div class="info-card swiper-container-card ${isOutOfStock ? 'out-of-stock' : ''}" data-product-id="${p.id}">
+                <div class="info-card swiper-container-card ${isOutOfStock ? 'out-of-stock' : ''}" data-product-id="${p.id}" data-is-device="${isDevice}">
                     <div class="swiper product-card-swiper" id="swiper-${p.id}">
                         <div class="swiper-wrapper">
                             
@@ -1526,6 +1526,9 @@
             };
             
             const processImage = (img, card, colorThief) => {
+                // Skip background generation for devices
+                if (card.dataset.isDevice === 'true') return;
+
                 try {
                     const imageContainer = card.querySelector('.card-image-container');
                     if (!imageContainer) return;
