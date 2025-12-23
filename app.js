@@ -93,8 +93,14 @@ async function startServer() {
 
     io.on('connection', (socket) => {
         console.log(`🔌 Client connected: ${socket.id}`);
+        
+        // Broadcast User Count
+        io.emit('online_users', { count: io.engine.clientsCount });
+
         socket.on('disconnect', () => {
             console.log(`🔌 Client disconnected: ${socket.id}`);
+            // Broadcast User Count (Updated)
+            io.emit('online_users', { count: io.engine.clientsCount });
         });
     });
 
