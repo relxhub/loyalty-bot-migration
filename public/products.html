@@ -322,9 +322,11 @@
             white-space: nowrap;
             padding-left: 100%; /* Start off-screen */
             display: inline-block;
-            animation: ticker-scroll 20s linear infinite;
             font-size: 0.85rem;
             font-weight: 400; /* Thinner font */
+        }
+        .animate-scroll {
+            animation: ticker-scroll 20s linear infinite;
         }
         .ticker-item {
             display: inline-flex;
@@ -833,6 +835,10 @@
             const tickerContent = document.getElementById('ticker-content');
             let tickerTimeout;
             let defaultTickerMessage = ''; // Will be populated from API
+            
+            // Queue System
+            let tickerQueue = []; 
+            let isTickerActive = false; // True if showing a temporary event
 
             const adjustHeaderOffset = () => {
                 if (topBar && mainHeader) {
@@ -853,8 +859,8 @@
                 }
             };
 
-            const showTicker = (message, type = 'DEFAULT', temporary = false) => {
-                // Select Icon
+            const displayTickerMessage = (message, type) => {
+                // Internal function to actually render text and animation
                 let icon = '<i class="ri-notification-3-fill"></i>';
                 if (type === 'RESTOCK') icon = '<i class="ri-box-3-fill text-green-400"></i>';
                 if (type === 'NEW_PRODUCT') icon = '<i class="ri-sparkling-fill text-yellow-400"></i>';
@@ -862,27 +868,59 @@
                 if (type === 'GOOD_REVIEW') icon = '<i class="ri-star-smile-fill text-yellow-400"></i>';
                 if (type === 'DEFAULT') icon = '<i class="ri-store-2-fill text-brand-red"></i>';
 
+                // Reset Animation
+                tickerContent.classList.remove('animate-scroll');
+
                 const msgHtml = `<span class="ticker-item">${icon} ${message}</span>`;
                 // Duplicate for smooth marquee with wider spacing
                 tickerContent.innerHTML = msgHtml + '<span style="margin: 0 4rem;"></span>' + msgHtml + '<span style="margin: 0 4rem;"></span>' + msgHtml;
                 
+                // Trigger Reflow to restart animation
+                void tickerContent.offsetWidth;
+                tickerContent.classList.add('animate-scroll');
+
                 tickerBar.classList.remove('hidden');
                 adjustHeaderOffset();
+            };
 
-                if (temporary) {
+            const processQueue = () => {
+                if (tickerQueue.length > 0) {
+                    isTickerActive = true;
+                    const nextEvent = tickerQueue.shift();
+                    
+                    displayTickerMessage(nextEvent.message, nextEvent.type);
+
                     if (tickerTimeout) clearTimeout(tickerTimeout);
                     tickerTimeout = setTimeout(() => {
-                        // Revert to default
-                        if (defaultTickerMessage) {
-                            showTicker(defaultTickerMessage, 'DEFAULT', false);
-                        } else {
-                            tickerBar.classList.add('hidden');
-                            adjustHeaderOffset();
-                        }
+                        processQueue(); // Recursive call for next item
                     }, 15000);
                 } else {
-                    // Permanent message (Default)
-                    if (tickerTimeout) clearTimeout(tickerTimeout);
+                    // Queue empty, revert to default
+                    isTickerActive = false;
+                    if (defaultTickerMessage) {
+                        displayTickerMessage(defaultTickerMessage, 'DEFAULT');
+                    } else {
+                        tickerBar.classList.add('hidden');
+                        adjustHeaderOffset();
+                    }
+                }
+            };
+
+            const showTicker = (message, type = 'DEFAULT', temporary = false) => {
+                if (temporary) {
+                    // Add to queue
+                    tickerQueue.push({ message, type });
+                    
+                    // If not currently running an event loop, start it
+                    if (!isTickerActive) {
+                        processQueue();
+                    }
+                } else {
+                    // Setting Default Message (Permanent)
+                    // Only display immediately if NOT currently showing an event loop
+                    if (!isTickerActive) {
+                        displayTickerMessage(message, type);
+                    }
                 }
             };
 
