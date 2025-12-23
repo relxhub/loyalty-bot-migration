@@ -431,10 +431,10 @@
 
         /* Pod/Disposable Specific Overrides (Non-Device) */
         .info-card.type-pod {
-            aspect-ratio: 9 / 13.5 !important; /* Reduced height by ~2.5 lines from 16 */
+            aspect-ratio: 9 / 12.5 !important; /* Reduced height by another 1 line */
         }
         .info-card.type-pod .card-image-container {
-            height: 28% !important; /* Adjusted % to keep image size consistent */
+            height: 30% !important; /* Increased % to maintain image size */
         }
         .pod-badge-row {
             margin-bottom: 2cqi;
@@ -873,7 +873,7 @@
             // --- UI Enhancements: Skeleton Loading ---
             const renderSkeletons = () => {
                 const skeletonHTML = `
-                    <div class="info-card p-0 overflow-hidden bg-zinc-800 border border-zinc-700/50" style="aspect-ratio: 9/13.5;">
+                    <div class="info-card p-0 overflow-hidden bg-zinc-800 border border-zinc-700/50" style="aspect-ratio: 9/12.5;">
                         <div class="w-full h-[30%] skeleton rounded-none"></div>
                         <div class="p-3 space-y-2 flex-grow flex flex-col justify-end">
                             <div class="h-4 w-3/4 skeleton"></div>
