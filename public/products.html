@@ -299,6 +299,43 @@
         .badge-text-shadow { text-shadow: 0 1px 2px rgba(0,0,0,0.4); }
         .badge-text-shadow i { text-shadow: none; }
 
+        /* --- Ticker Bar --- */
+        .ticker-wrapper {
+            position: sticky;
+            z-index: 19;
+            background: linear-gradient(to right, #27272a, #18181b);
+            color: #fbbf24; /* Default Gold/Amber text */
+            overflow: hidden;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.3s ease;
+        }
+        .ticker-wrapper.hidden {
+            height: 0;
+            opacity: 0;
+            border-bottom: none;
+            padding: 0;
+        }
+        .ticker-content {
+            white-space: nowrap;
+            padding-left: 100%; /* Start off-screen */
+            display: inline-block;
+            animation: ticker-scroll 20s linear infinite;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        .ticker-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        @keyframes ticker-scroll {
+            0% { transform: translate3d(0, 0, 0); }
+            100% { transform: translate3d(-100%, 0, 0); }
+        }
+
         /* Top Right: Feature (Cool) */
         .badge-right { right: 0.25rem; }
 
@@ -727,6 +764,11 @@
             </div>
         </div>
 
+        <!-- Notification Ticker -->
+        <div id="ticker-bar" class="ticker-wrapper hidden">
+            <div id="ticker-content" class="ticker-content"></div>
+        </div>
+
                 <!-- Scrollable Header Content (Banner & Categories) -->
                 <div id="scrollable-header-content" class="bg-zinc-900">
                     <!-- Banner Slider -->
@@ -784,20 +826,30 @@
         </div>
     </div>
 
+    <script src="/socket.io/socket.io.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async function() {
-            // --- Header Layout Adjustment ---
+            // --- Header & Ticker Layout Adjustment ---
             const topBar = document.getElementById('top-bar');
             const mainHeader = document.getElementById('main-header');
+            const tickerBar = document.getElementById('ticker-bar');
+            const tickerContent = document.getElementById('ticker-content');
+            let tickerTimeout;
             
-            if (topBar && mainHeader) {
-                const adjustHeaderOffset = () => {
-                    const height = topBar.offsetHeight;
+            const adjustHeaderOffset = () => {
+                if (topBar && mainHeader) {
+                    let height = topBar.offsetHeight;
+                    // If ticker is visible, add its height
+                    if (tickerBar && !tickerBar.classList.contains('hidden')) {
+                        height += tickerBar.offsetHeight;
+                    }
                     // Subtract 1px to ensure overlap and prevent sub-pixel rendering gaps
                     mainHeader.style.top = `${height - 1}px`;
-                };
+                }
+            };
 
+            if (topBar && mainHeader) {
                 // Initial adjustment
                 adjustHeaderOffset();
 
@@ -817,6 +869,74 @@
             tg.expand();
             tg.setHeaderColor('#121212');
             tg.setBackgroundColor('#121212');
+
+            // --- Socket.io Real-time Updates ---
+            const socket = io();
+            socket.on('product_update', (data) => {
+                // Update local data
+                const productIndex = allProducts.findIndex(p => p.id === data.productId);
+                if (productIndex !== -1) {
+                    allProducts[productIndex].status = data.status;
+                    allProducts[productIndex].stock = data.stock; // If provided
+                }
+
+                // Update UI if element exists
+                const productCard = document.querySelector(`.info-card[data-product-id="${data.productId}"]`);
+                if (productCard) {
+                    const addBtn = productCard.querySelector('.add-to-cart-btn');
+                    
+                    if (data.status === 'OUT_OF_STOCK') {
+                        // Set to Out of Stock
+                        if (addBtn) {
+                            addBtn.classList.add('disabled');
+                            // Determine button text size class based on card type
+                            const isDevice = productCard.dataset.isDevice === 'true';
+                            // Reuse existing logic or just set content. 
+                            // Note: innerHTML replacement might lose specific classes if we reconstruct it fully, 
+                            // but usually we just change text/icon and disabled class.
+                            // However, the button structure has specific classes like `r-btn` or `d-btn` (removed).
+                            // Let's just update content and class.
+                            addBtn.innerHTML = '<i class="ri-close-circle-line mr-1"></i> หมด';
+                        }
+                        productCard.classList.add('out-of-stock');
+                    } else {
+                        // Set to In Stock
+                        if (addBtn) {
+                            addBtn.classList.remove('disabled');
+                            addBtn.innerHTML = '<i class="ri-shopping-cart-2-line mr-1"></i> Add';
+                        }
+                        productCard.classList.remove('out-of-stock');
+                    }
+                }
+            });
+
+            // --- Ticker Update Listener ---
+            socket.on('ticker_update', (data) => {
+                if (!data.message) return;
+
+                // Select Icon
+                let icon = '<i class="ri-notification-3-fill"></i>';
+                if (data.type === 'RESTOCK') icon = '<i class="ri-box-3-fill text-green-400"></i>';
+                if (data.type === 'NEW_PRODUCT') icon = '<i class="ri-sparkling-fill text-yellow-400"></i>';
+                if (data.type === 'HOT_ITEM') icon = '<i class="ri-fire-fill text-red-500"></i>';
+                if (data.type === 'GOOD_REVIEW') icon = '<i class="ri-star-smile-fill text-yellow-400"></i>';
+
+                // Format Message
+                const msgHtml = `<span class="ticker-item">${icon} ${data.message}</span>`;
+                // Duplicate for smooth marquee (3 times should cover wide screens)
+                tickerContent.innerHTML = msgHtml + '<span class="mx-8"></span>' + msgHtml + '<span class="mx-8"></span>' + msgHtml;
+
+                // Show Ticker
+                tickerBar.classList.remove('hidden');
+                adjustHeaderOffset();
+
+                // Auto Hide
+                if (tickerTimeout) clearTimeout(tickerTimeout);
+                tickerTimeout = setTimeout(() => {
+                    tickerBar.classList.add('hidden');
+                    adjustHeaderOffset();
+                }, 15000); // 15 Seconds
+            });
 
             // --- Toast Notification Function (from dashboard.html) ---
             const showToast = (message, type = 'info') => {

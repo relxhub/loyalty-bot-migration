@@ -15,6 +15,8 @@ process.on('unhandledRejection', (reason, promise) => {
 console.log("🟢 App is starting...");
 import { Telegraf } from 'telegraf';
 import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 import { loadConfig, getConfig } from './src/config/config.js';
 import { loadAdminCache } from './src/services/admin.service.js';
 
@@ -27,6 +29,7 @@ import apiRoutes from './src/routes/api.routes.js';
 
 // Import Scheduler
 import { runScheduler } from './src/jobs/scheduler.js';
+import { startMonitorJob, setSocketInstance } from './src/jobs/monitor.job.js';
 
 // ✅ Path setup
 const __filename = fileURLToPath(import.meta.url);
@@ -34,6 +37,14 @@ const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 3000;
 const app = express();
+const server = createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
+setSocketInstance(io);
 
 // --- Immediately load configuration --- 
 // This must be called at the very beginning to ensure configs are available.
@@ -73,6 +84,19 @@ async function startServer() {
     // 2. Express Setup
     app.use(express.json());
     app.use(express.static(path.join(__dirname, 'public')));
+
+    // Socket.io Injection Middleware
+    app.use((req, res, next) => {
+        req.io = io;
+        next();
+    });
+
+    io.on('connection', (socket) => {
+        console.log(`🔌 Client connected: ${socket.id}`);
+        socket.on('disconnect', () => {
+            console.log(`🔌 Client disconnected: ${socket.id}`);
+        });
+    });
 
     app.use((req, res, next) => {
         res.header("Access-Control-Allow-Origin", "*");
@@ -137,6 +161,10 @@ async function startServer() {
     runScheduler(TIMEZONE);
     console.log(`✅ Scheduler started`);
 
+    // Start Real-time Monitor
+    startMonitorJob();
+    console.log(`✅ Real-time Database Monitor started`);
+
     // =========================================
     // 🌐 FRONTEND ROUTING (SPA Fallback)
     // =========================================
@@ -156,7 +184,7 @@ async function startServer() {
     });
 
     // 3. Start Server
-    app.listen(PORT, '0.0.0.0', () => {
+    server.listen(PORT, '0.0.0.0', () => {
         console.log(`⚡️ Server listening on port ${PORT}`);
     });
 }
