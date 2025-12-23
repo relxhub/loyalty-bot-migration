@@ -33,6 +33,12 @@ enum ProductStatus {
   OUT_OF_STOCK
 }
 
+enum ProductType {
+  POD
+  DEVICE
+  DISPOSABLE
+}
+
 // ---------------------------------------------------------
 // CORE MODELS
 // ---------------------------------------------------------
@@ -133,6 +139,7 @@ model Banner {
 model Category {
   id        Int     @id @default(autoincrement())
   name      String  @unique
+  type      ProductType @default(POD) // POD, DEVICE, DISPOSABLE
   imageUrl  String?
   productIcon String? // รูปสินค้าตัวแทนสำหรับ Animation (fly to cart)
   order     Int     @default(0)

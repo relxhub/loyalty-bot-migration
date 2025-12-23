@@ -1266,8 +1266,8 @@
                 const price = category ? parseFloat(category.price).toLocaleString('th-TH') : '';
                 const isOutOfStock = p.status === 'OUT_OF_STOCK';
                 
-                // Adaptive Logic: Check if it's a device (has color or tech specs)
-                const isDevice = p.color || p.battery || p.wattage;
+                // Adaptive Logic: Check if it's a device (via Category Type or properties)
+                const isDevice = (category && category.type === 'DEVICE') || (p.color || p.battery || p.wattage);
 
                 // Badge Logic
                 let leftBadgeHtml = '';

@@ -19,6 +19,7 @@ export const getProductPageData = async () => {
         select: {
           id: true,
           name: true,
+          type: true,
           imageUrl: true,
           productIcon: true,
           order: true,
