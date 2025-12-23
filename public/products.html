@@ -1310,13 +1310,17 @@
                             </div>
                             <div class="w-3/4 flex flex-col h-full py-1 pr-1 relative">
                                 
-                                <div class="mb-auto flex flex-col items-start">
-                                    <!-- Status Badge (Hot/New) -->
-                                    ${deviceStatusBadge}
-                                    <!-- Color Badge -->
-                                    ${p.color ? `<div class="inline-flex items-center text-[0.65rem] font-bold px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-200 mb-1 border border-zinc-600 shadow-sm"><i class="ri-palette-line mr-1"></i>${p.color}</div>` : ''}
-                                    <!-- Name -->
-                                    <div class="info-card-name-en text-sm leading-tight line-clamp-2 font-semibold">${p.nameEn || ''}</div>
+                                <div class="mb-auto flex flex-col items-start w-full">
+                                    <!-- Row 1: Status Badge (Hot/New) -->
+                                    <div class="min-h-[1.25rem] mb-0.5">
+                                        ${deviceStatusBadge}
+                                    </div>
+
+                                    <!-- Row 2: Name -->
+                                    <div class="info-card-name-en text-sm leading-tight line-clamp-2 font-semibold mb-1">${p.nameEn || ''}</div>
+
+                                    <!-- Row 3: Color Badge -->
+                                    ${p.color ? `<div class="inline-flex items-center text-[0.65rem] font-bold px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-200 border border-zinc-600 shadow-sm"><i class="ri-palette-line mr-1"></i>${p.color}</div>` : ''}
                                 </div>
 
                                 <!-- Bottom: Price above Button -->
