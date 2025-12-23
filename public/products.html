@@ -1242,113 +1242,176 @@
                 }
             };
 
-                        const renderProducts = () => {
-                            const filteredProducts = allProducts.filter(p => 
-                                (currentFilter.categoryId === null || p.categoryId === currentFilter.categoryId) &&
-                                ((p.nameTh || '').toLowerCase().includes(currentFilter.searchTerm) || (p.nameEn || '').toLowerCase().includes(currentFilter.searchTerm)) &&
-                                (currentFilter.nicotine === null || p.nicotine === currentFilter.nicotine) &&
-                                (currentFilter.special === null || 
-                                    (currentFilter.special === 'hot' && p.isHot) ||
-                                    (currentFilter.special === 'new' && p.isNew) ||
-                                    (currentFilter.special === 'cool' && (p.coolnessLevel >= 6))
-                                )
-                            );
-            
-                            productGrid.innerHTML = filteredProducts.map(p => {
-                                const category = allCategories.find(c => c.id === p.categoryId);
-                                const price = category ? parseFloat(category.price).toLocaleString('th-TH') : '';
-                                const isOutOfStock = p.status === 'OUT_OF_STOCK';
+            // --- Helper Functions ---
+            const renderDots = (level) => {
+                let dotsHtml = '<div class="level-dots-container">';
+                for (let i = 1; i <= 6; i++) {
+                    const activeClass = i <= level ? `active-${i}` : '';
+                    dotsHtml += `<div class="level-dot ${activeClass}"></div>`;
+                }
+                dotsHtml += '</div>';
+                return dotsHtml;
+            };
+
+            const createProductCardHtml = (p) => {
+                const category = allCategories.find(c => c.id === p.categoryId);
+                const price = category ? parseFloat(category.price).toLocaleString('th-TH') : '';
+                const isOutOfStock = p.status === 'OUT_OF_STOCK';
+                
+                // Badge Logic
+                let leftBadgeHtml = '';
+                if (p.isNew) {
+                    leftBadgeHtml = `<div class="badge-capsule badge-left badge-new"><i class="ri-sparkling-fill"></i> NEW</div>`;
+                } else if (p.isHot) {
+                    leftBadgeHtml = `<div class="badge-capsule badge-left badge-hot"><i class="ri-fire-fill"></i> HOT</div>`;
+                }
+
+                let rightBadgeHtml = '';
+                if (p.coolnessLevel >= 6) {
+                    rightBadgeHtml = `<div class="badge-capsule badge-right badge-cool"><i class="ri-snowy-line"></i> COOL</div>`;
+                }
+
+                return `
+                <div class="info-card swiper-container-card ${isOutOfStock ? 'out-of-stock' : ''}" data-product-id="${p.id}">
+                    <div class="swiper product-card-swiper" id="swiper-${p.id}">
+                        <div class="swiper-wrapper">
+                            
+                            <!-- Slide 1: Main View -->
+                            <div class="swiper-slide">
+                                ${leftBadgeHtml}
+                                ${rightBadgeHtml}
+                                <div class="card-image-container">
+                                    <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" class="product-image ${isOutOfStock ? 'grayscale' : ''}" crossorigin="anonymous">
+                                </div>
                                 
-                                // Helper to render 6 dots
-                                const renderDots = (level) => {
-                                    let dotsHtml = '<div class="level-dots-container">';
-                                    for (let i = 1; i <= 6; i++) {
-                                        const activeClass = i <= level ? `active-${i}` : '';
-                                        dotsHtml += `<div class="level-dot ${activeClass}"></div>`;
-                                    }
-                                    dotsHtml += '</div>';
-                                    return dotsHtml;
-                                };
-            
-                                // Badge Logic
-                                let leftBadgeHtml = '';
-                                if (p.isNew) {
-                                    leftBadgeHtml = `<div class="badge-capsule badge-left badge-new"><i class="ri-sparkling-fill"></i> NEW</div>`;
-                                } else if (p.isHot) {
-                                    leftBadgeHtml = `<div class="badge-capsule badge-left badge-hot"><i class="ri-fire-fill"></i> HOT</div>`;
-                                }
+                                <div class="card-content-wrapper">
+                                    <div class="info-card-name-en ${isOutOfStock ? 'text-gray-500' : ''}">${p.nameEn || ''}</div>
+                                    <div class="info-card-name-th ${isOutOfStock ? 'text-gray-500' : ''}">${category.name || ''} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
+                                </div>
+                                
+                                <div class="card-bottom-row">
+                                     <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''}">${price} Baht</div>
+                                     <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
+                                        <i class="ri-shopping-cart-2-line mr-1"></i> Add
+                                     </button>
+                                </div>
+                            </div>
 
-                                let rightBadgeHtml = '';
-                                if (p.coolnessLevel >= 6) {
-                                    rightBadgeHtml = `<div class="badge-capsule badge-right badge-cool"><i class="ri-snowy-line"></i> COOL</div>`;
-                                }
-
-                                return `
-                                <div class="info-card swiper-container-card ${isOutOfStock ? 'out-of-stock' : ''}" data-product-id="${p.id}">
-                                    <div class="swiper product-card-swiper" id="swiper-${p.id}">
-                                        <div class="swiper-wrapper">
-                                            
-                                            <!-- Slide 1: Main View -->
-                                            <div class="swiper-slide">
-                                                ${leftBadgeHtml}
-                                                ${rightBadgeHtml}
-                                                <div class="card-image-container">
-                                                    <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" class="product-image ${isOutOfStock ? 'grayscale' : ''}" crossorigin="anonymous">
-                                                </div>
-                                                
-                                                <div class="card-content-wrapper">
-                                                    <div class="info-card-name-en ${isOutOfStock ? 'text-gray-500' : ''}">${p.nameEn || ''}</div>
-                                                    <div class="info-card-name-th ${isOutOfStock ? 'text-gray-500' : ''}">${category.name || ''} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
-                                                </div>
-                                                
-                                                <div class="card-bottom-row">
-                                                     <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''}">${price} Baht</div>
-                                                     <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
-                                                        <i class="ri-shopping-cart-2-line mr-1"></i> Add
-                                                     </button>
-                                                </div>
-                                            </div>
-            
-                                            <!-- Slide 2: Details View -->
-                                            <div class="swiper-slide">
-                                                <div class="card-content-wrapper pt-2">
-                                                    <div class="info-card-name-en ${isOutOfStock ? 'text-gray-500' : ''}">${p.nameEn || ''}</div>
-                                                    <div class="info-card-name-th ${isOutOfStock ? 'text-gray-500' : ''} mb-2">${p.nameTh || category.name} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
-                                                    
-                                                    <div class="space-y-1">
-                                                        <div class="level-row">
-                                                            <span class="level-label">Cooling</span>
-                                                            ${renderDots(p.coolnessLevel || 0)}
-                                                        </div>
-                                                        <div class="level-row">
-                                                            <span class="level-label">Sweetness</span>
-                                                            ${renderDots(p.sweetnessLevel || 0)}
-                                                        </div>
-                                                        <div class="level-row">
-                                                            <span class="level-label">Richness</span>
-                                                            ${renderDots(p.flavorIntensityLevel || 0)}
-                                                        </div>
-                                                    </div>
-                                                </div>
-            
-                                                <div class="card-bottom-row">
-                                                     <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''}">${price} Baht</div>
-                                                     <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
-                                                        <i class="ri-shopping-cart-2-line mr-1"></i> Add
-                                                     </button>
-                                                </div>
-                                            </div>
-                                            
+                            <!-- Slide 2: Details View -->
+                            <div class="swiper-slide">
+                                <div class="card-content-wrapper pt-2">
+                                    <div class="info-card-name-en ${isOutOfStock ? 'text-gray-500' : ''}">${p.nameEn || ''}</div>
+                                    <div class="info-card-name-th ${isOutOfStock ? 'text-gray-500' : ''} mb-2">${p.nameTh || category.name} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
+                                    
+                                    <div class="space-y-1">
+                                        <div class="level-row">
+                                            <span class="level-label">Cooling</span>
+                                            ${renderDots(p.coolnessLevel || 0)}
                                         </div>
-                                        <div class="swiper-pagination"></div>
+                                        <div class="level-row">
+                                            <span class="level-label">Sweetness</span>
+                                            ${renderDots(p.sweetnessLevel || 0)}
+                                        </div>
+                                        <div class="level-row">
+                                            <span class="level-label">Richness</span>
+                                            ${renderDots(p.flavorIntensityLevel || 0)}
+                                        </div>
                                     </div>
                                 </div>
-                                `;
-                            }).join('');
+
+                                <div class="card-bottom-row">
+                                     <div class="info-card-price-badge ${isOutOfStock ? 'text-gray-500' : ''}">${price} Baht</div>
+                                     <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
+                                        <i class="ri-shopping-cart-2-line mr-1"></i> Add
+                                     </button>
+                                </div>
+                            </div>
                             
-                            applyCardBackgrounds();
-                            initCardSwipers();
-                        };
+                        </div>
+                        <div class="swiper-pagination"></div>
+                    </div>
+                </div>
+                `;
+            };
+
+            const renderProducts = () => {
+                const filteredProducts = allProducts.filter(p => 
+                    (currentFilter.categoryId === null || p.categoryId === currentFilter.categoryId) &&
+                    ((p.nameTh || '').toLowerCase().includes(currentFilter.searchTerm) || (p.nameEn || '').toLowerCase().includes(currentFilter.searchTerm)) &&
+                    (currentFilter.nicotine === null || p.nicotine === currentFilter.nicotine) &&
+                    (currentFilter.special === null || 
+                        (currentFilter.special === 'hot' && p.isHot) ||
+                        (currentFilter.special === 'new' && p.isNew) ||
+                        (currentFilter.special === 'cool' && (p.coolnessLevel >= 6))
+                    )
+                );
+
+                // Check if we are in "All Nicotine" mode (grouped view)
+                // Only if filtering by category (usually implies viewing a product line) and nicotine is ALL
+                if (currentFilter.nicotine === null && filteredProducts.length > 0) {
+                    // Group mode
+                    productGrid.style.display = 'block'; // Disable grid layout on main container
+                    
+                    const uniqueNicLevels = [...new Set(filteredProducts.map(p => p.nicotine).filter(n => n !== null))].sort((a, b) => a - b);
+                    
+                    // If we have distinct levels to group by
+                    if (uniqueNicLevels.length > 0) {
+                        let htmlContent = '';
+                        
+                        uniqueNicLevels.forEach((level, index) => {
+                            const productsInLevel = filteredProducts.filter(p => p.nicotine === level);
+                            if (productsInLevel.length === 0) return;
+
+                            htmlContent += `
+                                <div class="mb-4">
+                                    <div class="flex items-center gap-2 mb-3 px-1">
+                                        <span class="text-lg font-bold text-white">Nicotine ${level}%</span>
+                                        <span class="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">${productsInLevel.length} items</span>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        ${productsInLevel.map(createProductCardHtml).join('')}
+                                    </div>
+                                </div>
+                            `;
+                            
+                            // Add separator if not the last group
+                            if (index < uniqueNicLevels.length - 1) {
+                                htmlContent += `<div class="h-px bg-zinc-800 w-full my-6"></div>`;
+                            }
+                        });
+
+                        // Handle products with no nicotine value (if any)
+                        const productsNoNic = filteredProducts.filter(p => p.nicotine === null);
+                        if (productsNoNic.length > 0) {
+                             if (htmlContent) htmlContent += `<div class="h-px bg-zinc-800 w-full my-6"></div>`;
+                             htmlContent += `
+                                <div class="mb-4">
+                                    <div class="flex items-center gap-2 mb-3 px-1">
+                                        <span class="text-lg font-bold text-white">Others</span>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        ${productsNoNic.map(createProductCardHtml).join('')}
+                                    </div>
+                                </div>
+                            `;
+                        }
+
+                        productGrid.innerHTML = htmlContent;
+                    } else {
+                         // Fallback if no nicotine levels found (should be rare if filteredProducts > 0)
+                         productGrid.style.display = 'grid';
+                         productGrid.innerHTML = filteredProducts.map(createProductCardHtml).join('');
+                    }
+
+                } else {
+                    // Standard Filtered View (specific nicotine selected OR no results)
+                    productGrid.style.display = 'grid'; // Re-enable grid layout
+                    productGrid.innerHTML = filteredProducts.map(createProductCardHtml).join('');
+                }
+                
+                applyCardBackgrounds();
+                initCardSwipers();
+            };
             const initCardSwipers = () => {
                 document.querySelectorAll('.product-card-swiper').forEach(el => {
                     new Swiper(el, {
