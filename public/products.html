@@ -217,6 +217,12 @@
             border-color: transparent;
             box-shadow: 0 2px 6px rgba(59, 130, 246, 0.4);
         }
+        .special-filter-btn.active.filter-instock {
+            background: linear-gradient(135deg, #14b8a6, #0d9488);
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 2px 6px rgba(20, 184, 166, 0.4);
+        }
         
         /* --- Product Grid --- */
         .product-section-title {
@@ -747,6 +753,9 @@
                         </button>
                         <button class="special-filter-btn filter-cool" data-filter="cool">
                             <i class="ri-snowy-line mr-1"></i>เย็นเต็มแม็กส์
+                        </button>
+                        <button class="special-filter-btn filter-instock" data-filter="instock">
+                            <i class="ri-truck-fill mr-1"></i>สินค้าพร้อมส่ง
                         </button>
                     </div>
                 </header>
@@ -1530,7 +1539,8 @@
                     (currentFilter.special === null || 
                         (currentFilter.special === 'hot' && p.isHot) ||
                         (currentFilter.special === 'new' && p.isNew) ||
-                        (currentFilter.special === 'cool' && (p.coolnessLevel >= 6))
+                        (currentFilter.special === 'cool' && (p.coolnessLevel >= 6)) ||
+                        (currentFilter.special === 'instock' && p.status !== 'OUT_OF_STOCK')
                     )
                 );
 
