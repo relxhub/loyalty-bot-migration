@@ -726,6 +726,30 @@
             line-height: 1;
         }
         
+        /* --- Skeleton Loading --- */
+        .skeleton {
+            background: #27272a;
+            background: linear-gradient(90deg, #27272a 25%, #3f3f46 50%, #27272a 75%);
+            background-size: 200% 100%;
+            animation: skeleton-loading 1.5s infinite;
+            border-radius: 0.5rem;
+        }
+        @keyframes skeleton-loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        
+        /* --- Scroll Zoom Animation --- */
+        .info-card {
+            /* Existing props... */
+            transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        .info-card.scroll-zoom {
+            transform: scale(1.03);
+            z-index: 2;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+
         /* --- General & Loader --- */
         #loader { display: flex; justify-content: center; align-items: center; height: 100vh; position: fixed; top: 0; left: 0; width: 100%; z-index: 100; background: var(--bg-color); }
         .hidden { display: none; }
@@ -833,6 +857,33 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async function() {
+            // --- UI Enhancements: Skeleton Loading ---
+            const renderSkeletons = () => {
+                const skeletonHTML = `
+                    <div class="info-card p-0 overflow-hidden bg-zinc-800 border border-zinc-700/50" style="aspect-ratio: 9/12;">
+                        <div class="w-full h-[40%] skeleton rounded-none"></div>
+                        <div class="p-3 space-y-2 flex-grow flex flex-col justify-end">
+                            <div class="h-4 w-3/4 skeleton"></div>
+                            <div class="h-3 w-1/2 skeleton"></div>
+                            <div class="flex justify-between items-center mt-3">
+                                <div class="h-5 w-16 skeleton"></div>
+                                <div class="h-8 w-20 skeleton rounded-full"></div>
+                            </div>
+                        </div>
+                    </div>
+                `.repeat(6);
+                const grid = document.getElementById('product-grid');
+                if(grid) {
+                    grid.innerHTML = skeletonHTML;
+                    grid.style.display = 'grid';
+                }
+            };
+
+            // Show App & Skeletons immediately
+            document.getElementById('loader').remove();
+            document.getElementById('app-container').classList.remove('hidden');
+            renderSkeletons();
+
             // --- Header & Ticker Logic ---
             const topBar = document.getElementById('top-bar');
             const mainHeader = document.getElementById('main-header');
@@ -1080,7 +1131,7 @@
                 const product = allProducts.find(p => p.id === productId);
                 if (!product) return;
 
-                try { tg.hapticFeedback.impactOccurred('light'); } catch(e) {}
+                try { tg.hapticFeedback.impactOccurred('medium'); } catch(e) {}
 
                 const cartItem = cart.find(item => item.id === productId);
                 if (cartItem) {
@@ -1756,7 +1807,23 @@
                 
                 applyCardBackgrounds();
                 initCardSwipers();
+                initScrollObserver();
             };
+
+            const initScrollObserver = () => {
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            entry.target.classList.add('scroll-zoom');
+                        } else {
+                            entry.target.classList.remove('scroll-zoom');
+                        }
+                    });
+                }, { threshold: 0.15, rootMargin: "-5% 0px -5% 0px" }); // Slightly expand trigger area for better feel
+
+                document.querySelectorAll('.info-card').forEach(card => observer.observe(card));
+            };
+
             const initCardSwipers = () => {
                 document.querySelectorAll('.product-card-swiper').forEach(el => {
                     new Swiper(el, {
@@ -1903,6 +1970,7 @@
             categorySelector.addEventListener('click', (e) => {
                 const target = e.target.closest('.category-wrapper');
                 if (!target) return;
+                try { tg.hapticFeedback.selectionChanged(); } catch(e) {}
                 categorySelector.querySelector('.active')?.classList.remove('active');
                 target.classList.add('active');
                 target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
