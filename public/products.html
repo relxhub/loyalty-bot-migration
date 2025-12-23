@@ -303,20 +303,25 @@
         .ticker-wrapper {
             position: sticky;
             z-index: 19;
-            background: white;
-            color: black;
+            background: linear-gradient(to right, #fcd34d, #fbbf24, #f59e0b, #fbbf24, #fcd34d); /* Rich Gold Gradient */
+            background-size: 200% auto; /* Animation potential */
+            color: #451a03; /* Dark Brown Text */
             overflow: hidden;
             height: 32px;
             display: flex;
             align-items: center;
-            border-bottom: 1px solid #e5e5e5;
+            box-shadow: 0 -6px 15px rgba(251, 191, 36, 0.5), 0 6px 15px rgba(251, 191, 36, 0.5); /* Gold Glow */
             transition: all 0.3s ease;
+            animation: shine 3s linear infinite; /* Optional: Animated background shine */
+        }
+        @keyframes shine {
+            to { background-position: 200% center; }
         }
         .ticker-wrapper.hidden {
             height: 0;
             opacity: 0;
-            border-bottom: none;
             padding: 0;
+            box-shadow: none; /* Hide glow when hidden */
         }
         .ticker-content {
             white-space: nowrap;
@@ -958,21 +963,17 @@
                 // Update UI if element exists
                 const productCard = document.querySelector(`.info-card[data-product-id="${data.productId}"]`);
                 if (productCard) {
-                    const addBtn = productCard.querySelector('.add-to-cart-btn');
+                    const addBtns = productCard.querySelectorAll('.add-to-cart-btn');
                     
-                    if (data.status === 'OUT_OF_STOCK') {
-                        // Set to Out of Stock
-                        if (addBtn) {
+                    addBtns.forEach(addBtn => {
+                        if (data.status === 'OUT_OF_STOCK') {
+                            // Set to Out of Stock
                             addBtn.classList.add('disabled');
-                        }
-                        // productCard.classList.add('out-of-stock'); // Removed per user request
-                    } else {
-                        // Set to In Stock
-                        if (addBtn) {
+                        } else {
+                            // Set to In Stock
                             addBtn.classList.remove('disabled');
                         }
-                        // productCard.classList.remove('out-of-stock'); // Removed per user request
-                    }
+                    });
                 }
             });
 
