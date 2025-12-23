@@ -830,22 +830,63 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async function() {
-            // --- Header & Ticker Layout Adjustment ---
+            // --- Header & Ticker Logic ---
             const topBar = document.getElementById('top-bar');
             const mainHeader = document.getElementById('main-header');
             const tickerBar = document.getElementById('ticker-bar');
             const tickerContent = document.getElementById('ticker-content');
             let tickerTimeout;
-            
+            let defaultTickerMessage = ''; // Will be populated from API
+
             const adjustHeaderOffset = () => {
                 if (topBar && mainHeader) {
-                    let height = topBar.offsetHeight;
-                    // If ticker is visible, add its height
+                    let topBarHeight = topBar.offsetHeight;
+                    
+                    // 1. Position Ticker below Top Bar (Make it sticky relative to top bar)
+                    if (tickerBar) {
+                        tickerBar.style.top = `${topBarHeight - 1}px`;
+                    }
+
+                    // 2. Position Main Header below Ticker (or Top Bar if ticker is hidden)
+                    let totalTop = topBarHeight;
                     if (tickerBar && !tickerBar.classList.contains('hidden')) {
-                        height += tickerBar.offsetHeight;
+                        totalTop += tickerBar.offsetHeight;
                     }
                     // Subtract 1px to ensure overlap and prevent sub-pixel rendering gaps
-                    mainHeader.style.top = `${height - 1}px`;
+                    mainHeader.style.top = `${totalTop - 1}px`;
+                }
+            };
+
+            const showTicker = (message, type = 'DEFAULT', temporary = false) => {
+                // Select Icon
+                let icon = '<i class="ri-notification-3-fill"></i>';
+                if (type === 'RESTOCK') icon = '<i class="ri-box-3-fill text-green-400"></i>';
+                if (type === 'NEW_PRODUCT') icon = '<i class="ri-sparkling-fill text-yellow-400"></i>';
+                if (type === 'HOT_ITEM') icon = '<i class="ri-fire-fill text-red-500"></i>';
+                if (type === 'GOOD_REVIEW') icon = '<i class="ri-star-smile-fill text-yellow-400"></i>';
+                if (type === 'DEFAULT') icon = '<i class="ri-store-2-fill text-brand-red"></i>';
+
+                const msgHtml = `<span class="ticker-item">${icon} ${message}</span>`;
+                // Duplicate for smooth marquee
+                tickerContent.innerHTML = msgHtml + '<span class="mx-8"></span>' + msgHtml + '<span class="mx-8"></span>' + msgHtml;
+                
+                tickerBar.classList.remove('hidden');
+                adjustHeaderOffset();
+
+                if (temporary) {
+                    if (tickerTimeout) clearTimeout(tickerTimeout);
+                    tickerTimeout = setTimeout(() => {
+                        // Revert to default
+                        if (defaultTickerMessage) {
+                            showTicker(defaultTickerMessage, 'DEFAULT', false);
+                        } else {
+                            tickerBar.classList.add('hidden');
+                            adjustHeaderOffset();
+                        }
+                    }, 15000);
+                } else {
+                    // Permanent message (Default)
+                    if (tickerTimeout) clearTimeout(tickerTimeout);
                 }
             };
 
@@ -910,34 +951,11 @@
                 }
             });
 
-            // --- Ticker Update Listener ---
-            socket.on('ticker_update', (data) => {
-                if (!data.message) return;
-
-                // Select Icon
-                let icon = '<i class="ri-notification-3-fill"></i>';
-                if (data.type === 'RESTOCK') icon = '<i class="ri-box-3-fill text-green-400"></i>';
-                if (data.type === 'NEW_PRODUCT') icon = '<i class="ri-sparkling-fill text-yellow-400"></i>';
-                if (data.type === 'HOT_ITEM') icon = '<i class="ri-fire-fill text-red-500"></i>';
-                if (data.type === 'GOOD_REVIEW') icon = '<i class="ri-star-smile-fill text-yellow-400"></i>';
-
-                // Format Message
-                const msgHtml = `<span class="ticker-item">${icon} ${data.message}</span>`;
-                // Duplicate for smooth marquee (3 times should cover wide screens)
-                tickerContent.innerHTML = msgHtml + '<span class="mx-8"></span>' + msgHtml + '<span class="mx-8"></span>' + msgHtml;
-
-                // Show Ticker
-                tickerBar.classList.remove('hidden');
-                adjustHeaderOffset();
-
-                // Auto Hide
-                if (tickerTimeout) clearTimeout(tickerTimeout);
-                tickerTimeout = setTimeout(() => {
-                    tickerBar.classList.add('hidden');
-                    adjustHeaderOffset();
-                }, 15000); // 15 Seconds
-            });
-
+                        // --- Ticker Update Listener ---
+                        socket.on('ticker_update', (data) => {
+                            if (!data.message) return;
+                            showTicker(data.message, data.type, true); // True = Temporary (reverts to default)
+                        });
             // --- Toast Notification Function (from dashboard.html) ---
             const showToast = (message, type = 'info') => {
                 const container = document.getElementById('toast-container');
@@ -1939,6 +1957,12 @@
                 const data = await response.json();
                 allProducts = data.products;
                 allCategories = data.categories;
+
+                // Setup Ticker Default
+                if (data.tickerDefaultMessage) {
+                    defaultTickerMessage = data.tickerDefaultMessage;
+                    showTicker(defaultTickerMessage, 'DEFAULT', false);
+                }
 
                 loadCart();
                 renderBanners(data.banners);

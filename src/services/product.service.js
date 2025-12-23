@@ -9,7 +9,7 @@ export const getProductPageData = async () => {
   console.log('[SERVICE TRACE] getProductPageData: Starting...');
   try {
     // Step 1: Fetch primary data in a transaction
-    const [banners, categories, products] = await prisma.$transaction([
+    const [banners, categories, products, tickerConfig] = await prisma.$transaction([
       prisma.banner.findMany({
         where: { isActive: true },
         orderBy: { order: 'asc' },
@@ -54,6 +54,9 @@ export const getProductPageData = async () => {
           nameTh: 'asc',
         },
       }),
+      prisma.systemConfig.findUnique({
+        where: { key: 'ticker_default_message' }
+      })
     ]);
 
     // Step 2: Fetch review aggregations in a separate query
@@ -84,7 +87,8 @@ export const getProductPageData = async () => {
     }));
 
     console.log('[SERVICE TRACE] getProductPageData: Database transaction and aggregation successful.');
-    return { banners, categories, products: productsWithRatings };
+    const tickerMessage = tickerConfig ? tickerConfig.value : "🎉 ยินดีต้อนรับสู่ร้าน Loyalty Shop! สินค้าคุณภาพพร้อมส่ง";
+    return { banners, categories, products: productsWithRatings, tickerDefaultMessage: tickerMessage };
 
   } catch (error) {
     console.error('[SERVICE ERROR] Error in getProductPageData:', error);
