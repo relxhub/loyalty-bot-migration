@@ -1350,7 +1350,7 @@
                 // Only if filtering by category (usually implies viewing a product line) and nicotine is ALL
                 if (currentFilter.nicotine === null && filteredProducts.length > 0) {
                     // Group mode
-                    productGrid.style.display = 'block'; // Disable grid layout on main container
+                    productGrid.style.display = 'block'; // Disable grid layout on main container to use internal groups
                     
                     const uniqueNicLevels = [...new Set(filteredProducts.map(p => p.nicotine).filter(n => n !== null))].sort((a, b) => a - b);
                     
@@ -1363,10 +1363,10 @@
                             if (productsInLevel.length === 0) return;
 
                             htmlContent += `
-                                <div class="mb-4">
-                                    <div class="flex items-center gap-2 mb-3 px-1">
-                                        <span class="text-lg font-bold text-white">Nicotine ${level}%</span>
-                                        <span class="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">${productsInLevel.length} items</span>
+                                <div class="mb-8">
+                                    <div class="flex items-center gap-2 mb-4 px-1">
+                                        <span class="text-xl font-bold text-white">Nicotine ${level}%</span>
+                                        <span class="text-xs text-zinc-500 bg-zinc-800 px-3 py-1 rounded-full">${productsInLevel.length} items</span>
                                     </div>
                                     <div class="grid grid-cols-2 gap-3">
                                         ${productsInLevel.map(createProductCardHtml).join('')}
@@ -1376,18 +1376,18 @@
                             
                             // Add separator if not the last group
                             if (index < uniqueNicLevels.length - 1) {
-                                htmlContent += `<div class="h-px bg-zinc-800 w-full my-6"></div>`;
+                                htmlContent += `<div class="h-px bg-gradient-to-r from-transparent via-zinc-700 to-transparent w-full my-10"></div>`;
                             }
                         });
 
                         // Handle products with no nicotine value (if any)
                         const productsNoNic = filteredProducts.filter(p => p.nicotine === null);
                         if (productsNoNic.length > 0) {
-                             if (htmlContent) htmlContent += `<div class="h-px bg-zinc-800 w-full my-6"></div>`;
+                             if (htmlContent) htmlContent += `<div class="h-px bg-gradient-to-r from-transparent via-zinc-700 to-transparent w-full my-10"></div>`;
                              htmlContent += `
-                                <div class="mb-4">
-                                    <div class="flex items-center gap-2 mb-3 px-1">
-                                        <span class="text-lg font-bold text-white">Others</span>
+                                <div class="mb-8">
+                                    <div class="flex items-center gap-2 mb-4 px-1">
+                                        <span class="text-xl font-bold text-white">Others</span>
                                     </div>
                                     <div class="grid grid-cols-2 gap-3">
                                         ${productsNoNic.map(createProductCardHtml).join('')}
@@ -1398,7 +1398,7 @@
 
                         productGrid.innerHTML = htmlContent;
                     } else {
-                         // Fallback if no nicotine levels found (should be rare if filteredProducts > 0)
+                         // Fallback if no nicotine levels found
                          productGrid.style.display = 'grid';
                          productGrid.innerHTML = filteredProducts.map(createProductCardHtml).join('');
                     }
