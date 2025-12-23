@@ -755,17 +755,6 @@
             100% { background-position: -200% 0; }
         }
         
-        /* --- Scroll Zoom Animation --- */
-        .info-card {
-            /* Existing props... */
-            transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-        }
-        .info-card.scroll-zoom {
-            transform: scale(1.03);
-            z-index: 2;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-        }
-
         /* --- General & Loader --- */
         #loader { display: flex; justify-content: center; align-items: center; height: 100vh; position: fixed; top: 0; left: 0; width: 100%; z-index: 100; background: var(--bg-color); }
         .hidden { display: none; }
@@ -1833,21 +1822,6 @@
                 
                 applyCardBackgrounds();
                 initCardSwipers();
-                initScrollObserver();
-            };
-
-            const initScrollObserver = () => {
-                const observer = new IntersectionObserver((entries) => {
-                    entries.forEach(entry => {
-                        if (entry.isIntersecting) {
-                            entry.target.classList.add('scroll-zoom');
-                        } else {
-                            entry.target.classList.remove('scroll-zoom');
-                        }
-                    });
-                }, { threshold: 0.15, rootMargin: "-5% 0px -5% 0px" }); // Slightly expand trigger area for better feel
-
-                document.querySelectorAll('.info-card').forEach(card => observer.observe(card));
             };
 
             const initCardSwipers = () => {
