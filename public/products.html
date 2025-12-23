@@ -1374,7 +1374,7 @@
                                 <div class="mb-8">
                                     <div class="flex items-center gap-2 mb-4 px-1">
                                         <span class="text-xl font-bold text-white">Nicotine ${level}%</span>
-                                        <span class="text-xs text-zinc-500 bg-zinc-800 px-3 py-1 rounded-full">${productsInLevel.length} items</span>
+                                        <span class="whitespace-nowrap flex-shrink-0 text-xs text-zinc-400 bg-zinc-800 px-4 py-1.5 rounded-full font-medium min-w-[3.5rem] text-center">${productsInLevel.length} items</span>
                                     </div>
                                     <div class="product-group-grid">
                                         ${productsInLevel.map(createProductCardHtml).join('')}
@@ -1384,14 +1384,14 @@
                             
                             // Add separator if not the last group
                             if (index < uniqueNicLevels.length - 1) {
-                                htmlContent += `<div class="h-0.5 bg-gradient-to-r from-[#121212] via-zinc-500 to-[#121212] w-full my-10"></div>`;
+                                htmlContent += `<div class="h-px bg-zinc-800 w-full my-10"></div>`;
                             }
                         });
 
                         // Handle products with no nicotine value (if any)
                         const productsNoNic = filteredProducts.filter(p => p.nicotine === null);
                         if (productsNoNic.length > 0) {
-                             if (htmlContent) htmlContent += `<div class="h-0.5 bg-gradient-to-r from-[#121212] via-zinc-500 to-[#121212] w-full my-10"></div>`;
+                             if (htmlContent) htmlContent += `<div class="h-px bg-zinc-800 w-full my-10"></div>`;
                              htmlContent += `
                                 <div class="mb-8">
                                     <div class="flex items-center gap-2 mb-4 px-1">
@@ -1419,7 +1419,7 @@
                             <div class="mb-8">
                                 <div class="flex items-center gap-2 mb-4 px-1">
                                     <span class="text-xl font-bold text-white">Nicotine ${currentFilter.nicotine}%</span>
-                                    <span class="text-xs text-zinc-500 bg-zinc-800 px-3 py-1 rounded-full">${filteredProducts.length} items</span>
+                                    <span class="whitespace-nowrap flex-shrink-0 text-xs text-zinc-400 bg-zinc-800 px-4 py-1.5 rounded-full font-medium min-w-[3.5rem] text-center">${filteredProducts.length} items</span>
                                 </div>
                                 <div class="product-group-grid">
                                     ${filteredProducts.map(createProductCardHtml).join('')}
