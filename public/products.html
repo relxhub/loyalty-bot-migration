@@ -436,6 +436,21 @@
         .info-card.type-pod .card-image-container {
             height: 30% !important; /* Increased % to maintain image size */
         }
+        /* Scale up content for Pods (Base - Small Screens) */
+        /* Revert to original scaling that fits small screens well */
+        .info-card.type-pod .info-card-name-en { font-size: 11.5cqi; }
+        .info-card.type-pod .info-card-name-th { font-size: 7.5cqi; }
+        .info-card.type-pod .level-label { font-size: 7cqi; }
+        .info-card.type-pod .level-dot { width: 5cqi; height: 5cqi; }
+
+        /* Boost size for Larger Screens (iPhone Pro Max, etc.) */
+        @media (min-width: 410px) {
+            .info-card.type-pod .info-card-name-en { font-size: 13.5cqi; }
+            .info-card.type-pod .info-card-name-th { font-size: 9cqi; }
+            .info-card.type-pod .level-label { font-size: 8cqi; }
+            .info-card.type-pod .level-dot { width: 6cqi; height: 6cqi; }
+        }
+
         .pod-badge-row {
             margin-bottom: 2cqi;
             min-height: 1.25rem; /* Reserve space */
@@ -711,19 +726,19 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 0.2rem;
+            margin-bottom: 2cqi; /* Responsive margin */
         }
         .level-label {
-            font-size: 0.7rem;
+            font-size: 7cqi; /* Responsive font size */
             color: var(--text-secondary);
         }
         .level-dots-container {
             display: flex;
-            gap: 3px;
+            gap: 1.5cqi; /* Responsive gap */
         }
         .level-dot {
-            width: 9px; /* Increased by 10% */
-            height: 9px; /* Increased by 10% */
+            width: 5cqi; /* Responsive size */
+            height: 5cqi; /* Responsive size */
             border-radius: 50%;
             background-color: #333; /* Inactive dot color */
         }
