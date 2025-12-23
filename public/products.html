@@ -343,6 +343,10 @@
         .info-card-price-badge { font-size: 11cqi; } /* ~1.1rem */
         .nicotine-tag { font-size: 6cqi; padding: 1cqi 3cqi; }
 
+        /* Device Specific Overrides */
+        .info-card[data-is-device="true"] .info-card-name-en { font-size: 10.35cqi; } /* Reduced by 10% */
+        .r-badge-color { font-size: 6.75cqi; } /* Reduced by 10% from r-text-xs */
+
         .info-card:active {
             transform: scale(0.98);
         }
@@ -1368,7 +1372,7 @@
                                     <div class="info-card-name-en leading-tight line-clamp-2 font-semibold r-mb-1">${p.nameEn || ''}</div>
 
                                     <!-- Row 3: Color Badge -->
-                                    ${p.color ? `<div class="inline-flex items-center r-text-xs font-bold px-[5cqi] py-[1.25cqi] rounded-full bg-zinc-700 text-zinc-200 border border-zinc-600 shadow-sm"><i class="ri-palette-line mr-1"></i>${p.color}</div>` : ''}
+                                    ${p.color ? `<div class="inline-flex items-center r-badge-color font-bold px-[5cqi] py-[1.25cqi] rounded-full bg-zinc-700 text-zinc-200 border border-zinc-600 shadow-sm"><i class="ri-palette-line mr-1"></i>${p.color}</div>` : ''}
                                 </div>
 
                                 <!-- Bottom: Price above Button -->
