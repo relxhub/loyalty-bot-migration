@@ -255,9 +255,10 @@
 
         /* Force 2 columns for grouped view on all screens */
         .product-group-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.75rem;
+            display: grid !important;
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 0.75rem !important;
+            width: 100% !important;
         }
 
         /* --- Info-Card Design (Final) --- */
@@ -1375,7 +1376,7 @@
                                         <span class="text-xl font-bold text-white">Nicotine ${level}%</span>
                                         <span class="text-xs text-zinc-500 bg-zinc-800 px-3 py-1 rounded-full">${productsInLevel.length} items</span>
                                     </div>
-                                    <div class="grid grid-cols-2 gap-3">
+                                    <div class="product-group-grid">
                                         ${productsInLevel.map(createProductCardHtml).join('')}
                                     </div>
                                 </div>
@@ -1396,7 +1397,7 @@
                                     <div class="flex items-center gap-2 mb-4 px-1">
                                         <span class="text-xl font-bold text-white">Others</span>
                                     </div>
-                                    <div class="grid grid-cols-2 gap-3">
+                                    <div class="product-group-grid">
                                         ${productsNoNic.map(createProductCardHtml).join('')}
                                     </div>
                                 </div>
