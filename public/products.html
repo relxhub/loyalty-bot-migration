@@ -1313,34 +1313,32 @@
                 if (isDevice) {
                     // DEVICE LAYOUT: Image Left, Info Right
                     slide1Content = `
-                        <div class="flex flex-col h-full pt-1">
-                            <div class="flex flex-row flex-grow gap-2">
-                                <div class="w-1/4 h-full rounded-2xl overflow-hidden relative flex-shrink-0 card-image-container">
-                                    <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" style="object-fit: contain !important;" class="product-image w-full h-full" crossorigin="anonymous">
-                                </div>
-                                <div class="w-3/4 flex flex-col pt-1 relative">
-                                    
-                                    <div class="mb-auto flex flex-col items-start w-full">
-                                        <!-- Row 1: Status Badge (Hot/New) -->
-                                        <div class="min-h-[1.25rem] mb-0.5">
-                                            ${deviceStatusBadge}
-                                        </div>
-
-                                        <!-- Row 2: Name -->
-                                        <div class="info-card-name-en text-sm leading-tight line-clamp-2 font-semibold mb-1">${p.nameEn || ''}</div>
-
-                                        <!-- Row 3: Color Badge -->
-                                        ${p.color ? `<div class="inline-flex items-center text-[0.65rem] font-bold px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-200 border border-zinc-600 shadow-sm"><i class="ri-palette-line mr-1"></i>${p.color}</div>` : ''}
-                                    </div>
-                                </div>
+                        <div class="flex flex-row h-full gap-2">
+                            <div class="w-1/4 h-full rounded-2xl overflow-hidden relative flex-shrink-0 card-image-container">
+                                <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" style="object-fit: contain !important;" class="product-image w-full h-full" crossorigin="anonymous">
                             </div>
+                            <div class="w-3/4 flex flex-col h-full pt-1 pb-2 pr-1 relative">
+                                
+                                <div class="mb-auto flex flex-col items-start w-full">
+                                    <!-- Row 1: Status Badge (Hot/New) -->
+                                    <div class="min-h-[1.25rem] mb-0.5">
+                                        ${deviceStatusBadge}
+                                    </div>
 
-                            <!-- Bottom: Price and Button -->
-                            <div class="mt-auto card-bottom-row">
-                                 <div class="info-card-price-badge">${price} Baht</div>
-                                 <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
-                                    <i class="ri-shopping-cart-2-line mr-1"></i> Add
-                                 </button>
+                                    <!-- Row 2: Name -->
+                                    <div class="info-card-name-en text-sm leading-tight line-clamp-2 font-semibold mb-1">${p.nameEn || ''}</div>
+
+                                    <!-- Row 3: Color Badge -->
+                                    ${p.color ? `<div class="inline-flex items-center text-[0.65rem] font-bold px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-200 border border-zinc-600 shadow-sm"><i class="ri-palette-line mr-1"></i>${p.color}</div>` : ''}
+                                </div>
+
+                                <!-- Bottom: Price above Button -->
+                                <div class="flex flex-col items-end gap-2 mt-2">
+                                     <div class="info-card-price-badge text-lg font-bold leading-none">${price} Baht</div>
+                                     <button class="add-to-cart-btn w-full justify-center ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
+                                        <i class="ri-shopping-cart-2-line mr-1"></i> Add
+                                     </button>
+                                </div>
                             </div>
                         </div>
                     `;
