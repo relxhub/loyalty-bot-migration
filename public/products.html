@@ -227,6 +227,22 @@
         #special-filter-container::-webkit-scrollbar { display: none; }
 
         /* --- Product Grid --- */
+        #main-header {
+            /* Ensure positioning context for pseudo-element */
+            position: sticky;
+        }
+        #main-header::after {
+            content: '';
+            position: absolute;
+            bottom: -40px; /* Height of the fade effect */
+            left: 0;
+            width: 100%;
+            height: 40px;
+            background: linear-gradient(to bottom, #121212 10%, transparent 100%);
+            pointer-events: none;
+            z-index: 9;
+        }
+
         .product-section-title {
             font-size: 1.5rem;
             font-weight: 600;
@@ -1131,7 +1147,7 @@
                 const product = allProducts.find(p => p.id === productId);
                 if (!product) return;
 
-                try { tg.hapticFeedback.impactOccurred('medium'); } catch(e) {}
+                if (tg.hapticFeedback) tg.hapticFeedback.impactOccurred('medium');
 
                 const cartItem = cart.find(item => item.id === productId);
                 if (cartItem) {
@@ -1970,7 +1986,9 @@
             categorySelector.addEventListener('click', (e) => {
                 const target = e.target.closest('.category-wrapper');
                 if (!target) return;
-                try { tg.hapticFeedback.selectionChanged(); } catch(e) {}
+                
+                if (tg.hapticFeedback) tg.hapticFeedback.selectionChanged();
+                
                 categorySelector.querySelector('.active')?.classList.remove('active');
                 target.classList.add('active');
                 target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
