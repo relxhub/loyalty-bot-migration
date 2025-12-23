@@ -1603,6 +1603,29 @@
                     categoryNameDisplay.textContent = activeCategory.name;
                     categoryPriceDisplay.textContent = price;
                     renderNicotineFilters();
+
+                    // Update Special Filters based on Category Type
+                    const isDevice = activeCategory.type === 'DEVICE';
+                    const filterHotBtn = document.querySelector('.special-filter-btn.filter-hot');
+                    const filterNewBtn = document.querySelector('.special-filter-btn.filter-new');
+                    const filterCoolBtn = document.querySelector('.special-filter-btn.filter-cool');
+
+                    if (isDevice) {
+                        filterHotBtn.innerHTML = '<i class="ri-fire-fill mr-1"></i>สียอดนิยม';
+                        filterNewBtn.innerHTML = '<i class="ri-sparkling-fill mr-1"></i>สีใหม่';
+                        filterCoolBtn.style.display = 'none';
+                        
+                        // If "Cool" was active, deactivate it to prevent empty state
+                        if (currentFilter.special === 'cool') {
+                            currentFilter.special = null;
+                            filterCoolBtn.classList.remove('active');
+                            renderProducts();
+                        }
+                    } else {
+                        filterHotBtn.innerHTML = '<i class="ri-fire-fill mr-1"></i>กลิ่นยอดนิยม';
+                        filterNewBtn.innerHTML = '<i class="ri-sparkling-fill mr-1"></i>กลิ่นใหม่';
+                        filterCoolBtn.style.display = 'flex';
+                    }
                 }
             };
 
