@@ -1271,10 +1271,13 @@
 
                 // Badge Logic
                 let leftBadgeHtml = '';
-                if (p.isNew) {
-                    leftBadgeHtml = `<div class="badge-capsule badge-left badge-new"><i class="ri-sparkling-fill"></i> NEW</div>`;
-                } else if (p.isHot) {
-                    leftBadgeHtml = `<div class="badge-capsule badge-left badge-hot"><i class="ri-fire-fill"></i> HOT</div>`;
+                // Only generate absolute left badge for NON-devices
+                if (!isDevice) {
+                    if (p.isNew) {
+                        leftBadgeHtml = `<div class="badge-capsule badge-left badge-new"><i class="ri-sparkling-fill"></i> NEW</div>`;
+                    } else if (p.isHot) {
+                        leftBadgeHtml = `<div class="badge-capsule badge-left badge-hot"><i class="ri-fire-fill"></i> HOT</div>`;
+                    }
                 }
 
                 let rightBadgeHtml = '';
@@ -1282,10 +1285,15 @@
                     if (p.coolnessLevel >= 6) {
                         rightBadgeHtml = `<div class="badge-capsule badge-right badge-cool"><i class="ri-snowy-line"></i> COOL</div>`;
                     }
-                } else {
-                    // For Devices: Show Color Badge on Top Right
-                     if (p.color) {
-                        rightBadgeHtml = `<div class="badge-capsule badge-right" style="background: #333; border: 1px solid #555;"><i class="ri-palette-line"></i> ${p.color}</div>`;
+                }
+
+                // Inline Status Badge for Devices
+                let deviceStatusBadge = '';
+                if (isDevice) {
+                    if (p.isNew) {
+                        deviceStatusBadge = `<div class="inline-flex items-center text-[0.6rem] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 text-white mb-1 shadow-sm self-start"><i class="ri-sparkling-fill mr-1"></i>NEW</div>`;
+                    } else if (p.isHot) {
+                        deviceStatusBadge = `<div class="inline-flex items-center text-[0.6rem] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-red-500 to-red-600 text-white mb-1 shadow-sm self-start"><i class="ri-fire-fill mr-1"></i>HOT</div>`;
                     }
                 }
 
@@ -1296,14 +1304,15 @@
                 if (isDevice) {
                     // DEVICE LAYOUT: Image Left, Info Right
                     slide1Content = `
-                        ${leftBadgeHtml}
                         <div class="flex flex-row h-full gap-2">
                             <div class="w-1/4 h-full rounded-2xl overflow-hidden relative flex-shrink-0 card-image-container">
                                 <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" style="object-fit: contain !important;" class="product-image w-full h-full ${isOutOfStock ? 'grayscale' : ''}" crossorigin="anonymous">
                             </div>
                             <div class="w-3/4 flex flex-col h-full py-1 pr-1 relative">
                                 
-                                <div class="mb-auto">
+                                <div class="mb-auto flex flex-col items-start">
+                                    <!-- Status Badge (Hot/New) -->
+                                    ${deviceStatusBadge}
                                     <!-- Color Badge -->
                                     ${p.color ? `<div class="inline-flex items-center text-[0.65rem] font-bold px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-200 mb-1 border border-zinc-600 shadow-sm"><i class="ri-palette-line mr-1"></i>${p.color}</div>` : ''}
                                     <!-- Name -->
