@@ -1384,14 +1384,14 @@
                             
                             // Add separator if not the last group
                             if (index < uniqueNicLevels.length - 1) {
-                                htmlContent += `<div class="h-0.5 bg-gradient-to-r from-transparent via-zinc-500 to-transparent w-full my-12 opacity-80"></div>`;
+                                htmlContent += `<div class="h-0.5 bg-gradient-to-r from-[#121212] via-zinc-500 to-[#121212] w-full my-10"></div>`;
                             }
                         });
 
                         // Handle products with no nicotine value (if any)
                         const productsNoNic = filteredProducts.filter(p => p.nicotine === null);
                         if (productsNoNic.length > 0) {
-                             if (htmlContent) htmlContent += `<div class="h-0.5 bg-gradient-to-r from-transparent via-zinc-500 to-transparent w-full my-12 opacity-80"></div>`;
+                             if (htmlContent) htmlContent += `<div class="h-0.5 bg-gradient-to-r from-[#121212] via-zinc-500 to-[#121212] w-full my-10"></div>`;
                              htmlContent += `
                                 <div class="mb-8">
                                     <div class="flex items-center gap-2 mb-4 px-1">
