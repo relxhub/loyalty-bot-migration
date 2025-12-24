@@ -2348,16 +2348,20 @@
                     if (product.status === 'OUT_OF_STOCK') {
                         showToast('สินค้าหมด', 'error');
                     } else {
-                        flyToCart(addToCartBtn); // Trigger animation
-                        addToCart(productId);
-                        // Removed standard toast to avoid clutter with animation, 
-                        // or keep it if you want double feedback. Let's keep it but maybe subtle?
-                        // User request didn't say to remove it.
-                        // showToast('ใส่ในตะกร้าแล้ว', 'success'); 
+                        // Success Animation (Green Check)
+                        addToCartBtn.classList.add('btn-success-state');
+                        const icon = addToCartBtn.querySelector('i');
+                        const originalIconClass = icon.className;
                         
-                        // Let's delay toast slightly to sync with arrival? 
-                        // Or just show it immediately. Let's stick to original behavior + animation.
-                         showToast('ใส่ในตะกร้าแล้ว', 'success');
+                        icon.className = 'ri-check-line mr-1';
+                        
+                        setTimeout(() => {
+                            addToCartBtn.classList.remove('btn-success-state');
+                            icon.className = originalIconClass;
+                        }, 1000);
+
+                        addToCart(productId);
+                        showToast('ใส่ในตะกร้าแล้ว', 'success');
                     }
                     return;
                 }
