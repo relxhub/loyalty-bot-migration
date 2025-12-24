@@ -586,6 +586,64 @@
             transform: translateY(0);
         }
 
+        /* --- Favorites Feature Styles --- */
+        .fav-btn {
+            position: absolute;
+            z-index: 20;
+            width: 2rem; 
+            height: 2rem;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        .fav-btn:active { transform: scale(0.9); }
+        .fav-btn.active { 
+            color: #ef4444; 
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+        .fav-btn i { font-size: 1.1rem; }
+
+        /* Positioning for Pod/Disposable (Middle Right) */
+        .fav-btn.pos-mid-right { 
+            top: 50%; 
+            right: 0.5rem; 
+            transform: translateY(-50%);
+        }
+        .fav-btn.pos-mid-right:active {
+            transform: translateY(-50%) scale(0.9);
+        }
+        
+        /* Positioning for Device (Bottom Center) */
+        .fav-btn.pos-bottom-center { 
+            bottom: 0.5rem; 
+            left: 50%; 
+            transform: translateX(-50%);
+        }
+        .fav-btn.pos-bottom-center:active {
+            transform: translateX(-50%) scale(0.9);
+        }
+
+        /* Header Fav Icon Animation */
+        @keyframes fav-bump {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.3); }
+            100% { transform: scale(1); }
+        }
+        .fav-bump-anim { animation: fav-bump 0.3s ease-in-out; }
+
+        /* Favorites Modal */
+        #fav-modal.show { opacity: 1; pointer-events: all; }
+        #fav-modal.show #fav-modal-content { transform: translateY(0); }
+
         .info-card-price-badge {
             font-size: 1.1rem; /* Increased size +20% */
             font-weight: 700;
@@ -810,7 +868,11 @@
                 <div class="w-1/2 flex justify-center">
                     <img src="logo.png" alt="Company Logo" class="w-40">
                 </div>
-                <div class="w-1/4 flex justify-end">
+                <div class="w-1/4 flex justify-end gap-3">
+                    <button id="fav-button" class="relative text-zinc-400">
+                        <i class="ri-heart-3-line text-2xl"></i>
+                        <span id="fav-dot" class="hidden absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border border-zinc-900"></span>
+                    </button>
                     <button id="cart-button" class="relative text-white">
                         <i class="ri-shopping-cart-2-line text-3xl"></i>
                         <span id="cart-item-count" class="hidden absolute -top-1 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">0</span>
@@ -1107,6 +1169,7 @@
             let allProducts = [];
             let allCategories = [];
             let cart = [];
+            let favorites = []; // Store favorite product IDs
             let currentUser = null;
             let activeProduct = null;
             let currentFilter = {
@@ -1145,6 +1208,142 @@
             const cartTotalPrice = document.getElementById('cart-total-price');
             const copyCartBtn = document.getElementById('copy-cart-btn');
             const clearCartBtn = document.getElementById('clear-cart-btn');
+
+            // --- Favorites Functions ---
+            const favModal = document.getElementById('fav-modal');
+            const favModalContent = document.getElementById('fav-modal-content');
+            const favListWrapper = document.getElementById('fav-list-wrapper');
+            const favButton = document.getElementById('fav-button');
+            const closeFavModalBtn = document.getElementById('close-fav-modal-btn');
+
+            const saveFavorites = () => {
+                localStorage.setItem('favorites', JSON.stringify(favorites));
+            };
+
+            const loadFavorites = () => {
+                const saved = localStorage.getItem('favorites');
+                if (saved) {
+                    favorites = JSON.parse(saved);
+                    updateFavUI();
+                }
+            };
+
+            const toggleFavorite = (productId, btnElement) => {
+                const index = favorites.indexOf(productId);
+                
+                if (index === -1) {
+                    favorites.push(productId);
+                    if(btnElement) {
+                        btnElement.classList.add('active');
+                        btnElement.querySelector('i').className = 'ri-heart-3-fill';
+                    }
+                    showToast('เพิ่มในรายการที่ชอบ', 'success');
+                } else {
+                    favorites.splice(index, 1);
+                    if(btnElement) {
+                        btnElement.classList.remove('active');
+                        btnElement.querySelector('i').className = 'ri-heart-3-line';
+                    }
+                    showToast('ลบออกจากรายการที่ชอบ', 'info');
+                }
+                
+                saveFavorites();
+                updateFavUI();
+                try { tg.hapticFeedback.selectionChanged(); } catch(e) {}
+            };
+
+            const updateFavUI = () => {
+                const favDot = document.getElementById('fav-dot');
+                const favBtnIcon = favButton.querySelector('i');
+                
+                if (favorites.length > 0) {
+                    favDot.classList.remove('hidden');
+                    favBtnIcon.classList.add('text-red-500');
+                    favBtnIcon.classList.remove('text-zinc-400');
+                } else {
+                    favDot.classList.add('hidden');
+                    favBtnIcon.classList.remove('text-red-500');
+                    favBtnIcon.classList.add('text-zinc-400');
+                }
+
+                favButton.classList.remove('fav-bump-anim');
+                void favButton.offsetWidth; 
+                favButton.classList.add('fav-bump-anim');
+
+                // Sync Grid Buttons
+                document.querySelectorAll('.fav-btn').forEach(btn => {
+                    const id = parseInt(btn.dataset.productId);
+                    if(favorites.includes(id)) {
+                        btn.classList.add('active');
+                        btn.querySelector('i').className = 'ri-heart-3-fill';
+                    } else {
+                        btn.classList.remove('active');
+                        btn.querySelector('i').className = 'ri-heart-3-line';
+                    }
+                });
+
+                if(!favModal.classList.contains('hidden')) renderFavModal();
+            };
+
+            const renderFavModal = () => {
+                if (favorites.length === 0) {
+                    favListWrapper.innerHTML = `<p class="text-zinc-500 text-center py-8">ยังไม่มีรายการที่ชอบ</p>`;
+                    return;
+                }
+
+                const favProducts = allProducts.filter(p => favorites.includes(p.id));
+                
+                const groups = favProducts.reduce((acc, p) => {
+                    const catName = allCategories.find(c => c.id === p.categoryId)?.name || 'Other';
+                    if (!acc[catName]) acc[catName] = [];
+                    acc[catName].push(p);
+                    return acc;
+                }, {});
+
+                let html = '';
+                for (const [catName, products] of Object.entries(groups)) {
+                    html += `
+                        <div class="bg-zinc-900/50 rounded-xl p-3 border border-zinc-700/30">
+                            <h4 class="text-xs font-bold text-zinc-400 mb-2 uppercase tracking-wider">${catName}</h4>
+                            <div class="space-y-2">
+                                ${products.map(p => `
+                                    <div class="flex items-center gap-3 bg-zinc-800 rounded-lg p-2 relative overflow-hidden">
+                                        <div class="w-12 h-12 rounded-lg bg-zinc-700 flex-shrink-0">
+                                            <img src="${p.imageUrl}" class="w-full h-full object-cover">
+                                        </div>
+                                        <div class="flex-grow min-w-0">
+                                            <div class="text-sm font-semibold truncate text-white">${p.nameEn}</div>
+                                            <div class="text-xs text-zinc-400 truncate">${p.nameTh || ''}</div>
+                                        </div>
+                                        <button class="w-8 h-8 rounded-full bg-zinc-900 text-red-500 flex items-center justify-center shadow-sm active:scale-90 transition" onclick="toggleFavorite(${p.id}, null)">
+                                            <i class="ri-delete-bin-line"></i>
+                                        </button>
+                                        <button class="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-red-500 text-white flex items-center justify-center shadow-lg active:scale-90 transition ml-2" onclick="const btn = this; setTimeout(() => flyToCart(btn), 50); addToCart(${p.id}); showToast('ใส่ตะกร้าแล้ว', 'success');" data-product-id="${p.id}">
+                                            <i class="ri-shopping-cart-2-line"></i>
+                                        </button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+                favListWrapper.innerHTML = html;
+            };
+
+            const openFavModal = () => {
+                renderFavModal();
+                favModal.classList.remove('hidden');
+                document.body.classList.add('modal-open');
+                setTimeout(() => favModal.classList.add('show'), 10);
+            };
+
+            const closeFavModal = () => {
+                favModal.classList.remove('show');
+                setTimeout(() => {
+                    favModal.classList.add('hidden');
+                    document.body.classList.remove('modal-open');
+                }, 300);
+            };
 
             // --- Cart Functions ---
             const saveCart = () => {
@@ -1601,8 +1800,14 @@
                 const price = category ? parseFloat(category.price).toLocaleString('th-TH') : '';
                 const isOutOfStock = p.status === 'OUT_OF_STOCK';
                 
-                // Adaptive Logic: Check if it's a device (via Category Type or properties)
+                // Adaptive Logic
                 const isDevice = (category && category.type === 'DEVICE') || (p.color || p.battery || p.wattage);
+                const isFav = favorites.includes(p.id);
+                const favBtnHtml = `
+                    <button class="fav-btn ${isFav ? 'active' : ''} ${isDevice ? 'pos-bottom-center' : 'pos-mid-right'}" data-product-id="${p.id}">
+                        <i class="${isFav ? 'ri-heart-3-fill' : 'ri-heart-3-line'}"></i>
+                    </button>
+                `;
 
                 // --- Badge Logic ---
                 
@@ -1662,6 +1867,7 @@
                         <div class="flex flex-row h-full r-gap-1">
                             <div class="w-1/4 h-full rounded-2xl overflow-hidden relative flex-shrink-0 card-image-container">
                                 <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" style="object-fit: contain !important;" class="product-image w-full h-full" crossorigin="anonymous">
+                                ${favBtnHtml}
                             </div>
                             <div class="w-3/4 flex flex-col h-full pt-[2.5cqi] pb-[5cqi] pr-[2.5cqi] relative">
                                 
@@ -1693,6 +1899,7 @@
                     slide1Content = `
                         <div class="card-image-container">
                             <img src="${p.imageUrl || 'logo.png'}" alt="${p.nameEn}" class="product-image" crossorigin="anonymous">
+                            ${favBtnHtml}
                         </div>
                         
                         <div class="card-content-wrapper">
@@ -2023,6 +2230,14 @@
             });
 
             productGrid.addEventListener('click', (e) => {
+                const favBtn = e.target.closest('.fav-btn');
+                if (favBtn) {
+                    e.stopPropagation();
+                    const productId = parseInt(favBtn.dataset.productId);
+                    toggleFavorite(productId, favBtn);
+                    return;
+                }
+
                 const addToCartBtn = e.target.closest('.add-to-cart-btn');
                 if (addToCartBtn) {
                     e.stopPropagation();
@@ -2066,6 +2281,10 @@
             closeProductModalBtn.addEventListener('click', closeQuickViewModal);
             productModal.addEventListener('click', (e) => e.target === productModal && closeQuickViewModal());
             
+            favButton.addEventListener('click', openFavModal);
+            closeFavModalBtn.addEventListener('click', closeFavModal);
+            favModal.addEventListener('click', (e) => e.target === favModal && closeFavModal());
+
             cartButton.addEventListener('click', openCartModal);
             closeCartModalBtn.addEventListener('click', closeCartModal);
             cartModal.addEventListener('click', (e) => e.target === cartModal && closeCartModal());
@@ -2100,6 +2319,7 @@
                 }
 
                 loadCart();
+                loadFavorites();
                 renderBanners(data.banners);
                 renderCategories(data.categories);
                 
@@ -2148,6 +2368,28 @@
                     <div id="review-content-container" class="bg-zinc-900/50 p-3 rounded-lg min-h-[100px]">
                         <!-- Content will be injected by JS -->
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Favorites Modal -->
+    <div id="fav-modal" class="hidden fixed inset-0 z-[70] flex items-end justify-center bg-black/60 backdrop-blur-sm">
+        <div id="fav-modal-content" class="bg-zinc-800 w-full max-w-md rounded-t-2xl flex flex-col max-h-[85vh] transform translate-y-full transition-transform duration-300">
+            <!-- Header -->
+            <div class="flex-shrink-0 p-4 border-b border-zinc-700 flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <i class="ri-heart-3-fill text-red-500 text-xl"></i>
+                    <h3 class="text-lg font-bold">รายการที่ชอบ</h3>
+                </div>
+                <button id="close-fav-modal-btn" class="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center hover:bg-zinc-600 transition">
+                    <i class="ri-close-line"></i>
+                </button>
+            </div>
+            <!-- Body -->
+            <div id="fav-items-container" class="flex-grow overflow-y-auto p-4">
+                <div id="fav-list-wrapper" class="grid grid-cols-1 gap-3">
+                    <!-- Fav items injected by JS -->
                 </div>
             </div>
         </div>
