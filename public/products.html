@@ -1528,25 +1528,25 @@
 
                 let html = '';
                 for (const [categoryName, items] of Object.entries(groups)) {
-                    html += `<div class="mb-3 last:mb-0">
-                        <div class="text-[0.7rem] font-bold text-zinc-500 uppercase tracking-wider mb-1 pl-1">${categoryName}</div>
-                        <div class="space-y-1.5">
+                    html += `<div class="mb-4 last:mb-0">
+                        <div class="text-[1rem] font-bold text-zinc-500 uppercase tracking-wider mb-2 pl-1">${categoryName}</div>
+                        <div class="space-y-2">
                             ${items.map(item => `
-                                <div class="flex items-center gap-2 text-white p-2 bg-zinc-800/50 rounded-xl border border-zinc-700/30">
+                                <div class="flex items-center gap-3 text-white p-2.5 bg-zinc-800/50 rounded-xl border border-zinc-700/30">
                                     <div class="flex-grow min-w-0">
-                                        <p class="font-semibold text-sm leading-tight truncate">${item.nameEn}</p>
-                                        <div class="flex items-baseline gap-2 mt-0.5">
-                                            <span class="text-[0.65rem] text-zinc-400 truncate">${item.nameTh || ''} ${item.nicotine !== null ? `(${item.nicotine}%)` : ''}</span>
-                                            <span class="text-brand-red font-bold text-xs ml-auto pr-1">${(item.price * item.quantity).toLocaleString('th-TH')} ฿</span>
-                                        </div>
+                                        <p class="font-bold text-[1.2rem] leading-tight truncate text-white">${item.nameEn}</p>
+                                        <p class="text-sm text-zinc-400 truncate mt-0.5">${item.nameTh || ''} ${item.nicotine !== null ? `(${item.nicotine}%)` : ''}</p>
                                     </div>
+                                    
+                                    <div class="text-brand-red font-bold text-[1rem] whitespace-nowrap">${(item.price * item.quantity).toLocaleString('th-TH')} ฿</div>
+
                                     <div class="flex items-center bg-zinc-900 rounded-lg p-1 gap-1.5 flex-shrink-0">
-                                        <button class="quantity-btn w-6 h-6 rounded bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-300 transition active:scale-95" data-product-id="${item.id}" data-change="-1">
-                                            <i class="ri-subtract-line text-xs"></i>
+                                        <button class="quantity-btn w-7 h-7 rounded bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-300 transition active:scale-95" data-product-id="${item.id}" data-change="-1">
+                                            <i class="ri-subtract-line text-sm"></i>
                                         </button>
-                                        <span class="font-bold min-w-[1rem] text-center text-white text-sm">${item.quantity}</span>
-                                        <button class="quantity-btn w-6 h-6 rounded bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-300 transition active:scale-95" data-product-id="${item.id}" data-change="1">
-                                            <i class="ri-add-line text-xs"></i>
+                                        <span class="font-bold min-w-[1.25rem] text-center text-white text-base">${item.quantity}</span>
+                                        <button class="quantity-btn w-7 h-7 rounded bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-300 transition active:scale-95" data-product-id="${item.id}" data-change="1">
+                                            <i class="ri-add-line text-sm"></i>
                                         </button>
                                     </div>
                                 </div>
