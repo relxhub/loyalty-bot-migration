@@ -2314,6 +2314,14 @@
             copyCartBtn.addEventListener('click', copyCartToClipboard);
             clearCartBtn.addEventListener('click', clearCart);
 
+            // --- Expose functions for inline HTML handlers ---
+            window.toggleFavorite = toggleFavorite;
+            window.addToCart = addToCart;
+            window.flyToCart = flyToCart;
+            window.showToast = showToast;
+            window.closeFavModal = closeFavModal;
+            window.openCartModal = openCartModal;
+
             // --- Main Fetch and Initialization ---
             try {
                 const authResponse = await fetch('/api/auth', {
