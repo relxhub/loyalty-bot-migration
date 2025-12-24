@@ -1246,7 +1246,13 @@
                 
                 saveFavorites();
                 updateFavUI();
-                try { tg.hapticFeedback.selectionChanged(); } catch(e) {}
+                try { 
+                    if (window.Telegram?.WebApp?.HapticFeedback) {
+                        window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+                    } else {
+                        tg.HapticFeedback.impactOccurred('medium'); 
+                    }
+                } catch(e) {}
             };
 
             const updateFavUI = () => {
@@ -1419,11 +1425,24 @@
             
             const updateCartIcon = () => {
                 const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+                
+                // Main Header Cart Badge
                 cartItemCount.textContent = totalItems;
                 if (totalItems > 0) {
                     cartItemCount.classList.remove('hidden');
                 } else {
                     cartItemCount.classList.add('hidden');
+                }
+
+                // Fav Modal Cart Badge
+                const favCartBadge = document.getElementById('fav-cart-badge');
+                if (favCartBadge) {
+                    favCartBadge.textContent = totalItems;
+                    if (totalItems > 0) {
+                        favCartBadge.classList.remove('hidden');
+                    } else {
+                        favCartBadge.classList.add('hidden');
+                    }
                 }
             };
             
@@ -2223,6 +2242,11 @@
                 target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
                 currentFilter.categoryId = parseInt(target.dataset.categoryId);
                 currentFilter.nicotine = null;
+                
+                // Reset Special Filters
+                currentFilter.special = null;
+                document.querySelectorAll('.special-filter-btn').forEach(btn => btn.classList.remove('active'));
+
                 updateSectionTitle();
                 renderProducts();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2382,8 +2406,9 @@
                     <h3 class="text-lg font-bold">รายการที่ชอบ</h3>
                 </div>
                 <div class="flex gap-2">
-                    <button id="fav-to-cart-btn" class="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center hover:bg-zinc-600 transition text-white" onclick="closeFavModal(); openCartModal();">
+                    <button id="fav-to-cart-btn" class="relative w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center hover:bg-zinc-600 transition text-white" onclick="closeFavModal(); openCartModal();">
                         <i class="ri-shopping-cart-2-line"></i>
+                        <span id="fav-cart-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[0.6rem] rounded-full h-4 w-4 flex items-center justify-center font-bold border border-zinc-800">0</span>
                     </button>
                     <button id="close-fav-modal-btn" class="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center hover:bg-zinc-600 transition">
                         <i class="ri-close-line"></i>
