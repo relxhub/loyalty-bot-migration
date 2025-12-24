@@ -1517,24 +1517,44 @@
                 copyCartBtn.disabled = false;
                 clearCartBtn.classList.remove('hidden');
                 
-                cartListWrapper.innerHTML = cart.map(item => `
-                    <div class="flex items-center gap-3 text-white mb-3 last:mb-0 p-3 bg-zinc-800/50 rounded-xl">
-                        <div class="flex-grow">
-                            <p class="font-semibold text-[1.1rem] leading-tight">${item.nameEn}</p>
-                            <p class="text-xs text-zinc-400">${item.nameTh || ''} ${item.nicotine !== null ? `(${item.nicotine}%)` : ''}</p>
-                            <p class="text-brand-red font-bold text-sm mt-1">${(item.price * item.quantity).toLocaleString('th-TH')} ฿</p>
+                // Group by Category
+                const groups = cart.reduce((acc, item) => {
+                    const key = item.categoryName || 'Other';
+                    if (!acc[key]) acc[key] = [];
+                    acc[key].push(item);
+                    return acc;
+                }, {});
+
+                let html = '';
+                for (const [categoryName, items] of Object.entries(groups)) {
+                    html += `<div class="mb-3 last:mb-0">
+                        <div class="text-[0.7rem] font-bold text-zinc-500 uppercase tracking-wider mb-1 pl-1">${categoryName}</div>
+                        <div class="space-y-1.5">
+                            ${items.map(item => `
+                                <div class="flex items-center gap-2 text-white p-2 bg-zinc-800/50 rounded-xl border border-zinc-700/30">
+                                    <div class="flex-grow min-w-0">
+                                        <p class="font-semibold text-sm leading-tight truncate">${item.nameEn}</p>
+                                        <div class="flex items-baseline gap-2 mt-0.5">
+                                            <span class="text-[0.65rem] text-zinc-400 truncate">${item.nameTh || ''} ${item.nicotine !== null ? `(${item.nicotine}%)` : ''}</span>
+                                            <span class="text-brand-red font-bold text-xs ml-auto pr-1">${(item.price * item.quantity).toLocaleString('th-TH')} ฿</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center bg-zinc-900 rounded-lg p-1 gap-1.5 flex-shrink-0">
+                                        <button class="quantity-btn w-6 h-6 rounded bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-300 transition active:scale-95" data-product-id="${item.id}" data-change="-1">
+                                            <i class="ri-subtract-line text-xs"></i>
+                                        </button>
+                                        <span class="font-bold min-w-[1rem] text-center text-white text-sm">${item.quantity}</span>
+                                        <button class="quantity-btn w-6 h-6 rounded bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-300 transition active:scale-95" data-product-id="${item.id}" data-change="1">
+                                            <i class="ri-add-line text-xs"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')}
                         </div>
-                        <div class="flex items-center bg-zinc-900 rounded-lg p-1.5 gap-2">
-                            <button class="quantity-btn w-8 h-8 rounded bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-300 transition active:scale-95" data-product-id="${item.id}" data-change="-1">
-                                <i class="ri-subtract-line text-sm"></i>
-                            </button>
-                            <span class="font-bold min-w-[1.5rem] text-center text-white text-base">${item.quantity}</span>
-                            <button class="quantity-btn w-8 h-8 rounded bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-300 transition active:scale-95" data-product-id="${item.id}" data-change="1">
-                                <i class="ri-add-line text-sm"></i>
-                            </button>
-                        </div>
-                    </div>
-                `).join('');
+                    </div>`;
+                }
+                
+                cartListWrapper.innerHTML = html;
 
                 const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
                 cartTotalPrice.textContent = `${total.toLocaleString('th-TH')} Baht`;
