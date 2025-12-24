@@ -657,7 +657,8 @@
             background-color: #22c55e !important;
             color: white !important;
             box-shadow: none !important; 
-            transform: scale(1.1);
+            transform: scale(1.05);
+            transform-origin: center;
         }
 
         /* Favorites Modal */
@@ -1982,7 +1983,7 @@
                                 <!-- Bottom: Price above Button -->
                                 <div class="flex flex-col items-end r-gap-1 mt-[5cqi]">
                                      <div class="info-card-price-badge font-bold leading-none">${price} Baht</div>
-                                     <button class="add-to-cart-btn r-btn w-full justify-center ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
+                                     <button class="add-to-cart-btn r-btn w-full justify-center mr-1 ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
                                         <i class="ri-shopping-cart-2-line mr-1"></i> Add
                                      </button>
                                 </div>
@@ -2004,8 +2005,7 @@
                         </div>
                         
                         <div class="card-bottom-row">
-                                <div class="info-card-price-badge">${price} Baht</div>
-                                <button class="add-to-cart-btn r-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
+                                <button class="add-to-cart-btn r-btn mr-1 ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
                                 <i class="ri-shopping-cart-2-line mr-1"></i> Add
                                 </button>
                         </div>
@@ -2039,7 +2039,7 @@
 
                             <div class="mt-auto card-bottom-row">
                                  <div class="info-card-price-badge">${price} Baht</div>
-                                 <button class="add-to-cart-btn r-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
+                                 <button class="add-to-cart-btn r-btn mr-1 ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
                                     <i class="ri-shopping-cart-2-line mr-1"></i> Add
                                  </button>
                             </div>
@@ -2069,8 +2069,7 @@
                         </div>
 
                         <div class="card-bottom-row">
-                                <div class="info-card-price-badge">${price} Baht</div>
-                                <button class="add-to-cart-btn r-btn ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
+                                <button class="add-to-cart-btn r-btn mr-1 ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
                                 <i class="ri-shopping-cart-2-line mr-1"></i> Add
                                 </button>
                         </div>
