@@ -1677,21 +1677,49 @@
                 }, 600);
             };
 
-            // --- Product Modal Functions (unchanged) ---
+            // --- Product Modal Functions ---
             const openQuickViewModal = (product) => {
                 activeProduct = product;
-                document.getElementById('modal-product-name').textContent = product.nameTh || product.nameEn;
+                
+                // --- Header Modification ---
+                const category = allCategories.find(c => c.id === product.categoryId);
+                const modalTitleEl = document.getElementById('modal-product-name');
+                const nicotineStr = product.nicotine !== null ? `(${product.nicotine}%)` : '';
+                
+                // New Header Format:
+                // English Name (nicotine%)
+                // Thai Name (nicotine%)
+                // Category Name
+                modalTitleEl.innerHTML = `
+                    <div class="flex flex-col items-start gap-0.5">
+                        <span class="text-lg font-bold text-white leading-tight">${product.nameEn || ''} ${nicotineStr}</span>
+                        <span class="text-sm text-zinc-400 font-normal">${product.nameTh || ''} ${nicotineStr}</span>
+                        <span class="text-xs text-brand-red font-bold uppercase tracking-wide bg-red-500/10 px-2 py-0.5 rounded mt-1">${category?.name || ''}</span>
+                    </div>
+                `;
+
                 document.getElementById('modal-product-description').textContent = product.description || '';
+                
+                // --- Body Modification (Image vs Levels) ---
                 const levelBarsContainer = document.getElementById('modal-level-bars');
-                const levels = [
-                    { label: 'ความหวาน', value: product.sweetnessLevel },
-                    { label: 'ความเย็น', value: product.coolnessLevel },
-                    { label: 'ความชัดของกลิ่น', value: product.flavorIntensityLevel }
-                ];
-                levelBarsContainer.innerHTML = levels.map(level => {
-                    const percentage = (level.value / 6) * 100;
-                    return `<div class="level-bar-container"><span class="level-bar-label">${level.label}</span><div class="level-bar-bg"><div class="level-bar-fill" style="--level-width: ${percentage}%"></div></div></div>`;
-                }).join('');
+                const isDevice = category && category.type === 'DEVICE';
+
+                if (isDevice) {
+                    // 2. Device: Remove sweetness/coolness/clarity (Empty)
+                    levelBarsContainer.innerHTML = '';
+                } else {
+                    // 1. Pod/Disposable: Remove levels & Replace with Image
+                    if (product.imageUrl) {
+                        levelBarsContainer.innerHTML = `
+                            <div class="w-full rounded-xl overflow-hidden border border-zinc-700/50 bg-zinc-900/50 p-4 flex justify-center items-center mb-2">
+                                <img src="${product.imageUrl}" alt="${product.nameEn}" class="max-h-48 object-contain">
+                            </div>
+                        `;
+                    } else {
+                        levelBarsContainer.innerHTML = '';
+                    }
+                }
+
                 const avgRatingEl = document.getElementById('modal-avg-rating');
                 if (product.reviewCount > 0) {
                     avgRatingEl.innerHTML = `<i class="ri-star-fill text-yellow-400"></i><span>${product.averageRating.toFixed(1)} (${product.reviewCount} รีวิว)</span>`;
