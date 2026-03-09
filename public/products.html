@@ -1008,6 +1008,9 @@
                         <button class="special-filter-btn filter-instock" data-filter="instock">
                             <i class="ri-truck-fill mr-1"></i>สินค้าพร้อมส่ง
                         </button>
+                        <button class="special-filter-btn filter-outstock" data-filter="outstock">
+                            <i class="ri-close-circle-fill mr-1"></i>สินค้าหมด
+                        </button>
                     </div>
                 </header>
         <main>
@@ -1590,7 +1593,7 @@
             const updateCartModalItem = (productId) => {
                 const item = cart.find(i => i.id === productId);
                 const total = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
-                cartTotalPrice.textContent = `${total.toLocaleString('th-TH')} Baht`;
+                cartTotalPrice.textContent = `฿${total.toLocaleString('th-TH')}`;
 
                 if (!item) {
                     // Item was removed, full render is safer to handle grouping/titles
@@ -2064,12 +2067,13 @@
             const createCartControlHtml = (p, isOutOfStock, mode = 'standard') => {
                 // --- SuperAdmin UI: IS / OOS Toggle ---
                 if (currentUser && currentUser.role === 'SuperAdmin' && mode === 'standard') {
+                    const currentStatus = isOutOfStock ? 'OUT_OF_STOCK' : 'IN_STOCK';
                     return `
-                        <div class="admin-status-toggle">
+                        <div class="admin-status-toggle" data-product-id="${p.id}" data-current-status="${currentStatus}">
                             <button class="admin-status-btn ${!isOutOfStock ? 'active-is' : ''}" 
-                                    data-product-id="${p.id}" data-new-status="IN_STOCK">IS</button>
+                                    style="pointer-events: none;">IS</button>
                             <button class="admin-status-btn ${isOutOfStock ? 'active-oos' : ''}" 
-                                    data-product-id="${p.id}" data-new-status="OUT_OF_STOCK">OOS</button>
+                                    style="pointer-events: none;">OOS</button>
                         </div>
                     `;
                 }
@@ -2207,7 +2211,7 @@
 
                                 <!-- Bottom: Price above Button -->
                                 <div class="flex flex-col items-end r-gap-1 mt-[5cqi]">
-                                     <div class="info-card-price-badge font-bold leading-none">${price} Baht</div>
+                                     <div class="info-card-price-badge font-bold leading-none">฿${price}</div>
                                      <div class="w-full flex justify-end cart-control-container" data-product-id="${p.id}">
                                         ${createCartControlHtml(p, isOutOfStock)}
                                      </div>
@@ -2230,7 +2234,7 @@
                         </div>
                         
                         <div class="card-bottom-row">
-                                <div class="info-card-price-badge">${price} Baht</div>
+                                <div class="info-card-price-badge">฿${price}</div>
                                 <div class="cart-control-container" data-product-id="${p.id}">
                                     ${createCartControlHtml(p, isOutOfStock)}
                                 </div>
@@ -2264,7 +2268,7 @@
                             </div>
 
                             <div class="mt-auto card-bottom-row">
-                                 <div class="info-card-price-badge">${price} Baht</div>
+                                 <div class="info-card-price-badge">฿${price}</div>
                                  <div class="cart-control-container" data-product-id="${p.id}">
                                     ${createCartControlHtml(p, isOutOfStock)}
                                  </div>
@@ -2295,7 +2299,7 @@
                         </div>
 
                         <div class="card-bottom-row">
-                                <div class="info-card-price-badge">${price} Baht</div>
+                                <div class="info-card-price-badge">฿${price}</div>
                                 <div class="cart-control-container" data-product-id="${p.id}">
                                     ${createCartControlHtml(p, isOutOfStock)}
                                 </div>
@@ -2336,6 +2340,7 @@
                             if (special === 'new') return p.isNew;
                             if (special === 'cool') return p.coolnessLevel >= 6;
                             if (special === 'instock') return p.status !== 'OUT_OF_STOCK';
+                            if (special === 'outstock') return p.status === 'OUT_OF_STOCK';
                             return true;
                         })
                     )
@@ -2504,27 +2509,44 @@
                     categoryPriceDisplay.textContent = price;
                     renderNicotineFilters();
 
-                    // Update Special Filters based on Category Type
+                    // Update Special Filters based on Category Type and Role
                     const isDevice = activeCategory.type === 'DEVICE';
                     const filterHotBtn = document.querySelector('.special-filter-btn.filter-hot');
                     const filterNewBtn = document.querySelector('.special-filter-btn.filter-new');
                     const filterCoolBtn = document.querySelector('.special-filter-btn.filter-cool');
+                    const filterInStockBtn = document.querySelector('.special-filter-btn.filter-instock');
+                    const filterOutStockBtn = document.querySelector('.special-filter-btn.filter-outstock');
 
-                    if (isDevice) {
-                        filterHotBtn.innerHTML = '<i class="ri-fire-fill mr-1"></i>สียอดนิยม';
-                        filterNewBtn.innerHTML = '<i class="ri-sparkling-fill mr-1"></i>สีใหม่';
-                        filterCoolBtn.style.display = 'none';
-                        
-                        // If "Cool" was active, deactivate it to prevent empty state
-                        if (currentFilter.specials.has('cool')) {
-                            currentFilter.specials.delete('cool');
-                            filterCoolBtn.classList.remove('active');
-                            renderProducts();
-                        }
+                    // If SuperAdmin: Hide Hot/New/Cool, show InStock/OutStock
+                    if (currentUser && currentUser.role === 'SuperAdmin') {
+                        filterHotBtn.classList.add('hidden');
+                        filterNewBtn.classList.add('hidden');
+                        filterCoolBtn.classList.add('hidden');
+                        filterInStockBtn.classList.remove('hidden');
+                        filterOutStockBtn.classList.remove('hidden');
                     } else {
-                        filterHotBtn.innerHTML = '<i class="ri-fire-fill mr-1"></i>กลิ่นยอดนิยม';
-                        filterNewBtn.innerHTML = '<i class="ri-sparkling-fill mr-1"></i>กลิ่นใหม่';
-                        filterCoolBtn.style.display = 'flex';
+                        // Regular User: Show Hot/New/Cool, hide OutStock (usually)
+                        filterHotBtn.classList.remove('hidden');
+                        filterNewBtn.classList.remove('hidden');
+                        filterInStockBtn.classList.remove('hidden');
+                        filterOutStockBtn.classList.add('hidden'); // Customers don't usually need to filter for items they can't buy
+
+                        if (isDevice) {
+                            filterHotBtn.innerHTML = '<i class="ri-fire-fill mr-1"></i>สียอดนิยม';
+                            filterNewBtn.innerHTML = '<i class="ri-sparkling-fill mr-1"></i>สีใหม่';
+                            filterCoolBtn.classList.add('hidden');
+                            
+                            if (currentFilter.specials.has('cool')) {
+                                currentFilter.specials.delete('cool');
+                                filterCoolBtn.classList.remove('active');
+                                renderProducts();
+                            }
+                        } else {
+                            filterHotBtn.innerHTML = '<i class="ri-fire-fill mr-1"></i>กลิ่นยอดนิยม';
+                            filterNewBtn.innerHTML = '<i class="ri-sparkling-fill mr-1"></i>กลิ่นใหม่';
+                            filterCoolBtn.classList.remove('hidden');
+                            filterCoolBtn.style.display = 'flex';
+                        }
                     }
                 }
             };
@@ -2568,11 +2590,12 @@
                 }
 
                 // --- Handle SuperAdmin Status Toggle ---
-                const statusBtn = e.target.closest('.admin-status-btn');
-                if (statusBtn) {
+                const statusToggle = e.target.closest('.admin-status-toggle');
+                if (statusToggle) {
                     e.stopPropagation();
-                    const productId = parseInt(statusBtn.dataset.productId);
-                    const newStatus = statusBtn.dataset.newStatus;
+                    const productId = parseInt(statusToggle.dataset.productId);
+                    const currentStatus = statusToggle.dataset.currentStatus;
+                    const newStatus = currentStatus === 'IN_STOCK' ? 'OUT_OF_STOCK' : 'IN_STOCK';
                     
                     try {
                         const response = await fetch(`/api/products/${productId}/status`, {
@@ -2583,7 +2606,6 @@
                         const result = await response.json();
                         if (result.success) {
                             showToast(`อัปเดตเป็น ${newStatus === 'IN_STOCK' ? 'พร้อมส่ง' : 'หมด'}`, 'success');
-                            // Local update and surgical UI refresh
                             const p = allProducts.find(p => p.id === productId);
                             if (p) p.status = newStatus;
                             updateProductCardCartControl(productId);
@@ -2834,7 +2856,7 @@
             <div class="flex-shrink-0 p-4 border-t border-zinc-700 space-y-3">
                 <div class="flex justify-between font-bold">
                     <span>ยอดรวม</span>
-                    <span id="cart-total-price">0 Baht</span>
+                    <span id="cart-total-price">฿0</span>
                 </div>
                 <div class="flex gap-2">
                     <button id="clear-cart-btn" class="w-1/4 py-3 bg-zinc-700 hover:bg-red-900/50 text-red-400 rounded-xl font-bold text-lg transition active:scale-95 flex items-center justify-center border border-zinc-600 hidden">
