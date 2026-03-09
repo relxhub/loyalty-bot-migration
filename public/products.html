@@ -1601,13 +1601,13 @@
                                     
                                     <div class="text-brand-red font-bold text-[1rem] whitespace-nowrap">${(item.price * item.quantity).toLocaleString('th-TH')} ฿</div>
 
-                                    <div class="flex items-center bg-zinc-900 rounded-lg p-1 gap-1.5 flex-shrink-0">
-                                        <button class="quantity-btn w-7 h-7 rounded bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-300 transition active:scale-95" data-product-id="${item.id}" data-change="-1">
-                                            <i class="ri-subtract-line text-sm"></i>
+                                    <div class="flex items-center bg-zinc-900/50 rounded-full p-1 gap-1 flex-shrink-0 border border-zinc-700/50">
+                                        <button class="cart-qty-btn btn-minus quantity-btn" data-product-id="${item.id}" data-change="-1">
+                                            <i class="${item.quantity === 1 ? 'ri-delete-bin-line' : 'ri-subtract-line'}"></i>
                                         </button>
-                                        <span class="font-bold min-w-[1.25rem] text-center text-white text-base">${item.quantity}</span>
-                                        <button class="quantity-btn w-7 h-7 rounded bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-300 transition active:scale-95" data-product-id="${item.id}" data-change="1">
-                                            <i class="ri-add-line text-sm"></i>
+                                        <div class="cart-qty-display">${item.quantity}</div>
+                                        <button class="cart-qty-btn btn-plus quantity-btn" data-product-id="${item.id}" data-change="1">
+                                            <i class="ri-add-line"></i>
                                         </button>
                                     </div>
                                 </div>
