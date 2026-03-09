@@ -1558,10 +1558,10 @@
 
                 const containers = document.querySelectorAll(`.cart-control-container[data-product-id="${productId}"]`);
                 const isOutOfStock = product.status === 'OUT_OF_STOCK';
-                const newHtml = createCartControlHtml(product, isOutOfStock);
 
                 containers.forEach(container => {
-                    container.innerHTML = newHtml;
+                    const mode = container.dataset.mode || 'standard';
+                    container.innerHTML = createCartControlHtml(product, isOutOfStock, mode);
                 });
             };
 
@@ -1634,7 +1634,7 @@
                                     
                                     <div class="text-brand-red font-bold text-[1rem] whitespace-nowrap">${(item.price * item.quantity).toLocaleString('th-TH')} ฿</div>
 
-                                    <div class="flex items-center bg-zinc-900/50 rounded-full p-1 gap-1 flex-shrink-0 border border-zinc-700/50">
+                                    <div class="flex items-center bg-zinc-900/50 rounded-full p-1 gap-1 flex-shrink-0 border border-zinc-700/50 cart-control-container" data-product-id="${item.id}" data-mode="mini">
                                         <button class="cart-qty-btn btn-minus quantity-btn" data-product-id="${item.id}" data-change="-1">
                                             <i class="${item.quantity === 1 ? 'ri-delete-bin-line' : 'ri-subtract-line'}"></i>
                                         </button>
@@ -2013,8 +2013,11 @@
                 return dotsHtml;
             };
 
-            const createCartControlHtml = (p, isOutOfStock) => {
+            const createCartControlHtml = (p, isOutOfStock, mode = 'standard') => {
                 if (isOutOfStock) {
+                    if (mode === 'mini') {
+                        return `<span class="text-[0.65rem] font-bold text-zinc-500 px-2">OUT</span>`;
+                    }
                     return `
                         <button class="add-to-cart-btn r-btn mr-1 disabled" data-product-id="${p.id}" disabled>
                             <i class="ri-shopping-cart-2-line mr-1"></i> Add
@@ -2025,15 +2028,24 @@
                 const cartItem = cart.find(item => item.id === p.id);
                 if (cartItem && cartItem.quantity > 0) {
                     return `
-                        <div class="cart-control-wrapper">
-                            <button class="cart-qty-btn btn-minus" data-product-id="${p.id}" data-action="minus">
+                        <div class="cart-control-wrapper ${mode === 'mini' ? '!p-1 !gap-1 !bg-zinc-900/80' : ''}">
+                            <button class="cart-qty-btn btn-minus ${mode === 'mini' ? '!w-7 !h-7 !text-xs' : ''}" data-product-id="${p.id}" data-action="minus">
                                 <i class="${cartItem.quantity === 1 ? 'ri-delete-bin-line' : 'ri-subtract-line'}"></i>
                             </button>
-                            <div class="cart-qty-display">${cartItem.quantity}</div>
-                            <button class="cart-qty-btn btn-plus" data-product-id="${p.id}" data-action="plus">
+                            <div class="cart-qty-display ${mode === 'mini' ? '!min-w-[20px] !text-sm' : ''}">${cartItem.quantity}</div>
+                            <button class="cart-qty-btn btn-plus ${mode === 'mini' ? '!w-7 !h-7 !text-xs' : ''}" data-product-id="${p.id}" data-action="plus">
                                 <i class="ri-add-line"></i>
                             </button>
                         </div>
+                    `;
+                }
+
+                if (mode === 'mini') {
+                    return `
+                        <button class="add-to-cart-btn w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-red-500 text-white flex items-center justify-center shadow-lg active:scale-90 transition" 
+                            data-product-id="${p.id}">
+                            <i class="ri-shopping-cart-2-line"></i>
+                        </button>
                     `;
                 }
 
