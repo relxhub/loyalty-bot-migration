@@ -1565,14 +1565,40 @@
                 });
             };
 
+            const updateCartModalItem = (productId) => {
+                const item = cart.find(i => i.id === productId);
+                const total = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+                cartTotalPrice.textContent = `${total.toLocaleString('th-TH')} Baht`;
+
+                if (!item) {
+                    // Item was removed, full render is safer to handle grouping/titles
+                    updateCartModalDisplay();
+                    return;
+                }
+
+                const row = document.querySelector(`.cart-item-row[data-product-id="${productId}"]`);
+                if (row) {
+                    const subtotalEl = row.querySelector('.cart-item-subtotal');
+                    const qtyDisplayEl = row.querySelector('.cart-qty-display');
+                    const minusIcon = row.querySelector('.btn-minus i');
+
+                    if (subtotalEl) subtotalEl.textContent = `${(item.price * item.quantity).toLocaleString('th-TH')} ฿`;
+                    if (qtyDisplayEl) qtyDisplayEl.textContent = item.quantity;
+                    if (minusIcon) {
+                        minusIcon.className = item.quantity === 1 ? 'ri-delete-bin-line' : 'ri-subtract-line';
+                    }
+                }
+            };
+
             const updateCartUI = (productId = null) => {
                 saveCart();
                 updateCartIcon();
-                updateCartModalDisplay();
                 
                 if (productId) {
                     updateProductCardCartControl(productId);
+                    updateCartModalItem(productId);
                 } else {
+                    updateCartModalDisplay();
                     renderProducts();
                 }
             };
@@ -1626,13 +1652,13 @@
                         <div class="text-[1rem] font-bold text-zinc-500 uppercase tracking-wider mb-2 pl-1">${categoryName}</div>
                         <div class="space-y-2">
                             ${items.map(item => `
-                                <div class="flex items-center gap-3 text-white p-2.5 bg-zinc-800/50 rounded-xl border border-zinc-700/30">
+                                <div class="cart-item-row flex items-center gap-3 text-white p-2.5 bg-zinc-800/50 rounded-xl border border-zinc-700/30" data-product-id="${item.id}">
                                     <div class="flex-grow min-w-0">
                                         <p class="font-bold text-[1.2rem] leading-tight truncate text-white">${item.nameEn}</p>
                                         <p class="text-sm text-zinc-400 truncate mt-0.5">${item.nameTh || ''} ${item.nicotine !== null ? `(${item.nicotine}%)` : ''}</p>
                                     </div>
                                     
-                                    <div class="text-brand-red font-bold text-[1rem] whitespace-nowrap">${(item.price * item.quantity).toLocaleString('th-TH')} ฿</div>
+                                    <div class="cart-item-subtotal text-brand-red font-bold text-[1rem] whitespace-nowrap">${(item.price * item.quantity).toLocaleString('th-TH')} ฿</div>
 
                                     <div class="flex items-center bg-zinc-900/50 rounded-full p-1 gap-1 flex-shrink-0 border border-zinc-700/50 cart-control-container" data-product-id="${item.id}" data-mode="mini">
                                         <button class="cart-qty-btn btn-minus quantity-btn" data-product-id="${item.id}" data-change="-1">
