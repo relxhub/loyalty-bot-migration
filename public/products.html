@@ -1411,25 +1411,58 @@
                         <div class="bg-zinc-900/50 rounded-xl p-3 border border-zinc-700/30">
                             <h4 class="text-xs font-bold text-zinc-400 mb-2 uppercase tracking-wider">${catName}</h4>
                             <div class="space-y-2">
-                                ${products.map(p => `
-                                    <div class="flex items-center gap-3 bg-zinc-800 rounded-lg p-2 relative overflow-hidden">
-                                        <!-- No Image -->
-                                        <div class="flex-grow min-w-0">
-                                            <div class="text-sm font-semibold truncate text-white">
-                                                ${p.nameEn} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}
+                                ${products.map(p => {
+                                    const cartItem = cart.find(item => item.id === p.id);
+                                    const isInCart = cartItem && cartItem.quantity > 0;
+                                    
+                                    let cartControlHtml = '';
+                                    if (p.status === 'OUT_OF_STOCK') {
+                                        cartControlHtml = `<span class="text-[0.7rem] font-bold text-zinc-500 px-2">OUT OF STOCK</span>`;
+                                    } else if (isInCart) {
+                                        cartControlHtml = `
+                                            <div class="flex items-center bg-zinc-900/80 rounded-full p-1 gap-1 border border-zinc-700/50">
+                                                <button class="cart-qty-btn btn-minus !w-7 !h-7 !text-xs" data-product-id="${p.id}" data-action="minus">
+                                                    <i class="${cartItem.quantity === 1 ? 'ri-delete-bin-line' : 'ri-subtract-line'}"></i>
+                                                </button>
+                                                <div class="cart-qty-display !min-w-[20px] !text-sm">${cartItem.quantity}</div>
+                                                <button class="cart-qty-btn btn-plus !w-7 !h-7 !text-xs" data-product-id="${p.id}" data-action="plus">
+                                                    <i class="ri-add-line"></i>
+                                                </button>
                                             </div>
-                                            <div class="text-xs text-zinc-400 truncate">
-                                                ${p.nameTh || ''} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}
+                                        `;
+                                    } else {
+                                        cartControlHtml = `
+                                            <button class="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-red-500 text-white flex items-center justify-center shadow-lg active:scale-90 transition" 
+                                                onclick="addToCart(${p.id}); showToast('ใส่ตะกร้าแล้ว', 'success');" data-product-id="${p.id}">
+                                                <i class="ri-shopping-cart-2-line"></i>
+                                            </button>
+                                        `;
+                                    }
+
+                                    return `
+                                        <div class="flex items-center gap-2 bg-zinc-800 rounded-lg p-2 relative overflow-hidden">
+                                            <div class="flex-grow min-w-0">
+                                                <div class="text-sm font-semibold truncate text-white">
+                                                    ${p.nameEn}
+                                                </div>
+                                                <div class="text-xs text-zinc-400 truncate">
+                                                    ${p.nameTh || ''} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}
+                                                </div>
                                             </div>
+                                            
+                                            <!-- Cart Control Section -->
+                                            <div class="flex-shrink-0">
+                                                ${cartControlHtml}
+                                            </div>
+
+                                            <!-- Remove from Favs Button (X instead of Trash) -->
+                                            <button class="w-8 h-8 rounded-full bg-zinc-700/50 text-zinc-400 flex items-center justify-center active:scale-90 transition ml-1" 
+                                                onclick="toggleFavorite(${p.id}, null)" title="Remove from Favorites">
+                                                <i class="ri-close-line text-lg"></i>
+                                            </button>
                                         </div>
-                                        <button class="w-8 h-8 rounded-full bg-zinc-900 text-red-500 flex items-center justify-center shadow-sm active:scale-90 transition" onclick="toggleFavorite(${p.id}, null)">
-                                            <i class="ri-delete-bin-line"></i>
-                                        </button>
-                                        <button class="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-red-500 text-white flex items-center justify-center shadow-lg active:scale-90 transition ml-2" onclick="const btn = this; if('${p.status}' === 'OUT_OF_STOCK') { showToast('สินค้าหมด', 'error'); return; } btn.classList.add('btn-success-state'); const icon = btn.querySelector('i'); const originalIcon = icon.className; icon.className = 'ri-check-line'; setTimeout(() => { btn.classList.remove('btn-success-state'); icon.className = originalIcon; }, 1000); addToCart(${p.id}); showToast('ใส่ตะกร้าแล้ว', 'success');" data-product-id="${p.id}">
-                                            <i class="ri-shopping-cart-2-line"></i>
-                                        </button>
-                                    </div>
-                                `).join('')}
+                                    `;
+                                }).join('')}
                             </div>
                         </div>
                     `;
