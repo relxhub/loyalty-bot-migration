@@ -1732,10 +1732,40 @@
             const copyCartToClipboard = () => {
                 if (cart.length === 0) return;
 
+                // --- NEW: Identify and Filter out items that became OUT_OF_STOCK ---
+                const outOfStockItems = cart.filter(item => {
+                    const product = allProducts.find(p => p.id === item.id);
+                    return !product || product.status === 'OUT_OF_STOCK';
+                });
+
+                const availableItems = cart.filter(item => {
+                    const product = allProducts.find(p => p.id === item.id);
+                    return product && product.status !== 'OUT_OF_STOCK';
+                });
+
+                // Show notifications for each out-of-stock item
+                if (outOfStockItems.length > 0) {
+                    outOfStockItems.forEach(item => {
+                        showToast(`สินค้า ${item.nameEn} หมด`, 'error');
+                    });
+                }
+
+                if (availableItems.length === 0) {
+                    // All items are gone
+                    return;
+                }
+
+                if (availableItems.length < cart.length) {
+                    // Some items were removed, wait a tiny bit so error toasts are seen first
+                    setTimeout(() => {
+                        showToast('ตัดรายการสินค้าที่หมดออกให้แล้ว', 'info');
+                    }, 500);
+                }
+
                 let textToCopy = "รายการสั่งซื้อสินค้า\n\n";
                 
-                // Group items by categoryName (รุ่นสินค้า)
-                const groups = cart.reduce((acc, item) => {
+                // Group available items by categoryName (รุ่นสินค้า)
+                const groups = availableItems.reduce((acc, item) => {
                     if (!acc[item.categoryName]) acc[item.categoryName] = [];
                     acc[item.categoryName].push(item);
                     return acc;
@@ -1751,8 +1781,8 @@
                     textToCopy += "\n"; // Space between groups
                 });
 
-                const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                textToCopy += `ยอดรวม: ${total.toLocaleString('th-TH')} บาท`;
+                const total = availableItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                textToCopy += `ยอดรวม: ฿${total.toLocaleString('th-TH')}`;
 
                 navigator.clipboard.writeText(textToCopy.trim()).then(() => {
                     showToast('คัดลอกรายการแล้ว!', 'success');
