@@ -1516,15 +1516,32 @@
                 }
                 
                 try { tg.hapticFeedback.selectionChanged(); } catch(e) {}
-                updateCartUI();
+                updateCartUI(productId); // Pass productId for surgical update
             };
 
-            const updateCartUI = () => {
+            const updateProductCardCartControl = (productId) => {
+                const product = allProducts.find(p => p.id === productId);
+                if (!product) return;
+
+                const containers = document.querySelectorAll(`.cart-control-container[data-product-id="${productId}"]`);
+                const isOutOfStock = product.status === 'OUT_OF_STOCK';
+                const newHtml = createCartControlHtml(product, isOutOfStock);
+
+                containers.forEach(container => {
+                    container.innerHTML = newHtml;
+                });
+            };
+
+            const updateCartUI = (productId = null) => {
                 saveCart();
                 updateCartIcon();
                 updateCartModalDisplay();
-                // Refresh product cards to update Add buttons to Qty controls (and vice versa)
-                renderProducts();
+                
+                if (productId) {
+                    updateProductCardCartControl(productId);
+                } else {
+                    renderProducts();
+                }
             };
             
             const updateCartIcon = () => {
@@ -1975,7 +1992,7 @@
                 const cartItem = cart.find(item => item.id === p.id);
                 if (cartItem && cartItem.quantity > 0) {
                     return `
-                        <div class="cart-control-wrapper" onclick="event.stopPropagation()">
+                        <div class="cart-control-wrapper">
                             <button class="cart-qty-btn btn-minus" data-product-id="${p.id}" data-action="minus">
                                 <i class="${cartItem.quantity === 1 ? 'ri-delete-bin-line' : 'ri-subtract-line'}"></i>
                             </button>
@@ -2086,7 +2103,7 @@
                                 <!-- Bottom: Price above Button -->
                                 <div class="flex flex-col items-end r-gap-1 mt-[5cqi]">
                                      <div class="info-card-price-badge font-bold leading-none">${price} Baht</div>
-                                     <div class="w-full flex justify-end">
+                                     <div class="w-full flex justify-end cart-control-container" data-product-id="${p.id}">
                                         ${createCartControlHtml(p, isOutOfStock)}
                                      </div>
                                 </div>
@@ -2109,7 +2126,9 @@
                         
                         <div class="card-bottom-row">
                                 <div class="info-card-price-badge">${price} Baht</div>
-                                ${createCartControlHtml(p, isOutOfStock)}
+                                <div class="cart-control-container" data-product-id="${p.id}">
+                                    ${createCartControlHtml(p, isOutOfStock)}
+                                </div>
                         </div>
                     `;
                 }
@@ -2141,7 +2160,9 @@
 
                             <div class="mt-auto card-bottom-row">
                                  <div class="info-card-price-badge">${price} Baht</div>
-                                 ${createCartControlHtml(p, isOutOfStock)}
+                                 <div class="cart-control-container" data-product-id="${p.id}">
+                                    ${createCartControlHtml(p, isOutOfStock)}
+                                 </div>
                             </div>
                         </div>
                      `;
@@ -2170,7 +2191,9 @@
 
                         <div class="card-bottom-row">
                                 <div class="info-card-price-badge">${price} Baht</div>
-                                ${createCartControlHtml(p, isOutOfStock)}
+                                <div class="cart-control-container" data-product-id="${p.id}">
+                                    ${createCartControlHtml(p, isOutOfStock)}
+                                </div>
                         </div>
                     `;
                 }
@@ -2443,14 +2466,19 @@
                 const qtyBtn = e.target.closest('.cart-qty-btn');
                 if (qtyBtn) {
                     e.stopPropagation();
-                    const productId = parseInt(qtyBtn.getAttribute('data-product-id'));
+                    const productIdAttr = qtyBtn.getAttribute('data-product-id');
                     const action = qtyBtn.getAttribute('data-action');
+                    const productId = parseInt(productIdAttr);
+
+                    console.log(`[DEBUG] Qty Clicked: productId=${productId}, action=${action}`);
+
                     if (!isNaN(productId)) {
                         updateQuantity(productId, action === 'plus' ? 1 : -1);
+                    } else {
+                        console.error(`[DEBUG] Invalid productId: ${productIdAttr}`);
                     }
                     return;
                 }
-
                 const addToCartBtn = e.target.closest('.add-to-cart-btn');
                 if (addToCartBtn) {
                     e.stopPropagation();
