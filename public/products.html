@@ -1432,7 +1432,7 @@
                                         `;
                                     } else {
                                         cartControlHtml = `
-                                            <button class="fav-add-to-cart-btn w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-red-500 text-white flex items-center justify-center shadow-lg active:scale-90 transition" 
+                                            <button class="add-to-cart-btn w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-red-500 text-white flex items-center justify-center shadow-lg active:scale-90 transition" 
                                                 data-product-id="${p.id}">
                                                 <i class="ri-shopping-cart-2-line"></i>
                                             </button>
@@ -1451,7 +1451,7 @@
                                             </div>
                                             
                                             <!-- Cart Control Section -->
-                                            <div class="flex-shrink-0 cart-control-container" data-product-id="${p.id}">
+                                            <div class="flex-shrink-0 cart-control-container" data-product-id="${p.id}" data-mode="mini">
                                                 ${cartControlHtml}
                                             </div>
 
@@ -2568,7 +2568,7 @@
                     return;
                 }
 
-                const addToCartBtn = e.target.closest('.fav-add-to-cart-btn');
+                const addToCartBtn = e.target.closest('.add-to-cart-btn');
                 if (addToCartBtn) {
                     e.stopPropagation();
                     const productId = parseInt(addToCartBtn.dataset.productId);
