@@ -2565,7 +2565,7 @@
                         filterHotBtn.classList.remove('hidden');
                         filterNewBtn.classList.remove('hidden');
                         filterInStockBtn.classList.remove('hidden');
-                        filterOutStockBtn.classList.add('hidden'); // Customers don't usually need to filter for items they can't buy
+                        filterOutStockBtn.classList.add('hidden'); 
 
                         if (isDevice) {
                             filterHotBtn.innerHTML = '<i class="ri-fire-fill mr-1"></i>สียอดนิยม';
@@ -2581,7 +2581,6 @@
                             filterHotBtn.innerHTML = '<i class="ri-fire-fill mr-1"></i>กลิ่นยอดนิยม';
                             filterNewBtn.innerHTML = '<i class="ri-sparkling-fill mr-1"></i>กลิ่นใหม่';
                             filterCoolBtn.classList.remove('hidden');
-                            filterCoolBtn.style.display = 'flex';
                         }
                     }
                 }
