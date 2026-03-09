@@ -590,26 +590,33 @@
             margin-right: 0.25rem;
         }
         .cart-qty-btn {
-            width: 24px;
-            height: 24px;
+            width: 28px;
+            height: 28px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.8rem;
-            transition: all 0.2s;
+            font-size: 1rem;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             background-color: transparent;
             color: white;
             border: none;
         }
-        .cart-qty-btn:active { transform: scale(0.8); background-color: rgba(255,255,255,0.1); }
-        .cart-qty-btn.btn-minus { color: #f87171; }
-        .cart-qty-btn.btn-plus { color: #4ade80; }
+        .cart-qty-btn:active { transform: scale(0.8); }
+        .cart-qty-btn.btn-minus { 
+            background-color: rgba(239, 68, 68, 0.15);
+            color: #f87171; 
+        }
+        .cart-qty-btn.btn-plus { 
+            background-image: var(--brand-gradient);
+            color: white;
+            box-shadow: 0 2px 8px rgba(227, 38, 34, 0.3);
+        }
         .cart-qty-display {
-            min-width: 24px;
+            min-width: 30px;
             text-align: center;
             font-weight: 700;
-            font-size: 0.85rem;
+            font-size: 1rem;
             color: white;
         }
 
@@ -2436,9 +2443,11 @@
                 const qtyBtn = e.target.closest('.cart-qty-btn');
                 if (qtyBtn) {
                     e.stopPropagation();
-                    const productId = parseInt(qtyBtn.dataset.productId);
-                    const action = qtyBtn.dataset.action;
-                    updateQuantity(productId, action === 'plus' ? 1 : -1);
+                    const productId = parseInt(qtyBtn.getAttribute('data-product-id'));
+                    const action = qtyBtn.getAttribute('data-action');
+                    if (!isNaN(productId)) {
+                        updateQuantity(productId, action === 'plus' ? 1 : -1);
+                    }
                     return;
                 }
 
