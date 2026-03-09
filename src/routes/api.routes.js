@@ -265,6 +265,54 @@ router.get('/products', async (req, res) => {
     }
 });
 
+router.patch('/products/:id/status', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status, initData } = req.body;
+
+        // 1. Verify SuperAdmin Identity
+        if (!verifyTelegramWebAppData(initData)) {
+            return res.status(401).json({ error: "Invalid Telegram Data" });
+        }
+        
+        const urlParams = new URLSearchParams(initData);
+        const userData = JSON.parse(urlParams.get('user'));
+        const telegramId = userData.id.toString();
+
+        const admin = await prisma.admin.findUnique({
+            where: { telegramId: telegramId }
+        });
+
+        if (!admin || admin.role !== 'SuperAdmin') {
+            return res.status(403).json({ error: "Unauthorized: SuperAdmin access required" });
+        }
+
+        // 2. Update Status in Prisma
+        const updatedProduct = await prisma.product.update({
+            where: { id: parseInt(id) },
+            data: { status: status }
+        });
+
+        // 3. Broadcast Change via Socket.io
+        // We access io through the app instance which should be attached to the request
+        const io = req.app.get('socketio');
+        if (io) {
+            io.emit('product_update', {
+                productId: updatedProduct.id,
+                status: updatedProduct.status,
+                stock: updatedProduct.stock
+            });
+            console.log(`[SOCKET] Broadcasted status update for product ${id}: ${status}`);
+        }
+
+        res.json({ success: true, product: updatedProduct });
+
+    } catch (error) {
+        console.error("Product Status Update Error:", error);
+        res.status(500).json({ error: "Failed to update product status" });
+    }
+});
+
 // ==================================================
 // 📜 HISTORY
 // ==================================================

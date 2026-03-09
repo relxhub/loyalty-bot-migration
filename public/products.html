@@ -620,6 +620,36 @@
             color: white;
         }
 
+        /* --- Admin Status Toggles --- */
+        .admin-status-toggle {
+            display: flex;
+            align-items: center;
+            background-color: #27272a;
+            border-radius: 999px;
+            padding: 2px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .admin-status-btn {
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            transition: all 0.2s;
+            border: none;
+            color: #555;
+            background: transparent;
+        }
+        .admin-status-btn.active-is {
+            background-color: #22c55e;
+            color: white;
+            box-shadow: 0 0 10px rgba(34, 197, 94, 0.4);
+        }
+        .admin-status-btn.active-oos {
+            background-color: #ef4444;
+            color: white;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+        }
+
         #cart-modal.show {
             opacity: 1;
             pointer-events: all;
@@ -1157,23 +1187,15 @@
                 const productIndex = allProducts.findIndex(p => p.id === data.productId);
                 if (productIndex !== -1) {
                     allProducts[productIndex].status = data.status;
-                    allProducts[productIndex].stock = data.stock; // If provided
+                    if (data.stock !== undefined) allProducts[productIndex].stock = data.stock;
                 }
 
-                // Update UI if element exists
-                const productCard = document.querySelector(`.info-card[data-product-id="${data.productId}"]`);
-                if (productCard) {
-                    const addBtns = productCard.querySelectorAll('.add-to-cart-btn');
-                    
-                    addBtns.forEach(addBtn => {
-                        if (data.status === 'OUT_OF_STOCK') {
-                            // Set to Out of Stock
-                            addBtn.classList.add('disabled');
-                        } else {
-                            // Set to In Stock
-                            addBtn.classList.remove('disabled');
-                        }
-                    });
+                // Surgical UI Update: Only update the specific product card controls
+                updateProductCardCartControl(data.productId);
+                
+                // If the product is in the cart modal, update it too
+                if (!cartModal.classList.contains('hidden')) {
+                    updateCartModalItem(data.productId);
                 }
             });
 
@@ -2040,6 +2062,18 @@
             };
 
             const createCartControlHtml = (p, isOutOfStock, mode = 'standard') => {
+                // --- SuperAdmin UI: IS / OOS Toggle ---
+                if (currentUser && currentUser.role === 'SuperAdmin' && mode === 'standard') {
+                    return `
+                        <div class="admin-status-toggle" onclick="event.stopPropagation()">
+                            <button class="admin-status-btn ${!isOutOfStock ? 'active-is' : ''}" 
+                                    data-product-id="${p.id}" data-new-status="IN_STOCK">IS</button>
+                            <button class="admin-status-btn ${isOutOfStock ? 'active-oos' : ''}" 
+                                    data-product-id="${p.id}" data-new-status="OUT_OF_STOCK">OOS</button>
+                        </div>
+                    `;
+                }
+
                 if (isOutOfStock) {
                     if (mode === 'mini') {
                         return `<span class="text-[0.65rem] font-bold text-zinc-500 px-2">OUT</span>`;
@@ -2524,12 +2558,42 @@
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             });
 
-            productGrid.addEventListener('click', (e) => {
+            productGrid.addEventListener('click', async (e) => {
                 const favBtn = e.target.closest('.fav-btn');
                 if (favBtn) {
                     e.stopPropagation();
                     const productId = parseInt(favBtn.dataset.productId);
                     toggleFavorite(productId, favBtn);
+                    return;
+                }
+
+                // --- Handle SuperAdmin Status Toggle ---
+                const statusBtn = e.target.closest('.admin-status-btn');
+                if (statusBtn) {
+                    e.stopPropagation();
+                    const productId = parseInt(statusBtn.dataset.productId);
+                    const newStatus = statusBtn.dataset.newStatus;
+                    
+                    try {
+                        const response = await fetch(`/api/products/${productId}/status`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ status: newStatus, initData: tg.initData })
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                            showToast(`อัปเดตเป็น ${newStatus === 'IN_STOCK' ? 'พร้อมส่ง' : 'หมด'}`, 'success');
+                            // Local update and surgical UI refresh
+                            const p = allProducts.find(p => p.id === productId);
+                            if (p) p.status = newStatus;
+                            updateProductCardCartControl(productId);
+                        } else {
+                            showToast(result.error || 'Failed to update', 'error');
+                        }
+                    } catch (err) {
+                        console.error('Update Status Error:', err);
+                        showToast('Error updating status', 'error');
+                    }
                     return;
                 }
 
@@ -2638,7 +2702,15 @@
                     body: JSON.stringify({ initData: tg.initData })
                 });
                 if (authResponse.ok) {
-                    currentUser = (await authResponse.json()).customer;
+                    const authData = await authResponse.json();
+                    currentUser = authData.customer;
+                    
+                    // --- SuperAdmin UI Adjustments ---
+                    if (currentUser && currentUser.role === 'SuperAdmin') {
+                        cartButton.classList.add('hidden');
+                        // Refresh products to show IS/OOS toggles
+                        if (allProducts.length > 0) renderProducts();
+                    }
                 }
 
                 const response = await fetch('/api/products', { cache: 'no-cache' });
