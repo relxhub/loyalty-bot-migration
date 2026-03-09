@@ -2065,7 +2065,7 @@
                 // --- SuperAdmin UI: IS / OOS Toggle ---
                 if (currentUser && currentUser.role === 'SuperAdmin' && mode === 'standard') {
                     return `
-                        <div class="admin-status-toggle" onclick="event.stopPropagation()">
+                        <div class="admin-status-toggle">
                             <button class="admin-status-btn ${!isOutOfStock ? 'active-is' : ''}" 
                                     data-product-id="${p.id}" data-new-status="IN_STOCK">IS</button>
                             <button class="admin-status-btn ${isOutOfStock ? 'active-oos' : ''}" 
