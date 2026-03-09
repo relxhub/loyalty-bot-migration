@@ -2549,11 +2549,16 @@
             });
 
             cartListWrapper.addEventListener('click', (e) => {
-                const target = e.target.closest('.quantity-btn');
-                if (!target) return;
-                const productId = parseInt(target.dataset.productId);
-                const change = parseInt(target.dataset.change);
-                updateQuantity(productId, change);
+                const qtyBtn = e.target.closest('.cart-qty-btn');
+                if (qtyBtn) {
+                    e.stopPropagation();
+                    const productId = parseInt(qtyBtn.getAttribute('data-product-id'));
+                    const action = qtyBtn.getAttribute('data-action') || (qtyBtn.dataset.change === '1' ? 'plus' : 'minus');
+                    if (!isNaN(productId)) {
+                        updateQuantity(productId, action === 'plus' ? 1 : -1);
+                    }
+                    return;
+                }
             });
 
             favListWrapper.addEventListener('click', (e) => {
