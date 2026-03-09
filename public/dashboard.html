@@ -1158,38 +1158,7 @@
             // -----------------------------------------------------
 
             // --- [START] SuperAdmin Button Logic ---
-            const adminButton = document.getElementById('coming-soon-btn');
-
-            // Find the main navigation bar
-            const nav = document.getElementById('bottom-nav');
-
-            if (user.role === 'SuperAdmin') {
-                // If the button doesn't exist, create and append it once.
-                if (nav && !adminButton) {
-                    const newButton = document.createElement('a');
-                    newButton.id = 'coming-soon-btn';
-                    newButton.href = "products.html"; // Link to actual products page for admin
-                    newButton.className = "flex flex-col items-center text-xs font-medium text-gray-400 w-1/4 py-1.5 rounded-xl transition active:scale-95";
-                    newButton.innerHTML = `
-                        <i class="ri-settings-3-line text-xl"></i>
-                        <span>จัดการร้าน</span>
-                    `;
-                    // Insert it before the last element (Member Card)
-                    nav.insertBefore(newButton, nav.lastElementChild);
-
-                    // Adjust widths for all 4 buttons
-                    const allButtons = nav.querySelectorAll('a');
-                    allButtons.forEach(btn => btn.style.width = '25%');
-                }
-            } else {
-                // If the user is not a SuperAdmin and the button exists, remove it.
-                if (adminButton) {
-                    adminButton.remove();
-                    // Readjust widths for the remaining 3 buttons
-                    const allButtons = nav.querySelectorAll('a');
-                    allButtons.forEach(btn => btn.style.width = '33.33%');
-                }
-            }
+            // Logic removed: Product Menu is now visible to all via static nav bar
             // --- [END] SuperAdmin Button Logic ---
         }
 
@@ -1884,7 +1853,7 @@
             <i class="ri-home-4-line text-xl"></i>
             <span>หน้าหลัก</span>
         </a>
-        <a href="https://bit.ly/onehub-catalogue" target="_blank" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/3 py-1.5 rounded-xl transition active:scale-95">
+        <a href="products.html" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/3 py-1.5 rounded-xl transition active:scale-95">
             <i class="ri-shopping-cart-line text-xl"></i>
             <span>เมนูสินค้า</span>
         </a>
