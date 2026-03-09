@@ -578,6 +578,41 @@
             cursor: not-allowed;
         }
 
+        /* --- Cart Control (Qty Selector) --- */
+        .cart-control-wrapper {
+            display: flex;
+            align-items: center;
+            background-color: #27272a;
+            border-radius: 999px;
+            padding: 2px;
+            border: 1px solid rgba(255,255,255,0.1);
+            width: fit-content;
+            margin-right: 0.25rem;
+        }
+        .cart-qty-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+            background-color: transparent;
+            color: white;
+            border: none;
+        }
+        .cart-qty-btn:active { transform: scale(0.8); background-color: rgba(255,255,255,0.1); }
+        .cart-qty-btn.btn-minus { color: #f87171; }
+        .cart-qty-btn.btn-plus { color: #4ade80; }
+        .cart-qty-display {
+            min-width: 24px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: white;
+        }
+
         #cart-modal.show {
             opacity: 1;
             pointer-events: all;
@@ -1481,6 +1516,8 @@
                 saveCart();
                 updateCartIcon();
                 updateCartModalDisplay();
+                // Refresh product cards to update Add buttons to Qty controls (and vice versa)
+                renderProducts();
             };
             
             const updateCartIcon = () => {
@@ -1919,6 +1956,37 @@
                 return dotsHtml;
             };
 
+            const createCartControlHtml = (p, isOutOfStock) => {
+                if (isOutOfStock) {
+                    return `
+                        <button class="add-to-cart-btn r-btn mr-1 disabled" data-product-id="${p.id}" disabled>
+                            <i class="ri-shopping-cart-2-line mr-1"></i> Add
+                        </button>
+                    `;
+                }
+
+                const cartItem = cart.find(item => item.id === p.id);
+                if (cartItem && cartItem.quantity > 0) {
+                    return `
+                        <div class="cart-control-wrapper" onclick="event.stopPropagation()">
+                            <button class="cart-qty-btn btn-minus" data-product-id="${p.id}" data-action="minus">
+                                <i class="${cartItem.quantity === 1 ? 'ri-delete-bin-line' : 'ri-subtract-line'}"></i>
+                            </button>
+                            <div class="cart-qty-display">${cartItem.quantity}</div>
+                            <button class="cart-qty-btn btn-plus" data-product-id="${p.id}" data-action="plus">
+                                <i class="ri-add-line"></i>
+                            </button>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <button class="add-to-cart-btn r-btn mr-1" data-product-id="${p.id}">
+                        <i class="ri-shopping-cart-2-line mr-1"></i> Add
+                    </button>
+                `;
+            };
+
             const createProductCardHtml = (p) => {
                 const category = allCategories.find(c => c.id === p.categoryId);
                 const price = category ? parseFloat(category.price).toLocaleString('th-TH') : '';
@@ -2011,9 +2079,9 @@
                                 <!-- Bottom: Price above Button -->
                                 <div class="flex flex-col items-end r-gap-1 mt-[5cqi]">
                                      <div class="info-card-price-badge font-bold leading-none">${price} Baht</div>
-                                     <button class="add-to-cart-btn r-btn w-full justify-center mr-1 ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
-                                        <i class="ri-shopping-cart-2-line mr-1"></i> Add
-                                     </button>
+                                     <div class="w-full flex justify-end">
+                                        ${createCartControlHtml(p, isOutOfStock)}
+                                     </div>
                                 </div>
                             </div>
                         </div>
@@ -2034,9 +2102,7 @@
                         
                         <div class="card-bottom-row">
                                 <div class="info-card-price-badge">${price} Baht</div>
-                                <button class="add-to-cart-btn r-btn mr-1 ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
-                                <i class="ri-shopping-cart-2-line mr-1"></i> Add
-                                </button>
+                                ${createCartControlHtml(p, isOutOfStock)}
                         </div>
                     `;
                 }
@@ -2068,9 +2134,7 @@
 
                             <div class="mt-auto card-bottom-row">
                                  <div class="info-card-price-badge">${price} Baht</div>
-                                 <button class="add-to-cart-btn r-btn mr-1 ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
-                                    <i class="ri-shopping-cart-2-line mr-1"></i> Add
-                                 </button>
+                                 ${createCartControlHtml(p, isOutOfStock)}
                             </div>
                         </div>
                      `;
@@ -2099,9 +2163,7 @@
 
                         <div class="card-bottom-row">
                                 <div class="info-card-price-badge">${price} Baht</div>
-                                <button class="add-to-cart-btn r-btn mr-1 ${isOutOfStock ? 'disabled' : ''}" data-product-id="${p.id}">
-                                <i class="ri-shopping-cart-2-line mr-1"></i> Add
-                                </button>
+                                ${createCartControlHtml(p, isOutOfStock)}
                         </div>
                     `;
                 }
@@ -2370,6 +2432,16 @@
                     return;
                 }
 
+                // --- Handle Qty Controls (+ / -) ---
+                const qtyBtn = e.target.closest('.cart-qty-btn');
+                if (qtyBtn) {
+                    e.stopPropagation();
+                    const productId = parseInt(qtyBtn.dataset.productId);
+                    const action = qtyBtn.dataset.action;
+                    updateQuantity(productId, action === 'plus' ? 1 : -1);
+                    return;
+                }
+
                 const addToCartBtn = e.target.closest('.add-to-cart-btn');
                 if (addToCartBtn) {
                     e.stopPropagation();
@@ -2378,18 +2450,6 @@
                     if (product.status === 'OUT_OF_STOCK') {
                         showToast('สินค้าหมด', 'error');
                     } else {
-                        // Success Animation (Green Check)
-                        addToCartBtn.classList.add('btn-success-state');
-                        const icon = addToCartBtn.querySelector('i');
-                        const originalIconClass = icon.className;
-                        
-                        icon.className = 'ri-check-line mr-1';
-                        
-                        setTimeout(() => {
-                            addToCartBtn.classList.remove('btn-success-state');
-                            icon.className = originalIconClass;
-                        }, 1000);
-
                         addToCart(productId);
                         showToast('ใส่ในตะกร้าแล้ว', 'success');
                     }
