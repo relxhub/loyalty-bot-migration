@@ -1829,33 +1829,217 @@
                 }
             };
             
-            // --- Cart Logic and Calculations have been moved to Global scope ---
+            const addToCart = (productId) => {
+                const product = allProducts.find(p => p.id === productId);
+                if (!product) return;
+
+                const cartItem = cart.find(item => item.id === productId);
+                if (cartItem) {
+                    cartItem.quantity++;
+                } else {
+                    const category = allCategories.find(c => c.id === product.categoryId);
+                    cart.push({
+                        id: product.id, 
+                        nameEn: product.nameEn,
+                        nameTh: product.nameTh,
+                        nicotine: product.nicotine,
+                        imageUrl: product.imageUrl,
+                        price: category ? parseFloat(category.price) : 0,
+                        categoryName: category ? category.name : '',
+                        categoryId: product.categoryId,
+                        quantity: 1 
+                    });
+                }
+                updateCartUI(productId);
+                showToast('เพิ่มเข้าตะกร้าแล้ว', 'success');
+            };
+            
+            const updateQuantity = (productId, change) => {
+                const cartItem = cart.find(item => item.id === productId);
+                if (!cartItem) return;
+
+                cartItem.quantity += change;
+
+                if (cartItem.quantity <= 0) {
+                    cart = cart.filter(item => item.id !== productId);
+                }
+                
+                try { tg.hapticFeedback.selectionChanged(); } catch(e) {}
+                updateCartUI(productId); // Pass productId for surgical update
+            };
 
             const updateProductCardCartControl = (productId) => {
                 const product = allProducts.find(p => p.id === productId);
                 if (!product) return;
+
                 const containers = document.querySelectorAll(`.cart-control-container[data-product-id="${productId}"]`);
+                const isOutOfStock = product.status === 'OUT_OF_STOCK';
+
                 containers.forEach(container => {
                     const mode = container.dataset.mode || 'standard';
-                    container.innerHTML = createCartControlHtml(product, product.status === 'OUT_OF_STOCK', mode);
+                    container.innerHTML = createCartControlHtml(product, isOutOfStock, mode);
                 });
             };
 
             const updateCartModalItem = (productId) => {
                 const item = cart.find(i => i.id === productId);
+                const total = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+                cartTotalPrice.textContent = `฿${total.toLocaleString('th-TH')}`;
+
                 if (!item) {
+                    // Item was removed, full render is safer to handle grouping/titles
                     updateCartModalDisplay();
                     return;
                 }
+
                 const row = document.querySelector(`.cart-item-row[data-product-id="${productId}"]`);
                 if (row) {
                     const subtotalEl = row.querySelector('.cart-item-subtotal');
                     const qtyDisplayEl = row.querySelector('.cart-qty-display');
+                    const minusIcon = row.querySelector('.btn-minus i');
+
                     if (subtotalEl) subtotalEl.textContent = `${(item.price * item.quantity).toLocaleString('th-TH')} ฿`;
                     if (qtyDisplayEl) qtyDisplayEl.textContent = item.quantity;
+                    if (minusIcon) {
+                        minusIcon.className = item.quantity === 1 ? 'ri-delete-bin-line' : 'ri-subtract-line';
+                    }
                 }
-                updateCartModalDisplay();
             };
+
+            const updateCartUI = async (productId = null) => {
+                saveCart();
+                updateCartIcon();
+                
+                // --- Coupon System: Auto Apply ---
+                await autoApplyBestCoupon();
+
+                if (productId) {
+                    updateProductCardCartControl(productId);
+                    updateCartModalItem(productId);
+                } else {
+                    updateCartModalDisplay();
+                    renderProducts();
+                }
+            };
+
+            const autoApplyBestCoupon = async () => {
+                if (cart.length === 0) {
+                    appliedCoupon = null;
+                    selectedGift = null;
+                    return;
+                }
+
+                try {
+                    const telegramId = tg.initDataUnsafe?.user?.id.toString() || currentUser?.telegramUserId;
+                    const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                    
+                    const res = await fetch('/api/coupons/best', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            telegramId,
+                            cartItems: cart.map(i => ({ productId: i.id, categoryId: i.categoryId, qty: i.quantity, price: i.price })),
+                            totalAmount
+                        })
+                    });
+                    const data = await res.json();
+                    
+                    if (data.success && data.bestCoupon) {
+                        // Reset gift if coupon changed
+                        if (!appliedCoupon || appliedCoupon.coupon.id !== data.bestCoupon.coupon.id) {
+                            selectedGift = null;
+                        }
+                        appliedCoupon = data.bestCoupon;
+                    } else {
+                        appliedCoupon = null;
+                        selectedGift = null;
+                    }
+                } catch (err) {
+                    console.error("Auto Apply Coupon Error:", err);
+                }
+            };
+            
+            const updateCartIcon = () => {
+                const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+                
+                // Main Header Cart Badge
+                cartItemCount.textContent = totalItems;
+                if (totalItems > 0) {
+                    cartItemCount.classList.remove('hidden');
+                } else {
+                    cartItemCount.classList.add('hidden');
+                }
+
+                // Fav Modal Cart Badge
+                const favCartBadge = document.getElementById('fav-cart-badge');
+                if (favCartBadge) {
+                    favCartBadge.textContent = totalItems;
+                    if (totalItems > 0) {
+                        favCartBadge.classList.remove('hidden');
+                    } else {
+                        favCartBadge.classList.add('hidden');
+                    }
+                }
+            };
+            
+            const updateCartModalDisplay = () => {
+                if (cart.length === 0) {
+                    cartListWrapper.innerHTML = `<p class="text-zinc-400 text-center py-4">ตะกร้าของคุณว่างเปล่า</p>`;
+                    cartTotalPrice.textContent = '0 Baht';
+                    copyCartBtn.disabled = true;
+                    clearCartBtn.classList.add('hidden');
+                    return;
+                }
+
+                copyCartBtn.disabled = false;
+                clearCartBtn.classList.remove('hidden');
+                
+                // Group by Category
+                const groups = cart.reduce((acc, item) => {
+                    const key = item.categoryName || 'Other';
+                    if (!acc[key]) acc[key] = [];
+                    acc[key].push(item);
+                    return acc;
+                }, {});
+
+                let html = '';
+                for (const [categoryName, items] of Object.entries(groups)) {
+                    html += `<div class="mb-4 last:mb-0">
+                        <div class="text-[1rem] font-bold text-zinc-500 uppercase tracking-wider mb-2 pl-1">${categoryName}</div>
+                        <div class="space-y-2">
+                            ${items.map(item => `
+                                <div class="cart-item-row flex items-center gap-3 text-white p-2.5 bg-zinc-800/50 rounded-xl border border-zinc-700/30" data-product-id="${item.id}">
+                                    <div class="flex-grow min-w-0">
+                                        <p class="font-bold text-[1.2rem] leading-tight truncate text-white">${item.nameEn}</p>
+                                        <p class="text-sm text-zinc-400 truncate mt-0.5">${item.nameTh || ''} ${item.nicotine !== null ? `(${item.nicotine}%)` : ''}</p>
+                                    </div>
+                                    
+                                    <div class="cart-item-subtotal text-brand-red font-bold text-[1rem] whitespace-nowrap">${(item.price * item.quantity).toLocaleString('th-TH')} ฿</div>
+
+                                    <div class="flex items-center bg-zinc-900/50 rounded-full p-1 gap-1 flex-shrink-0 border border-zinc-700/50 cart-control-container" data-product-id="${item.id}" data-mode="mini">
+                                        <button class="cart-qty-btn btn-minus quantity-btn" data-product-id="${item.id}" data-change="-1">
+                                            <i class="${item.quantity === 1 ? 'ri-delete-bin-line' : 'ri-subtract-line'}"></i>
+                                        </button>
+                                        <div class="cart-qty-display">${item.quantity}</div>
+                                        <button class="cart-qty-btn btn-plus quantity-btn" data-product-id="${item.id}" data-change="1">
+                                            <i class="ri-add-line"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>`;
+                }
+                
+                cartListWrapper.innerHTML = html;
+
+                const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                
+                // --- New Coupon Integration ---
+                const finalTotal = renderCouponInCart(total);
+                cartTotalPrice.textContent = `${finalTotal.toLocaleString('th-TH')} Baht`;
+            };
+
             const openCartModal = () => {
                 updateCartModalDisplay();
                 const modal = document.getElementById('cart-modal');
