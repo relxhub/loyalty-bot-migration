@@ -1147,10 +1147,12 @@
             const copyBtn = document.getElementById('copy-cart-btn');
             const clearBtn = document.getElementById('clear-cart-btn');
             const shippingLabel = document.getElementById('shipping-label');
+            const couponArea = document.getElementById('cart-coupon-area');
+            const couponNameEl = document.getElementById('cart-coupon-name');
             
             if (!wrapper) return;
 
-            // --- Real-time Subtotal ---
+            // 1. Calculate REAL-TIME Subtotal (Items only)
             const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
             if (cart.length === 0) {
@@ -1160,13 +1162,14 @@
                 if (totalEl) totalEl.textContent = '฿0';
                 if (copyBtn) copyBtn.disabled = true;
                 if (clearBtn) clearBtn.classList.add('hidden');
-                document.getElementById('cart-coupon-area')?.classList.add('hidden');
+                if (couponArea) couponArea.classList.add('hidden');
                 return;
             }
 
             if (copyBtn) copyBtn.disabled = false;
             if (clearBtn) clearBtn.classList.remove('hidden');
             
+            // Render Cart Items
             const groups = cart.reduce((acc, item) => {
                 const key = item.categoryName || 'Other';
                 if (!acc[key]) acc[key] = [];
@@ -1202,11 +1205,11 @@
             }
             wrapper.innerHTML = html;
 
-            // --- CALCULATE SHIPPING ---
+            // 2. Calculate Shipping Fee
             const isFreeShipping = subtotal >= shippingConfig.freeMin;
             const shippingFee = isFreeShipping ? 0 : shippingConfig.fee;
             
-            // --- CALCULATE DISCOUNT ---
+            // 3. Calculate Discount from Applied Coupon
             let discount = 0;
             if (appliedCoupon) {
                 const coupon = appliedCoupon.coupon;
@@ -1216,30 +1219,36 @@
                     discount = parseFloat(coupon.value);
                 }
                 
-                document.getElementById('cart-coupon-area').classList.remove('hidden');
-                document.getElementById('cart-coupon-name').textContent = `คูปอง: ${coupon.name}`;
+                if (couponArea) {
+                    couponArea.classList.remove('hidden');
+                    couponNameEl.textContent = `คูปอง: ${coupon.name}`;
+                }
                 
                 if (coupon.type === "GIFT") {
                     if (discountEl) discountEl.textContent = "FREE GIFT";
                     renderGiftOptions(coupon.giftProductId);
                 } else {
                     if (discountEl) discountEl.textContent = `-฿${discount.toLocaleString('th-TH')}`;
-                    document.getElementById('gift-selection-area')?.classList.add('hidden');
+                    const giftArea = document.getElementById('gift-selection-area');
+                    if (giftArea) giftArea.classList.add('hidden');
                 }
-                discountRow?.classList.remove('hidden');
+                if (discountRow) discountRow.classList.remove('hidden');
             } else {
-                document.getElementById('cart-coupon-area')?.classList.add('hidden');
-                discountRow?.classList.add('hidden');
+                if (couponArea) couponArea.classList.add('hidden');
+                if (discountRow) discountRow.classList.add('hidden');
             }
 
-            // --- UPDATE TOTALS ---
+            // 4. Calculate Final Net Total
             const finalTotal = subtotal + shippingFee - discount;
 
+            // 5. Update UI Labels
             if (subtotalEl) subtotalEl.textContent = `฿${subtotal.toLocaleString('th-TH')}`;
             if (shippingEl) {
                 shippingEl.textContent = isFreeShipping ? 'FREE' : `฿${shippingFee.toLocaleString('th-TH')}`;
                 shippingEl.className = isFreeShipping ? 'text-green-500 font-bold' : 'text-zinc-400';
-                shippingLabel.innerHTML = isFreeShipping ? 'ค่าจัดส่ง <span class="text-[10px] bg-green-500/20 text-green-500 px-1.5 py-0.5 rounded ml-1">ส่งฟรี!</span>' : 'ค่าจัดส่ง';
+                if (shippingLabel) {
+                    shippingLabel.innerHTML = isFreeShipping ? 'ค่าจัดส่ง <span class="text-[10px] bg-green-500/20 text-green-500 px-1.5 py-0.5 rounded ml-1">ส่งฟรี!</span>' : 'ค่าจัดส่ง';
+                }
             }
             if (totalEl) totalEl.textContent = `฿${Math.max(0, finalTotal).toLocaleString('th-TH')}`;
         };
@@ -3250,9 +3259,12 @@
                     <!-- Cart items will be injected here by JS -->
                     <p class="text-zinc-400 text-center py-4">ตะกร้าของคุณว่างเปล่า</p>
                 </div>
+            </div>
 
-                <!-- Coupon Applied Info -->
-                <div id="cart-coupon-area" class="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl hidden">
+            <!-- Footer (Summary) -->
+            <div class="flex-shrink-0 p-5 border-t border-zinc-700 space-y-3 bg-zinc-900/50">
+                <!-- Coupon Applied Info (MOVED ABOVE SUMMARY) -->
+                <div id="cart-coupon-area" class="mb-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl hidden">
                     <div class="flex justify-between items-center">
                         <div class="flex items-center gap-2">
                             <i class="ri-ticket-2-fill text-yellow-500"></i>
@@ -3271,13 +3283,10 @@
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Footer (Summary) -->
-            <div class="flex-shrink-0 p-5 border-t border-zinc-700 space-y-3 bg-zinc-900/50">
                 <div class="space-y-1.5 text-sm">
                     <div class="flex justify-between text-zinc-400">
-                        <span>รวมสินค้า</span>
+                        <span>ยอดรวมสินค้า</span>
                         <span id="summary-subtotal">฿0</span>
                     </div>
                     <div class="flex justify-between text-zinc-400">
