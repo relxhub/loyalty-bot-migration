@@ -567,33 +567,33 @@ async function handleCouponUse(ctx, commandParts, adminUser, chatId) {
     const couponId = commandParts[2]?.toUpperCase();
 
     if (!customerId || !couponId) {
-        return sendAdminReply(chatId, \"?????????????????\n????????: /coupon [??????????] [?????????]\");
+        return sendAdminReply(chatId, "⚠️ ข้อมูลไม่ครบถ้วน\nรูปแบบ: /coupon [รหัสลูกค้า] [รหัสคูปอง]");
     }
 
     try {
         const result = await couponService.useCoupon(customerId, couponId, adminUser);
-        let msg = `? <b>??????????????!</b>\n` +
-                  `?? ??????: ${customerId}\n` +
-                  `?? ?????: ${result.coupon.name}\n`;
+        let msg = `✅ <b>ใช้คูปองสำเร็จ!</b>\n` +
+                  `👤 ลูกค้า: ${customerId}\n` +
+                  `🎫 คูปอง: ${result.coupon.name}\n`;
 
-        if (result.coupon.type === \"GIFT\") {
-            msg += `\n?? <b>??????:</b> ??????????????????????????????????????????????????`;
+        if (result.coupon.type === "GIFT") {
+            msg += `\n🎁 <b>ของแถม:</b> กรุณามอบของแถมตามรายการที่กำหนดให้ลูกค้า`;
         } else {
-            const discountDisplay = result.coupon.type === \"DISCOUNT_PERCENT\" ? `${result.coupon.value}%` : `${result.coupon.value} ???`;
-            msg += `?? <b>??????:</b> ${discountDisplay}`;
+            const discountDisplay = result.coupon.type === "DISCOUNT_PERCENT" ? `${result.coupon.value}%` : `${result.coupon.value} บาท`;
+            msg += `💰 <b>ส่วนลด:</b> ${discountDisplay}`;
         }
 
-        await createAdminLog(adminUser, \"USE_COUPON\", customerId, 0, `Used Coupon: ${couponId}`);
+        await createAdminLog(adminUser, "USE_COUPON", customerId, 0, `Used Coupon: ${couponId}`);
         sendAdminReply(chatId, msg);
 
         // Notify Customer
         const customer = await prisma.customer.findUnique({ where: { customerId } });
         if (customer?.telegramUserId) {
-            await sendNotificationToCustomer(customer.telegramUserId, `?? ?????????????? \"${result.coupon.name}\" ?????????????!`);
+            await sendNotificationToCustomer(customer.telegramUserId, `🎫 คูปองของคุณ "${result.coupon.name}" ถูกใช้งานแล้ว!`);
         }
 
     } catch (error) {
-        sendAdminReply(chatId, `? ${error.message}`);
+        sendAdminReply(chatId, `❌ ${error.message}`);
     }
 }
 
@@ -602,20 +602,20 @@ async function handleCouponRestore(ctx, commandParts, adminUser, chatId) {
     const couponId = commandParts[2]?.toUpperCase();
 
     if (!customerId || !couponId) {
-        return sendAdminReply(chatId, \"?????????????????\n????????: /uncoupon [??????????] [?????????]\");
+        return sendAdminReply(chatId, "⚠️ ข้อมูลไม่ครบถ้วน\nรูปแบบ: /uncoupon [รหัสลูกค้า] [รหัสคูปอง]");
     }
 
     try {
         const result = await couponService.restoreCoupon(customerId, couponId, adminUser);
-        const msg = `? <b>?????????????????!</b>\n` +
-                    `?? ??????: ${customerId}\n` +
-                    `?? ?????: ${result.coupon.name}\n` +
-                    `\n??????????????????????????????????????`;
+        const msg = `✅ <b>คืนสิทธิ์คูปองสำเร็จ!</b>\n` +
+                    `👤 ลูกค้า: ${customerId}\n` +
+                    `🎫 คูปอง: ${result.coupon.name}\n` +
+                    `\nคืนสิทธิ์ให้ลูกค้าสามารถนำกลับมาใช้ได้อีกครั้ง`;
 
-        await createAdminLog(adminUser, \"RESTORE_COUPON\", customerId, 0, `Restored Coupon: ${couponId}`);
+        await createAdminLog(adminUser, "RESTORE_COUPON", customerId, 0, `Restored Coupon: ${couponId}`);
         sendAdminReply(chatId, msg);
 
     } catch (error) {
-        sendAdminReply(chatId, `? ${error.message}`);
+        sendAdminReply(chatId, `❌ ${error.message}`);
     }
 }
