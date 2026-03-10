@@ -1044,6 +1044,141 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
+        // --- GLOBAL STATE ---
+        const tg = window.Telegram.WebApp;
+        let allProducts = [];
+        let allCategories = [];
+        let cart = [];
+        let favorites = []; 
+        let currentUser = null;
+        let activeProduct = null;
+        let appliedCoupon = null; 
+        let selectedGift = null; 
+        let currentFilter = {
+            categoryId: null,
+            searchTerm: '',
+            nicotine: null,
+            specials: new Set(), 
+        };
+
+        // --- GLOBAL FUNCTIONS ---
+        const updateCartUI = async (productId = null) => {
+            saveCart();
+            updateCartIcon();
+            await autoApplyBestCoupon();
+            if (productId) {
+                updateProductCardCartControl(productId);
+                updateCartModalItem(productId);
+            } else {
+                updateCartModalDisplay();
+                renderProducts();
+            }
+        };
+
+        const updateCartIcon = () => {
+            const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+            const badge = document.getElementById('cart-item-count');
+            if (badge) {
+                badge.textContent = totalItems;
+                badge.classList.toggle('hidden', totalItems === 0);
+            }
+            const favBadge = document.getElementById('fav-cart-badge');
+            if (favBadge) {
+                favBadge.textContent = totalItems;
+                favBadge.classList.toggle('hidden', totalItems === 0);
+            }
+        };
+
+        const saveCart = () => localStorage.setItem('shoppingCart', JSON.stringify(cart));
+
+        const openCartModal = () => {
+            updateCartModalDisplay();
+            const modal = document.getElementById('cart-modal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            document.body.classList.add('modal-open');
+            setTimeout(() => modal.classList.add('show'), 10);
+        };
+        window.openCartModal = openCartModal;
+
+        const closeCartModal = () => {
+            const modal = document.getElementById('cart-modal');
+            if (!modal) return;
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                document.body.classList.remove('modal-open');
+            }, 300);
+        };
+        window.closeCartModal = closeCartModal;
+
+        const updateCartModalDisplay = () => {
+            const wrapper = document.getElementById('cart-list-wrapper');
+            const totalEl = document.getElementById('cart-total-price');
+            const copyBtn = document.getElementById('copy-cart-btn');
+            const clearBtn = document.getElementById('clear-cart-btn');
+            if (!wrapper) return;
+
+            if (cart.length === 0) {
+                wrapper.innerHTML = `<p class="text-zinc-400 text-center py-4">ตะกร้าของคุณว่างเปล่า</p>`;
+                if (totalEl) totalEl.textContent = '0 Baht';
+                if (copyBtn) copyBtn.disabled = true;
+                if (clearBtn) clearBtn.classList.add('hidden');
+                return;
+            }
+
+            if (copyBtn) copyBtn.disabled = false;
+            if (clearBtn) clearBtn.classList.remove('hidden');
+            
+            const groups = cart.reduce((acc, item) => {
+                const key = item.categoryName || 'Other';
+                if (!acc[key]) acc[key] = [];
+                acc[key].push(item);
+                return acc;
+            }, {});
+
+            let html = '';
+            for (const [categoryName, items] of Object.entries(groups)) {
+                html += `<div class="mb-4">
+                    <div class="text-[1rem] font-bold text-zinc-500 uppercase tracking-wider mb-2 pl-1">${categoryName}</div>
+                    <div class="space-y-2">
+                        ${items.map(item => `
+                            <div class="cart-item-row flex items-center gap-3 text-white p-2.5 bg-zinc-800/50 rounded-xl border border-zinc-700/30" data-product-id="${item.id}">
+                                <div class="flex-grow min-w-0">
+                                    <p class="font-bold text-[1.2rem] leading-tight truncate">${item.nameEn}</p>
+                                    <p class="text-sm text-zinc-400 truncate mt-0.5">${item.nameTh || ''} ${item.nicotine !== null ? `(${item.nicotine}%)` : ''}</p>
+                                </div>
+                                <div class="cart-item-subtotal text-brand-red font-bold text-[1rem]">${(item.price * item.quantity).toLocaleString('th-TH')} ฿</div>
+                                <div class="flex items-center bg-zinc-900/50 rounded-full p-1 gap-1 border border-zinc-700/50">
+                                    <button class="cart-qty-btn btn-minus !w-7 !h-7 !text-xs" onclick="updateQuantity(${item.id}, -1)">
+                                        <i class="${item.quantity === 1 ? 'ri-delete-bin-line' : 'ri-subtract-line'}"></i>
+                                    </button>
+                                    <div class="cart-qty-display !min-w-[20px] !text-sm">${item.quantity}</div>
+                                    <button class="cart-qty-btn btn-plus !w-7 !h-7 !text-xs" onclick="updateQuantity(${item.id}, 1)">
+                                        <i class="ri-add-line"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>`;
+            }
+            wrapper.innerHTML = html;
+            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const finalTotal = renderCouponInCart ? renderCouponInCart(total) : total;
+            if (totalEl) totalEl.textContent = `${finalTotal.toLocaleString('th-TH')} Baht`;
+        };
+
+        const updateQuantity = (productId, change) => {
+            const item = cart.find(i => i.id === productId);
+            if (!item) return;
+            item.quantity += change;
+            if (item.quantity <= 0) cart = cart.filter(i => i.id !== productId);
+            try { tg.hapticFeedback.selectionChanged(); } catch(e) {}
+            updateCartUI(productId);
+        };
+        window.updateQuantity = updateQuantity;
+
         document.addEventListener('DOMContentLoaded', async function() {
             // --- UI Enhancements: Skeleton Loading ---
             const renderSkeletons = () => {
