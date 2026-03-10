@@ -1262,6 +1262,8 @@
             let favorites = []; // Store favorite product IDs
             let currentUser = null;
             let activeProduct = null;
+            let appliedCoupon = null; // คูปองที่เลือกใช้งานอยู่
+            let selectedGift = null; // ของแถมที่ลูกค้าเลือก
             let currentFilter = {
                 categoryId: null,
                 searchTerm: '',
@@ -1621,16 +1623,56 @@
                 }
             };
 
-            const updateCartUI = (productId = null) => {
+            const updateCartUI = async (productId = null) => {
                 saveCart();
                 updateCartIcon();
                 
+                // --- Coupon System: Auto Apply ---
+                await autoApplyBestCoupon();
+
                 if (productId) {
                     updateProductCardCartControl(productId);
                     updateCartModalItem(productId);
                 } else {
                     updateCartModalDisplay();
                     renderProducts();
+                }
+            };
+
+            const autoApplyBestCoupon = async () => {
+                if (cart.length === 0) {
+                    appliedCoupon = null;
+                    selectedGift = null;
+                    return;
+                }
+
+                try {
+                    const telegramId = tg.initDataUnsafe?.user?.id.toString() || currentUser?.telegramUserId;
+                    const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                    
+                    const res = await fetch('/api/coupons/best', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            telegramId,
+                            cartItems: cart.map(i => ({ productId: i.id, categoryId: i.categoryId, qty: i.quantity, price: i.price })),
+                            totalAmount
+                        })
+                    });
+                    const data = await res.json();
+                    
+                    if (data.success && data.bestCoupon) {
+                        // Reset gift if coupon changed
+                        if (!appliedCoupon || appliedCoupon.coupon.id !== data.bestCoupon.coupon.id) {
+                            selectedGift = null;
+                        }
+                        appliedCoupon = data.bestCoupon;
+                    } else {
+                        appliedCoupon = null;
+                        selectedGift = null;
+                    }
+                } catch (err) {
+                    console.error("Auto Apply Coupon Error:", err);
                 }
             };
             
@@ -1709,7 +1751,10 @@
                 cartListWrapper.innerHTML = html;
 
                 const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                cartTotalPrice.textContent = `${total.toLocaleString('th-TH')} Baht`;
+                
+                // --- New Coupon Integration ---
+                const finalTotal = renderCouponInCart(total);
+                cartTotalPrice.textContent = `${finalTotal.toLocaleString('th-TH')} Baht`;
             };
 
             const openCartModal = () => {
@@ -1781,8 +1826,26 @@
                     textToCopy += "\n"; // Space between groups
                 });
 
+                // --- Coupon Integration into Copy Message ---
+                if (appliedCoupon) {
+                    textToCopy += `🎫 คูปองที่ใช้: ${appliedCoupon.coupon.id}\n`;
+                    if (selectedGift) {
+                        const gift = allProducts.find(p => p.id === selectedGift);
+                        textToCopy += `🎁 ของแถม: ${gift.nameEn} (แถมฟรี)\n`;
+                    }
+                    textToCopy += "\n";
+                }
+
                 const total = availableItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                textToCopy += `ยอดรวม: ฿${total.toLocaleString('th-TH')}`;
+                let finalTotal = total;
+                if (appliedCoupon) {
+                    const coupon = appliedCoupon.coupon;
+                    if (coupon.type === 'DISCOUNT_PERCENT') finalTotal -= (total * (parseFloat(coupon.value) / 100));
+                    else if (coupon.type === 'DISCOUNT_FLAT') finalTotal -= parseFloat(coupon.value);
+                }
+
+                textToCopy += `ยอดรวมสุทธิ: ฿${finalTotal.toLocaleString('th-TH')}`;
+                textToCopy += `\n\n[รหัสลูกค้า: ${currentUser?.customerId || tg.initDataUnsafe?.user?.id}]`;
 
                 navigator.clipboard.writeText(textToCopy.trim()).then(() => {
                     showToast('คัดลอกรายการแล้ว!', 'success');
@@ -2886,6 +2949,27 @@
                     <!-- Cart items will be injected here by JS -->
                     <p class="text-zinc-400 text-center py-4">ตะกร้าของคุณว่างเปล่า</p>
                 </div>
+
+                <!-- Coupon Applied Info -->
+                <div id="cart-coupon-area" class="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl hidden">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <i class="ri-ticket-2-fill text-yellow-500"></i>
+                            <div>
+                                <div id="cart-coupon-name" class="font-bold text-yellow-500 text-sm"></div>
+                                <div id="cart-coupon-desc" class="text-[10px] text-gray-400">คูปองนี้ถูกใช้โดยอัตโนมัติ</div>
+                            </div>
+                        </div>
+                        <div id="cart-coupon-value" class="font-bold text-yellow-500"></div>
+                    </div>
+                    <!-- Gift Selection Section -->
+                    <div id="gift-selection-area" class="mt-3 pt-3 border-t border-white/5 hidden">
+                        <p class="text-[10px] text-zinc-400 mb-2 uppercase font-bold tracking-wider">กรุณาเลือกของแถม:</p>
+                        <div id="gift-list" class="grid grid-cols-3 gap-2">
+                            <!-- Gift options will be injected here -->
+                        </div>
+                    </div>
+                </div>
             </div>
             <!-- Footer -->
             <div class="flex-shrink-0 p-4 border-t border-zinc-700 space-y-3">
@@ -2907,3 +2991,71 @@
 
 </body>
 </html>
+            // --- Coupon System Helper Functions ---
+            const renderCouponInCart = (totalAmount) => {
+                const couponArea = document.getElementById(\"cart-coupon-area\");
+                const couponNameEl = document.getElementById(\"cart-coupon-name\");
+                const couponValueEl = document.getElementById(\"cart-coupon-value\");
+                const cartTotalPrice = document.getElementById(\"cart-total-price\");
+                const copyCartBtn = document.getElementById(\"copy-cart-btn\");
+
+                if (!appliedCoupon) {
+                    couponArea.classList.add(\"hidden\");
+                    return totalAmount;
+                }
+
+                couponArea.classList.remove(\"hidden\");
+                couponNameEl.textContent = `?????: ${appliedCoupon.coupon.name}`;
+                
+                let saving = 0;
+                const coupon = appliedCoupon.coupon;
+                if (coupon.type === \"DISCOUNT_PERCENT\") {
+                    saving = totalAmount * (parseFloat(coupon.value) / 100);
+                    couponValueEl.textContent = `-?${saving.toLocaleString(\"th-TH\")}`;
+                } else if (coupon.type === \"DISCOUNT_FLAT\") {
+                    saving = parseFloat(coupon.value);
+                    couponValueEl.textContent = `-?${saving.toLocaleString(\"th-TH\")}`;
+                } else if (coupon.type === \"GIFT\") {
+                    couponValueEl.textContent = \"FREE GIFT\";
+                    renderGiftOptions(coupon.giftProductId);
+                }
+
+                // Update copy button state for gifts
+                if (coupon.type === \"GIFT\" && !selectedGift) {
+                    copyCartBtn.disabled = true;
+                    copyCartBtn.textContent = \"????????????????\";
+                    copyCartBtn.classList.replace(\"bg-green-600\", \"bg-zinc-600\");
+                } else {
+                    copyCartBtn.disabled = false;
+                    copyCartBtn.textContent = \"????????????\";
+                    copyCartBtn.classList.replace(\"bg-zinc-600\", \"bg-green-600\");
+                }
+
+                return totalAmount - saving;
+            };
+
+            const renderGiftOptions = (productId) => {
+                const giftArea = document.getElementById(\"gift-selection-area\");
+                const giftList = document.getElementById(\"gift-list\");
+                const gift = allProducts.find(p => p.id === productId);
+
+                if (!gift) {
+                    giftArea.classList.add(\"hidden\");
+                    return;
+                }
+
+                giftArea.classList.remove(\"hidden\");
+                giftList.innerHTML = `
+                    <div onclick=\"selectGift(${gift.id})\" class=\"p-1 rounded-xl border-2 transition active:scale-95 ${selectedGift === gift.id ? \"border-yellow-500 bg-yellow-500/10\" : \"border-zinc-700 bg-zinc-900/50\"}\">
+                        <img src=\"${gift.imageUrl}\" class=\"w-full aspect-square object-contain rounded-lg\">
+                        <p class=\"text-[8px] text-center mt-1 truncate text-zinc-400\">${gift.nameEn}</p>
+                    </div>
+                `;
+            };
+
+            window.selectGift = (id) => {
+                selectedGift = id;
+                try { tg.hapticFeedback.impactOccurred(\"medium\"); } catch(e) {}
+                updateCartModalDisplay();
+            };
+

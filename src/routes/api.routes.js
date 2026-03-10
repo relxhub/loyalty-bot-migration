@@ -8,6 +8,7 @@ import { getCustomerByTelegramId, updateCustomer, countCampaignReferralsByTag } 
 import { countMonthlyReferrals } from '../services/referral.service.js';
 import * as referralService from '../services/referral.service.js';
 import { getProductPageData } from '../services/product.service.js';
+import * as couponService from '../services/coupon.service.js';
 // No longer import orderBotToken directly here due to module issues.
 
 const router = express.Router();
@@ -571,6 +572,96 @@ router.post('/reviews', async (req, res) => {
         }
         console.error("Review Submission Error:", error);
         res.status(500).json({ error: "Failed to submit review." });
+    }
+});
+
+// ==================================================
+// 🎟️ COUPONS
+// ==================================================
+
+/**
+ * ดึงรายการคูปองทั้งหมด (สำหรับ Coupon Center)
+ */
+router.get('/coupons', async (req, res) => {
+    try {
+        const coupons = await prisma.coupon.findMany({
+            where: { isActive: true },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json({ success: true, coupons });
+    } catch (error) {
+        console.error("Fetch Coupons Error:", error);
+        res.status(500).json({ error: "ดึงข้อมูลคูปองไม่สำเร็จ" });
+    }
+});
+
+/**
+ * ดึงคูปองส่วนตัวของลูกค้า
+ */
+router.get('/coupons/my/:telegramId', async (req, res) => {
+    try {
+        const { telegramId } = req.params;
+        const user = await prisma.customer.findUnique({
+            where: { telegramUserId: telegramId },
+            select: { customerId: true }
+        });
+
+        if (!user) return res.status(404).json({ error: "ไม่พบข้อมูลลูกค้า" });
+
+        const myCoupons = await couponService.getCustomerCoupons(user.customerId);
+        res.json({ success: true, coupons: myCoupons });
+    } catch (error) {
+        console.error("Fetch My Coupons Error:", error);
+        res.status(500).json({ error: "ดึงข้อมูลคูปองส่วนตัวไม่สำเร็จ" });
+    }
+});
+
+/**
+ * ลูกค้ากดเก็บคูปอง (FCFS)
+ */
+router.post('/coupons/claim', async (req, res) => {
+    try {
+        const { telegramId, couponId, initData } = req.body;
+
+        // Verify Identity
+        if (!verifyTelegramWebAppData(initData)) {
+            return res.status(401).json({ error: "Invalid Telegram Data" });
+        }
+
+        const user = await prisma.customer.findUnique({
+            where: { telegramUserId: telegramId },
+            select: { customerId: true }
+        });
+
+        if (!user) return res.status(404).json({ error: "ไม่พบข้อมูลลูกค้า" });
+
+        const result = await couponService.claimCoupon(user.customerId, couponId);
+        res.json({ success: true, message: "เก็บคูปองสำเร็จ!", coupon: result });
+    } catch (error) {
+        console.error("Claim Coupon Error:", error);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+/**
+ * คำนวณหาคูปองที่ดีที่สุดสำหรับตะกร้าสินค้า
+ */
+router.post('/coupons/best', async (req, res) => {
+    try {
+        const { telegramId, cartItems, totalAmount } = req.body;
+
+        const user = await prisma.customer.findUnique({
+            where: { telegramUserId: telegramId },
+            select: { customerId: true }
+        });
+
+        if (!user) return res.status(404).json({ error: "ไม่พบข้อมูลลูกค้า" });
+
+        const bestCoupon = await couponService.getBestCoupon(user.customerId, cartItems, totalAmount);
+        res.json({ success: true, bestCoupon });
+    } catch (error) {
+        console.error("Calculate Best Coupon Error:", error);
+        res.status(500).json({ error: "คำนวณคูปองไม่สำเร็จ" });
     }
 });
 

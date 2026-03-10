@@ -9,6 +9,7 @@ import { getActiveCampaign } from '../services/campaign.service.js';
 import { getConfig } from '../config/config.js';
 import { createCustomer, giveReferralBonus } from '../services/customer.service.js';
 import * as referralService from '../services/referral.service.js'; // Import the new referral service
+import * as couponService from '../services/coupon.service.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -36,6 +37,14 @@ export async function handleAdminCommand(ctx) {
         switch (command) {
             case "/undo":
                 await handleUndoLastAction(ctx, adminUser, chatId);
+                break;
+
+            case "/coupon":
+                await handleCouponUse(ctx, commandParts, adminUser, chatId);
+                break;
+
+            case "/uncoupon":
+                await handleCouponRestore(ctx, commandParts, adminUser, chatId);
                 break;
 
             case "/fixreferrals":
@@ -88,9 +97,11 @@ export async function handleAdminCommand(ctx) {
                 `↩️ /undo (ยกเลิกคำสั่งล่าสุด)\n` +
                 (role === "SuperAdmin" ? "🪙 /add [รหัสลูกค้า] [แต้ม]\n" : "") +
                 (role === "SuperAdmin" ? "👮‍♂️ /addadmin [ID] [Role] [Name]\n" : "") +
-                "👤 /new [ลูกค้าใหม่] [ผู้แนะนำ]\n" +
-                "✨ /refer [รหัสลูกค้าที่ถูกแนะนำ] [ยอดซื้อ]\n" + // Add new command to start message
+                "👤 /new [ลูกค้าใหม่]\n" +
+                "✨ /refer [รหัสลูกค้าที่ถูกแนะนำ] [ยอดซื้อ]\n" + 
                 "🎁 /reward\n" +
+                "🎫 /coupon [รหัสลูกค้า] [รหัสคูปอง]\n" +
+                "↩️ /uncoupon [รหัสลูกค้า] [รหัสคูปอง]\n" +
                 "✨ /redeem [รหัสลูกค้า] [รหัสรางวัล]";
                 sendAdminReply(chatId, welcomeMsg);
                 break;
@@ -549,5 +560,62 @@ async function handleFixReferrals(ctx, adminUser, chatId) {
     } catch (error) {
         console.error("Fix Referrals Error:", error);
         sendAdminReply(chatId, `❌ เกิดข้อผิดพลาด: ${error.message}`);
+    }
+}
+async function handleCouponUse(ctx, commandParts, adminUser, chatId) {
+    const customerId = commandParts[1]?.toUpperCase();
+    const couponId = commandParts[2]?.toUpperCase();
+
+    if (!customerId || !couponId) {
+        return sendAdminReply(chatId, \"?????????????????\n????????: /coupon [??????????] [?????????]\");
+    }
+
+    try {
+        const result = await couponService.useCoupon(customerId, couponId, adminUser);
+        let msg = `? <b>??????????????!</b>\n` +
+                  `?? ??????: ${customerId}\n` +
+                  `?? ?????: ${result.coupon.name}\n`;
+
+        if (result.coupon.type === \"GIFT\") {
+            msg += `\n?? <b>??????:</b> ??????????????????????????????????????????????????`;
+        } else {
+            const discountDisplay = result.coupon.type === \"DISCOUNT_PERCENT\" ? `${result.coupon.value}%` : `${result.coupon.value} ???`;
+            msg += `?? <b>??????:</b> ${discountDisplay}`;
+        }
+
+        await createAdminLog(adminUser, \"USE_COUPON\", customerId, 0, `Used Coupon: ${couponId}`);
+        sendAdminReply(chatId, msg);
+
+        // Notify Customer
+        const customer = await prisma.customer.findUnique({ where: { customerId } });
+        if (customer?.telegramUserId) {
+            await sendNotificationToCustomer(customer.telegramUserId, `?? ?????????????? \"${result.coupon.name}\" ?????????????!`);
+        }
+
+    } catch (error) {
+        sendAdminReply(chatId, `? ${error.message}`);
+    }
+}
+
+async function handleCouponRestore(ctx, commandParts, adminUser, chatId) {
+    const customerId = commandParts[1]?.toUpperCase();
+    const couponId = commandParts[2]?.toUpperCase();
+
+    if (!customerId || !couponId) {
+        return sendAdminReply(chatId, \"?????????????????\n????????: /uncoupon [??????????] [?????????]\");
+    }
+
+    try {
+        const result = await couponService.restoreCoupon(customerId, couponId, adminUser);
+        const msg = `? <b>?????????????????!</b>\n` +
+                    `?? ??????: ${customerId}\n` +
+                    `?? ?????: ${result.coupon.name}\n` +
+                    `\n??????????????????????????????????????`;
+
+        await createAdminLog(adminUser, \"RESTORE_COUPON\", customerId, 0, `Restored Coupon: ${couponId}`);
+        sendAdminReply(chatId, msg);
+
+    } catch (error) {
+        sendAdminReply(chatId, `? ${error.message}`);
     }
 }

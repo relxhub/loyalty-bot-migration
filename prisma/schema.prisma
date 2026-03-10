@@ -39,6 +39,18 @@ enum ProductType {
   DISPOSABLE
 }
 
+enum CouponType {
+  DISCOUNT_PERCENT
+  DISCOUNT_FLAT
+  GIFT
+}
+
+enum CouponStatus {
+  AVAILABLE
+  USED
+  EXPIRED
+}
+
 // ---------------------------------------------------------
 // CORE MODELS
 // ---------------------------------------------------------
@@ -71,9 +83,58 @@ model Customer {
   referralsMade     Referral[] @relation("ReferredBy") // People this customer has referred
   referredBy        Referral?  @relation("Referred")   // The referral record for how this customer joined
   reviews           ProductReview[] // Relation to reviews
+  coupons           CustomerCoupon[] // Relation to coupons
 
   @@index([verificationCode])
   @@index([referrerId])
+}
+
+model Coupon {
+  id                  String       @id // เช่น 'FIRST_ENTRY', 'B3G1_SEPT'
+  name                String
+  description         String?
+  type                CouponType
+  value               Decimal?     @db.Decimal(10, 2) // จำนวนเงินที่ลด หรือ %
+  
+  // ส่วนของแถม (กรณี type = GIFT)
+  giftProductId       Int?
+  giftQty             Int?         @default(1)
+  
+  // เงื่อนไข (Conditions)
+  minPurchase         Decimal?     @db.Decimal(10, 2)
+  minQty              Int?
+  targetCategoryId    Int?
+  excludedProductIds  Int[]        // รายชื่อ ID สินค้าที่ไม่เข้าร่วม
+  
+  // ข้อจำกัด (Limits & FCFS)
+  totalQuota          Int?         // จำนวนทั้งหมด (Null = ไม่จำกัด)
+  claimedCount        Int          @default(0)
+  usageLimitPerUser   Int          @default(1)
+  
+  startDate           DateTime?
+  endDate             DateTime?
+  isActive            Boolean      @default(true)
+  createdAt           DateTime     @default(now())
+
+  // ความสัมพันธ์
+  customerCoupons     CustomerCoupon[]
+}
+
+model CustomerCoupon {
+  id          Int          @id @default(autoincrement())
+  customerId  String
+  couponId    String
+  status      CouponStatus @default(AVAILABLE)
+  claimedAt   DateTime     @default(now())
+  usedAt      DateTime?
+  usedByAdmin String?      // เก็บชื่อแอดมินที่กดตัดคูปอง
+
+  customer    Customer     @relation(fields: [customerId], references: [customerId])
+  coupon      Coupon       @relation(fields: [couponId], references: [id])
+
+  @@index([customerId])
+  @@index([couponId])
+  @@index([status])
 }
 
 model Referral {
@@ -170,6 +231,7 @@ model Product {
   battery              String?
   wattage              String?
 
+  allowCoupons         Boolean  @default(true) // เลือกได้ว่าสินค้านี้ร่วมรายการคูปองหรือไม่
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
