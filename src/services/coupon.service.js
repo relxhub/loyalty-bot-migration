@@ -7,8 +7,7 @@ export async function claimCoupon(customerId, couponId) {
     return await prisma.$transaction(async (tx) => {
         // 1. ตรวจสอบแม่แบบคูปอง และเช็คโควตา (Atomic check)
         const coupon = await tx.coupon.findUnique({
-            where: { id: couponId },
-            lock: { mode: 'update' } // Lock แถวนี้ไว้เพื่อป้องกัน Race Condition
+            where: { id: couponId }
         });
 
         if (!coupon || !coupon.isActive) {
