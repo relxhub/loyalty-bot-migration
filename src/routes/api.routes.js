@@ -665,4 +665,28 @@ router.post('/coupons/best', async (req, res) => {
     }
 });
 
+// --- System Config ---
+router.get('/config/shipping', async (req, res) => {
+    try {
+        const configs = await prisma.systemConfig.findMany({
+            where: {
+                key: { in: ['shipping_fee', 'free_shipping_min'] }
+            }
+        });
+        
+        const configMap = configs.reduce((acc, c) => {
+            acc[c.key] = parseFloat(c.value);
+            return acc;
+        }, { shipping_fee: 60, free_shipping_min: 500 }); // Default values
+
+        res.json({
+            success: true,
+            shippingFee: configMap.shipping_fee,
+            freeShippingMin: configMap.free_shipping_min
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 export default router;
