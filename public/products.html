@@ -1150,6 +1150,9 @@
             
             if (!wrapper) return;
 
+            // --- Real-time Subtotal ---
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
             if (cart.length === 0) {
                 wrapper.innerHTML = `<p class="text-zinc-400 text-center py-4">ตะกร้าของคุณว่างเปล่า</p>`;
                 if (subtotalEl) subtotalEl.textContent = '฿0';
@@ -1199,14 +1202,11 @@
             }
             wrapper.innerHTML = html;
 
-            // --- REAL-TIME CALCULATION ---
-            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            
-            // 1. Shipping
+            // --- CALCULATE SHIPPING ---
             const isFreeShipping = subtotal >= shippingConfig.freeMin;
             const shippingFee = isFreeShipping ? 0 : shippingConfig.fee;
             
-            // 2. Coupon Discount
+            // --- CALCULATE DISCOUNT ---
             let discount = 0;
             if (appliedCoupon) {
                 const coupon = appliedCoupon.coupon;
@@ -1220,25 +1220,24 @@
                 document.getElementById('cart-coupon-name').textContent = `คูปอง: ${coupon.name}`;
                 
                 if (coupon.type === "GIFT") {
-                    document.getElementById('summary-discount').textContent = "FREE GIFT";
+                    if (discountEl) discountEl.textContent = "FREE GIFT";
                     renderGiftOptions(coupon.giftProductId);
                 } else {
-                    document.getElementById('summary-discount').textContent = `-฿${discount.toLocaleString('th-TH')}`;
-                    document.getElementById('gift-selection-area').classList.add('hidden');
+                    if (discountEl) discountEl.textContent = `-฿${discount.toLocaleString('th-TH')}`;
+                    document.getElementById('gift-selection-area')?.classList.add('hidden');
                 }
-                discountRow.classList.remove('hidden');
+                discountRow?.classList.remove('hidden');
             } else {
-                document.getElementById('cart-coupon-area').classList.add('hidden');
-                discountRow.classList.add('hidden');
+                document.getElementById('cart-coupon-area')?.classList.add('hidden');
+                discountRow?.classList.add('hidden');
             }
 
-            // 3. Final Total
+            // --- UPDATE TOTALS ---
             const finalTotal = subtotal + shippingFee - discount;
 
-            // Update UI
             if (subtotalEl) subtotalEl.textContent = `฿${subtotal.toLocaleString('th-TH')}`;
             if (shippingEl) {
-                shippingEl.textContent = isFreeShipping ? 'FREE' : `฿${shippingFee}`;
+                shippingEl.textContent = isFreeShipping ? 'FREE' : `฿${shippingFee.toLocaleString('th-TH')}`;
                 shippingEl.className = isFreeShipping ? 'text-green-500 font-bold' : 'text-zinc-400';
                 shippingLabel.innerHTML = isFreeShipping ? 'ค่าจัดส่ง <span class="text-[10px] bg-green-500/20 text-green-500 px-1.5 py-0.5 rounded ml-1">ส่งฟรี!</span>' : 'ค่าจัดส่ง';
             }
@@ -1255,7 +1254,7 @@
 
             try {
                 const telegramId = tg.initDataUnsafe?.user?.id.toString() || currentUser?.telegramUserId;
-                const res = await fetch(`/api/coupons/customer/${telegramId}`);
+                const res = await fetch(`/api/coupons/my/${telegramId}`);
                 const data = await res.json();
                 
                 if (data.success) {
