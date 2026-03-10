@@ -1817,18 +1817,31 @@
 
             const loadCart = () => {
                 const savedCart = localStorage.getItem('shoppingCart');
-                cart = savedCart ? JSON.parse(savedCart) : [];
+                let parsedCart = savedCart ? JSON.parse(savedCart) : [];
+
+                // --- FIX: Restore missing prices for old cart items ---
+                cart = parsedCart.map(item => {
+                    const product = allProducts.find(p => p.id === item.id);
+                    if (product) {
+                        const category = allCategories.find(c => c.id === product.categoryId);
+                        item.price = category ? parseFloat(category.price) : 0;
+                        item.categoryName = category ? category.name : item.categoryName;
+                    } else {
+                        item.price = item.price || 0;
+                    }
+                    return item;
+                });
+
                 updateCartUI();
             };
-            
+
             const clearCart = () => {
                 if (confirm('ยืนยันล้างตะกร้าสินค้าทั้งหมด?')) {
                     cart = [];
                     updateCartUI();
                     showToast('ล้างตะกร้าเรียบร้อย', 'info');
                 }
-            };
-            
+            };            
             const addToCart = (productId) => {
                 const product = allProducts.find(p => p.id === productId);
                 if (!product) return;
