@@ -968,7 +968,7 @@
                     <img src="logo.png" alt="Company Logo" class="w-40">
                 </div>
                 <div class="w-1/4 flex justify-end">
-                    <button id="cart-button" onclick="openCartModal()" class="relative text-white">
+                    <button id="cart-button" onclick="window.openCartModal()" class="relative text-white">
                         <i class="ri-shopping-cart-2-line text-3xl"></i>
                         <span id="cart-item-count" class="hidden absolute -top-1 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">0</span>
                     </button>
@@ -1044,7 +1044,8 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
-        // --- GLOBAL STATE ---
+        window.autoApplyBestCoupon = () => autoApplyBestCoupon();
+// --- GLOBAL STATE ---
         const tg = window.Telegram.WebApp;
         let allProducts = [];
         let allCategories = [];
@@ -1190,11 +1191,11 @@
                                 </div>
                                 <div class="cart-item-subtotal text-brand-red font-bold text-[0.9rem]">${(item.price * item.quantity).toLocaleString('th-TH')} ฿</div>
                                 <div class="flex items-center bg-zinc-900/50 rounded-full p-1 gap-1 border border-zinc-700/50">
-                                    <button class="cart-qty-btn btn-minus !w-7 !h-7 !text-xs" onclick="updateQuantity(${item.id}, -1)">
+                                    <button class="cart-qty-btn btn-minus !w-7 !h-7 !text-xs" onclick="window.updateQuantity(${item.id}, -1)">
                                         <i class="${item.quantity === 1 ? 'ri-delete-bin-line' : 'ri-subtract-line'}"></i>
                                     </button>
                                     <div class="cart-qty-display !min-w-[20px] !text-sm">${item.quantity}</div>
-                                    <button class="cart-qty-btn btn-plus !w-7 !h-7 !text-xs" onclick="updateQuantity(${item.id}, 1)">
+                                    <button class="cart-qty-btn btn-plus !w-7 !h-7 !text-xs" onclick="window.updateQuantity(${item.id}, 1)">
                                         <i class="ri-add-line"></i>
                                     </button>
                                 </div>
@@ -1548,14 +1549,14 @@
             };
 
             // --- State Management ---
-            // REDUNDANT: let allProducts = [];
-            // REDUNDANT: let allCategories = [];
-            // REDUNDANT: let cart = [];
-            // REDUNDANT: let favorites = []; // Store favorite product IDs
-            let currentUser = null;
-            let activeProduct = null;
-            let appliedCoupon = null; // คูปองที่เลือกใช้งานอยู่
-            let selectedGift = null; // ของแถมที่ลูกค้าเลือก
+            // REDUNDANT: // CLEANED: let allProducts = [];
+            // REDUNDANT: // CLEANED: let allCategories = [];
+            // REDUNDANT: // CLEANED: let cart = [];
+            // REDUNDANT: // CLEANED: let favorites = []; // Store favorite product IDs
+            // CLEANED: let currentUser = null;
+            // CLEANED: let activeProduct = null;
+            // CLEANED: let appliedCoupon = null; // คูปองที่เลือกใช้งานอยู่
+            // CLEANED: let selectedGift = null; // ของแถมที่ลูกค้าเลือก
             let currentFilter = {
                 categoryId: null,
                 searchTerm: '',
