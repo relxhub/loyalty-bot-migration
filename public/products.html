@@ -1116,11 +1116,14 @@
                 await reVerifyManualCoupon();
             }
 
+            // ALWAYS update the cart modal display if it exists, to ensure summaries (subtotal, shipping, discount) are real-time
+            if (typeof window.updateCartModalDisplay === 'function') {
+                window.updateCartModalDisplay();
+            }
+
             if (productId) {
                 updateProductCardCartControl(productId);
-                updateCartModalItem(productId);
             } else {
-                window.updateCartModalDisplay();
                 renderProducts();
             }
         };
@@ -1217,7 +1220,7 @@
                     <div class="text-[0.8rem] font-bold text-zinc-500 uppercase tracking-wider mb-2 pl-1">${cat}</div>
                     <div class="space-y-2">
                         ${items.map(item => `
-                            <div class="cart-item-row flex items-center gap-3 text-white p-2.5 bg-zinc-800/50 rounded-xl border border-zinc-700/30">
+                            <div class="cart-item-row flex items-center gap-3 text-white p-2.5 bg-zinc-800/50 rounded-xl border border-zinc-700/30" data-product-id="${item.id}">
                                 <div class="flex-grow min-w-0">
                                     <p class="font-bold text-[1rem] leading-tight truncate">${item.nameEn}</p>
                                     <p class="text-[0.7rem] text-zinc-400 truncate mt-0.5">${item.nameTh || ''}</p>
@@ -1357,16 +1360,6 @@
         window.openCouponSelection = openCouponSelection;
         window.closeCouponSelection = closeCouponSelection;
         window.applyManualCoupon = applyManualCoupon;
-
-        const updateQuantity = (productId, change) => {
-            const item = cart.find(i => i.id === productId);
-            if (!item) return;
-            item.quantity += change;
-            if (item.quantity <= 0) window.cart = cart.filter(i => i.id !== productId);
-            try { tg.hapticFeedback.selectionChanged(); } catch(e) {}
-            window.updateCartUI(productId);
-        };
-        window.updateQuantity = updateQuantity;
 
         document.addEventListener('DOMContentLoaded', async function() {
             // --- UI Enhancements: Skeleton Loading ---
@@ -1528,7 +1521,7 @@
                 
                 // If the product is in the cart modal, update it too
                 if (!cartModal.classList.contains('hidden')) {
-                    updateCartModalItem(data.productId);
+                    window.updateCartModalDisplay();
                 }
             });
 
@@ -1910,20 +1903,6 @@
                 showToast('เพิ่มเข้าตะกร้าแล้ว', 'success');
             };
             
-            const REDUNDANT_updateQuantity = (productId, change) => {
-                const cartItem = cart.find(item => item.id === productId);
-                if (!cartItem) return;
-
-                cartItem.quantity += change;
-
-                if (cartItem.quantity <= 0) {
-                    window.cart = cart.filter(item => item.id !== productId);
-                }
-                
-                try { tg.hapticFeedback.selectionChanged(); } catch(e) {}
-                window.updateCartUI(productId); // Pass productId for surgical update
-            };
-
             window.updateProductCardCartControl = (productId) => {
                 const product = allProducts.find(p => p.id === productId);
                 if (!product) return;
@@ -3074,7 +3053,7 @@
                     console.log(`[DEBUG] Qty Clicked: productId=${productId}, action=${action}`);
 
                     if (!isNaN(productId)) {
-                        updateQuantity(productId, action === 'plus' ? 1 : -1);
+                        window.updateQuantity(productId, action === 'plus' ? 1 : -1);
                     } else {
                         console.error(`[DEBUG] Invalid productId: ${productIdAttr}`);
                     }
@@ -3111,7 +3090,7 @@
                     const productId = parseInt(qtyBtn.getAttribute('data-product-id'));
                     const action = qtyBtn.getAttribute('data-action') || (qtyBtn.dataset.change === '1' ? 'plus' : 'minus');
                     if (!isNaN(productId)) {
-                        updateQuantity(productId, action === 'plus' ? 1 : -1);
+                        window.updateQuantity(productId, action === 'plus' ? 1 : -1);
                     }
                     return;
                 }
@@ -3124,7 +3103,7 @@
                     const productId = parseInt(qtyBtn.getAttribute('data-product-id'));
                     const action = qtyBtn.getAttribute('data-action');
                     if (!isNaN(productId)) {
-                        updateQuantity(productId, action === 'plus' ? 1 : -1);
+                        window.updateQuantity(productId, action === 'plus' ? 1 : -1);
                     }
                     return;
                 }
