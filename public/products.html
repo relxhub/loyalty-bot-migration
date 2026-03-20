@@ -1547,22 +1547,6 @@
                 }, 1000); // User requested 1 second
             };
 
-            // --- State Management ---
-            let allProducts = [];
-            let allCategories = [];
-            let cart = [];
-            let favorites = []; // Store favorite product IDs
-            let currentUser = null;
-            let activeProduct = null;
-            let appliedCoupon = null; // คูปองที่เลือกใช้งานอยู่
-            let selectedGift = null; // ของแถมที่ลูกค้าเลือก
-            let currentFilter = {
-                categoryId: null,
-                searchTerm: '',
-                nicotine: null,
-                specials: new Set(), 
-            };
-
             // --- DOM Elements ---
             const loader = document.getElementById('loader');
             const appContainer = document.getElementById('app-container');
