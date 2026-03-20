@@ -1044,6 +1044,36 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
+
+        // --- CONSOLIDATED GLOBAL FUNCTIONS ---
+        window.updateQuantity = (productId, change) => {
+            const item = cart.find(i => i.id === productId);
+            if (!item) return;
+            item.quantity += change;
+            if (item.quantity <= 0) cart = cart.filter(i => i.id !== productId);
+            
+            saveCart();
+            updateCartIcon();
+            calculateCartTotals();
+            updateProductCardCartControl(productId);
+            updateCartModalDisplay();
+            
+            try { tg.hapticFeedback.selectionChanged(); } catch(e) {}
+        };
+
+        window.addToCart = (productId) => {
+            const product = allProducts.find(p => p.id === productId);
+            if (!product) return;
+            const cartItem = cart.find(item => item.id === productId);
+            if (cartItem) cartItem.quantity++;
+            else {
+                const category = allCategories.find(c => c.id === product.categoryId);
+                cart.push({ id: product.id, nameEn: product.nameEn, nameTh: product.nameTh, nicotine: product.nicotine, imageUrl: product.imageUrl, price: category ? parseFloat(category.price) : 0, categoryName: category ? category.name : '', categoryId: product.categoryId, quantity: 1 });
+            }
+            window.updateQuantity(productId, 0); // Trigger UI update
+            showToast('เพิ่มเข้าตะกร้าแล้ว', 'success');
+        };
+
         // --- GLOBAL STATE ---
         const tg = window.Telegram.WebApp;
         let allProducts = [];
@@ -1941,11 +1971,12 @@
                     });
                     const data = await res.json();
                     
+                    
                     if (data.success && data.bestCoupon) {
-                        // Reset gift if coupon changed
-                        if (!appliedCoupon || appliedCoupon.coupon.id !== data.bestCoupon.coupon.id) {
-                            selectedGift = null;
-                        }
+                        appliedCoupon = data.bestCoupon;
+                        calculateCartTotals(); // Update UI with new coupon
+                    }
+
                         appliedCoupon = data.bestCoupon;
                     } else {
                         appliedCoupon = null;
