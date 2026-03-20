@@ -1045,8 +1045,8 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
         // --- CORE GLOBAL STATE ---
-        if (typeof window.cart === 'undefined') window.window.cart = [];
-        if (typeof window.window.appliedCoupon === 'undefined') window.window.window.appliedCoupon = null;
+        if (typeof window.cart === 'undefined') window.cart = [];
+        if (typeof window.appliedCoupon === 'undefined') window.window.appliedCoupon = null;
         if (typeof window.allProducts === 'undefined') window.allProducts = [];
         if (typeof window.allCategories === 'undefined') window.allCategories = [];
         if (typeof window.shippingConfig === 'undefined') window.shippingConfig = { fee: 60, freeMin: 500 };
@@ -1057,7 +1057,7 @@
             const item = window.cart.find(i => i.id === productId);
             if (!item) return;
             item.quantity += change;
-            if (item.quantity <= 0) window.window.cart = window.cart.filter(i => i.id !== productId);
+            if (item.quantity <= 0) window.cart = window.cart.filter(i => i.id !== productId);
             
             localStorage.setItem('shoppingCart', JSON.stringify(window.cart));
             if (typeof updateCartIcon === 'function') window.updateCartIcon();
@@ -1091,7 +1091,7 @@
         let favorites = []; 
         let currentUser = null;
         let activeProduct = null;
-        // Use window.window.appliedCoupon 
+        // Use window.appliedCoupon 
         let selectedGift = null; 
         let shippingConfig = { fee: 60, freeMin: 500 }; // Default values
         let availableCoupons = [];
@@ -1108,7 +1108,7 @@
             window.updateCartIcon();
             
             // If no coupon is applied yet, try to auto-apply best one
-            if (!window.window.appliedCoupon) {
+            if (!window.appliedCoupon) {
                 await window.autoApplyBestCoupon();
             } else {
                 // Re-verify if manual coupon is still valid
@@ -1126,14 +1126,14 @@
 
         const reVerifyManualCoupon = async () => {
             if (cart.length === 0) {
-                window.window.appliedCoupon = null;
+                window.appliedCoupon = null;
                 selectedGift = null;
                 return;
             }
             // Logic to check if currently selected coupon is still valid for current cart
             // For simplicity, we trigger auto-apply if it's no longer valid
             const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            if (window.window.appliedCoupon.coupon.minPurchase && totalAmount < parseFloat(window.window.appliedCoupon.coupon.minPurchase)) {
+            if (window.appliedCoupon.coupon.minPurchase && totalAmount < parseFloat(window.appliedCoupon.coupon.minPurchase)) {
                 showToast('ยอดซื้อไม่ถึงเงื่อนไขคูปองเดิม จึงเปลี่ยนเป็นคูปองที่คุ้มที่สุดให้', 'info');
                 await window.autoApplyBestCoupon();
             }
@@ -1251,7 +1251,7 @@
             // 3. Calculate Discount from Applied Coupon
             let discount = 0;
             if (window.appliedCoupon) {
-                const coupon = window.window.appliedCoupon.coupon;
+                const coupon = window.appliedCoupon.coupon;
                 if (coupon.type === "DISCOUNT_PERCENT") {
                     discount = subtotal * (parseFloat(coupon.value) / 100);
                 } else if (coupon.type === "DISCOUNT_FLAT") {
@@ -1325,7 +1325,7 @@
 
             listContainer.innerHTML = availableCoupons.map(cc => {
                 const c = cc.coupon;
-                const isSelected = window.appliedCoupon && window.window.appliedCoupon.coupon.id === c.id;
+                const isSelected = window.appliedCoupon && window.appliedCoupon.coupon.id === c.id;
                 const minPurchase = parseFloat(c.minPurchase || 0);
                 const isLocked = subtotal < minPurchase;
 
@@ -1348,7 +1348,7 @@
         const applyManualCoupon = (couponId) => {
             const target = availableCoupons.find(cc => cc.coupon.id === couponId);
             if (target) {
-                window.window.appliedCoupon = target;
+                window.appliedCoupon = target;
                 selectedGift = null;
                 showToast(`ใช้คูปอง ${target.coupon.name} แล้ว`, 'success');
                 window.updateCartModalDisplay();
@@ -1593,7 +1593,7 @@
             // REDUNDANT: // CLEANED: let favorites = []; // Store favorite product IDs
             // CLEANED: let currentUser = null;
             // CLEANED: let activeProduct = null;
-            // CLEANED: // Use window.window.appliedCoupon // คูปองที่เลือกใช้งานอยู่
+            // CLEANED: // Use window.appliedCoupon // คูปองที่เลือกใช้งานอยู่
             // CLEANED: let selectedGift = null; // ของแถมที่ลูกค้าเลือก
             let currentFilter = {
                 categoryId: null,
@@ -1874,10 +1874,21 @@
                 window.updateCartUI();
             };
 
+            
             const clearCart = () => {
                 if (confirm('ยืนยันล้างตะกร้าสินค้าทั้งหมด?')) {
                     window.cart = [];
-                    window.updateCartUI();
+                    localStorage.setItem('shoppingCart', JSON.stringify([]));
+                    
+                    // Refresh everything
+                    if (typeof window.updateCartUI === 'function') window.updateCartUI();
+                    if (typeof window.calculateCartTotals === 'function') window.calculateCartTotals();
+                    if (typeof window.updateCartIcon === 'function') window.updateCartIcon();
+                    if (typeof window.updateCartModalDisplay === 'function') window.updateCartModalDisplay();
+                    
+                    // CRITICAL: Refresh the product listing to show "Add" buttons again
+                    if (typeof renderProducts === 'function') renderProducts();
+                    
                     showToast('ล้างตะกร้าเรียบร้อย', 'info');
                 }
             };            
@@ -1976,7 +1987,7 @@
 
             window.autoApplyBestCoupon = async () => {
                 if (cart.length === 0) {
-                    window.window.appliedCoupon = null;
+                    window.appliedCoupon = null;
                     selectedGift = null;
                     return;
                 }
@@ -1998,12 +2009,12 @@
                     
                     if (data.success && data.bestCoupon) {
                         // Reset gift if coupon changed
-                        if (!window.window.appliedCoupon || window.window.appliedCoupon.coupon.id !== data.bestCoupon.coupon.id) {
+                        if (!window.appliedCoupon || window.appliedCoupon.coupon.id !== data.bestCoupon.coupon.id) {
                             selectedGift = null;
                         }
-                        window.window.appliedCoupon = data.bestCoupon;
+                        window.appliedCoupon = data.bestCoupon;
                     } else {
-                        window.window.appliedCoupon = null;
+                        window.appliedCoupon = null;
                         selectedGift = null;
                     }
                 } catch (err) {
@@ -2170,7 +2181,7 @@
 
                 // --- Coupon Integration into Copy Message ---
                 if (window.appliedCoupon) {
-                    textToCopy += `🎫 คูปองที่ใช้: ${window.window.appliedCoupon.coupon.id}\n`;
+                    textToCopy += `🎫 คูปองที่ใช้: ${window.appliedCoupon.coupon.id}\n`;
                     if (selectedGift) {
                         const gift = allProducts.find(p => p.id === selectedGift);
                         textToCopy += `🎁 ของแถม: ${gift.nameEn} (แถมฟรี)\n`;
@@ -2181,7 +2192,7 @@
                 const total = availableItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
                 let finalTotal = total;
                 if (window.appliedCoupon) {
-                    const coupon = window.window.appliedCoupon.coupon;
+                    const coupon = window.appliedCoupon.coupon;
                     if (coupon.type === 'DISCOUNT_PERCENT') finalTotal -= (total * (parseFloat(coupon.value) / 100));
                     else if (coupon.type === 'DISCOUNT_FLAT') finalTotal -= parseFloat(coupon.value);
                 }
