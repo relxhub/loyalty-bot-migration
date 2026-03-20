@@ -2478,11 +2478,11 @@
                 if (cartItem && cartItem.quantity > 0) {
                     return `
                         <div class="cart-control-wrapper ${mode === 'mini' ? '!p-1 !gap-1 !bg-zinc-900/80' : ''}">
-                            <button class="cart-qty-btn btn-minus ${mode === 'mini' ? '!w-7 !h-7 !text-xs' : ''}" data-product-id="${p.id}" data-action="minus">
+                            <button class="cart-qty-btn btn-minus ${mode === 'mini' ? '!w-7 !h-7 !text-xs' : ''}" onclick="window.updateQuantity(${p.id}, -1)">
                                 <i class="${cartItem.quantity === 1 ? 'ri-delete-bin-line' : 'ri-subtract-line'}"></i>
                             </button>
                             <div class="cart-qty-display ${mode === 'mini' ? '!min-w-[20px] !text-sm' : ''}">${cartItem.quantity}</div>
-                            <button class="cart-qty-btn btn-plus ${mode === 'mini' ? '!w-7 !h-7 !text-xs' : ''}" data-product-id="${p.id}" data-action="plus">
+                            <button class="cart-qty-btn btn-plus ${mode === 'mini' ? '!w-7 !h-7 !text-xs' : ''}" onclick="window.updateQuantity(${p.id}, 1)">
                                 <i class="ri-add-line"></i>
                             </button>
                         </div>
@@ -2492,14 +2492,14 @@
                 if (mode === 'mini') {
                     return `
                         <button class="add-to-cart-btn w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-red-500 text-white flex items-center justify-center shadow-lg active:scale-90 transition" 
-                            data-product-id="${p.id}">
+                            onclick="window.addToCart(${p.id})">
                             <i class="ri-shopping-cart-2-line"></i>
                         </button>
                     `;
                 }
 
                 return `
-                    <button class="add-to-cart-btn r-btn mr-1" data-product-id="${p.id}">
+                    <button class="add-to-cart-btn r-btn mr-1" onclick="window.addToCart(${p.id})">
                         <i class="ri-shopping-cart-2-line mr-1"></i> Add
                     </button>
                 `;
