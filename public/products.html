@@ -1094,6 +1094,87 @@
         };
 
         // --- GLOBAL FUNCTIONS ---
+
+        const calculateCartTotals = () => {
+            const subtotalEl = document.getElementById('summary-subtotal');
+            const shippingEl = document.getElementById('summary-shipping');
+            const discountEl = document.getElementById('summary-discount');
+            const discountRow = document.getElementById('summary-discount-row');
+            const totalEl = document.getElementById('cart-total-price');
+            const couponArea = document.getElementById('cart-coupon-area');
+            const couponNameEl = document.getElementById('cart-coupon-name');
+
+            if (!subtotalEl || !totalEl) return;
+
+            const subtotal = cart.reduce((sum, item) => sum + (parseFloat(item.price || 0) * item.quantity), 0);
+            subtotalEl.textContent = '฿' + subtotal.toLocaleString('th-TH');
+
+            const isFree = subtotal >= (shippingConfig.freeMin || 500);
+            const shipFee = (subtotal > 0 && !isFree) ? (shippingConfig.fee || 60) : 0;
+            
+            if (shippingEl) {
+                shippingEl.textContent = (subtotal > 0 && isFree) ? 'FREE' : '฿' + shipFee;
+                shippingEl.className = (subtotal > 0 && isFree) ? 'text-green-500 font-bold' : 'text-zinc-400';
+            }
+
+            let discount = 0;
+            if (appliedCoupon && subtotal > 0) {
+                const c = appliedCoupon.coupon;
+                if (subtotal >= parseFloat(c.minPurchase || 0)) {
+                    if (c.type === "DISCOUNT_PERCENT") discount = subtotal * (parseFloat(c.value) / 100);
+                    else if (c.type === "DISCOUNT_FLAT") discount = parseFloat(c.value);
+                    
+                    if (couponArea) {
+                        couponArea.classList.remove('hidden');
+                        couponNameEl.textContent = 'คูปอง: ' + c.name;
+                    }
+                    if (discountRow) discountRow.classList.remove('hidden');
+                    if (discountEl) discountEl.textContent = '-฿' + discount.toLocaleString('th-TH');
+                }
+            } else {
+                if (couponArea) if(cart.length > 0) couponArea.classList.remove('hidden');
+            }
+
+            const net = subtotal + shipFee - discount;
+            totalEl.textContent = '฿' + Math.max(0, net).toLocaleString('th-TH');
+        };
+    
+
+        const autoApplyBestCoupon = async () => {
+            if (cart.length === 0) {
+                appliedCoupon = null;
+                selectedGift = null;
+                return;
+            }
+
+            try {
+                const telegramId = tg.initDataUnsafe?.user?.id.toString() || currentUser?.telegramUserId;
+                if (!telegramId) return;
+
+                const totalAmount = cart.reduce((sum, item) => sum + (parseFloat(item.price || 0) * item.quantity), 0);
+                
+                const res = await fetch('/api/coupons/best', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        telegramId,
+                        cartItems: cart.map(i => ({ productId: i.id, categoryId: i.categoryId, qty: i.quantity, price: i.price })),
+                        totalAmount
+                    })
+                });
+                const data = await res.json();
+                
+                if (data.success && data.bestCoupon) {
+                    appliedCoupon = data.bestCoupon;
+                    calculateCartTotals();
+                } else {
+                    appliedCoupon = null;
+                }
+            } catch (err) {
+                console.error("Auto Apply Coupon Error:", err);
+            }
+        };
+
         const updateCartUI = async (productId = null) => {
             saveCart();
             updateCartIcon();
@@ -1147,6 +1228,793 @@
         const saveCart = () => localStorage.setItem('shoppingCart', JSON.stringify(cart));
 
         const openCartModal = () => {
+            updateCartModalDisplay();
+            const modal = document.getElementById('cart-modal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            document.body.classList.add('modal-open');
+            setTimeout(() => modal.classList.add('show'), 10);
+        };
+        window.openCartModal = openCartModal;
+
+        const closeCartModal = () => {
+            const modal = document.getElementById('cart-modal');
+            if (!modal) return;
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                document.body.classList.remove('modal-open');
+            }, 300);
+        };
+        window.closeCartModal = closeCartModal;
+
+        const updateCartModalDisplay = () => {
+            const wrapper = document.getElementById('cart-list-wrapper');
+            const subtotalEl = document.getElementById('summary-subtotal');
+            const shippingEl = document.getElementById('summary-shipping');
+            const discountEl = document.getElementById('summary-discount');
+            const discountRow = document.getElementById('summary-discount-row');
+            const totalEl = document.getElementById('cart-total-price');
+            const copyBtn = document.getElementById('copy-cart-btn');
+            const clearBtn = document.getElementById('clear-cart-btn');
+            const shippingLabel = document.getElementById('shipping-label');
+            const couponArea = document.getElementById('cart-coupon-area');
+            const couponNameEl = document.getElementById('cart-coupon-name');
+            
+            if (!wrapper) return;
+
+            // 1. Calculate REAL-TIME Subtotal (Items only)
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+            if (cart.length === 0) {
+                wrapper.innerHTML = `<p class="text-zinc-400 text-center py-4">ตะกร้าของคุณว่างเปล่า</p>`;
+                if (subtotalEl) subtotalEl.textContent = '฿0';
+                if (shippingEl) shippingEl.textContent = '฿0';
+                if (totalEl) totalEl.textContent = '฿0';
+                if (copyBtn) copyBtn.disabled = true;
+                if (clearBtn) clearBtn.classList.add('hidden');
+                if (couponArea) if(cart.length > 0) { couponArea.classList.remove('hidden'); if(!appliedCoupon) document.getElementById('cart-coupon-name').textContent = 'ยังไม่ได้เลือกคูปอง'; } else { couponArea.classList.add('hidden'); }
+                return;
+            }
+
+            if (copyBtn) copyBtn.disabled = false;
+            if (clearBtn) clearBtn.classList.remove('hidden');
+            
+            // Render Cart Items
+            const groups = cart.reduce((acc, item) => {
+                const key = item.categoryName || 'Other';
+                if (!acc[key]) acc[key] = [];
+                acc[key].push(item);
+                return acc;
+            }, {});
+
+            let html = '';
+            for (const [categoryName, items] of Object.entries(groups)) {
+                html += `<div class="mb-4">
+                    <div class="text-[0.8rem] font-bold text-zinc-500 uppercase tracking-wider mb-2 pl-1">${categoryName}</div>
+                    <div class="space-y-2">
+                        ${items.map(item => `
+                            <div class="cart-item-row flex items-center gap-3 text-white p-2.5 bg-zinc-800/50 rounded-xl border border-zinc-700/30" data-product-id="${item.id}">
+                                <div class="flex-grow min-w-0">
+                                    <p class="font-bold text-[1rem] leading-tight truncate">${item.nameEn}</p>
+                                    <p class="text-[0.7rem] text-zinc-400 truncate mt-0.5">${item.nameTh || ''} ${item.nicotine !== null ? `(${item.nicotine}%)` : ''}</p>
+                                </div>
+                                <div class="cart-item-subtotal text-brand-red font-bold text-[0.9rem]">${(item.price * item.quantity).toLocaleString('th-TH')} ฿</div>
+                                <div class="flex items-center bg-zinc-900/50 rounded-full p-1 gap-1 border border-zinc-700/50">
+                                    <button class="cart-qty-btn btn-minus !w-7 !h-7 !text-xs" onclick="window.updateQuantity(${item.id}, -1)">
+                                        <i class="${item.quantity === 1 ? 'ri-delete-bin-line' : 'ri-subtract-line'}"></i>
+                                    </button>
+                                    <div class="cart-qty-display !min-w-[20px] !text-sm">${item.quantity}</div>
+                                    <button class="cart-qty-btn btn-plus !w-7 !h-7 !text-xs" onclick="window.updateQuantity(${item.id}, 1)">
+                                        <i class="ri-add-line"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>`;
+            }
+            wrapper.innerHTML = html;
+
+            // 2. Calculate Shipping Fee
+            const isFreeShipping = subtotal >= shippingConfig.freeMin;
+            const shippingFee = isFreeShipping ? 0 : shippingConfig.fee;
+            
+            // 3. Calculate Discount from Applied Coupon
+            let discount = 0;
+            if (appliedCoupon) {
+                const coupon = appliedCoupon.coupon;
+                if (coupon.type === "DISCOUNT_PERCENT") {
+                    discount = subtotal * (parseFloat(coupon.value) / 100);
+                } else if (coupon.type === "DISCOUNT_FLAT") {
+                    discount = parseFloat(coupon.value);
+                }
+                
+                if (couponArea) {
+                    couponArea.classList.remove('hidden');
+                    couponNameEl.textContent = `คูปอง: ${coupon.name}`;
+                }
+                
+                if (coupon.type === "GIFT") {
+                    if (discountEl) discountEl.textContent = "FREE GIFT";
+                    renderGiftOptions(coupon.giftProductId);
+                } else {
+                    if (discountEl) discountEl.textContent = `-฿${discount.toLocaleString('th-TH')}`;
+                    const giftArea = document.getElementById('gift-selection-area');
+                    if (giftArea) giftArea.classList.add('hidden');
+                }
+                if (discountRow) discountRow.classList.remove('hidden');
+            } else {
+                if (couponArea) if(cart.length > 0) { couponArea.classList.remove('hidden'); if(!appliedCoupon) document.getElementById('cart-coupon-name').textContent = 'ยังไม่ได้เลือกคูปอง'; } else { couponArea.classList.add('hidden'); }
+                if (discountRow) discountRow.classList.add('hidden');
+            }
+
+            // 4. Calculate Final Net Total
+            const finalTotal = subtotal + shippingFee - discount;
+
+            // 5. Update UI Labels
+            if (subtotalEl) subtotalEl.textContent = `฿${subtotal.toLocaleString('th-TH')}`;
+            if (shippingEl) {
+                shippingEl.textContent = isFreeShipping ? 'FREE' : `฿${shippingFee.toLocaleString('th-TH')}`;
+                shippingEl.className = isFreeShipping ? 'text-green-500 font-bold' : 'text-zinc-400';
+                if (shippingLabel) {
+                    shippingLabel.innerHTML = isFreeShipping ? 'ค่าจัดส่ง <span class="text-[10px] bg-green-500/20 text-green-500 px-1.5 py-0.5 rounded ml-1">ส่งฟรี!</span>' : 'ค่าจัดส่ง';
+                }
+            }
+            if (totalEl) totalEl.textContent = `฿${Math.max(0, finalTotal).toLocaleString('th-TH')}`;
+        };
+
+        // --- Manual Coupon Selection Logic ---
+        const openCouponSelection = async () => {
+            const listContainer = document.getElementById('available-coupons-list');
+            listContainer.innerHTML = '<div class="text-center py-8"><div class="animate-spin h-6 w-6 border-2 border-yellow-500 border-t-transparent rounded-full mx-auto"></div></div>';
+            
+            document.getElementById('coupon-select-modal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('coupon-select-content').classList.remove('translate-y-full'), 10);
+
+            try {
+                const telegramId = tg.initDataUnsafe?.user?.id.toString() || currentUser?.telegramUserId;
+                const res = await fetch(`/api/coupons/my/${telegramId}`);
+                const data = await res.json();
+                
+                if (data.success) {
+                    availableCoupons = data.coupons.filter(c => c.status === 'AVAILABLE');
+                    renderCouponList();
+                }
+            } catch (err) {
+                listContainer.innerHTML = '<p class="text-center text-red-400">โหลดข้อมูลไม่สำเร็จ</p>';
+            }
+        };
+
+        const renderCouponList = () => {
+            const listContainer = document.getElementById('available-coupons-list');
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+            if (availableCoupons.length === 0) {
+                listContainer.innerHTML = '<p class="text-center text-zinc-500 py-8">คุณยังไม่มีคูปองที่ใช้งานได้</p>';
+                return;
+            }
+
+            listContainer.innerHTML = availableCoupons.map(cc => {
+                const c = cc.coupon;
+                const isSelected = appliedCoupon && appliedCoupon.coupon.id === c.id;
+                const minPurchase = parseFloat(c.minPurchase || 0);
+                const isLocked = subtotal < minPurchase;
+
+                return `
+                    <div onclick="${isLocked ? '' : `applyManualCoupon('${c.id}')`}" 
+                         class="p-4 rounded-2xl border-2 transition-all ${isSelected ? 'border-yellow-500 bg-yellow-500/10' : 'border-zinc-700 bg-zinc-900/50'} ${isLocked ? 'opacity-50 grayscale cursor-not-allowed' : 'active:scale-95 cursor-pointer'}">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-grow">
+                                <div class="font-bold text-lg ${isSelected ? 'text-yellow-500' : 'text-white'}">${c.name}</div>
+                                <div class="text-xs text-zinc-400 mt-1">${c.description || ''}</div>
+                                ${minPurchase > 0 ? `<div class="text-[10px] mt-2 ${isLocked ? 'text-red-400' : 'text-zinc-500'}">ขั้นต่ำ ฿${minPurchase.toLocaleString()} (ขาดอีก ฿${Math.max(0, minPurchase - subtotal).toLocaleString()})</div>` : ''}
+                            </div>
+                            ${isSelected ? '<i class="ri-checkbox-circle-fill text-yellow-500 text-xl"></i>' : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        };
+
+        const applyManualCoupon = (couponId) => {
+            const target = availableCoupons.find(cc => cc.coupon.id === couponId);
+            if (target) {
+                appliedCoupon = target;
+                selectedGift = null;
+                showToast(`ใช้คูปอง ${target.coupon.name} แล้ว`, 'success');
+                updateCartModalDisplay();
+                closeCouponSelection();
+            }
+        };
+
+        const closeCouponSelection = () => {
+            document.getElementById('coupon-select-content').classList.add('translate-y-full');
+            setTimeout(() => document.getElementById('coupon-select-modal').classList.add('hidden'), 300);
+        };
+
+        window.openCouponSelection = openCouponSelection;
+        window.closeCouponSelection = closeCouponSelection;
+        window.applyManualCoupon = applyManualCoupon;
+
+        const updateQuantity = (productId, change) => {
+            const item = cart.find(i => i.id === productId);
+            if (!item) return;
+            item.quantity += change;
+            if (item.quantity <= 0) cart = cart.filter(i => i.id !== productId);
+            try { tg.hapticFeedback.selectionChanged(); } catch(e) {}
+            updateCartUI(productId);
+        };
+        window.updateQuantity = updateQuantity;
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            // --- UI Enhancements: Skeleton Loading ---
+            const renderSkeletons = () => {
+                const skeletonHTML = `
+                    <div class="info-card p-0 overflow-hidden bg-zinc-800 border border-zinc-700/50" style="aspect-ratio: 9/12.5;">
+                        <div class="w-full h-[30%] skeleton rounded-none"></div>
+                        <div class="p-3 space-y-2 flex-grow flex flex-col justify-end">
+                            <div class="h-4 w-3/4 skeleton"></div>
+                            <div class="h-3 w-1/2 skeleton"></div>
+                            <div class="flex justify-between items-center mt-3">
+                                <div class="h-5 w-16 skeleton"></div>
+                                <div class="h-8 w-20 skeleton rounded-full"></div>
+                            </div>
+                        </div>
+                    </div>
+                `.repeat(6);
+                const grid = document.getElementById('product-grid');
+                if(grid) {
+                    grid.innerHTML = skeletonHTML;
+                    grid.style.display = 'grid';
+                }
+            };
+
+            // Show App & Skeletons immediately
+            document.getElementById('loader').remove();
+            document.getElementById('app-container').classList.remove('hidden');
+            renderSkeletons();
+
+            // --- Header & Ticker Logic ---
+            const topBar = document.getElementById('top-bar');
+            const mainHeader = document.getElementById('main-header');
+            const tickerBar = document.getElementById('ticker-bar');
+            const tickerContent = document.getElementById('ticker-content');
+            let tickerTimeout;
+            let defaultTickerMessage = ''; // Will be populated from API
+            
+            // Queue System
+            let tickerQueue = []; 
+            let isTickerActive = false; // True if showing a temporary event
+
+            const adjustHeaderOffset = () => {
+                if (topBar && mainHeader) {
+                    let topBarHeight = topBar.offsetHeight;
+                    
+                    // 1. Position Ticker below Top Bar (Make it sticky relative to top bar)
+                    if (tickerBar) {
+                        tickerBar.style.top = `${topBarHeight - 1}px`;
+                    }
+
+                    // 2. Position Main Header below Ticker (or Top Bar if ticker is hidden)
+                    let totalTop = topBarHeight;
+                    if (tickerBar && !tickerBar.classList.contains('hidden')) {
+                        totalTop += tickerBar.offsetHeight;
+                    }
+                    // Subtract 1px to ensure overlap and prevent sub-pixel rendering gaps
+                    mainHeader.style.top = `${totalTop - 1}px`;
+                }
+            };
+
+            const displayTickerMessage = (message, type) => {
+                // Internal function to actually render text and animation
+                let icon = '<i class="ri-notification-3-fill"></i>';
+                if (type === 'RESTOCK') icon = '<i class="ri-box-3-fill text-green-400"></i>';
+                if (type === 'NEW_PRODUCT') icon = '<i class="ri-sparkling-fill text-yellow-400"></i>';
+                if (type === 'HOT_ITEM') icon = '<i class="ri-fire-fill text-red-500"></i>';
+                if (type === 'GOOD_REVIEW') icon = '<i class="ri-star-smile-fill text-yellow-400"></i>';
+                if (type === 'DEFAULT') icon = '<i class="ri-store-2-fill text-brand-red"></i>';
+
+                // Reset Animation
+                tickerContent.classList.remove('animate-scroll');
+
+                const msgHtml = `<span class="ticker-item">${icon} ${message}</span>`;
+                // Duplicate for smooth marquee with wider spacing
+                tickerContent.innerHTML = msgHtml + '<span style="margin: 0 4rem;"></span>' + msgHtml + '<span style="margin: 0 4rem;"></span>' + msgHtml;
+                
+                // Trigger Reflow to restart animation
+                void tickerContent.offsetWidth;
+                tickerContent.classList.add('animate-scroll');
+
+                tickerBar.classList.remove('hidden');
+                adjustHeaderOffset();
+            };
+
+            const processQueue = () => {
+                if (tickerQueue.length > 0) {
+                    isTickerActive = true;
+                    const nextEvent = tickerQueue.shift();
+                    
+                    displayTickerMessage(nextEvent.message, nextEvent.type);
+
+                    if (tickerTimeout) clearTimeout(tickerTimeout);
+                    tickerTimeout = setTimeout(() => {
+                        processQueue(); // Recursive call for next item
+                    }, 15000);
+                } else {
+                    // Queue empty, revert to default
+                    isTickerActive = false;
+                    if (defaultTickerMessage) {
+                        displayTickerMessage(defaultTickerMessage, 'DEFAULT');
+                    } else {
+                        tickerBar.classList.add('hidden');
+                        adjustHeaderOffset();
+                    }
+                }
+            };
+
+            const showTicker = (message, type = 'DEFAULT', temporary = false) => {
+                if (temporary) {
+                    // Add to queue
+                    tickerQueue.push({ message, type });
+                    
+                    // If not currently running an event loop, start it
+                    if (!isTickerActive) {
+                        processQueue();
+                    }
+                } else {
+                    // Setting Default Message (Permanent)
+                    // Only display immediately if NOT currently showing an event loop
+                    if (!isTickerActive) {
+                        displayTickerMessage(message, type);
+                    }
+                }
+            };
+
+            if (topBar && mainHeader) {
+                // Initial adjustment
+                adjustHeaderOffset();
+
+                // Watch for size changes (e.g. image loading, window resize)
+                const resizeObserver = new ResizeObserver(adjustHeaderOffset);
+                resizeObserver.observe(topBar);
+                
+                // Fallback for image load specifically
+                const logoImg = topBar.querySelector('img');
+                if (logoImg && !logoImg.complete) {
+                    logoImg.onload = adjustHeaderOffset;
+                }
+            }
+
+            const tg = window.Telegram.WebApp;
+            tg.ready();
+            tg.expand();
+            tg.setHeaderColor('#121212');
+            tg.setBackgroundColor('#121212');
+
+            // --- Socket.io Real-time Updates ---
+            const socket = io();
+            socket.on('product_update', (data) => {
+                // Update local data
+                const productIndex = allProducts.findIndex(p => p.id === data.productId);
+                if (productIndex !== -1) {
+                    allProducts[productIndex].status = data.status;
+                    if (data.stock !== undefined) allProducts[productIndex].stock = data.stock;
+                }
+
+                // Surgical UI Update: Only update the specific product card controls
+                updateProductCardCartControl(data.productId);
+                
+                // If the product is in the cart modal, update it too
+                if (!cartModal.classList.contains('hidden')) {
+                    updateCartModalItem(data.productId);
+                }
+            });
+
+                                    // --- Ticker Update Listener ---
+                                    socket.on('ticker_update', (data) => {
+                                        if (!data.message) return;
+                                        showTicker(data.message, data.type, true); // True = Temporary (reverts to default)
+                                    });
+                        
+                                    // --- Live User Count ---
+                                    socket.on('online_users', (data) => {
+                                        const badge = document.getElementById('live-user-badge');
+                                        const countEl = document.getElementById('live-user-count');
+                                        if (badge && countEl) {
+                                            // Smooth number animation or just set
+                                            countEl.textContent = `${data.count} ออนไลน์`;
+                                            badge.classList.remove('hidden');
+                                        }
+                                    });            // --- Toast Notification Function (from dashboard.html) ---
+            const showToast = (message, type = 'info') => {
+                const container = document.getElementById('toast-container');
+                if (!container) return;
+                
+                let icon = '';
+                switch(type) {
+                    case 'success': icon = '<i class="ri-checkbox-circle-fill"></i>'; break;
+                    case 'error': icon = '<i class="ri-close-circle-fill"></i>'; break;
+                    default: icon = '<i class="ri-information-fill"></i>';
+                }
+
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                toast.innerHTML = `<span class="toast-icon">${icon}</span><span>${message}</span>`;
+
+                container.appendChild(toast);
+                
+                try { tg.hapticFeedback.notificationOccurred(type === 'error' ? 'error' : 'success'); } catch(e){}
+
+                requestAnimationFrame(() => {
+                    setTimeout(() => {
+                        toast.classList.add('show');
+                    }, 10);
+                });
+
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => toast.remove(), 400);
+                }, 1000); // User requested 1 second
+            };
+
+            // --- DOM Elements ---
+            const loader = document.getElementById('loader');
+            const appContainer = document.getElementById('app-container');
+            const bannerContainer = document.getElementById('banner-container');
+            const categorySelector = document.getElementById('category-selector');
+            const productGrid = document.getElementById('product-grid');
+            const sectionTitle = document.getElementById('product-section-title');
+            const categoryNameDisplay = document.getElementById('category-name-display');
+            const categoryPriceDisplay = document.getElementById('category-price-display');
+            const nicotineFilterContainer = document.getElementById('nicotine-filter-container');
+            const specialFilterContainer = document.getElementById('special-filter-container');
+            
+            // Product Modal Elements
+            const productModal = document.getElementById('product-modal');
+            const productModalContent = document.getElementById('product-modal-content');
+            const closeProductModalBtn = document.getElementById('close-modal-btn');
+            const reviewContentContainer = document.getElementById('review-content-container');
+
+            // Cart Elements
+            const cartButton = document.getElementById('cart-button');
+            const cartItemCount = document.getElementById('cart-item-count');
+            const cartModal = document.getElementById('cart-modal');
+            const cartModalContent = document.getElementById('cart-modal-content');
+            const closeCartModalBtn = document.getElementById('close-cart-modal-btn');
+            // const cartItemsContainer = document.getElementById('cart-items-container'); // No longer direct render target
+            const cartListWrapper = document.getElementById('cart-list-wrapper'); // New render target
+            const cartTotalPrice = document.getElementById('cart-total-price');
+            const copyCartBtn = document.getElementById('copy-cart-btn');
+            const clearCartBtn = document.getElementById('clear-cart-btn');
+
+            // --- Favorites Functions ---
+            const favModal = document.getElementById('fav-modal');
+            const favModalContent = document.getElementById('fav-modal-content');
+            const favListWrapper = document.getElementById('fav-list-wrapper');
+            const favButton = document.getElementById('fav-button');
+            const closeFavModalBtn = document.getElementById('close-fav-modal-btn');
+
+            const saveFavorites = () => {
+                localStorage.setItem('favorites', JSON.stringify(favorites));
+            };
+
+            const loadFavorites = () => {
+                const saved = localStorage.getItem('favorites');
+                if (saved) {
+                    favorites = JSON.parse(saved);
+                    updateFavUI();
+                }
+            };
+
+                        const toggleFavorite = (productId, btnElement) => {
+
+                            const index = favorites.indexOf(productId);
+
+                            
+
+                            if (index === -1) {
+
+                                favorites.push(productId);
+
+                                if(btnElement) {
+
+                                    btnElement.classList.add('active');
+
+                                    btnElement.querySelector('i').className = 'ri-heart-3-fill';
+
+                                    // Burst Animation
+
+                                    btnElement.classList.remove('animate-burst');
+
+                                    void btnElement.offsetWidth;
+
+                                    btnElement.classList.add('animate-burst');
+
+                                }
+
+                                showToast('เพิ่มในรายการที่ชอบ', 'success');
+
+                            } else {
+
+                                favorites.splice(index, 1);
+
+                                if(btnElement) {
+
+                                    btnElement.classList.remove('active');
+
+                                    btnElement.classList.remove('animate-burst');
+
+                                    btnElement.querySelector('i').className = 'ri-heart-3-line';
+
+                                }
+
+                                showToast('ลบออกจากรายการที่ชอบ', 'info');
+
+                            }
+
+                            
+
+                            saveFavorites();
+
+                            updateFavUI();
+
+                            
+
+                            try { 
+
+                                if (window.Telegram?.WebApp?.HapticFeedback) {
+
+                                    window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+
+                                } else {
+
+                                    tg.HapticFeedback.impactOccurred('medium'); 
+
+                                }
+
+                            } catch(e) {}
+
+                        };
+
+            const updateFavUI = () => {
+                const favDot = document.getElementById('fav-dot');
+                const favBtnIcon = favButton.querySelector('i');
+                
+                if (favorites.length > 0) {
+                    favDot.classList.remove('hidden');
+                    favBtnIcon.classList.add('text-red-500');
+                    favBtnIcon.classList.remove('text-zinc-400');
+                } else {
+                    favDot.classList.add('hidden');
+                    favBtnIcon.classList.remove('text-red-500');
+                    favBtnIcon.classList.add('text-zinc-400');
+                }
+
+                favButton.classList.remove('fav-bump-anim');
+                void favButton.offsetWidth; 
+                favButton.classList.add('fav-bump-anim');
+
+                // Sync Grid Buttons
+                document.querySelectorAll('.fav-btn').forEach(btn => {
+                    const id = parseInt(btn.dataset.productId);
+                    if(favorites.includes(id)) {
+                        btn.classList.add('active');
+                        btn.querySelector('i').className = 'ri-heart-3-fill';
+                    } else {
+                        btn.classList.remove('active');
+                        btn.querySelector('i').className = 'ri-heart-3-line';
+                    }
+                });
+
+                if(!favModal.classList.contains('hidden')) renderFavModal();
+            };
+
+            const renderFavModal = () => {
+                if (favorites.length === 0) {
+                    favListWrapper.innerHTML = `<p class="text-zinc-500 text-center py-8">ยังไม่มีรายการที่ชอบ</p>`;
+                    return;
+                }
+
+                const favProducts = allProducts.filter(p => favorites.includes(p.id));
+                
+                const groups = favProducts.reduce((acc, p) => {
+                    const catName = allCategories.find(c => c.id === p.categoryId)?.name || 'Other';
+                    if (!acc[catName]) acc[catName] = [];
+                    acc[catName].push(p);
+                    return acc;
+                }, {});
+
+                let html = '';
+                for (const [catName, products] of Object.entries(groups)) {
+                    html += `
+                        <div class="bg-zinc-900/50 rounded-xl p-3 border border-zinc-700/30">
+                            <h4 class="text-xs font-bold text-zinc-400 mb-2 uppercase tracking-wider">${catName}</h4>
+                            <div class="space-y-2">
+                                ${products.map(p => {
+                                    const cartItem = cart.find(item => item.id === p.id);
+                                    const isInCart = cartItem && cartItem.quantity > 0;
+                                    
+                                    let cartControlHtml = '';
+                                    if (p.status === 'OUT_OF_STOCK') {
+                                        cartControlHtml = `<span class="text-[0.7rem] font-bold text-zinc-500 px-2">OUT OF STOCK</span>`;
+                                    } else if (isInCart) {
+                                        cartControlHtml = `
+                                            <div class="flex items-center bg-zinc-900/80 rounded-full p-1 gap-1 border border-zinc-700/50">
+                                                <button class="cart-qty-btn btn-minus !w-7 !h-7 !text-xs" data-product-id="${p.id}" data-action="minus">
+                                                    <i class="${cartItem.quantity === 1 ? 'ri-delete-bin-line' : 'ri-subtract-line'}"></i>
+                                                </button>
+                                                <div class="cart-qty-display !min-w-[20px] !text-sm">${cartItem.quantity}</div>
+                                                <button class="cart-qty-btn btn-plus !w-7 !h-7 !text-xs" data-product-id="${p.id}" data-action="plus">
+                                                    <i class="ri-add-line"></i>
+                                                </button>
+                                            </div>
+                                        `;
+                                    } else {
+                                        cartControlHtml = `
+                                            <button class="add-to-cart-btn w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-red-500 text-white flex items-center justify-center shadow-lg active:scale-90 transition" 
+                                                data-product-id="${p.id}">
+                                                <i class="ri-shopping-cart-2-line"></i>
+                                            </button>
+                                        `;
+                                    }
+
+                                    return `
+                                        <div class="flex items-center gap-2 bg-zinc-800 rounded-lg p-2 relative overflow-hidden">
+                                            <div class="flex-grow min-w-0">
+                                                <div class="text-sm font-semibold truncate text-white">
+                                                    ${p.nameEn}
+                                                </div>
+                                                <div class="text-xs text-zinc-400 truncate">
+                                                    ${p.nameTh || ''} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Cart Control Section -->
+                                            <div class="flex-shrink-0 cart-control-container" data-product-id="${p.id}" data-mode="mini">
+                                                ${cartControlHtml}
+                                            </div>
+
+                                            <!-- Remove from Favs Button -->
+                                            <button class="w-8 h-8 rounded-full bg-zinc-700/50 text-zinc-400 flex items-center justify-center active:scale-90 transition ml-1" 
+                                                onclick="toggleFavorite(${p.id}, null)" title="Remove from Favorites">
+                                                <i class="ri-close-line text-lg"></i>
+                                            </button>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+                favListWrapper.innerHTML = html;
+            };
+
+            const openFavModal = () => {
+                renderFavModal();
+                favModal.classList.remove('hidden');
+                document.body.classList.add('modal-open');
+                setTimeout(() => favModal.classList.add('show'), 10);
+            };
+
+            const closeFavModal = () => {
+                favModal.classList.remove('show');
+                setTimeout(() => {
+                    favModal.classList.add('hidden');
+                    document.body.classList.remove('modal-open');
+                }, 300);
+            };
+
+            // --- Cart Functions ---
+            const saveCart = () => {
+                localStorage.setItem('shoppingCart', JSON.stringify(cart));
+            };
+
+            const loadCart = () => {
+                const savedCart = localStorage.getItem('shoppingCart');
+                let parsedCart = savedCart ? JSON.parse(savedCart) : [];
+
+                // --- FIX: Restore missing prices for old cart items ---
+                cart = parsedCart.map(item => {
+                    const product = allProducts.find(p => p.id === item.id);
+                    if (product) {
+                        const category = allCategories.find(c => c.id === product.categoryId);
+                        item.price = category ? parseFloat(category.price) : 0;
+                        item.categoryName = category ? category.name : item.categoryName;
+                    } else {
+                        item.price = item.price || 0;
+                    }
+                    return item;
+                });
+
+                updateCartUI();
+            };
+
+            const clearCart = () => {
+                if (confirm('ยืนยันล้างตะกร้าสินค้าทั้งหมด?')) {
+                    cart = [];
+                    updateCartUI();
+                    showToast('ล้างตะกร้าเรียบร้อย', 'info');
+                }
+            };            
+            const addToCart = (productId) => {
+                const product = allProducts.find(p => p.id === productId);
+                if (!product) return;
+
+                const cartItem = cart.find(item => item.id === productId);
+                if (cartItem) {
+                    cartItem.quantity++;
+                } else {
+                    const category = allCategories.find(c => c.id === product.categoryId);
+                    cart.push({
+                        id: product.id, 
+                        nameEn: product.nameEn,
+                        nameTh: product.nameTh,
+                        nicotine: product.nicotine,
+                        imageUrl: product.imageUrl,
+                        price: category ? parseFloat(category.price) : 0,
+                        categoryName: category ? category.name : '',
+                        categoryId: product.categoryId,
+                        quantity: 1 
+                    });
+                }
+                updateCartUI(productId);
+                showToast('เพิ่มเข้าตะกร้าแล้ว', 'success');
+            };
+            
+            const updateQuantity = (productId, change) => {
+                const cartItem = cart.find(item => item.id === productId);
+                if (!cartItem) return;
+
+                cartItem.quantity += change;
+
+                if (cartItem.quantity <= 0) {
+                    cart = cart.filter(item => item.id !== productId);
+                }
+                
+                try { tg.hapticFeedback.selectionChanged(); } catch(e) {}
+                updateCartUI(productId); // Pass productId for surgical update
+            };
+
+            const updateProductCardCartControl = (productId) => {
+                const product = allProducts.find(p => p.id === productId);
+                if (!product) return;
+
+                const containers = document.querySelectorAll(`.cart-control-container[data-product-id="${productId}"]`);
+                const isOutOfStock = product.status === 'OUT_OF_STOCK';
+
+                containers.forEach(container => {
+                    const mode = container.dataset.mode || 'standard';
+                    container.innerHTML = createCartControlHtml(product, isOutOfStock, mode);
+                });
+            };
+
+            const updateCartModalItem = (productId) => {
+                const item = cart.find(i => i.id === productId);
+                const total = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+                cartTotalPrice.textContent = `฿${total.toLocaleString('th-TH')}`;
+
+                if (!item) {
+                    // Item was removed, full render is safer to handle grouping/titles
+                    updateCartModalDisplay();
+                    return;
+                }
+
+                const row = document.querySelector(`.cart-item-row[data-product-id="${productId}"]`);
+                if (row) {
+                    const subtotalEl = row.querySelector('.cart-item-subtotal');
+                    const qtyDisplayEl = row.querySelector('.cart-qty-display');
+                    const minusIcon = row.querySelector('.btn-minus i');
+
+                    if (subtotalEl) subtotalEl.textContent = `${(item.price * item.quantity).toLocaleString('th-TH')} ฿`;
+                    if (qtyDisplayEl) qtyDisplayEl.textContent = item.quantity;
+                    if (minusIcon) {
+                        minusIcon.className = item.quantity === 1 ? 'ri-delete-bin-line' : 'ri-subtract-line';
+                    }
+                }
+            };
+
+            const openCartModal = () => {
             updateCartModalDisplay();
             const modal = document.getElementById('cart-modal');
             if (!modal) return;
