@@ -1162,7 +1162,7 @@
                 if (totalEl) totalEl.textContent = '฿0';
                 if (copyBtn) copyBtn.disabled = true;
                 if (clearBtn) clearBtn.classList.add('hidden');
-                if (couponArea) couponArea.classList.add('hidden');
+                if (couponArea) if(cart.length > 0) { couponArea.classList.remove('hidden'); if(!appliedCoupon) document.getElementById('cart-coupon-name').textContent = 'ยังไม่ได้เลือกคูปอง'; } else { couponArea.classList.add('hidden'); }
                 return;
             }
 
@@ -1190,11 +1190,11 @@
                                 </div>
                                 <div class="cart-item-subtotal text-brand-red font-bold text-[0.9rem]">${(item.price * item.quantity).toLocaleString('th-TH')} ฿</div>
                                 <div class="flex items-center bg-zinc-900/50 rounded-full p-1 gap-1 border border-zinc-700/50">
-                                    <button class="cart-qty-btn btn-minus !w-7 !h-7 !text-xs" onclick="updateQuantity(${item.id}, -1)">
+                                    <button class="cart-qty-btn btn-minus !w-7 !h-7 !text-xs" onclick="window.updateQuantity(${item.id}, -1)">
                                         <i class="${item.quantity === 1 ? 'ri-delete-bin-line' : 'ri-subtract-line'}"></i>
                                     </button>
                                     <div class="cart-qty-display !min-w-[20px] !text-sm">${item.quantity}</div>
-                                    <button class="cart-qty-btn btn-plus !w-7 !h-7 !text-xs" onclick="updateQuantity(${item.id}, 1)">
+                                    <button class="cart-qty-btn btn-plus !w-7 !h-7 !text-xs" onclick="window.updateQuantity(${item.id}, 1)">
                                         <i class="ri-add-line"></i>
                                     </button>
                                 </div>
@@ -1234,7 +1234,7 @@
                 }
                 if (discountRow) discountRow.classList.remove('hidden');
             } else {
-                if (couponArea) couponArea.classList.add('hidden');
+                if (couponArea) if(cart.length > 0) { couponArea.classList.remove('hidden'); if(!appliedCoupon) document.getElementById('cart-coupon-name').textContent = 'ยังไม่ได้เลือกคูปอง'; } else { couponArea.classList.add('hidden'); }
                 if (discountRow) discountRow.classList.add('hidden');
             }
 
