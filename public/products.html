@@ -1548,10 +1548,10 @@
             };
 
             // --- State Management ---
-            let allProducts = [];
-            let allCategories = [];
-            let cart = [];
-            let favorites = []; // Store favorite product IDs
+            // REDUNDANT: let allProducts = [];
+            // REDUNDANT: let allCategories = [];
+            // REDUNDANT: let cart = [];
+            // REDUNDANT: let favorites = []; // Store favorite product IDs
             let currentUser = null;
             let activeProduct = null;
             let appliedCoupon = null; // คูปองที่เลือกใช้งานอยู่
@@ -1867,7 +1867,7 @@
                 showToast('เพิ่มเข้าตะกร้าแล้ว', 'success');
             };
             
-            const updateQuantity = (productId, change) => {
+            const REDUNDANT_updateQuantity = (productId, change) => {
                 const cartItem = cart.find(item => item.id === productId);
                 if (!cartItem) return;
 
@@ -1919,7 +1919,7 @@
                 }
             };
 
-            const updateCartUI = async (productId = null) => {
+            const REDUNDANT_updateCartUI = async (productId = null) => {
                 saveCart();
                 updateCartIcon();
                 
@@ -1972,7 +1972,7 @@
                 }
             };
             
-            const updateCartIcon = () => {
+            const REDUNDANT_updateCartIcon = () => {
                 const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
                 
                 // Main Header Cart Badge
@@ -1995,7 +1995,7 @@
                 }
             };
             
-            const updateCartModalDisplay = () => {
+            const REDUNDANT_updateCartModalDisplay = () => {
                 if (cart.length === 0) {
                     cartListWrapper.innerHTML = `<p class="text-zinc-400 text-center py-4">ตะกร้าของคุณว่างเปล่า</p>`;
                     cartTotalPrice.textContent = '0 Baht';
