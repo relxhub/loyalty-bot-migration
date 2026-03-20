@@ -1177,6 +1177,7 @@
         };
         window.closeCartModal = closeCartModal;
 
+        
         window.updateCartModalDisplay = () => {
             const wrapper = document.getElementById('cart-list-wrapper');
             const subtotalEl = document.getElementById('summary-subtotal');
@@ -1184,51 +1185,44 @@
             const discountEl = document.getElementById('summary-discount');
             const discountRow = document.getElementById('summary-discount-row');
             const totalEl = document.getElementById('cart-total-price');
-            const copyBtn = document.getElementById('copy-cart-btn');
-            const clearBtn = document.getElementById('clear-cart-btn');
-            const shippingLabel = document.getElementById('shipping-label');
             const couponArea = document.getElementById('cart-coupon-area');
             const couponNameEl = document.getElementById('cart-coupon-name');
+            const shippingLabel = document.getElementById('shipping-label');
             
             if (!wrapper) return;
 
-            // 1. Calculate REAL-TIME Subtotal (Items only)
-            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            // USE window.cart to ensure we have the latest global state
+            const currentCart = window.cart || [];
 
-            if (cart.length === 0) {
-                wrapper.innerHTML = `<p class="text-zinc-400 text-center py-4">ตะกร้าของคุณว่างเปล่า</p>`;
+            if (currentCart.length === 0) {
+                wrapper.innerHTML = '<p class="text-zinc-400 text-center py-4">ตะกร้าของคุณว่างเปล่า</p>';
                 if (subtotalEl) subtotalEl.textContent = '฿0';
                 if (shippingEl) shippingEl.textContent = '฿0';
                 if (totalEl) totalEl.textContent = '฿0';
-                if (copyBtn) copyBtn.disabled = true;
-                if (clearBtn) clearBtn.classList.add('hidden');
-                if (couponArea) if(window.cart.length > 0) { couponArea.classList.remove('hidden'); } else { couponArea.classList.add('hidden'); }
+                if (couponArea) couponArea.classList.add('hidden');
+                if (discountRow) discountRow.classList.add('hidden');
                 return;
             }
 
-            if (copyBtn) copyBtn.disabled = false;
-            if (clearBtn) clearBtn.classList.remove('hidden');
-            
-            // Render Cart Items
-            const groups = cart.reduce((acc, item) => {
+            // Render Items
+            const groups = currentCart.reduce((acc, item) => {
                 const key = item.categoryName || 'Other';
                 if (!acc[key]) acc[key] = [];
                 acc[key].push(item);
                 return acc;
             }, {});
 
-            let html = '';
-            for (const [categoryName, items] of Object.entries(groups)) {
-                html += `<div class="mb-4">
-                    <div class="text-[0.8rem] font-bold text-zinc-500 uppercase tracking-wider mb-2 pl-1">${categoryName}</div>
+            wrapper.innerHTML = Object.entries(groups).map(([cat, items]) => `
+                <div class="mb-4">
+                    <div class="text-[0.8rem] font-bold text-zinc-500 uppercase tracking-wider mb-2 pl-1">${cat}</div>
                     <div class="space-y-2">
                         ${items.map(item => `
-                            <div class="cart-item-row flex items-center gap-3 text-white p-2.5 bg-zinc-800/50 rounded-xl border border-zinc-700/30" data-product-id="${item.id}">
+                            <div class="cart-item-row flex items-center gap-3 text-white p-2.5 bg-zinc-800/50 rounded-xl border border-zinc-700/30">
                                 <div class="flex-grow min-w-0">
                                     <p class="font-bold text-[1rem] leading-tight truncate">${item.nameEn}</p>
-                                    <p class="text-[0.7rem] text-zinc-400 truncate mt-0.5">${item.nameTh || ''} ${item.nicotine !== null ? `(${item.nicotine}%)` : ''}</p>
+                                    <p class="text-[0.7rem] text-zinc-400 truncate mt-0.5">${item.nameTh || ''}</p>
                                 </div>
-                                <div class="cart-item-subtotal text-brand-red font-bold text-[0.9rem]">${(item.price * item.quantity).toLocaleString('th-TH')} ฿</div>
+                                <div class="cart-item-subtotal text-brand-red font-bold text-[0.9rem]">${(parseFloat(item.price || 0) * item.quantity).toLocaleString('th-TH')} ฿</div>
                                 <div class="flex items-center bg-zinc-900/50 rounded-full p-1 gap-1 border border-zinc-700/50">
                                     <button class="cart-qty-btn btn-minus !w-7 !h-7 !text-xs" onclick="window.updateQuantity(${item.id}, -1)">
                                         <i class="${item.quantity === 1 ? 'ri-delete-bin-line' : 'ri-subtract-line'}"></i>
@@ -1241,56 +1235,44 @@
                             </div>
                         `).join('')}
                     </div>
-                </div>`;
-            }
-            wrapper.innerHTML = html;
+                </div>`).join('');
 
-            // 2. Calculate Shipping Fee
-            const isFreeShipping = subtotal >= shippingConfig.freeMin;
-            const shippingFee = isFreeShipping ? 0 : shippingConfig.fee;
+            // --- REAL-TIME CALCULATIONS ---
+            const subtotal = currentCart.reduce((sum, item) => sum + (parseFloat(item.price || 0) * item.quantity), 0);
+            const isFree = subtotal >= (window.shippingConfig?.freeMin || 500);
+            const shipFee = !isFree ? (window.shippingConfig?.fee || 60) : 0;
             
-            // 3. Calculate Discount from Applied Coupon
             let discount = 0;
-            if (window.appliedCoupon) {
-                const coupon = window.appliedCoupon.coupon;
-                if (coupon.type === "DISCOUNT_PERCENT") {
-                    discount = subtotal * (parseFloat(coupon.value) / 100);
-                } else if (coupon.type === "DISCOUNT_FLAT") {
-                    discount = parseFloat(coupon.value);
-                }
-                
-                if (couponArea) {
-                    couponArea.classList.remove('hidden');
-                    couponNameEl.textContent = `คูปอง: ${coupon.name}`;
-                }
-                
-                if (coupon.type === "GIFT") {
-                    if (discountEl) discountEl.textContent = "FREE GIFT";
-                    renderGiftOptions(coupon.giftProductId);
+            if (window.appliedCoupon && subtotal > 0) {
+                const c = window.appliedCoupon.coupon;
+                if (subtotal >= parseFloat(c.minPurchase || 0)) {
+                    if (c.type === "DISCOUNT_PERCENT") discount = subtotal * (parseFloat(c.value) / 100);
+                    else if (c.type === "DISCOUNT_FLAT") discount = parseFloat(c.value);
+                    
+                    if (couponArea) {
+                        couponArea.classList.remove('hidden');
+                        couponNameEl.textContent = 'คูปอง: ' + c.name;
+                    }
+                    if (discountRow) discountRow.classList.remove('hidden');
+                    if (discountEl) discountEl.textContent = (c.type === "GIFT") ? "FREE GIFT" : '-฿' + discount.toLocaleString('th-TH');
                 } else {
-                    if (discountEl) discountEl.textContent = `-฿${discount.toLocaleString('th-TH')}`;
-                    const giftArea = document.getElementById('gift-selection-area');
-                    if (giftArea) giftArea.classList.add('hidden');
+                    if (discountRow) discountRow.classList.add('hidden');
+                    discount = 0;
                 }
-                if (discountRow) discountRow.classList.remove('hidden');
             } else {
-                if (couponArea) if(window.cart.length > 0) { couponArea.classList.remove('hidden'); } else { couponArea.classList.add('hidden'); }
+                if (couponArea) {
+                    if(currentCart.length > 0) couponArea.classList.remove('hidden');
+                    if(!window.appliedCoupon) couponNameEl.textContent = 'ยังไม่ได้เลือกคูปอง';
+                }
                 if (discountRow) discountRow.classList.add('hidden');
             }
 
-            // 4. Calculate Final Net Total
-            const finalTotal = subtotal + shippingFee - discount;
-
-            // 5. Update UI Labels
-            if (subtotalEl) subtotalEl.textContent = `฿${subtotal.toLocaleString('th-TH')}`;
+            if (subtotalEl) subtotalEl.textContent = '฿' + subtotal.toLocaleString('th-TH');
             if (shippingEl) {
-                shippingEl.textContent = isFreeShipping ? 'FREE' : `฿${shippingFee.toLocaleString('th-TH')}`;
-                shippingEl.className = isFreeShipping ? 'text-green-500 font-bold' : 'text-zinc-400';
-                if (shippingLabel) {
-                    shippingLabel.innerHTML = isFreeShipping ? 'ค่าจัดส่ง <span class="text-[10px] bg-green-500/20 text-green-500 px-1.5 py-0.5 rounded ml-1">ส่งฟรี!</span>' : 'ค่าจัดส่ง';
-                }
+                shippingEl.textContent = isFree ? 'FREE' : '฿' + shipFee;
+                shippingEl.className = isFree ? 'text-green-500 font-bold' : 'text-zinc-400';
             }
-            if (totalEl) totalEl.textContent = `฿${Math.max(0, finalTotal).toLocaleString('th-TH')}`;
+            if (totalEl) totalEl.textContent = '฿' + Math.max(0, subtotal + shipFee - discount).toLocaleString('th-TH');
         };
 
         // --- Manual Coupon Selection Logic ---
@@ -1346,13 +1328,23 @@
             }).join('');
         };
 
+        
         const applyManualCoupon = (couponId) => {
-            const target = availableCoupons.find(cc => cc.coupon.id === couponId);
-            if (target) {
-                window.appliedCoupon = target;
-                selectedGift = null;
-                showToast(`ใช้คูปอง ${target.coupon.name} แล้ว`, 'success');
-                window.updateCartModalDisplay();
+            try {
+                const target = availableCoupons.find(cc => cc.coupon.id === couponId);
+                if (target) {
+                    window.appliedCoupon = target;
+                    selectedGift = null;
+                    showToast('ใช้คูปอง ' + target.coupon.name + ' แล้ว', 'success');
+                    
+                    // Close modal immediately to ensure UX
+                    closeCouponSelection();
+                    
+                    // Then update UI
+                    window.updateCartModalDisplay();
+                }
+            } catch (err) {
+                console.error("Apply Coupon Error:", err);
                 closeCouponSelection();
             }
         };
