@@ -1044,6 +1044,377 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
+
+// REDUNDANT:         const updateCartModalDisplay = () => {
+            const wrapper = document.getElementById('cart-list-wrapper');
+            const subtotalEl = document.getElementById('summary-subtotal');
+            const shippingEl = document.getElementById('summary-shipping');
+            const discountEl = document.getElementById('summary-discount');
+            const discountRow = document.getElementById('summary-discount-row');
+            const totalEl = document.getElementById('cart-total-price');
+            const shippingLabel = document.getElementById('shipping-label');
+            const couponArea = document.getElementById('cart-coupon-area');
+            const couponNameEl = document.getElementById('cart-coupon-name');
+            
+            if (!wrapper) return;
+
+            const subtotal = cart.reduce((sum, item) => sum + (parseFloat(item.price || 0) * item.quantity), 0);
+
+            if (cart.length === 0) {
+                wrapper.innerHTML = '<p class="text-zinc-400 text-center py-4">ตะกร้าของคุณว่างเปล่า</p>';
+                if (subtotalEl) subtotalEl.textContent = '฿0';
+                if (totalEl) totalEl.textContent = '฿0';
+                if (couponArea) couponArea.classList.add('hidden');
+                return;
+            }
+
+            const groups = cart.reduce((acc, item) => {
+                const key = item.categoryName || 'Other';
+                if (!acc[key]) acc[key] = [];
+                acc[key].push(item);
+                return acc;
+            }, {});
+
+            wrapper.innerHTML = Object.entries(groups).map(([cat, items]) => `
+                <div class="mb-4">
+                    <div class="text-[0.8rem] font-bold text-zinc-500 uppercase tracking-wider mb-2 pl-1">${cat}</div>
+                    <div class="space-y-2">
+                        ${items.map(item => `
+                            <div class="cart-item-row flex items-center gap-3 text-white p-2.5 bg-zinc-800/50 rounded-xl border border-zinc-700/30">
+                                <div class="flex-grow min-w-0">
+                                    <p class="font-bold text-[1rem] leading-tight truncate">${item.nameEn}</p>
+                                    <p class="text-[0.7rem] text-zinc-400 truncate mt-0.5">${item.nameTh || ''}</p>
+                                </div>
+                                <div class="cart-item-subtotal text-brand-red font-bold text-[0.9rem]">${(item.price * item.quantity).toLocaleString()} ฿</div>
+                                <div class="flex items-center bg-zinc-900/50 rounded-full p-1 gap-1">
+                                    <button onclick="window.updateQuantity(${item.id}, -1)" class="w-7 h-7 flex items-center justify-center bg-red-500/20 text-red-400 rounded-full"><i class="ri-subtract-line"></i></button>
+                                    <div class="min-w-[20px] text-center">${item.quantity}</div>
+                                    <button onclick="window.updateQuantity(${item.id}, 1)" class="w-7 h-7 flex items-center justify-center bg-orange-500 text-white rounded-full"><i class="ri-add-line"></i></button>
+                                </div>
+                            </div>`).join('')}
+                    </div>
+                </div>`).join('');
+
+            const isFree = subtotal >= (shippingConfig.freeMin || 500);
+            const shipFee = (subtotal > 0 && !isFree) ? (shippingConfig.fee || 60) : 0;
+            
+            let discount = 0;
+            if (appliedCoupon && subtotal > 0) {
+                const c = appliedCoupon.coupon;
+                if (c.type === "DISCOUNT_PERCENT") discount = subtotal * (parseFloat(c.value) / 100);
+                else if (c.type === "DISCOUNT_FLAT") discount = parseFloat(c.value);
+                if (couponArea) { couponArea.classList.remove('hidden'); couponNameEl.textContent = 'คูปอง: ' + c.name; }
+                if (discountRow) discountRow.classList.remove('hidden');
+                if (discountEl) discountEl.textContent = '-฿' + discount.toLocaleString();
+            }
+
+            if (subtotalEl) subtotalEl.textContent = '฿' + subtotal.toLocaleString();
+            if (shippingEl) shippingEl.textContent = isFree ? 'FREE' : '฿' + shipFee;
+            if (totalEl) totalEl.textContent = '฿' + (subtotal + shipFee - discount).toLocaleString();
+        };
+
+// REDUNDANT:         const openCartModal = () => {
+            updateCartModalDisplay();
+            const modal = document.getElementById('cart-modal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            document.body.classList.add('modal-open');
+            setTimeout(() => modal.classList.add('show'), 10);
+        };
+        window.openCartModal = openCartModal;
+
+        // --- GLOBAL STATE ---
+        const tg = window.Telegram.WebApp;
+        let allProducts = [];
+        let allCategories = [];
+        let cart = [];
+        let favorites = []; 
+        let currentUser = null;
+        let activeProduct = null;
+        let appliedCoupon = null; 
+        let selectedGift = null; 
+        let shippingConfig = { fee: 60, freeMin: 500 }; // Default values
+        let availableCoupons = [];
+        let currentFilter = {
+            categoryId: null,
+            searchTerm: '',
+            nicotine: null,
+            specials: new Set(), 
+        };
+
+        // --- GLOBAL FUNCTIONS ---
+        const updateCartUI = async (productId = null) => {
+            saveCart();
+            updateCartIcon();
+            
+            // If no coupon is applied yet, try to auto-apply best one
+            if (!appliedCoupon) {
+                await autoApplyBestCoupon();
+            } else {
+                // Re-verify if manual coupon is still valid
+                await reVerifyManualCoupon();
+            }
+
+            if (productId) {
+                updateProductCardCartControl(productId);
+                updateCartModalItem(productId);
+            } else {
+                updateCartModalDisplay();
+                renderProducts();
+            }
+        };
+
+        const reVerifyManualCoupon = async () => {
+            if (cart.length === 0) {
+                appliedCoupon = null;
+                selectedGift = null;
+                return;
+            }
+            // Logic to check if currently selected coupon is still valid for current cart
+            // For simplicity, we trigger auto-apply if it's no longer valid
+            const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            if (appliedCoupon.coupon.minPurchase && totalAmount < parseFloat(appliedCoupon.coupon.minPurchase)) {
+                showToast('ยอดซื้อไม่ถึงเงื่อนไขคูปองเดิม จึงเปลี่ยนเป็นคูปองที่คุ้มที่สุดให้', 'info');
+                await autoApplyBestCoupon();
+            }
+        };
+
+        const updateCartIcon = () => {
+            const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+            const badge = document.getElementById('cart-item-count');
+            if (badge) {
+                badge.textContent = totalItems;
+                badge.classList.toggle('hidden', totalItems === 0);
+            }
+            const favBadge = document.getElementById('fav-cart-badge');
+            if (favBadge) {
+                favBadge.textContent = totalItems;
+                favBadge.classList.toggle('hidden', totalItems === 0);
+            }
+        };
+
+        const saveCart = () => localStorage.setItem('shoppingCart', JSON.stringify(cart));
+
+// REDUNDANT:         const openCartModal = () => {
+            updateCartModalDisplay();
+            const modal = document.getElementById('cart-modal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            document.body.classList.add('modal-open');
+            setTimeout(() => modal.classList.add('show'), 10);
+        };
+        window.openCartModal = openCartModal;
+
+        const closeCartModal = () => {
+            const modal = document.getElementById('cart-modal');
+            if (!modal) return;
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                document.body.classList.remove('modal-open');
+            }, 300);
+        };
+        window.closeCartModal = closeCartModal;
+
+// REDUNDANT:         const updateCartModalDisplay = () => {
+            const wrapper = document.getElementById('cart-list-wrapper');
+            const subtotalEl = document.getElementById('summary-subtotal');
+            const shippingEl = document.getElementById('summary-shipping');
+            const discountEl = document.getElementById('summary-discount');
+            const discountRow = document.getElementById('summary-discount-row');
+            const totalEl = document.getElementById('cart-total-price');
+            const copyBtn = document.getElementById('copy-cart-btn');
+            const clearBtn = document.getElementById('clear-cart-btn');
+            const shippingLabel = document.getElementById('shipping-label');
+            const couponArea = document.getElementById('cart-coupon-area');
+            const couponNameEl = document.getElementById('cart-coupon-name');
+            
+            if (!wrapper) return;
+
+            // 1. Calculate REAL-TIME Subtotal (Items only)
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+            if (cart.length === 0) {
+                wrapper.innerHTML = `<p class="text-zinc-400 text-center py-4">ตะกร้าของคุณว่างเปล่า</p>`;
+                if (subtotalEl) subtotalEl.textContent = '฿0';
+                if (shippingEl) shippingEl.textContent = '฿0';
+                if (totalEl) totalEl.textContent = '฿0';
+                if (copyBtn) copyBtn.disabled = true;
+                if (clearBtn) clearBtn.classList.add('hidden');
+                if (couponArea) couponArea.classList.add('hidden');
+                return;
+            }
+
+            if (copyBtn) copyBtn.disabled = false;
+            if (clearBtn) clearBtn.classList.remove('hidden');
+            
+            // Render Cart Items
+            const groups = cart.reduce((acc, item) => {
+                const key = item.categoryName || 'Other';
+                if (!acc[key]) acc[key] = [];
+                acc[key].push(item);
+                return acc;
+            }, {});
+
+            let html = '';
+            for (const [categoryName, items] of Object.entries(groups)) {
+                html += `<div class="mb-4">
+                    <div class="text-[0.8rem] font-bold text-zinc-500 uppercase tracking-wider mb-2 pl-1">${categoryName}</div>
+                    <div class="space-y-2">
+                        ${items.map(item => `
+                            <div class="cart-item-row flex items-center gap-3 text-white p-2.5 bg-zinc-800/50 rounded-xl border border-zinc-700/30" data-product-id="${item.id}">
+                                <div class="flex-grow min-w-0">
+                                    <p class="font-bold text-[1rem] leading-tight truncate">${item.nameEn}</p>
+                                    <p class="text-[0.7rem] text-zinc-400 truncate mt-0.5">${item.nameTh || ''} ${item.nicotine !== null ? `(${item.nicotine}%)` : ''}</p>
+                                </div>
+                                <div class="cart-item-subtotal text-brand-red font-bold text-[0.9rem]">${(item.price * item.quantity).toLocaleString('th-TH')} ฿</div>
+                                <div class="flex items-center bg-zinc-900/50 rounded-full p-1 gap-1 border border-zinc-700/50">
+                                    <button class="cart-qty-btn btn-minus !w-7 !h-7 !text-xs" onclick="updateQuantity(${item.id}, -1)">
+                                        <i class="${item.quantity === 1 ? 'ri-delete-bin-line' : 'ri-subtract-line'}"></i>
+                                    </button>
+                                    <div class="cart-qty-display !min-w-[20px] !text-sm">${item.quantity}</div>
+                                    <button class="cart-qty-btn btn-plus !w-7 !h-7 !text-xs" onclick="updateQuantity(${item.id}, 1)">
+                                        <i class="ri-add-line"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>`;
+            }
+            wrapper.innerHTML = html;
+
+            // 2. Calculate Shipping Fee
+            const isFreeShipping = subtotal >= shippingConfig.freeMin;
+            const shippingFee = isFreeShipping ? 0 : shippingConfig.fee;
+            
+            // 3. Calculate Discount from Applied Coupon
+            let discount = 0;
+            if (appliedCoupon) {
+                const coupon = appliedCoupon.coupon;
+                if (coupon.type === "DISCOUNT_PERCENT") {
+                    discount = subtotal * (parseFloat(coupon.value) / 100);
+                } else if (coupon.type === "DISCOUNT_FLAT") {
+                    discount = parseFloat(coupon.value);
+                }
+                
+                if (couponArea) {
+                    couponArea.classList.remove('hidden');
+                    couponNameEl.textContent = `คูปอง: ${coupon.name}`;
+                }
+                
+                if (coupon.type === "GIFT") {
+                    if (discountEl) discountEl.textContent = "FREE GIFT";
+                    renderGiftOptions(coupon.giftProductId);
+                } else {
+                    if (discountEl) discountEl.textContent = `-฿${discount.toLocaleString('th-TH')}`;
+                    const giftArea = document.getElementById('gift-selection-area');
+                    if (giftArea) giftArea.classList.add('hidden');
+                }
+                if (discountRow) discountRow.classList.remove('hidden');
+            } else {
+                if (couponArea) couponArea.classList.add('hidden');
+                if (discountRow) discountRow.classList.add('hidden');
+            }
+
+            // 4. Calculate Final Net Total
+            const finalTotal = subtotal + shippingFee - discount;
+
+            // 5. Update UI Labels
+            if (subtotalEl) subtotalEl.textContent = `฿${subtotal.toLocaleString('th-TH')}`;
+            if (shippingEl) {
+                shippingEl.textContent = isFreeShipping ? 'FREE' : `฿${shippingFee.toLocaleString('th-TH')}`;
+                shippingEl.className = isFreeShipping ? 'text-green-500 font-bold' : 'text-zinc-400';
+                if (shippingLabel) {
+                    shippingLabel.innerHTML = isFreeShipping ? 'ค่าจัดส่ง <span class="text-[10px] bg-green-500/20 text-green-500 px-1.5 py-0.5 rounded ml-1">ส่งฟรี!</span>' : 'ค่าจัดส่ง';
+                }
+            }
+            if (totalEl) totalEl.textContent = `฿${Math.max(0, finalTotal).toLocaleString('th-TH')}`;
+        };
+
+        // --- Manual Coupon Selection Logic ---
+        const openCouponSelection = async () => {
+            const listContainer = document.getElementById('available-coupons-list');
+            listContainer.innerHTML = '<div class="text-center py-8"><div class="animate-spin h-6 w-6 border-2 border-yellow-500 border-t-transparent rounded-full mx-auto"></div></div>';
+            
+            document.getElementById('coupon-select-modal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('coupon-select-content').classList.remove('translate-y-full'), 10);
+
+            try {
+                const telegramId = tg.initDataUnsafe?.user?.id.toString() || currentUser?.telegramUserId;
+                const res = await fetch(`/api/coupons/my/${telegramId}`);
+                const data = await res.json();
+                
+                if (data.success) {
+                    availableCoupons = data.coupons.filter(c => c.status === 'AVAILABLE');
+                    renderCouponList();
+                }
+            } catch (err) {
+                listContainer.innerHTML = '<p class="text-center text-red-400">โหลดข้อมูลไม่สำเร็จ</p>';
+            }
+        };
+
+        const renderCouponList = () => {
+            const listContainer = document.getElementById('available-coupons-list');
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+            if (availableCoupons.length === 0) {
+                listContainer.innerHTML = '<p class="text-center text-zinc-500 py-8">คุณยังไม่มีคูปองที่ใช้งานได้</p>';
+                return;
+            }
+
+            listContainer.innerHTML = availableCoupons.map(cc => {
+                const c = cc.coupon;
+                const isSelected = appliedCoupon && appliedCoupon.coupon.id === c.id;
+                const minPurchase = parseFloat(c.minPurchase || 0);
+                const isLocked = subtotal < minPurchase;
+
+                return `
+                    <div onclick="${isLocked ? '' : `applyManualCoupon('${c.id}')`}" 
+                         class="p-4 rounded-2xl border-2 transition-all ${isSelected ? 'border-yellow-500 bg-yellow-500/10' : 'border-zinc-700 bg-zinc-900/50'} ${isLocked ? 'opacity-50 grayscale cursor-not-allowed' : 'active:scale-95 cursor-pointer'}">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-grow">
+                                <div class="font-bold text-lg ${isSelected ? 'text-yellow-500' : 'text-white'}">${c.name}</div>
+                                <div class="text-xs text-zinc-400 mt-1">${c.description || ''}</div>
+                                ${minPurchase > 0 ? `<div class="text-[10px] mt-2 ${isLocked ? 'text-red-400' : 'text-zinc-500'}">ขั้นต่ำ ฿${minPurchase.toLocaleString()} (ขาดอีก ฿${Math.max(0, minPurchase - subtotal).toLocaleString()})</div>` : ''}
+                            </div>
+                            ${isSelected ? '<i class="ri-checkbox-circle-fill text-yellow-500 text-xl"></i>' : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        };
+
+        const applyManualCoupon = (couponId) => {
+            const target = availableCoupons.find(cc => cc.coupon.id === couponId);
+            if (target) {
+                appliedCoupon = target;
+                selectedGift = null;
+                showToast(`ใช้คูปอง ${target.coupon.name} แล้ว`, 'success');
+                updateCartModalDisplay();
+                closeCouponSelection();
+            }
+        };
+
+        const closeCouponSelection = () => {
+            document.getElementById('coupon-select-content').classList.add('translate-y-full');
+            setTimeout(() => document.getElementById('coupon-select-modal').classList.add('hidden'), 300);
+        };
+
+        window.openCouponSelection = openCouponSelection;
+        window.closeCouponSelection = closeCouponSelection;
+        window.applyManualCoupon = applyManualCoupon;
+
+        const updateQuantity = (productId, change) => {
+            const item = cart.find(i => i.id === productId);
+            if (!item) return;
+            item.quantity += change;
+            if (item.quantity <= 0) cart = cart.filter(i => i.id !== productId);
+            try { tg.hapticFeedback.selectionChanged(); } catch(e) {}
+            updateCartUI(productId);
+        };
+        window.updateQuantity = updateQuantity;
+
         document.addEventListener('DOMContentLoaded', async function() {
             // --- UI Enhancements: Skeleton Loading ---
             const renderSkeletons = () => {
@@ -1525,50 +1896,54 @@
 
             const loadCart = () => {
                 const savedCart = localStorage.getItem('shoppingCart');
-                cart = savedCart ? JSON.parse(savedCart) : [];
+                let parsedCart = savedCart ? JSON.parse(savedCart) : [];
+
+                // --- FIX: Restore missing prices for old cart items ---
+                cart = parsedCart.map(item => {
+                    const product = allProducts.find(p => p.id === item.id);
+                    if (product) {
+                        const category = allCategories.find(c => c.id === product.categoryId);
+                        item.price = category ? parseFloat(category.price) : 0;
+                        item.categoryName = category ? category.name : item.categoryName;
+                    } else {
+                        item.price = item.price || 0;
+                    }
+                    return item;
+                });
+
                 updateCartUI();
             };
-            
+
             const clearCart = () => {
                 if (confirm('ยืนยันล้างตะกร้าสินค้าทั้งหมด?')) {
                     cart = [];
                     updateCartUI();
                     showToast('ล้างตะกร้าเรียบร้อย', 'info');
                 }
-            };
-            
+            };            
             const addToCart = (productId) => {
                 const product = allProducts.find(p => p.id === productId);
                 if (!product) return;
-
-                // --- Haptic Feedback Fix ---
-                // Try multiple methods to ensure vibration on different devices
-                try {
-                    if (window.Telegram?.WebApp?.HapticFeedback) {
-                        window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
-                    } else if (window.Telegram?.WebApp?.hapticFeedback) {
-                        window.Telegram.WebApp.hapticFeedback.impactOccurred('medium');
-                    }
-                } catch (err) {
-                    console.warn('Haptic Error:', err);
-                }
 
                 const cartItem = cart.find(item => item.id === productId);
                 if (cartItem) {
                     cartItem.quantity++;
                 } else {
+                    const category = allCategories.find(c => c.id === product.categoryId);
                     cart.push({
                         id: product.id, 
                         nameEn: product.nameEn,
                         nameTh: product.nameTh,
                         nicotine: product.nicotine,
-                        imageUrl: product.imageUrl, // Save image URL for cart UI
-                        price: allCategories.find(c => c.id === product.categoryId)?.price || 0,
-                        categoryName: allCategories.find(c => c.id === product.categoryId)?.name || '',
+                        imageUrl: product.imageUrl,
+                        price: category ? parseFloat(category.price) : 0,
+                        categoryName: category ? category.name : '',
+                        categoryId: product.categoryId,
                         quantity: 1 
                     });
                 }
-                updateCartUI(productId); // Pass productId for surgical update
+                updateCartUI(productId);
+                showToast('เพิ่มเข้าตะกร้าแล้ว', 'success');
             };
             
             const updateQuantity = (productId, change) => {
@@ -1699,7 +2074,7 @@
                 }
             };
             
-            const updateCartModalDisplay = () => {
+// REDUNDANT:             const updateCartModalDisplay = () => {
                 if (cart.length === 0) {
                     cartListWrapper.innerHTML = `<p class="text-zinc-400 text-center py-4">ตะกร้าของคุณว่างเปล่า</p>`;
                     cartTotalPrice.textContent = '0 Baht';
@@ -1757,7 +2132,7 @@
                 cartTotalPrice.textContent = `${finalTotal.toLocaleString('th-TH')} Baht`;
             };
 
-            const openCartModal = () => {
+// REDUNDANT:             const openCartModal = () => {
                 updateCartModalDisplay();
                 const modal = document.getElementById('cart-modal');
                 if (!modal) return;
@@ -2815,7 +3190,6 @@
             // --- Expose functions for inline HTML handlers ---
             window.toggleFavorite = toggleFavorite;
             window.addToCart = addToCart;
-            window.updateQuantity = updateQuantity;
             window.flyToCart = flyToCart;
             window.showToast = showToast;
             window.closeFavModal = closeFavModal;
@@ -2850,6 +3224,15 @@
                 allProducts = data.products;
                 allCategories = data.categories;
 
+                // --- FETCH SHIPPING CONFIG ---
+                try {
+                    const shipRes = await fetch('/api/config/shipping');
+                    const shipData = await shipRes.json();
+                    if (shipData.success) {
+                        shippingConfig = { fee: shipData.shippingFee, freeMin: shipData.freeShippingMin };
+                    }
+                } catch (err) { console.error("Failed to load shipping config:", err); }
+
                 // Setup Ticker Default
                 if (data.tickerDefaultMessage) {
                     defaultTickerMessage = data.tickerDefaultMessage;
@@ -2861,6 +3244,23 @@
                 renderBanners(data.banners);
                 renderCategories(data.categories);
                 
+                // --- FIX: Force initial calculation once data is ready ---
+                if (cart.length > 0) {
+                    // Re-run loadCart logic now that allCategories is populated
+                    const savedCart = localStorage.getItem('shoppingCart');
+                    let parsedCart = savedCart ? JSON.parse(savedCart) : [];
+                    cart = parsedCart.map(item => {
+                        const product = allProducts.find(p => p.id === item.id);
+                        if (product) {
+                            const category = allCategories.find(c => c.id === product.categoryId);
+                            item.price = category ? parseFloat(category.price) : (item.price || 0);
+                            item.categoryName = category ? category.name : (item.categoryName || '');
+                        }
+                        return item;
+                    });
+                    updateCartUI();
+                }
+
                 appContainer.classList.remove('hidden');
                 loader.remove();
 
@@ -2942,10 +3342,13 @@
     
     <!-- Cart Modal -->
     <div id="cart-modal" class="hidden fixed inset-0 z-[70] flex items-end justify-center bg-black/60 backdrop-blur-sm">
-        <div id="cart-modal-content" class="bg-zinc-800 w-full max-w-md rounded-t-2xl flex flex-col max-h-[80vh] transform translate-y-full transition-transform duration-300">
+        <div id="cart-modal-content" class="bg-zinc-800 w-full max-w-md rounded-t-3xl flex flex-col max-h-[85vh] transform translate-y-full transition-transform duration-300">
             <!-- Header -->
             <div class="flex-shrink-0 p-4 border-b border-zinc-700 flex justify-between items-center">
-                <h3 class="text-lg font-bold">ตะกร้าสินค้า</h3>
+                <div class="flex items-center gap-2">
+                    <i class="ri-shopping-cart-2-line text-xl text-brand-red"></i>
+                    <h3 class="text-lg font-bold">ตะกร้าสินค้า</h3>
+                </div>
                 <button id="close-cart-modal-btn" class="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center hover:bg-zinc-600 transition">
                     <i class="ri-close-line"></i>
                 </button>
@@ -2956,18 +3359,21 @@
                     <!-- Cart items will be injected here by JS -->
                     <p class="text-zinc-400 text-center py-4">ตะกร้าของคุณว่างเปล่า</p>
                 </div>
+            </div>
 
-                <!-- Coupon Applied Info -->
-                <div id="cart-coupon-area" class="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl hidden">
+            <!-- Footer (Summary) -->
+            <div class="flex-shrink-0 p-5 border-t border-zinc-700 space-y-3 bg-zinc-900/50">
+                <!-- Coupon Applied Info (MOVED ABOVE SUMMARY) -->
+                <div id="cart-coupon-area" class="mb-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl hidden">
                     <div class="flex justify-between items-center">
                         <div class="flex items-center gap-2">
                             <i class="ri-ticket-2-fill text-yellow-500"></i>
                             <div>
                                 <div id="cart-coupon-name" class="font-bold text-yellow-500 text-sm"></div>
-                                <div id="cart-coupon-desc" class="text-[10px] text-gray-400">คูปองนี้ถูกใช้โดยอัตโนมัติ</div>
+                                <div id="cart-coupon-desc" class="text-[10px] text-gray-400">คูปองนี้ถูกเลือกอัตโนมัติ</div>
                             </div>
                         </div>
-                        <div id="cart-coupon-value" class="font-bold text-yellow-500"></div>
+                        <button onclick="openCouponSelection()" class="text-[10px] bg-yellow-500 text-black px-2 py-1 rounded-lg font-bold active:scale-95 transition">เปลี่ยนคูปอง</button>
                     </div>
                     <!-- Gift Selection Section -->
                     <div id="gift-selection-area" class="mt-3 pt-3 border-t border-white/5 hidden">
@@ -2977,21 +3383,49 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="space-y-1.5 text-sm">
+                    <div class="flex justify-between text-zinc-400">
+                        <span>ยอดรวมสินค้า</span>
+                        <span id="summary-subtotal">฿0</span>
+                    </div>
+                    <div class="flex justify-between text-zinc-400">
+                        <span id="shipping-label">ค่าจัดส่ง</span>
+                        <span id="summary-shipping">฿0</span>
+                    </div>
+                    <div id="summary-discount-row" class="flex justify-between text-yellow-500 hidden">
+                        <span>ส่วนลดคูปอง</span>
+                        <span id="summary-discount">-฿0</span>
+                    </div>
+                </div>
+                
+                <div class="flex justify-between items-center pt-2 border-t border-zinc-700/50">
+                    <div class="flex flex-col">
+                        <span class="text-xs text-zinc-400">ยอดสุทธิ</span>
+                        <span id="cart-total-price" class="text-2xl font-bold text-white">฿0</span>
+                    </div>
+                    <div class="flex gap-2 w-2/3">
+                        <button id="clear-cart-btn" class="w-1/4 py-3.5 bg-zinc-800 text-red-500 rounded-2xl font-bold transition active:scale-95 flex items-center justify-center border border-zinc-700">
+                            <i class="ri-delete-bin-line"></i>
+                        </button>
+                        <button id="copy-cart-btn" class="w-3/4 py-3.5 bg-green-600 hover:bg-green-500 rounded-2xl font-bold text-lg text-white transition active:scale-95 disabled:bg-gray-500 disabled:cursor-not-allowed shadow-lg shadow-green-900/20">
+                            คัดลอกรายการ
+                        </button>
+                    </div>
+                </div>
             </div>
-            <!-- Footer -->
-            <div class="flex-shrink-0 p-4 border-t border-zinc-700 space-y-3">
-                <div class="flex justify-between font-bold">
-                    <span>ยอดรวม</span>
-                    <span id="cart-total-price">฿0</span>
-                </div>
-                <div class="flex gap-2">
-                    <button id="clear-cart-btn" class="w-1/4 py-3 bg-zinc-700 hover:bg-red-900/50 text-red-400 rounded-xl font-bold text-lg transition active:scale-95 flex items-center justify-center border border-zinc-600 hidden">
-                        <i class="ri-delete-bin-line"></i>
-                    </button>
-                    <button id="copy-cart-btn" class="w-3/4 py-3 bg-green-600 hover:bg-green-500 rounded-xl font-bold text-lg text-white transition active:scale-95 disabled:bg-gray-500 disabled:cursor-not-allowed">
-                        คัดลอกรายการ
-                    </button>
-                </div>
+        </div>
+    </div>
+
+    <!-- Coupon Selection Modal -->
+    <div id="coupon-select-modal" class="hidden fixed inset-0 z-[80] flex items-end justify-center bg-black/60 backdrop-blur-sm">
+        <div id="coupon-select-content" class="bg-zinc-800 w-full max-w-md rounded-t-3xl flex flex-col max-h-[70vh] transform translate-y-full transition-transform duration-300">
+            <div class="p-4 border-b border-zinc-700 flex justify-between items-center">
+                <h3 class="font-bold">เลือกคูปองที่ต้องการ</h3>
+                <button onclick="closeCouponSelection()" class="text-zinc-400"><i class="ri-close-line text-xl"></i></button>
+            </div>
+            <div id="available-coupons-list" class="p-4 overflow-y-auto space-y-3">
+                <!-- Coupons will be injected here -->
             </div>
         </div>
     </div>
