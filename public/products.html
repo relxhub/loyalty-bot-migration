@@ -1060,6 +1060,7 @@
             if (item.quantity <= 0) window.cart = window.cart.filter(i => i.id !== productId);
             
             localStorage.setItem('shoppingCart', JSON.stringify(window.cart));
+            if (typeof window.calculateCartTotals === "function") window.calculateCartTotals(); // Real-time update
             if (typeof updateCartIcon === 'function') window.updateCartIcon();
             if (typeof calculateCartTotals === 'function') window.calculateCartTotals();
             if (typeof updateProductCardCartControl === 'function') updateProductCardCartControl(productId);
