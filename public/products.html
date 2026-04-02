@@ -1255,6 +1255,15 @@
                     if (couponArea) {
                         couponArea.classList.remove('hidden');
                         couponNameEl.textContent = 'คูปอง: ' + c.name;
+                        const couponDescEl = document.getElementById('cart-coupon-desc');
+                        if (couponDescEl) {
+                            if (window.appliedCoupon.isAuto !== false) {
+                                couponDescEl.textContent = 'คูปองนี้ถูกเลือกอัตโนมัติ';
+                                couponDescEl.classList.remove('hidden');
+                            } else {
+                                couponDescEl.classList.add('hidden');
+                            }
+                        }
                     }
                     if (discountRow) discountRow.classList.remove('hidden');
                     if (discountEl) discountEl.textContent = (c.type === "GIFT") ? "FREE GIFT" : '-฿' + discount.toLocaleString('th-TH');
@@ -1340,7 +1349,7 @@
                     window.appliedCoupon = null;
                     selectedGift = null;
                     showToast('ยกเลิกการใช้คูปองแล้ว', 'info');
-                    closeCouponSelection();
+                    renderCouponList();
                     window.updateCartModalDisplay();
                     return;
                 }
@@ -1348,11 +1357,11 @@
                 const target = availableCoupons.find(cc => cc.coupon.id === couponId);
                 if (target) {
                     window.appliedCoupon = target;
+                    window.appliedCoupon.isAuto = false;
                     selectedGift = null;
                     showToast('ใช้คูปอง ' + target.coupon.name + ' แล้ว', 'success');
 
-                    // Close modal immediately to ensure UX
-                    closeCouponSelection();
+                    renderCouponList();
 
                     // Then update UI
                     window.updateCartModalDisplay();
@@ -1995,6 +2004,7 @@
                             selectedGift = null;
                         }
                         window.appliedCoupon = data.bestCoupon;
+                        window.appliedCoupon.isAuto = true;
                     } else {
                         window.appliedCoupon = null;
                         selectedGift = null;
