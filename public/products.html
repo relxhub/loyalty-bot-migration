@@ -1324,25 +1324,36 @@
                                 <div class="text-xs text-zinc-400 mt-1">${c.description || ''}</div>
                                 ${minPurchase > 0 ? `<div class="text-[10px] mt-2 ${isLocked ? 'text-red-400' : 'text-zinc-500'}">ขั้นต่ำ ฿${minPurchase.toLocaleString()} (ขาดอีก ฿${Math.max(0, minPurchase - subtotal).toLocaleString()})</div>` : ''}
                             </div>
-                            ${isSelected ? '<i class="ri-checkbox-circle-fill text-yellow-500 text-xl"></i>' : ''}
+                            <div class="flex-shrink-0 ml-3 flex items-center justify-center">
+                                ${isSelected ? '<i class="ri-checkbox-circle-fill text-yellow-500 text-2xl"></i>' : '<i class="ri-checkbox-blank-circle-line text-zinc-600 text-2xl"></i>'}
+                            </div>
                         </div>
                     </div>
                 `;
             }).join('');
         };
 
-        
+
         const applyManualCoupon = (couponId) => {
             try {
+                if (window.appliedCoupon && window.appliedCoupon.coupon.id === couponId) {
+                    window.appliedCoupon = null;
+                    selectedGift = null;
+                    showToast('ยกเลิกการใช้คูปองแล้ว', 'info');
+                    closeCouponSelection();
+                    window.updateCartModalDisplay();
+                    return;
+                }
+
                 const target = availableCoupons.find(cc => cc.coupon.id === couponId);
                 if (target) {
                     window.appliedCoupon = target;
                     selectedGift = null;
                     showToast('ใช้คูปอง ' + target.coupon.name + ' แล้ว', 'success');
-                    
+
                     // Close modal immediately to ensure UX
                     closeCouponSelection();
-                    
+
                     // Then update UI
                     window.updateCartModalDisplay();
                 }
@@ -1351,7 +1362,6 @@
                 closeCouponSelection();
             }
         };
-
         const closeCouponSelection = () => {
             document.getElementById('coupon-select-content').classList.add('translate-y-full');
             setTimeout(() => document.getElementById('coupon-select-modal').classList.add('hidden'), 300);
