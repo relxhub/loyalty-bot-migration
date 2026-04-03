@@ -115,15 +115,20 @@ export async function validateCouponForCart(customerId, couponId, cartItems, tot
     }
 
     // 4. กรณีของแถม (GIFT): ต้องมีสินค้าของแถมอยู่ในตะกร้าด้วย (เพื่อให้แอดมินตัดสต็อกถูก)
-    if (coupon.type === 'GIFT' && coupon.giftProductId) {
-        const giftInCart = cartItems.find(i => i.productId === coupon.giftProductId);
+    if (coupon.type === 'GIFT' && coupon.giftCategoryId) {
         const requiredGiftQty = coupon.giftQty || 1;
+        
+        // ดึงชื่อหมวดหมู่มาโชว์ใน Error
+        const category = await prisma.category.findUnique({ where: { id: coupon.giftCategoryId } });
+        const giftName = `สินค้าในหมวด ${category ? category.name : 'ที่กำหนด'}`;
 
-        if (!giftInCart || giftInCart.qty < requiredGiftQty) {
-            const giftProduct = await prisma.product.findUnique({ where: { id: coupon.giftProductId } });
-            const giftName = giftProduct ? (giftProduct.nameEn || giftProduct.nameTh) : 'ของแถม';
-            const missingQty = giftInCart ? (requiredGiftQty - giftInCart.qty) : requiredGiftQty;
-            
+        // นับจำนวนสินค้าในตะกร้าที่อยู่ในหมวดหมู่ของแถม
+        const giftInCartQty = cartItems
+            .filter(i => i.categoryId === coupon.giftCategoryId)
+            .reduce((sum, i) => sum + i.qty, 0);
+
+        if (giftInCartQty < requiredGiftQty) {
+            const missingQty = requiredGiftQty - giftInCartQty;
             throw new Error(`กรุณาเลือก ${giftName} จำนวน ${requiredGiftQty} ชิ้น ลงในตะกร้าเพื่อรับสิทธิ์ของแถม (ขาดอีก ${missingQty} ชิ้น)`);
         }
     }
@@ -241,13 +246,17 @@ export async function getBestCoupon(customerId, cartItems, totalAmount) {
             currentSaving = eligibleAmount * (Number(coupon.value) / 100);
         }
         else if (coupon.type === 'GIFT') {
-            // ของแถม: ความคุ้มค่าคือราคาของสินค้าแถม (สมมติว่าเราดึงราคามาจาก DB)
-            // สำหรับ Logic เบื้องต้น ถ้าเป็นของแถมจะถือว่ามีความคุ้มค่าเท่ากับราคาของมัน
-            const giftProduct = await prisma.product.findUnique({ 
-                where: { id: coupon.giftProductId },
-                include: { category: true }
-            });
-            currentSaving = giftProduct ? Number(giftProduct.category.price) * coupon.giftQty : 0;
+            // ของแถม: ความคุ้มค่าคือราคาของหมวดหมู่สินค้าแถม
+            if (coupon.giftCategoryId) {
+                const category = await prisma.category.findUnique({ where: { id: coupon.giftCategoryId } });
+                currentSaving = category ? Number(category.price) * coupon.giftQty : 0;
+            } else if (coupon.giftProductId) {
+                const giftProduct = await prisma.product.findUnique({ 
+                    where: { id: coupon.giftProductId },
+                    include: { category: true }
+                });
+                currentSaving = giftProduct ? Number(giftProduct.category.price) * coupon.giftQty : 0;
+            }
         }
 
         if (currentSaving > maxSaving) {

@@ -97,7 +97,7 @@ model Coupon {
   value               Decimal?     @db.Decimal(10, 2) // จำนวนเงินที่ลด หรือ %
   
   // ส่วนของแถม (กรณี type = GIFT)
-  giftProductId       Int?
+  giftCategoryId      Int?         // เปลี่ยนจาก giftProductId เป็น giftCategoryId
   giftQty             Int?         @default(1)
   
   // เงื่อนไข (Conditions)
