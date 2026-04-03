@@ -168,7 +168,8 @@ export async function useCoupon(customerId, couponId, adminName) {
             customerId, 
             couponId, 
             status: 'AVAILABLE'
-        }
+        },
+        include: { coupon: true }
     });
 
     if (!customerCoupon) {
