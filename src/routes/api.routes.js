@@ -581,13 +581,45 @@ router.post('/reviews', async (req, res) => {
 
 /**
  * ดึงรายการคูปองทั้งหมด (สำหรับ Coupon Center)
+ * รองรับการเช็คว่า user นี้เก็บไปครบหรือยัง
  */
 router.get('/coupons', async (req, res) => {
     try {
+        const { telegramId } = req.query;
+        
         const coupons = await prisma.coupon.findMany({
             where: { isActive: true },
             orderBy: { createdAt: 'desc' }
         });
+
+        // ถ้ามีการส่ง telegramId มา ให้เช็คด้วยว่าเก็บไปครบหรือยัง
+        if (telegramId) {
+            const user = await prisma.customer.findUnique({
+                where: { telegramUserId: telegramId },
+                select: { customerId: true }
+            });
+
+            if (user) {
+                const userClaims = await prisma.customerCoupon.findMany({
+                    where: { customerId: user.customerId },
+                    select: { couponId: true }
+                });
+
+                // นับจำนวนที่เก็บไปแล้วในแต่ละคูปอง
+                const claimCounts = userClaims.reduce((acc, c) => {
+                    acc[c.couponId] = (acc[c.couponId] || 0) + 1;
+                    return acc;
+                }, {});
+
+                const couponsWithStatus = coupons.map(c => ({
+                    ...c,
+                    isUserLimitReached: (claimCounts[c.id] || 0) >= c.usageLimitPerUser
+                }));
+
+                return res.json({ success: true, coupons: couponsWithStatus });
+            }
+        }
+
         res.json({ success: true, coupons });
     } catch (error) {
         console.error("Fetch Coupons Error:", error);

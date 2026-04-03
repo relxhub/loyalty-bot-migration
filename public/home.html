@@ -130,7 +130,8 @@
         async function fetchCoupons() {
             const list = document.getElementById('coupon-list');
             try {
-                const res = await fetch('/api/coupons');
+                const telegramId = tg.initDataUnsafe?.user?.id;
+                const res = await fetch(`/api/coupons?telegramId=${telegramId}`);
                 const data = await res.json();
                 
                 if (data.success && data.coupons.length > 0) {
@@ -148,13 +149,26 @@
 
         function renderCouponCard(c) {
             const isFull = c.totalQuota !== null && c.claimedCount >= c.totalQuota;
+            const isLimitReached = c.isUserLimitReached;
             const progress = c.totalQuota ? (c.claimedCount / c.totalQuota) * 100 : 0;
             const quotaText = c.totalQuota ? `เหลือ ${c.totalQuota - c.claimedCount} ใบ` : 'ไม่จำกัดจำนวน';
             
             let benefitText = '';
             if (c.type === 'DISCOUNT_PERCENT') benefitText = `ลด ${parseFloat(c.value)}%`;
             else if (c.type === 'DISCOUNT_FLAT') benefitText = `ลด ${parseFloat(c.value)} บาท`;
-            else if (c.type === 'GIFT') benefitText = `แถมฟรี! สินค้าพิเศษ`;
+            else if (c.type === 'GIFT') benefitText = `แถมฟรี!`;
+
+            // กำหนดสถานะปุ่ม
+            let btnText = 'เก็บเลย';
+            let btnClass = 'bg-yellow-500 text-black hover:bg-yellow-400';
+            
+            if (isFull) {
+                btnText = 'เต็มแล้ว';
+                btnClass = 'bg-gray-700 text-gray-500 cursor-not-allowed';
+            } else if (isLimitReached) {
+                btnText = 'เก็บครบแล้ว';
+                btnClass = 'bg-gray-600 text-gray-400'; // สีเทาเข้มขึ้นสำหรับคนที่เก็บครบแล้ว
+            }
 
             return `
                 <div class="relative bg-white/5 border border-white/10 rounded-2xl p-4 overflow-hidden group">
@@ -181,9 +195,8 @@
                         </div>
                         <button 
                             onclick="claimCoupon('${c.id}')"
-                            ${isFull ? 'disabled' : ''}
-                            class="px-6 py-2 rounded-xl font-bold text-sm transition active:scale-95 ${isFull ? 'bg-gray-700 text-gray-500' : 'bg-yellow-500 text-black hover:bg-yellow-400'}">
-                            ${isFull ? 'เต็มแล้ว' : 'เก็บเลย'}
+                            class="px-6 py-2 rounded-xl font-bold text-sm transition active:scale-95 ${btnClass}">
+                            ${btnText}
                         </button>
                     </div>
 
