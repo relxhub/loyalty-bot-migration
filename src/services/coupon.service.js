@@ -39,12 +39,18 @@ export async function claimCoupon(customerId, couponId) {
             data: { claimedCount: { increment: 1 } }
         });
 
+        let calculatedExpiry = coupon.validUntil;
+        if (coupon.validityDays) {
+            calculatedExpiry = new Date();
+            calculatedExpiry.setDate(calculatedExpiry.getDate() + coupon.validityDays);
+        }
+
         const customerCoupon = await tx.customerCoupon.create({
             data: {
                 customerId,
                 couponId,
                 status: 'AVAILABLE',
-                expiryDate: coupon.validUntil // Copy expiry date from template
+                expiryDate: calculatedExpiry
             }
         });
 
@@ -119,13 +125,19 @@ export async function redeemCouponWithPoints(customerId, couponId) {
             data: { claimedCount: { increment: 1 } }
         });
 
+        let calculatedExpiry = coupon.validUntil;
+        if (coupon.validityDays) {
+            calculatedExpiry = new Date();
+            calculatedExpiry.setDate(calculatedExpiry.getDate() + coupon.validityDays);
+        }
+
         // 4. นำคูปองเข้ากระเป๋า
         const customerCoupon = await tx.customerCoupon.create({
             data: {
                 customerId,
                 couponId,
                 status: 'AVAILABLE',
-                expiryDate: coupon.validUntil // Copy expiry date from template
+                expiryDate: calculatedExpiry
             }
         });
 
@@ -156,8 +168,11 @@ export async function validateCouponForCart(customerId, couponId, cartItems, tot
     const { coupon } = customerCoupon;
     const now = new Date();
 
-    // 1. เช็ควันหมดอายุ (Master)
+    // 1. เช็ควันหมดอายุ (Master & Individual)
     if (coupon.validUntil && now > coupon.validUntil) {
+        throw new Error('คูปองนี้หมดอายุการใช้งานแล้ว (แคมเปญสิ้นสุด)');
+    }
+    if (customerCoupon.expiryDate && now > customerCoupon.expiryDate) {
         throw new Error('คูปองนี้หมดอายุการใช้งานแล้ว');
     }
     if (coupon.validFrom && now < coupon.validFrom) {
@@ -257,14 +272,21 @@ export async function getCustomerCoupons(customerId) {
         where: { 
             customerId, 
             status: 'AVAILABLE',
+            // เช็ควันหมดอายุของคูปองรายใบ
+            OR: [
+                { expiryDate: null },
+                { expiryDate: { gt: now } }
+            ],
             // ตรวจสอบเงื่อนไขจากแม่แบบคูปอง (Live Update)
             coupon: {
                 isActive: true,
-                OR: [
-                    { validFrom: null },
-                    { validFrom: { lte: now } }
-                ],
                 AND: [
+                    {
+                        OR: [
+                            { validFrom: null },
+                            { validFrom: { lte: now } }
+                        ]
+                    },
                     {
                         OR: [
                             { validUntil: null },
@@ -417,9 +439,14 @@ export async function useCoupon(customerId, couponId, adminName) {
         throw new Error('ไม่พบคูปองนี้ในกระเป๋าของลูกค้า หรือคูปองถูกใช้ไปแล้ว');
     }
 
-    // เช็ควันหมดอายุ (ยึดตามแม่แบบล่าสุด)
-    const expiryDate = customerCoupon.coupon.validUntil;
-    if (expiryDate && now > expiryDate) {
+    // เช็ควันหมดอายุ (ยึดตามแม่แบบล่าสุด และ วันที่ของคูปองใบนี้)
+    const globalExpiry = customerCoupon.coupon.validUntil;
+    const individualExpiry = customerCoupon.expiryDate;
+    
+    if (globalExpiry && now > globalExpiry) {
+        throw new Error('คูปองนี้หมดอายุแล้ว (แคมเปญสิ้นสุด)');
+    }
+    if (individualExpiry && now > individualExpiry) {
         throw new Error('คูปองนี้หมดอายุแล้ว ไม่สามารถใช้งานได้');
     }
 

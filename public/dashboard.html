@@ -1344,7 +1344,10 @@
                 if (data.success && data.coupons.length > 0) {
                     list.innerHTML = data.coupons.map(item => {
                         const validFrom = item.coupon.validFrom ? new Date(item.coupon.validFrom).toLocaleDateString('th-TH') : 'ใช้ได้ทันที';
-                        const validUntil = item.coupon.validUntil ? new Date(item.coupon.validUntil).toLocaleDateString('th-TH') : 'ไม่มีวันหมดอายุ';
+                        
+                        // ถ้าระบบคำนวณวันหมดอายุรายใบ (expiryDate) ให้ใช้ค่านั้นก่อน, ถ้าไม่มีให้ดึงจากแม่แบบ Global (validUntil)
+                        const expiryToUse = item.expiryDate || item.coupon.validUntil;
+                        const validUntil = expiryToUse ? new Date(expiryToUse).toLocaleDateString('th-TH') : 'ไม่มีวันหมดอายุ';
                         
                         return `
                         <div class="bg-white/5 p-4 rounded-2xl border border-white/10 relative overflow-hidden group">

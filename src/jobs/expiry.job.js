@@ -58,7 +58,7 @@ export async function runCouponExpiryJob() {
     console.log(`[CouponExpiryJob] 🔍 Checking for coupons expiring before: ${now.toISOString()}`);
 
     try {
-        // หา ID ของคูปองแม่แบบที่หมดอายุแล้ว
+        // 1. หา ID ของคูปองแม่แบบที่หมดอายุแล้ว (Global Expiry)
         const expiredMasterCoupons = await prisma.coupon.findMany({
             where: {
                 validUntil: { lt: now }
@@ -68,6 +68,7 @@ export async function runCouponExpiryJob() {
 
         const expiredIds = expiredMasterCoupons.map(c => c.id);
 
+        let masterExpiredCount = 0;
         if (expiredIds.length > 0) {
             const result = await prisma.customerCoupon.updateMany({
                 where: {
@@ -78,9 +79,25 @@ export async function runCouponExpiryJob() {
                     status: 'EXPIRED'
                 }
             });
-            console.log(`[CouponExpiryJob] ✂️ Marked ${result.count} coupons as EXPIRED based on master templates.`);
-        } else {
-            console.log(`[CouponExpiryJob] 💡 No expired master templates found.`);
+            masterExpiredCount = result.count;
+            console.log(`[CouponExpiryJob] ✂️ Marked ${masterExpiredCount} coupons as EXPIRED based on master templates.`);
+        }
+
+        // 2. หาคูปองรายใบที่หมดอายุแล้ว (Individual Expiry - เช่น คูปองมีอายุ 7 วันหลังเก็บ)
+        const individualExpiredResult = await prisma.customerCoupon.updateMany({
+            where: {
+                status: 'AVAILABLE',
+                expiryDate: { lt: now }
+            },
+            data: {
+                status: 'EXPIRED'
+            }
+        });
+
+        console.log(`[CouponExpiryJob] ✂️ Marked ${individualExpiredResult.count} coupons as EXPIRED based on individual validity.`);
+        
+        if (masterExpiredCount === 0 && individualExpiredResult.count === 0) {
+            console.log(`[CouponExpiryJob] 💡 No expired coupons found.`);
         }
 
     } catch (error) {

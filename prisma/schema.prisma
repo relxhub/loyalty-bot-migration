@@ -118,7 +118,8 @@ model Coupon {
   startDate           DateTime?    // วันที่เริ่มให้เก็บคูปอง
   endDate             DateTime?    // วันที่สิ้นสุดการเก็บคูปอง
   validFrom           DateTime?    // วันที่เริ่มใช้งานได้
-  validUntil          DateTime?    // วันหมดอายุของคูปอง
+  validUntil          DateTime?    // วันหมดอายุแบบ Global (ทุกคนหมดพร้อมกัน)
+  validityDays        Int?         // จำนวนวันหมดอายุ นับจากวันที่เก็บ/แลก
   
   isActive            Boolean      @default(true)
   createdAt           DateTime     @default(now())
