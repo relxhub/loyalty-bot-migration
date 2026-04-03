@@ -43,7 +43,8 @@ export async function claimCoupon(customerId, couponId) {
             data: {
                 customerId,
                 couponId,
-                status: 'AVAILABLE'
+                status: 'AVAILABLE',
+                expiryDate: coupon.validUntil // Copy expiry date from template
             }
         });
 
@@ -55,8 +56,22 @@ export async function claimCoupon(customerId, couponId) {
  * ดึงรายการคูปองที่ลูกค้ามี (สำหรับแสดงในกระเป๋า)
  */
 export async function getCustomerCoupons(customerId) {
+    const now = new Date();
     return await prisma.customerCoupon.findMany({
-        where: { customerId, status: 'AVAILABLE' },
+        where: { 
+            customerId, 
+            status: 'AVAILABLE',
+            OR: [
+                { expiryDate: null },
+                { expiryDate: { gt: now } }
+            ],
+            coupon: {
+                OR: [
+                    { validFrom: null },
+                    { validFrom: { lte: now } }
+                ]
+            }
+        },
         include: { coupon: true },
         orderBy: { claimedAt: 'desc' }
     });
@@ -141,12 +156,22 @@ export async function getBestCoupon(customerId, cartItems, totalAmount) {
  * แอดมินใช้คูปอง (ตัดสิทธิ์)
  */
 export async function useCoupon(customerId, couponId, adminName) {
+    const now = new Date();
     const customerCoupon = await prisma.customerCoupon.findFirst({
-        where: { customerId, couponId, status: 'AVAILABLE' }
+        where: { 
+            customerId, 
+            couponId, 
+            status: 'AVAILABLE'
+        }
     });
 
     if (!customerCoupon) {
         throw new Error('ไม่พบคูปองนี้ในกระเป๋าของลูกค้า หรือคูปองถูกใช้ไปแล้ว');
+    }
+
+    // เช็ควันหมดอายุ
+    if (customerCoupon.expiryDate && now > customerCoupon.expiryDate) {
+        throw new Error('คูปองนี้หมดอายุแล้ว ไม่สามารถใช้งานได้');
     }
 
     const updated = await prisma.customerCoupon.update({

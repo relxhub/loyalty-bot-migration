@@ -43,10 +43,39 @@ export async function runPointExpiryJob() {
             console.log(`[ExpiryJob] ✂️ Cut ${pointsLost} points from ${customer.customerId}`);
         }
 
-        console.log(`[ExpiryJob] ✅ Successfully processed expiry for ${expiredCustomers.length} users.`);
+        console.log(`[ExpiryJob] ✅ Successfully processed point expiry for ${expiredCustomers.length} users.`);
 
     } catch (error) {
-        console.error(`[ExpiryJob] ❌ Error:`, error);
+        console.error(`[ExpiryJob] ❌ Error in runPointExpiryJob:`, error);
+    }
+}
+
+/**
+ * ฟังก์ชันตรวจสอบและอัปเดตสถานะคูปองที่หมดอายุ (Housekeeping)
+ */
+export async function runCouponExpiryJob() {
+    const now = new Date();
+    console.log(`[CouponExpiryJob] 🔍 Checking for coupons expiring before: ${now.toISOString()}`);
+
+    try {
+        const expiredCoupons = await prisma.customerCoupon.updateMany({
+            where: {
+                status: 'AVAILABLE',
+                expiryDate: { lt: now }
+            },
+            data: {
+                status: 'EXPIRED'
+            }
+        });
+
+        if (expiredCoupons.count > 0) {
+            console.log(`[CouponExpiryJob] ✂️ Marked ${expiredCoupons.count} coupons as EXPIRED.`);
+        } else {
+            console.log(`[CouponExpiryJob] 💡 No expired coupons found.`);
+        }
+
+    } catch (error) {
+        console.error(`[CouponExpiryJob] ❌ Error in runCouponExpiryJob:`, error);
     }
 }
 

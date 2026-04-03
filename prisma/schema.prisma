@@ -111,8 +111,11 @@ model Coupon {
   claimedCount        Int          @default(0)
   usageLimitPerUser   Int          @default(1)
   
-  startDate           DateTime?
-  endDate             DateTime?
+  startDate           DateTime?    // วันที่เริ่มให้เก็บคูปอง
+  endDate             DateTime?    // วันที่สิ้นสุดการเก็บคูปอง
+  validFrom           DateTime?    // วันที่เริ่มใช้งานได้
+  validUntil          DateTime?    // วันหมดอายุของคูปอง
+  
   isActive            Boolean      @default(true)
   createdAt           DateTime     @default(now())
 
@@ -126,6 +129,7 @@ model CustomerCoupon {
   couponId    String
   status      CouponStatus @default(AVAILABLE)
   claimedAt   DateTime     @default(now())
+  expiryDate  DateTime?    // วันหมดอายุของคูปองใบนี้ (สำเนามาจาก validUntil หรือคำนวณใหม่)
   usedAt      DateTime?
   usedByAdmin String?      // เก็บชื่อแอดมินที่กดตัดคูปอง
 
@@ -135,6 +139,7 @@ model CustomerCoupon {
   @@index([customerId])
   @@index([couponId])
   @@index([status])
+  @@index([expiryDate])
 }
 
 model Referral {

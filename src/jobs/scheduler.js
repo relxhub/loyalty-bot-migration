@@ -2,7 +2,7 @@
 
 import cron from 'node-cron'; 
 import { getConfig } from '../config/config.js';
-import { runPointExpiryJob, runReminderJob } from './expiry.job.js';
+import { runPointExpiryJob, runReminderJob, runCouponExpiryJob } from './expiry.job.js';
 
 export function runScheduler(timezone) {
     // ดึงค่าจาก Config
@@ -35,6 +35,13 @@ export function runScheduler(timezone) {
             scheduled: true,
             timezone: timezone 
         });
+
+        // ตรวจสอบคูปองหมดอายุทุกวัน เวลา 00:10
+        cron.schedule('10 0 * * *', runCouponExpiryJob, {
+            scheduled: true,
+            timezone: timezone
+        });
+
         console.log(`✅ Cron Jobs scheduled successfully.`);
     } catch (error) {
         console.error("⚠️ Failed to schedule cron jobs:", error.message);
