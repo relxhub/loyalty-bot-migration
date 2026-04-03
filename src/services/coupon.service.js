@@ -117,19 +117,32 @@ export async function validateCouponForCart(customerId, couponId, cartItems, tot
     // 4. กรณีของแถม (GIFT): ต้องมีสินค้าของแถมอยู่ในตะกร้าด้วย (เพื่อให้แอดมินตัดสต็อกถูก)
     if (coupon.type === 'GIFT' && coupon.giftCategoryId) {
         const requiredGiftQty = coupon.giftQty || 1;
+        const requiredMinQty = coupon.minQty || 0;
         
         // ดึงชื่อหมวดหมู่มาโชว์ใน Error
         const category = await prisma.category.findUnique({ where: { id: coupon.giftCategoryId } });
         const giftName = `สินค้าในหมวด ${category ? category.name : 'ที่กำหนด'}`;
 
-        // นับจำนวนสินค้าในตะกร้าที่อยู่ในหมวดหมู่ของแถม
-        const giftInCartQty = cartItems
+        // ⚠️ logic ใหม่: ถ้าหมวดหมู่ของแถม กับ หมวดหมู่เงื่อนไขการซื้อ เป็นหมวดเดียวกัน
+        // ลูกค้าต้องเลือกสินค้าในหมวดนั้นรวมกัน = (จำนวนซื้อขั้นต่ำ + จำนวนของแถม)
+        let availableForGift = 0;
+        const totalInCat = cartItems
             .filter(i => i.categoryId === coupon.giftCategoryId)
             .reduce((sum, i) => sum + i.qty, 0);
 
-        if (giftInCartQty < requiredGiftQty) {
-            const missingQty = requiredGiftQty - giftInCartQty;
-            throw new Error(`กรุณาเลือก ${giftName} จำนวน ${requiredGiftQty} ชิ้น ลงในตะกร้าเพื่อรับสิทธิ์ของแถม (ขาดอีก ${missingQty} ชิ้น)`);
+        if (coupon.targetCategoryId === coupon.giftCategoryId) {
+            // กรณีซื้อ A แถม A: ต้องมีของในตะกร้าทั้งหมด = ซื้อ(minQty) + แถม(giftQty)
+            availableForGift = totalInCat - requiredMinQty;
+        } else {
+            // กรณีซื้อ A แถม B: นับของในหมวด B ได้เลย
+            availableForGift = totalInCat;
+        }
+
+        if (availableForGift < requiredGiftQty) {
+            const missingQty = requiredGiftQty - Math.max(0, availableForGift);
+            const totalRequired = (coupon.targetCategoryId === coupon.giftCategoryId) ? (requiredMinQty + requiredGiftQty) : requiredGiftQty;
+            
+            throw new Error(`เงื่อนไขของแถม: คุณต้องเลือก ${giftName} รวมทั้งหมด ${totalRequired} ชิ้น (สำหรับซื้อ ${requiredMinQty} และแถมฟรี ${requiredGiftQty}) ขาดอีก ${missingQty} ชิ้น`);
         }
     }
 
