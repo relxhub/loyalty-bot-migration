@@ -1343,9 +1343,9 @@
         };
 
 
-        const applyManualCoupon = (couponId) => {
+        const applyManualCoupon = async (couponId) => {
             try {
-                if (window.appliedCoupon && window.appliedCoupon.coupon.id === couponId) {
+                if (window.appliedCoupon && window.appliedCoupon.coupon.id === couponId && !window.appliedCoupon.isAuto) {
                     window.appliedCoupon = null;
                     selectedGift = null;
                     showToast('ยกเลิกการใช้คูปองแล้ว', 'info');
@@ -1354,6 +1354,37 @@
                     return;
                 }
 
+                // Collect Cart Info for validation
+                const telegramId = tg.initDataUnsafe?.user?.id.toString() || currentUser?.telegramUserId;
+                const cartItems = window.cart.map(i => ({
+                    productId: i.id,
+                    categoryId: i.categoryId,
+                    qty: i.quantity,
+                    price: i.price
+                }));
+                const totalAmount = window.cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+
+                // Validation Step
+                const res = await fetch('/api/coupons/validate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        telegramId,
+                        couponId,
+                        cartItems,
+                        totalAmount
+                    })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok || !data.success) {
+                    // Show detailed error in a popup
+                    tg.showAlert(data.error || 'คูปองนี้ไม่สามารถใช้งานได้ในขณะนี้');
+                    return;
+                }
+
+                // If success, apply it
                 const target = availableCoupons.find(cc => cc.coupon.id === couponId);
                 if (target) {
                     window.appliedCoupon = target;
@@ -1362,9 +1393,8 @@
                     showToast('ใช้คูปอง ' + target.coupon.name + ' แล้ว', 'success');
 
                     renderCouponList();
-
-                    // Then update UI
                     window.updateCartModalDisplay();
+                    closeCouponSelection();
                 }
             } catch (err) {
                 console.error("Apply Coupon Error:", err);
