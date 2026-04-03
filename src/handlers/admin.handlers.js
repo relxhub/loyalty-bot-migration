@@ -87,16 +87,6 @@ export async function handleAdminCommand(ctx) {
                 await handleAddPoints(ctx, commandParts, adminUser, chatId);
                 break;
 
-            case "/redeem":
-                await handleRedeemReward(ctx, commandParts, adminUser, chatId);
-                break;
-
-            case "/reward":
-                const rewards = await listRewards();
-                const result = formatRewardsForAdmin(rewards);
-                sendAdminReply(chatId, result);
-                break;
-                
             case "/start":
                 const welcomeMsg = `👋 สวัสดี ${adminUser}!\nบอทสำหรับแอดมินพร้อมใช้งาน\n\n` +
                 "<b>คำสั่งทั้งหมด:</b>\n" +
@@ -107,10 +97,8 @@ export async function handleAdminCommand(ctx) {
                 (role === "SuperAdmin" ? "👮‍♂️ /addadmin [ID] [Role] [Name]\n" : "") +
                 "👤 /new [ลูกค้าใหม่]\n" +
                 "✨ /refer [รหัสลูกค้าที่ถูกแนะนำ] [ยอดซื้อ]\n" + 
-                "🎁 /reward\n" +
                 "🎫 /coupon [รหัสลูกค้า] [รหัสคูปอง]\n" +
-                "↩️ /uncoupon [รหัสลูกค้า] [รหัสคูปอง]\n" +
-                "✨ /redeem [รหัสลูกค้า] [รหัสรางวัล]";
+                "↩️ /uncoupon [รหัสลูกค้า] [รหัสคูปอง]";
                 sendAdminReply(chatId, welcomeMsg);
                 break;
 

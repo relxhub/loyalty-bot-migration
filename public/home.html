@@ -38,20 +38,37 @@
         <p class="text-gray-400">เลือกเมนูด้านล่างเพื่อเริ่มต้นใช้งาน</p>
     </div>
 
-    <!-- Coupon Center Button -->
-    <div class="w-full max-w-sm px-4 mb-24">
+    <!-- Buttons Container -->
+    <div class="w-full max-w-sm px-4 mb-24 space-y-4">
+        
+        <!-- Coupon Center Button -->
         <button onclick="openCouponCenter()" class="w-full bg-gradient-to-r from-yellow-500 to-orange-600 p-4 rounded-2xl flex items-center justify-between shadow-lg shadow-orange-900/20 active:scale-95 transition-transform group">
             <div class="flex items-center gap-3">
                 <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl group-hover:rotate-12 transition-transform">
                     <i class="ri-ticket-2-fill text-white"></i>
                 </div>
                 <div class="text-left">
-                    <div class="font-bold text-lg leading-none">ศูนย์คูปอง</div>
-                    <div class="text-xs text-orange-100 opacity-80">แย่งเก็บคูปองส่วนลด & ของแถม</div>
+                    <div class="font-bold text-lg leading-none text-white">ศูนย์คูปอง</div>
+                    <div class="text-xs text-orange-100 opacity-80 mt-1">เก็บคูปองส่วนลด & ของแถมฟรี</div>
                 </div>
             </div>
-            <i class="ri-arrow-right-s-line text-2xl opacity-50"></i>
+            <i class="ri-arrow-right-s-line text-2xl opacity-50 text-white"></i>
         </button>
+
+        <!-- Points Redemption Button -->
+        <button onclick="openRedeemCenter()" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 p-4 rounded-2xl flex items-center justify-between shadow-lg shadow-blue-900/20 active:scale-95 transition-transform group">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                    <i class="ri-gift-2-fill text-white"></i>
+                </div>
+                <div class="text-left">
+                    <div class="font-bold text-lg leading-none text-white">แต้มแลกคูปอง</div>
+                    <div class="text-xs text-blue-100 opacity-80 mt-1">ใช้แต้มสะสม แลกรับสิทธิพิเศษ</div>
+                </div>
+            </div>
+            <i class="ri-arrow-right-s-line text-2xl opacity-50 text-white"></i>
+        </button>
+        
     </div>
 
     <!-- Coupon Modal -->
@@ -82,6 +99,39 @@
             <div id="no-coupons" class="hidden text-center py-12">
                 <div class="text-4xl mb-2">🏷️</div>
                 <div class="text-gray-400">ยังไม่มีคูปองให้เก็บในขณะนี้</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Points Redemption Modal -->
+    <div id="redeem-modal" class="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/80 hidden opacity-0 transition-opacity duration-300 backdrop-blur-sm">
+        <div class="bg-[#161B22] w-full max-w-md rounded-t-[2.5rem] sm:rounded-3xl p-6 pb-12 sm:pb-6 transform translate-y-full transition-transform duration-300 overflow-hidden relative">
+            
+            <div class="w-12 h-1.5 bg-gray-700 rounded-full mx-auto mb-6 sm:hidden"></div>
+
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-xl font-bold flex items-center gap-2">
+                    <i class="ri-gift-2-fill text-blue-500"></i> แต้มแลกคูปอง
+                </h3>
+                <button onclick="closeRedeemModal()" class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center active:scale-90 transition-transform">
+                    <i class="ri-close-line"></i>
+                </button>
+            </div>
+            
+            <div class="text-sm text-gray-400 mb-6 flex justify-between items-end">
+                <span>แต้มของคุณ:</span>
+                <span class="text-xl font-bold text-yellow-500" id="user-current-points">...</span>
+            </div>
+
+            <div id="redeem-list" class="space-y-4 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
+                <div class="animate-pulse space-y-4">
+                    <div class="h-24 bg-white/5 rounded-2xl"></div>
+                </div>
+            </div>
+
+            <div id="no-redeem-coupons" class="hidden text-center py-12">
+                <div class="text-4xl mb-2">🎁</div>
+                <div class="text-gray-400">ยังไม่มีรายการให้แลกในขณะนี้</div>
             </div>
         </div>
     </div>
@@ -127,6 +177,25 @@
             setTimeout(() => modal.classList.add('hidden'), 300);
         }
 
+        function openRedeemCenter() {
+            const modal = document.getElementById('redeem-modal');
+            const content = modal.querySelector('div');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('translate-y-full');
+            }, 10);
+            fetchRedeemableCoupons();
+        }
+
+        function closeRedeemModal() {
+            const modal = document.getElementById('redeem-modal');
+            const content = modal.querySelector('div');
+            modal.classList.add('opacity-0');
+            content.classList.add('translate-y-full');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
         async function fetchCoupons() {
             const list = document.getElementById('coupon-list');
             try {
@@ -140,6 +209,30 @@
                 } else {
                     list.innerHTML = '';
                     document.getElementById('no-coupons').classList.remove('hidden');
+                }
+            } catch (err) {
+                console.error(err);
+                list.innerHTML = '<div class="text-red-400 text-center py-4">โหลดข้อมูลไม่สำเร็จ</div>';
+            }
+        }
+
+        async function fetchRedeemableCoupons() {
+            const list = document.getElementById('redeem-list');
+            try {
+                const telegramId = tg.initDataUnsafe?.user?.id;
+                const res = await fetch(`/api/coupons/redeemable?telegramId=${telegramId}`);
+                const data = await res.json();
+                
+                if (data.success) {
+                    document.getElementById('user-current-points').innerText = (data.userPoints || 0).toLocaleString();
+
+                    if (data.coupons.length > 0) {
+                        list.innerHTML = data.coupons.map(c => renderRedeemCard(c)).join('');
+                        document.getElementById('no-redeem-coupons').classList.add('hidden');
+                    } else {
+                        list.innerHTML = '';
+                        document.getElementById('no-redeem-coupons').classList.remove('hidden');
+                    }
                 }
             } catch (err) {
                 console.error(err);
@@ -205,6 +298,105 @@
                     <div class="absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#161B22] rounded-full border-l border-white/10"></div>
                 </div>
             `;
+        }
+
+        function renderRedeemCard(c) {
+            const isFull = c.totalQuota !== null && c.claimedCount >= c.totalQuota;
+            const isLimitReached = c.isUserLimitReached;
+            const hasEnoughPoints = c.hasEnoughPoints;
+            const progress = c.totalQuota ? (c.claimedCount / c.totalQuota) * 100 : 0;
+            const quotaText = c.totalQuota ? `เหลือ ${c.totalQuota - c.claimedCount} สิทธิ์` : 'แลกได้ไม่อั้น';
+            
+            let benefitText = '';
+            if (c.type === 'DISCOUNT_PERCENT') benefitText = `ลด ${parseFloat(c.value)}%`;
+            else if (c.type === 'DISCOUNT_FLAT') benefitText = `ลด ${parseFloat(c.value)} บาท`;
+            else if (c.type === 'GIFT') benefitText = `แถมฟรี!`;
+
+            let btnText = `ใช้ ${c.pointsCost} แต้ม`;
+            let btnClass = 'bg-blue-600 text-white hover:bg-blue-500';
+            
+            if (isFull) {
+                btnText = 'สิทธิ์เต็มแล้ว';
+                btnClass = 'bg-gray-700 text-gray-500 cursor-not-allowed';
+            } else if (isLimitReached) {
+                btnText = 'แลกครบสิทธิ์แล้ว';
+                btnClass = 'bg-gray-600 text-gray-400';
+            } else if (!hasEnoughPoints) {
+                btnText = `แต้มไม่พอ (${c.pointsCost})`;
+                btnClass = 'bg-gray-700 text-gray-400 cursor-not-allowed';
+            }
+
+            return `
+                <div class="relative bg-gradient-to-br from-blue-900/20 to-[#161B22] border border-blue-500/20 rounded-2xl p-4 overflow-hidden group">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <div class="text-xs text-blue-400 font-bold mb-1 uppercase tracking-wider">${c.id}</div>
+                            <div class="text-lg font-bold text-white">${c.name}</div>
+                            <div class="text-xs text-gray-400">${c.description || ''}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-2xl font-black text-white">${benefitText}</div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-4">
+                        <div class="flex-1">
+                            <div class="flex justify-between text-[10px] text-gray-500 mb-1">
+                                <span>${quotaText}</span>
+                                <span>${Math.round(progress)}%</span>
+                            </div>
+                            <div class="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                                <div class="h-full bg-gradient-to-r from-blue-600 to-blue-400 transition-all duration-1000" style="width: ${progress}%"></div>
+                            </div>
+                        </div>
+                        <button 
+                            onclick="${hasEnoughPoints && !isLimitReached && !isFull ? `redeemCoupon('${c.id}')` : ''}"
+                            class="px-4 py-2 rounded-xl font-bold text-sm transition active:scale-95 ${btnClass}">
+                            ${btnText}
+                        </button>
+                    </div>
+
+                    <!-- Decorative elements -->
+                    <div class="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#161B22] rounded-full border-r border-blue-500/20"></div>
+                    <div class="absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#161B22] rounded-full border-l border-blue-500/20"></div>
+                </div>
+            `;
+        }
+
+        async function redeemCoupon(id) {
+            try {
+                tg.HapticFeedback.impactOccurred('medium');
+                
+                tg.showConfirm('ยืนยันการใช้แต้มเพื่อแลกคูปองนี้ใช่หรือไม่?', async function(confirmed) {
+                    if (!confirmed) return;
+
+                    const res = await fetch('/api/coupons/redeem', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            telegramId: tg.initDataUnsafe.user.id.toString(),
+                            couponId: id,
+                            initData: tg.initData
+                        })
+                    });
+                    const data = await res.json();
+                    
+                    if (data.success) {
+                        tg.showPopup({
+                            title: 'แลกสำเร็จ! 🎉',
+                            message: 'คูปองถูกส่งเข้ากระเป๋าของคุณแล้ว สามารถนำไปใช้เป็นส่วนลดได้ที่หน้าตะกร้าสินค้า',
+                            buttons: [{ type: 'ok' }]
+                        });
+                        document.getElementById('user-current-points').innerText = data.remainingPoints.toLocaleString();
+                        fetchRedeemableCoupons(); // Refresh UI
+                    } else {
+                        tg.showAlert(data.error || 'แลกคูปองไม่สำเร็จ');
+                    }
+                });
+
+            } catch (err) {
+                tg.showAlert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+            }
         }
 
         async function claimCoupon(id) {

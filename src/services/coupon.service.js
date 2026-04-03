@@ -53,7 +53,90 @@ export async function claimCoupon(customerId, couponId) {
 }
 
 /**
+ * ลูกค้าใช้แต้มแลกคูปอง
+ */
+export async function redeemCouponWithPoints(customerId, couponId) {
+    return await prisma.$transaction(async (tx) => {
+        const coupon = await tx.coupon.findUnique({
+            where: { id: couponId }
+        });
+
+        if (!coupon || !coupon.isActive) {
+            throw new Error('คูปองนี้ไม่พร้อมใช้งาน');
+        }
+
+        if (coupon.pointsCost === null || coupon.pointsCost <= 0) {
+            throw new Error('คูปองนี้ไม่ได้เปิดให้ใช้แต้มแลก (โปรดไปเก็บที่ศูนย์คูปองแทน)');
+        }
+
+        // เช็ควันเริ่ม-หมดอายุ
+        const now = new Date();
+        if (coupon.startDate && now < coupon.startDate) throw new Error('คูปองยังไม่เริ่มให้แลก');
+        if (coupon.endDate && now > coupon.endDate) throw new Error('คูปองหมดอายุการแลกแล้ว');
+
+        // เช็คจำนวนรวม (FCFS)
+        if (coupon.totalQuota !== null && coupon.claimedCount >= coupon.totalQuota) {
+            throw new Error('ขออภัย สิทธิ์คูปองถูกแลกจนเต็มแล้ว');
+        }
+
+        // เช็คโควตาต่อคน
+        const existingClaims = await tx.customerCoupon.count({
+            where: { customerId, couponId }
+        });
+
+        if (existingClaims >= coupon.usageLimitPerUser) {
+            throw new Error(`คุณแลกคูปองนี้ครบตามสิทธิ์แล้ว (${coupon.usageLimitPerUser} ครั้ง)`);
+        }
+
+        // ตรวจสอบว่าลูกค้ามีแต้มพอไหม
+        const customer = await tx.customer.findUnique({
+            where: { customerId }
+        });
+
+        if (customer.points < coupon.pointsCost) {
+            throw new Error(`แต้มไม่พอ (คูปองนี้ใช้ ${coupon.pointsCost} แต้ม แต่คุณมี ${customer.points} แต้ม)`);
+        }
+
+        // 1. หักแต้ม
+        await tx.customer.update({
+            where: { customerId },
+            data: { points: { decrement: coupon.pointsCost } }
+        });
+
+        // 2. บันทึกประวัติการเสียแต้ม
+        await tx.pointTransaction.create({
+            data: {
+                customerId,
+                amount: -coupon.pointsCost,
+                type: 'REDEEM_REWARD',
+                detail: `แลกคูปอง ${coupon.name} (ID: ${coupon.id})`
+            }
+        });
+
+        // 3. เพิ่มยอดการแลกของคูปอง
+        await tx.coupon.update({
+            where: { id: couponId },
+            data: { claimedCount: { increment: 1 } }
+        });
+
+        // 4. นำคูปองเข้ากระเป๋า
+        const customerCoupon = await tx.customerCoupon.create({
+            data: {
+                customerId,
+                couponId,
+                status: 'AVAILABLE',
+                expiryDate: coupon.validUntil // Copy expiry date from template
+            }
+        });
+
+        // คืนค่าเพื่อให้รู้ว่าแลกสำเร็จ และเหลือแต้มเท่าไหร่
+        return { customerCoupon, remainingPoints: customer.points - coupon.pointsCost };
+    });
+}
+
+/**
  * ตรวจสอบความพร้อมของคูปองสำหรับตะกร้าสินค้า (สำหรับ Manual Selection)
+
  * และส่งข้อความ Error ที่ละเอียดกลับไป
  */
 export async function validateCouponForCart(customerId, couponId, cartItems, totalAmount) {

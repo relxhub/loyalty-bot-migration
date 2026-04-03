@@ -107,6 +107,9 @@ model Coupon {
   targetProductId     Int?         // ระบุ ID สินค้าที่ต้องซื้อ (ถ้ามี)
   excludedProductIds  Int[]        // รายชื่อ ID สินค้าที่ไม่เข้าร่วม
   
+  // ใช้แต้มแลก (ถ้ามีค่า แสดงว่าเป็นคูปองที่ต้องใช้แต้มแลก)
+  pointsCost          Int?
+  
   // ข้อจำกัด (Limits & FCFS)
   totalQuota          Int?         // จำนวนทั้งหมด (Null = ไม่จำกัด)
   claimedCount        Int          @default(0)

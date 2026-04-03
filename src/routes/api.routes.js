@@ -580,7 +580,7 @@ router.post('/reviews', async (req, res) => {
 // ==================================================
 
 /**
- * ดึงรายการคูปองทั้งหมด (สำหรับ Coupon Center)
+ * ดึงรายการคูปองทั้งหมด (สำหรับ Coupon Center - เฉพาะคูปองที่แจกฟรี)
  * รองรับการเช็คว่า user นี้เก็บไปครบหรือยัง
  */
 router.get('/coupons', async (req, res) => {
@@ -588,7 +588,10 @@ router.get('/coupons', async (req, res) => {
         const { telegramId } = req.query;
         
         const coupons = await prisma.coupon.findMany({
-            where: { isActive: true },
+            where: { 
+                isActive: true,
+                pointsCost: null // เฉพาะคูปองที่ไม่ต้องใช้แต้มแลก
+            },
             orderBy: { createdAt: 'desc' }
         });
 
@@ -624,6 +627,88 @@ router.get('/coupons', async (req, res) => {
     } catch (error) {
         console.error("Fetch Coupons Error:", error);
         res.status(500).json({ error: "ดึงข้อมูลคูปองไม่สำเร็จ" });
+    }
+});
+
+/**
+ * ดึงรายการคูปองที่ต้องใช้แต้มแลก (สำหรับ Reward Center)
+ */
+router.get('/coupons/redeemable', async (req, res) => {
+    try {
+        const { telegramId } = req.query;
+        
+        const coupons = await prisma.coupon.findMany({
+            where: { 
+                isActive: true,
+                pointsCost: { gt: 0 } // เฉพาะคูปองที่ต้องใช้แต้มแลก
+            },
+            orderBy: { pointsCost: 'asc' }
+        });
+
+        // ถ้ามีการส่ง telegramId มา ให้เช็คโควตาด้วย
+        if (telegramId) {
+            const user = await prisma.customer.findUnique({
+                where: { telegramUserId: telegramId },
+                select: { customerId: true, points: true }
+            });
+
+            if (user) {
+                const userClaims = await prisma.customerCoupon.findMany({
+                    where: { customerId: user.customerId },
+                    select: { couponId: true }
+                });
+
+                const claimCounts = userClaims.reduce((acc, c) => {
+                    acc[c.couponId] = (acc[c.couponId] || 0) + 1;
+                    return acc;
+                }, {});
+
+                const couponsWithStatus = coupons.map(c => ({
+                    ...c,
+                    isUserLimitReached: (claimCounts[c.id] || 0) >= c.usageLimitPerUser,
+                    hasEnoughPoints: user.points >= c.pointsCost
+                }));
+
+                return res.json({ success: true, coupons: couponsWithStatus, userPoints: user.points });
+            }
+        }
+
+        res.json({ success: true, coupons });
+    } catch (error) {
+        console.error("Fetch Redeemable Coupons Error:", error);
+        res.status(500).json({ error: "ดึงข้อมูลคูปองไม่สำเร็จ" });
+    }
+});
+
+/**
+ * ลูกค้าใช้แต้มแลกคูปอง
+ */
+router.post('/coupons/redeem', async (req, res) => {
+    try {
+        const { telegramId, couponId, initData } = req.body;
+
+        // Verify Identity
+        if (!verifyTelegramWebAppData(initData)) {
+            return res.status(401).json({ error: "Invalid Telegram Data" });
+        }
+
+        const user = await prisma.customer.findUnique({
+            where: { telegramUserId: telegramId },
+            select: { customerId: true }
+        });
+
+        if (!user) return res.status(404).json({ error: "ไม่พบข้อมูลลูกค้า" });
+
+        const result = await couponService.redeemCouponWithPoints(user.customerId, couponId);
+        res.json({ 
+            success: true, 
+            message: "แลกคูปองสำเร็จ!", 
+            coupon: result.customerCoupon,
+            remainingPoints: result.remainingPoints
+        });
+    } catch (error) {
+        console.error("Redeem Coupon Error:", error);
+        res.status(400).json({ error: error.message });
     }
 });
 
