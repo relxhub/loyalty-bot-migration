@@ -245,7 +245,26 @@ export async function getBestCoupon(customerId, cartItems, totalAmount) {
             if (!hasTargetProduct) continue;
         }
 
-        // 3. เช็คสินค้าที่ไม่เข้าร่วม (Excluded Products)
+        // 5. เช็คเงื่อนไขของแถม (GIFT) ว่ามีในตะกร้าครบหรือไม่
+        if (coupon.type === 'GIFT') {
+            const requiredGiftQty = coupon.giftQty || 1;
+            const requiredMinQty = coupon.minQty || 0;
+            let availableForGift = 0;
+
+            if (coupon.giftCategoryId) {
+                const totalInCat = cartItems.filter(i => i.categoryId === coupon.giftCategoryId).reduce((sum, i) => sum + i.qty, 0);
+                availableForGift = (coupon.targetCategoryId === coupon.giftCategoryId) ? (totalInCat - requiredMinQty) : totalInCat;
+            } else if (coupon.giftProductId) {
+                const totalInProd = cartItems.filter(i => i.productId === coupon.giftProductId).reduce((sum, i) => sum + i.qty, 0);
+                availableForGift = (coupon.targetProductId === coupon.giftProductId) ? (totalInProd - requiredMinQty) : totalInProd;
+            } else {
+                availableForGift = requiredGiftQty; // Fallback
+            }
+
+            if (availableForGift < requiredGiftQty) continue; // ถ้าหยิบของแถมมาไม่ครบ ให้ข้ามคูปองนี้ไป (ไม่เลือกให้เป็น Best Coupon)
+        }
+
+        // 6. เช็คสินค้าที่ไม่เข้าร่วม (Excluded Products)
         // ดึงข้อมูลสินค้าในตะกร้าจาก DB เพื่อเช็ค allowCoupons
         const productsInCart = await prisma.product.findMany({
             where: { id: { in: cartItems.map(i => i.productId) } },
