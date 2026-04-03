@@ -426,7 +426,9 @@ export async function getBestCoupon(customerId, cartItems, totalAmount) {
  */
 export async function useCoupon(customerId, couponId, adminName) {
     const now = new Date();
-    const customerCoupon = await prisma.customerCoupon.findFirst({
+    
+    // ดึงคูปองที่เป็นไปได้ทั้งหมด แล้วเลือกใบที่ใกล้หมดอายุที่สุด
+    const availableCoupons = await prisma.customerCoupon.findMany({
         where: { 
             customerId, 
             couponId, 
@@ -435,20 +437,40 @@ export async function useCoupon(customerId, couponId, adminName) {
         include: { coupon: true }
     });
 
-    if (!customerCoupon) {
+    if (!availableCoupons || availableCoupons.length === 0) {
         throw new Error('ไม่พบคูปองนี้ในกระเป๋าของลูกค้า หรือคูปองถูกใช้ไปแล้ว');
     }
 
-    // เช็ควันหมดอายุ (ยึดตามแม่แบบล่าสุด และ วันที่ของคูปองใบนี้)
-    const globalExpiry = customerCoupon.coupon.validUntil;
-    const individualExpiry = customerCoupon.expiryDate;
-    
-    if (globalExpiry && now > globalExpiry) {
-        throw new Error('คูปองนี้หมดอายุแล้ว (แคมเปญสิ้นสุด)');
-    }
-    if (individualExpiry && now > individualExpiry) {
+    // กรองเอาเฉพาะที่ยังไม่หมดอายุ
+    const validCoupons = availableCoupons.filter(c => {
+        const globalExpiry = c.coupon.validUntil;
+        const individualExpiry = c.expiryDate;
+        
+        if (globalExpiry && now > globalExpiry) return false;
+        if (individualExpiry && now > individualExpiry) return false;
+        if (c.coupon.validFrom && now < c.coupon.validFrom) return false;
+        
+        return true;
+    });
+
+    if (validCoupons.length === 0) {
         throw new Error('คูปองนี้หมดอายุแล้ว ไม่สามารถใช้งานได้');
     }
+
+    // เรียงลำดับ: ใบที่มีวันหมดอายุ (expiryDate หรือ validUntil) ใกล้ที่สุดมาก่อน
+    // ถ้าไม่มีวันหมดอายุเลย ให้อยู่ท้ายสุด
+    validCoupons.sort((a, b) => {
+        const expiryA = a.expiryDate || a.coupon.validUntil;
+        const expiryB = b.expiryDate || b.coupon.validUntil;
+        
+        if (!expiryA && !expiryB) return 0;
+        if (!expiryA) return 1;
+        if (!expiryB) return -1;
+        
+        return new Date(expiryA).getTime() - new Date(expiryB).getTime();
+    });
+
+    const customerCoupon = validCoupons[0];
 
     const updated = await prisma.customerCoupon.update({
         where: { id: customerCoupon.id },

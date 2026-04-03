@@ -1355,13 +1355,13 @@
                             acc[key] = { 
                                 ...item, 
                                 count: 1, 
-                                expiries: [validUntilStr],
+                                expiries: [{ str: validUntilStr, time: expiryTime }],
                                 minExpiryTime: expiryTime,
                                 nearestExpiryStr: validUntilStr
                             };
                         } else {
                             acc[key].count++;
-                            acc[key].expiries.push(validUntilStr);
+                            acc[key].expiries.push({ str: validUntilStr, time: expiryTime });
                             
                             // เก็บวันที่ใกล้หมดอายุที่สุดไว้โชว์เป็นหลัก
                             if (expiryTime < acc[key].minExpiryTime) {
@@ -1380,16 +1380,20 @@
                         let detailsHtml = '';
                         if (item.count > 1) {
                             const detailsId = `coupon-details-${index}`;
+                            
+                            // เรียงวันที่ใกล้หมดอายุก่อน
+                            item.expiries.sort((a, b) => a.time - b.time);
+
                             detailsHtml = `
                                 <div class="mt-2 pt-2 border-t border-white/5">
-                                    <button onclick="document.getElementById('${detailsId}').classList.toggle('hidden')" class="text-[10px] text-gray-400 hover:text-white flex items-center gap-1 transition w-full">
+                                    <button onclick="document.getElementById('${detailsId}').classList.toggle('hidden')" class="text-[11px] text-yellow-500 hover:text-yellow-400 bg-yellow-500/10 px-3 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition w-full font-medium border border-yellow-500/20 active:scale-95">
                                         <i class="ri-list-check-2"></i> ดูวันหมดอายุทุกใบ
                                     </button>
-                                    <div id="${detailsId}" class="hidden mt-2 space-y-1 pl-2">
+                                    <div id="${detailsId}" class="hidden mt-3 space-y-1.5 px-1">
                                         ${item.expiries.map((exp, i) => `
-                                            <div class="text-[10px] flex justify-between">
-                                                <span class="text-gray-500">ใบที่ ${i + 1}:</span>
-                                                <span class="text-gray-300">${exp}</span>
+                                            <div class="text-[11px] flex justify-between items-center bg-black/20 px-2 py-1.5 rounded-md border border-white/5">
+                                                <span class="text-gray-400 font-medium">ใบที่ ${i + 1}</span>
+                                                <span class="text-gray-200 font-bold">${exp.str}</span>
                                             </div>
                                         `).join('')}
                                     </div>
