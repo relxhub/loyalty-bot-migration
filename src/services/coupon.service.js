@@ -61,14 +61,25 @@ export async function getCustomerCoupons(customerId) {
         where: { 
             customerId, 
             status: 'AVAILABLE',
+            // 1. เช็ควันหมดอายุที่ติดมากับคูปองใบนี้ (Copy มาตอนเก็บ)
             OR: [
                 { expiryDate: null },
                 { expiryDate: { gt: now } }
             ],
+            // 2. เช็คเงื่อนไขจากแม่แบบคูปอง (เผื่อแอดมินแก้ไขวันเริ่ม/หมดอายุของแม่แบบในภายหลัง)
             coupon: {
+                isActive: true, // ต้องยังเปิดใช้งานอยู่
                 OR: [
                     { validFrom: null },
                     { validFrom: { lte: now } }
+                ],
+                AND: [
+                    {
+                        OR: [
+                            { validUntil: null },
+                            { validUntil: { gt: now } }
+                        ]
+                    }
                 ]
             }
         },
