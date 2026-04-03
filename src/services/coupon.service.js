@@ -115,34 +115,50 @@ export async function validateCouponForCart(customerId, couponId, cartItems, tot
     }
 
     // 4. กรณีของแถม (GIFT): ต้องมีสินค้าของแถมอยู่ในตะกร้าด้วย (เพื่อให้แอดมินตัดสต็อกถูก)
-    if (coupon.type === 'GIFT' && coupon.giftCategoryId) {
+    if (coupon.type === 'GIFT') {
         const requiredGiftQty = coupon.giftQty || 1;
         const requiredMinQty = coupon.minQty || 0;
         
-        // ดึงชื่อหมวดหมู่มาโชว์ใน Error
-        const category = await prisma.category.findUnique({ where: { id: coupon.giftCategoryId } });
-        const giftName = `สินค้าในหมวด ${category ? category.name : 'ที่กำหนด'}`;
-
-        // ⚠️ logic ใหม่: ถ้าหมวดหมู่ของแถม กับ หมวดหมู่เงื่อนไขการซื้อ เป็นหมวดเดียวกัน
-        // ลูกค้าต้องเลือกสินค้าในหมวดนั้นรวมกัน = (จำนวนซื้อขั้นต่ำ + จำนวนของแถม)
         let availableForGift = 0;
-        const totalInCat = cartItems
-            .filter(i => i.categoryId === coupon.giftCategoryId)
-            .reduce((sum, i) => sum + i.qty, 0);
+        let totalRequired = requiredGiftQty;
+        let giftName = 'ของแถม';
 
-        if (coupon.targetCategoryId === coupon.giftCategoryId) {
-            // กรณีซื้อ A แถม A: ต้องมีของในตะกร้าทั้งหมด = ซื้อ(minQty) + แถม(giftQty)
-            availableForGift = totalInCat - requiredMinQty;
+        if (coupon.giftCategoryId) {
+            const category = await prisma.category.findUnique({ where: { id: coupon.giftCategoryId } });
+            giftName = `สินค้าในหมวด ${category ? category.name : 'ที่กำหนด'}`;
+
+            const totalInCat = cartItems
+                .filter(i => i.categoryId === coupon.giftCategoryId)
+                .reduce((sum, i) => sum + i.qty, 0);
+
+            if (coupon.targetCategoryId === coupon.giftCategoryId) {
+                availableForGift = totalInCat - requiredMinQty;
+                totalRequired = requiredMinQty + requiredGiftQty;
+            } else {
+                availableForGift = totalInCat;
+            }
+        } else if (coupon.giftProductId) {
+            const product = await prisma.product.findUnique({ where: { id: coupon.giftProductId } });
+            giftName = product ? (product.nameEn || product.nameTh) : 'สินค้าที่ระบุ';
+
+            const totalInProd = cartItems
+                .filter(i => i.productId === coupon.giftProductId)
+                .reduce((sum, i) => sum + i.qty, 0);
+
+            if (coupon.targetProductId === coupon.giftProductId) {
+                availableForGift = totalInProd - requiredMinQty;
+                totalRequired = requiredMinQty + requiredGiftQty;
+            } else {
+                availableForGift = totalInProd;
+            }
         } else {
-            // กรณีซื้อ A แถม B: นับของในหมวด B ได้เลย
-            availableForGift = totalInCat;
+            // ถ้าไม่ได้ตั้งค่าอะไรเป็นพิเศษ ให้ผ่านเลย (Fallback)
+            availableForGift = requiredGiftQty;
         }
 
         if (availableForGift < requiredGiftQty) {
             const missingQty = requiredGiftQty - Math.max(0, availableForGift);
-            const totalRequired = (coupon.targetCategoryId === coupon.giftCategoryId) ? (requiredMinQty + requiredGiftQty) : requiredGiftQty;
-            
-            throw new Error(`เงื่อนไขของแถม: คุณต้องเลือก ${giftName} รวมทั้งหมด ${totalRequired} ชิ้น (สำหรับซื้อ ${requiredMinQty} และแถมฟรี ${requiredGiftQty}) ขาดอีก ${missingQty} ชิ้น`);
+            throw new Error(`เงื่อนไขของแถม: คุณต้องมี ${giftName} จำนวน ${totalRequired} ชิ้น (สำหรับเงื่อนไขการซื้อ ${requiredMinQty} และแถมฟรี ${requiredGiftQty}) ขาดอีก ${missingQty} ชิ้น`);
         }
     }
 
