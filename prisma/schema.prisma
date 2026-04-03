@@ -129,7 +129,7 @@ model CustomerCoupon {
   couponId    String
   status      CouponStatus @default(AVAILABLE)
   claimedAt   DateTime     @default(now())
-  expiryDate  DateTime?    // วันหมดอายุของคูปองใบนี้ (สำเนามาจาก validUntil หรือคำนวณใหม่)
+  expiryDate  DateTime?    // เก็บไว้เพื่อไม่ให้เสียข้อมูลเดิม
   usedAt      DateTime?
   usedByAdmin String?      // เก็บชื่อแอดมินที่กดตัดคูปอง
 

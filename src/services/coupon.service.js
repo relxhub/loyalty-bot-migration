@@ -61,14 +61,9 @@ export async function getCustomerCoupons(customerId) {
         where: { 
             customerId, 
             status: 'AVAILABLE',
-            // 1. เช็ควันหมดอายุที่ติดมากับคูปองใบนี้ (Copy มาตอนเก็บ)
-            OR: [
-                { expiryDate: null },
-                { expiryDate: { gt: now } }
-            ],
-            // 2. เช็คเงื่อนไขจากแม่แบบคูปอง (เผื่อแอดมินแก้ไขวันเริ่ม/หมดอายุของแม่แบบในภายหลัง)
+            // ตรวจสอบเงื่อนไขจากแม่แบบคูปอง (Live Update)
             coupon: {
-                isActive: true, // ต้องยังเปิดใช้งานอยู่
+                isActive: true,
                 OR: [
                     { validFrom: null },
                     { validFrom: { lte: now } }
@@ -180,8 +175,9 @@ export async function useCoupon(customerId, couponId, adminName) {
         throw new Error('ไม่พบคูปองนี้ในกระเป๋าของลูกค้า หรือคูปองถูกใช้ไปแล้ว');
     }
 
-    // เช็ควันหมดอายุ
-    if (customerCoupon.expiryDate && now > customerCoupon.expiryDate) {
+    // เช็ควันหมดอายุ (ยึดตามแม่แบบล่าสุด)
+    const expiryDate = customerCoupon.coupon.validUntil;
+    if (expiryDate && now > expiryDate) {
         throw new Error('คูปองนี้หมดอายุแล้ว ไม่สามารถใช้งานได้');
     }
 
