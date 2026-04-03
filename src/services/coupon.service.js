@@ -53,6 +53,85 @@ export async function claimCoupon(customerId, couponId) {
 }
 
 /**
+ * ตรวจสอบความพร้อมของคูปองสำหรับตะกร้าสินค้า (สำหรับ Manual Selection)
+ * และส่งข้อความ Error ที่ละเอียดกลับไป
+ */
+export async function validateCouponForCart(customerId, couponId, cartItems, totalAmount) {
+    const customerCoupon = await prisma.customerCoupon.findFirst({
+        where: { 
+            customerId, 
+            couponId, 
+            status: 'AVAILABLE'
+        },
+        include: { coupon: true }
+    });
+
+    if (!customerCoupon) {
+        throw new Error('ไม่พบคูปองนี้ในกระเป๋าของคุณ');
+    }
+
+    const { coupon } = customerCoupon;
+    const now = new Date();
+
+    // 1. เช็ควันหมดอายุ (Master)
+    if (coupon.validUntil && now > coupon.validUntil) {
+        throw new Error('คูปองนี้หมดอายุการใช้งานแล้ว');
+    }
+    if (coupon.validFrom && now < coupon.validFrom) {
+        throw new Error(`คูปองนี้จะเริ่มใช้งานได้วันที่ ${coupon.validFrom.toLocaleDateString('th-TH')}`);
+    }
+
+    // 2. เช็คยอดขั้นต่ำ
+    if (coupon.minPurchase && totalAmount < Number(coupon.minPurchase)) {
+        throw new Error(`ยอดซื้อยังไม่ถึงเงื่อนไข (ขาดอีก ฿${(Number(coupon.minPurchase) - totalAmount).toLocaleString()})`);
+    }
+
+    // 3. เช็คเงื่อนไขจำนวนสินค้า (Target Product / Category)
+    if (coupon.minQty) {
+        let relevantQty = 0;
+        let targetName = 'สินค้าที่ร่วมรายการ';
+
+        if (coupon.targetProductId) {
+            const product = await prisma.product.findUnique({ where: { id: coupon.targetProductId } });
+            targetName = product ? (product.nameEn || product.nameTh) : 'สินค้าที่ระบุ';
+            
+            relevantQty = cartItems
+                .filter(i => i.productId === coupon.targetProductId)
+                .reduce((sum, i) => sum + i.qty, 0);
+        } else if (coupon.targetCategoryId) {
+            const category = await prisma.category.findUnique({ where: { id: coupon.targetCategoryId } });
+            targetName = `สินค้าในหมวด ${category ? category.name : 'ที่กำหนด'}`;
+
+            relevantQty = cartItems
+                .filter(i => i.categoryId === coupon.targetCategoryId)
+                .reduce((sum, i) => sum + i.qty, 0);
+        } else {
+            relevantQty = cartItems.reduce((sum, i) => sum + i.qty, 0);
+        }
+
+        if (relevantQty < coupon.minQty) {
+            throw new Error(`เงื่อนไขไม่ครบ: คุณต้องเลือก ${targetName} จำนวนอย่างน้อย ${coupon.minQty} ชิ้น (ขาดอีก ${coupon.minQty - relevantQty} ชิ้น)`);
+        }
+    }
+
+    // 4. กรณีของแถม (GIFT): ต้องมีสินค้าของแถมอยู่ในตะกร้าด้วย (เพื่อให้แอดมินตัดสต็อกถูก)
+    if (coupon.type === 'GIFT' && coupon.giftProductId) {
+        const giftInCart = cartItems.find(i => i.productId === coupon.giftProductId);
+        const requiredGiftQty = coupon.giftQty || 1;
+
+        if (!giftInCart || giftInCart.qty < requiredGiftQty) {
+            const giftProduct = await prisma.product.findUnique({ where: { id: coupon.giftProductId } });
+            const giftName = giftProduct ? (giftProduct.nameEn || giftProduct.nameTh) : 'ของแถม';
+            const missingQty = giftInCart ? (requiredGiftQty - giftInCart.qty) : requiredGiftQty;
+            
+            throw new Error(`กรุณาเลือก ${giftName} จำนวน ${requiredGiftQty} ชิ้น ลงในตะกร้าเพื่อรับสิทธิ์ของแถม (ขาดอีก ${missingQty} ชิ้น)`);
+        }
+    }
+
+    return { success: true, coupon: customerCoupon };
+}
+
+/**
  * ดึงรายการคูปองที่ลูกค้ามี (สำหรับแสดงในกระเป๋า)
  */
 export async function getCustomerCoupons(customerId) {
@@ -98,16 +177,38 @@ export async function getBestCoupon(customerId, cartItems, totalAmount) {
         const { coupon } = item;
         let currentSaving = 0;
 
-        // 1. เช็คเงื่อนไขเบื้องต้น (ยอดขั้นต่ำ, จำนวนขั้นต่ำ)
+        // 1. เช็คยอดขั้นต่ำ (Min Purchase)
         if (coupon.minPurchase && totalAmount < Number(coupon.minPurchase)) continue;
         
-        const totalQty = cartItems.reduce((sum, i) => sum + i.qty, 0);
-        if (coupon.minQty && totalQty < coupon.minQty) continue;
+        // 2. เช็คจำนวนขั้นต่ำ (Min Qty)
+        let relevantQty = 0;
+        if (coupon.targetProductId) {
+            // ถ้าระบุสินค้าเจาะจง ให้นับแค่สินค้านั้น
+            relevantQty = cartItems
+                .filter(i => i.productId === coupon.targetProductId)
+                .reduce((sum, i) => sum + i.qty, 0);
+        } else if (coupon.targetCategoryId) {
+            // ถ้าระบุหมวดหมู่ ให้นับแค่สินค้าในหมวดนั้น
+            relevantQty = cartItems
+                .filter(i => i.categoryId === coupon.targetCategoryId)
+                .reduce((sum, i) => sum + i.qty, 0);
+        } else {
+            // ถ้าไม่ระบุอะไรเลย ให้นับรวมทั้งตะกร้า
+            relevantQty = cartItems.reduce((sum, i) => sum + i.qty, 0);
+        }
 
-        // 2. เช็คเงื่อนไขเฉพาะหมวดหมู่ (Target Category)
-        if (coupon.targetCategoryId) {
+        if (coupon.minQty && relevantQty < coupon.minQty) continue;
+
+        // 3. เช็คเงื่อนไขหมวดหมู่ (Target Category) - สำหรับกรณีไม่ได้ใช้ minQty
+        if (coupon.targetCategoryId && !coupon.targetProductId) {
             const hasTarget = cartItems.some(i => i.categoryId === coupon.targetCategoryId);
             if (!hasTarget) continue;
+        }
+
+        // 4. เช็คสินค้าเฉพาะ (Target Product)
+        if (coupon.targetProductId) {
+            const hasTargetProduct = cartItems.some(i => i.productId === coupon.targetProductId);
+            if (!hasTargetProduct) continue;
         }
 
         // 3. เช็คสินค้าที่ไม่เข้าร่วม (Excluded Products)

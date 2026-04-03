@@ -665,6 +665,28 @@ router.post('/coupons/best', async (req, res) => {
     }
 });
 
+/**
+ * ตรวจสอบคูปองที่ลูกค้าเลือกเอง (Manual Selection)
+ */
+router.post('/coupons/validate', async (req, res) => {
+    try {
+        const { telegramId, couponId, cartItems, totalAmount } = req.body;
+
+        const user = await prisma.customer.findUnique({
+            where: { telegramUserId: telegramId },
+            select: { customerId: true }
+        });
+
+        if (!user) return res.status(404).json({ error: "ไม่พบข้อมูลลูกค้า" });
+
+        const result = await couponService.validateCouponForCart(user.customerId, couponId, cartItems, totalAmount);
+        res.json(result);
+    } catch (error) {
+        console.error("Validate Coupon Error:", error);
+        res.status(400).json({ success: false, error: error.message });
+    }
+});
+
 // --- System Config ---
 router.get('/config/shipping', async (req, res) => {
     try {
