@@ -104,6 +104,7 @@ model Coupon {
   minPurchase         Decimal?     @db.Decimal(10, 2)
   minQty              Int?
   targetCategoryId    Int?
+  targetProductId     Int?         // ระบุ ID สินค้าที่ต้องซื้อ (ถ้ามี)
   excludedProductIds  Int[]        // รายชื่อ ID สินค้าที่ไม่เข้าร่วม
   
   // ข้อจำกัด (Limits & FCFS)
