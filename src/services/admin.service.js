@@ -16,16 +16,19 @@ export async function loadAdminCache() {
 }
 
 export async function getAdminRole(telegramId) {
-    if (adminCache[telegramId]) return adminCache[telegramId];
-
+    // ดึงจาก DB โดยตรงเสมอเพื่อให้รองรับการแก้ไขผ่าน Prisma Studio ได้ทันที
     const admin = await prisma.admin.findUnique({
         where: { telegramId: telegramId },
         select: { role: true }
     });
 
     if (admin) {
+        // อัปเดต Cache ไปด้วยในตัว
         adminCache[telegramId] = admin.role;
         return admin.role;
     }
+    
+    // ถ้าไม่เจอใน DB ให้ล้าง Cache ของ ID นี้ (ถ้ามี)
+    delete adminCache[telegramId];
     return null;
 }

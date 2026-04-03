@@ -28,6 +28,9 @@ export async function handleAdminCommand(ctx) {
         const adminUser = ctx.from.username || ctx.from.first_name || "Admin";
         const chatId = ctx.chat.id;
 
+        // Debug logging
+        console.log(`[AdminCommand] ID: ${userTgId}, User: ${adminUser}, Command: ${command}, Role: ${role}`);
+
         if (!role) return sendAdminReply(chatId, "⛔️ คุณไม่มีสิทธิ์ใช้งานคำสั่งนี้");
         
         if (["/add", "/addadmin", "/fixreferrals"].includes(command) && role !== "SuperAdmin") {
