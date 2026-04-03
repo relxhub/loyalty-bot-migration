@@ -115,15 +115,30 @@ export async function validateCouponForCart(customerId, couponId, cartItems, tot
     }
 
     // 4. กรณีของแถม (GIFT): ต้องมีสินค้าของแถมอยู่ในตะกร้าด้วย (เพื่อให้แอดมินตัดสต็อกถูก)
-    if (coupon.type === 'GIFT' && coupon.giftProductId) {
-        const giftInCart = cartItems.find(i => i.productId === coupon.giftProductId);
+    if (coupon.type === 'GIFT') {
         const requiredGiftQty = coupon.giftQty || 1;
+        let giftInCartQty = 0;
+        let giftName = 'ของแถม';
 
-        if (!giftInCart || giftInCart.qty < requiredGiftQty) {
-            const giftProduct = await prisma.product.findUnique({ where: { id: coupon.giftProductId } });
-            const giftName = giftProduct ? (giftProduct.nameEn || giftProduct.nameTh) : 'ของแถม';
-            const missingQty = giftInCart ? (requiredGiftQty - giftInCart.qty) : requiredGiftQty;
+        if (coupon.giftCategoryId) {
+            // กรณีแถมเป็นหมวดหมู่ (ลูกค้าเลือกชิ้นไหนก็ได้ในหมวดนั้น)
+            const category = await prisma.category.findUnique({ where: { id: coupon.giftCategoryId } });
+            giftName = `สินค้าในหมวด ${category ? category.name : 'ที่กำหนด'}`;
             
+            giftInCartQty = cartItems
+                .filter(i => i.categoryId === coupon.giftCategoryId)
+                .reduce((sum, i) => sum + i.qty, 0);
+        } else if (coupon.giftProductId) {
+            // กรณีแถมเป็นสินค้าเจาะจง (เหมือนเดิม)
+            const giftProduct = await prisma.product.findUnique({ where: { id: coupon.giftProductId } });
+            giftName = giftProduct ? (giftProduct.nameEn || giftProduct.nameTh) : 'ของแถม';
+            
+            const giftItem = cartItems.find(i => i.productId === coupon.giftProductId);
+            giftInCartQty = giftItem ? giftItem.qty : 0;
+        }
+
+        if (giftInCartQty < requiredGiftQty) {
+            const missingQty = requiredGiftQty - giftInCartQty;
             throw new Error(`กรุณาเลือก ${giftName} จำนวน ${requiredGiftQty} ชิ้น ลงในตะกร้าเพื่อรับสิทธิ์ของแถม (ขาดอีก ${missingQty} ชิ้น)`);
         }
     }

@@ -154,7 +154,7 @@
             let benefitText = '';
             if (c.type === 'DISCOUNT_PERCENT') benefitText = `ลด ${parseFloat(c.value)}%`;
             else if (c.type === 'DISCOUNT_FLAT') benefitText = `ลด ${parseFloat(c.value)} บาท`;
-            else if (c.type === 'GIFT') benefitText = `แถมฟรี! สินค้าพิเศษ`;
+            else if (c.type === 'GIFT') benefitText = `แถมฟรี!`;
 
             return `
                 <div class="relative bg-white/5 border border-white/10 rounded-2xl p-4 overflow-hidden group">
