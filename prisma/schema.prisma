@@ -98,14 +98,12 @@ model Coupon {
   
   // ส่วนของแถม (กรณี type = GIFT)
   giftProductId       Int?
-  giftCategoryId      Int?         // หมวดหมู่ของแถม (ให้ลูกค้าเลือกสินค้าในหมวดนี้ได้เอง)
   giftQty             Int?         @default(1)
   
   // เงื่อนไข (Conditions)
   minPurchase         Decimal?     @db.Decimal(10, 2)
   minQty              Int?
   targetCategoryId    Int?
-  targetProductId     Int?         // ระบุ ID สินค้าที่ต้องซื้อ (ถ้ามี)
   excludedProductIds  Int[]        // รายชื่อ ID สินค้าที่ไม่เข้าร่วม
   
   // ข้อจำกัด (Limits & FCFS)
