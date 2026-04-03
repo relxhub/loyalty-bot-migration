@@ -137,8 +137,8 @@
         /* ล็อกหน้าจอไม่ให้เลื่อนเมื่อเปิด Modal */
         body.no-scroll {
             overflow: hidden !important;
-            position: fixed; /* บังคับล็อกให้อยู่กับที่ชัวร์ๆ */
-            width: 100%;
+            /* position: fixed;  <-- เอาออกเพราะทำให้หน้าจอ Desktop/Mobile บางรุ่นเพี้ยน */
+            height: 100vh;
         }
 
         /* เพิ่มความลื่นให้ตัว Popup และกันทะลุด้วย CSS สมัยใหม่ */
@@ -326,8 +326,8 @@
         </div>
 
         <!-- My Coupons Modal -->
-        <div id="my-coupons-modal" class="hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md opacity-0 transition-opacity duration-300">
-            <div class="glass-card w-full max-w-md h-[90vh] sm:h-[650px] rounded-t-3xl sm:rounded-2xl flex flex-col transform translate-y-full transition-transform duration-300 overflow-hidden" id="my-coupons-content">
+        <div id="my-coupons-modal" class="hidden fixed inset-0 z-[60] flex items-end justify-center bg-black/60 opacity-0 transition-opacity duration-300">
+            <div class="glass-card w-full max-w-md max-h-[90vh] rounded-t-3xl flex flex-col transform translate-y-full transition-transform duration-300 overflow-hidden" id="my-coupons-content">
                 <div class="p-5 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
                     <h3 class="text-lg font-bold flex items-center gap-2">
                         <i class="ri-ticket-2-line text-yellow-500"></i> คูปองของฉัน
@@ -336,7 +336,7 @@
                         <i class="ri-close-line"></i>
                     </button>
                 </div>
-                <div id="my-coupons-list" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar pb-20">
+                <div id="my-coupons-list" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar pb-24">
                     <div class="text-center text-gray-500 mt-10 animate-pulse">กำลังโหลด...</div>
                 </div>
             </div>
