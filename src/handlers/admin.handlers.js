@@ -467,8 +467,8 @@ async function handleAddPoints(ctx, commandParts, adminUser, chatId) {
     const today = new Date(Date.UTC(year, month - 1, day));
     
     const currentExpiry = customer.expiryDate;
-    const limitDays = getConfig('expiryDaysLimitMax') || 60;
-    const extendDays = getConfig('expiryDaysAddPoints') || 30;
+    const limitDays = parseInt(getConfig('expiryDaysLimitMax')) || 60;
+    const extendDays = parseInt(getConfig('expiryDaysAddPoints')) || 30;
 
     const baseDate = (currentExpiry && currentExpiry > today) ? currentExpiry : today;
     const proposedExpiry = addDays(baseDate, extendDays);
