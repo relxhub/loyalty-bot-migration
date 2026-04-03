@@ -76,6 +76,10 @@ export async function handleAdminCommand(ctx) {
                 }
                 break;
 
+            case "/checkcoupon":
+                await handleCheckCoupon(ctx, commandParts, adminUser, chatId);
+                break;
+
             case "/add":
                 await handleAddPoints(ctx, commandParts, adminUser, chatId);
                 break;
@@ -94,6 +98,7 @@ export async function handleAdminCommand(ctx) {
                 const welcomeMsg = `👋 สวัสดี ${adminUser}!\nบอทสำหรับแอดมินพร้อมใช้งาน\n\n` +
                 "<b>คำสั่งทั้งหมด:</b>\n" +
                 `ℹ️ /check [รหัสลูกค้า]\n` +
+                `🎫 /checkcoupon [รหัสลูกค้า]\n` +
                 `↩️ /undo (ยกเลิกคำสั่งล่าสุด)\n` +
                 (role === "SuperAdmin" ? "🪙 /add [รหัสลูกค้า] [แต้ม]\n" : "") +
                 (role === "SuperAdmin" ? "👮‍♂️ /addadmin [ID] [Role] [Name]\n" : "") +
@@ -119,6 +124,56 @@ export async function handleAdminCommand(ctx) {
 // ==================================================
 // 🛠️ HELPER FUNCTIONS
 // ==================================================
+
+/**
+ * ตรวจสอบคูปองที่ลูกค้ามีทั้งหมด (เฉพาะที่ยังใช้ได้)
+ */
+async function handleCheckCoupon(ctx, commandParts, adminUser, chatId) {
+    const customerId = commandParts[1]?.toUpperCase();
+
+    if (!customerId) {
+        return sendAdminReply(chatId, "❗️รูปแบบคำสั่งผิด\nต้องเป็น: /checkcoupon [รหัสลูกค้า]");
+    }
+
+    try {
+        const coupons = await couponService.getCustomerCoupons(customerId);
+
+        if (!coupons || coupons.length === 0) {
+            return sendAdminReply(chatId, `🔍 ไม่พบคูปองที่ใช้งานได้สำหรับลูกค้า ${customerId}`);
+        }
+
+        // จัดกลุ่มคูปองตาม ID เพื่อหาจำนวนที่ซ้ำกัน (ถ้ามี)
+        const grouped = coupons.reduce((acc, item) => {
+            const cid = item.couponId;
+            if (!acc[cid]) {
+                acc[cid] = {
+                    id: cid,
+                    name: item.coupon.name,
+                    description: item.coupon.description,
+                    count: 0
+                };
+            }
+            acc[cid].count++;
+            return acc;
+        }, {});
+
+        let msg = `🎫 <b>รายการคูปองของ: ${customerId}</b>\n\n`;
+
+        Object.values(grouped).forEach((c, index) => {
+            msg += `${index + 1}. <b>${c.name}</b>\n`;
+            msg += `ID: <code>${c.id}</code>\n`;
+            msg += `รายละเอียด: ${c.description || '-'}\n`;
+            msg += `จำนวนที่มี: <b>${c.count} ใบ</b>\n\n`;
+        });
+
+        await createAdminLog(adminUser, "CHECK_COUPONS", customerId, 0, `Checked coupons for ${customerId}`);
+        sendAdminReply(chatId, msg);
+
+    } catch (error) {
+        console.error("Check Coupon Error:", error);
+        sendAdminReply(chatId, `❌ เกิดข้อผิดพลาดในการดึงข้อมูล: ${error.message}`);
+    }
+}
 
 async function handleGencodeCommand(ctx, commandParts, adminUser, chatId) {
     try {
