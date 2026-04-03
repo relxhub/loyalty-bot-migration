@@ -1343,26 +1343,59 @@
 
                 if (data.success && data.coupons.length > 0) {
                     const groupedCoupons = data.coupons.reduce((acc, item) => {
-                        // คำนวณวันหมดอายุเพื่อใช้เป็น Key ในการจัดกลุ่ม
-                        const expiryToUse = item.expiryDate || item.coupon.validUntil;
-                        const validUntilStr = expiryToUse ? new Date(expiryToUse).toLocaleDateString('th-TH') : 'ไม่มีวันหมดอายุ';
+                        const key = item.coupon.id;
                         
-                        // สร้าง Key โดยรวม ID และ วันหมดอายุเข้าด้วยกัน
-                        const key = `${item.coupon.id}_${validUntilStr}`;
+                        // คำนวณวันหมดอายุรายใบ
+                        const expiryToUse = item.expiryDate || item.coupon.validUntil;
+                        const expiryDateObj = expiryToUse ? new Date(expiryToUse) : null;
+                        const validUntilStr = expiryDateObj ? expiryDateObj.toLocaleDateString('th-TH') : 'ไม่มีวันหมดอายุ';
+                        const expiryTime = expiryDateObj ? expiryDateObj.getTime() : Infinity;
 
                         if (!acc[key]) {
-                            acc[key] = { ...item, count: 1, validUntilStr };
+                            acc[key] = { 
+                                ...item, 
+                                count: 1, 
+                                expiries: [validUntilStr],
+                                minExpiryTime: expiryTime,
+                                nearestExpiryStr: validUntilStr
+                            };
                         } else {
                             acc[key].count++;
+                            acc[key].expiries.push(validUntilStr);
+                            
+                            // เก็บวันที่ใกล้หมดอายุที่สุดไว้โชว์เป็นหลัก
+                            if (expiryTime < acc[key].minExpiryTime) {
+                                acc[key].minExpiryTime = expiryTime;
+                                acc[key].nearestExpiryStr = validUntilStr;
+                            }
                         }
                         return acc;
                     }, {});
 
-                    list.innerHTML = Object.values(groupedCoupons).map(item => {
+                    list.innerHTML = Object.values(groupedCoupons).map((item, index) => {
                         const validFrom = item.coupon.validFrom ? new Date(item.coupon.validFrom).toLocaleDateString('th-TH') : 'ใช้ได้ทันที';
-                        const validUntil = item.validUntilStr;
-                        
+                        const validUntil = item.nearestExpiryStr;
                         const countBadge = item.count > 1 ? `<span class="ml-2 px-2 py-0.5 bg-[#050C0D] text-white text-xs rounded-full font-bold border border-white/10">x${item.count}</span>` : '';
+                        
+                        let detailsHtml = '';
+                        if (item.count > 1) {
+                            const detailsId = `coupon-details-${index}`;
+                            detailsHtml = `
+                                <div class="mt-2 pt-2 border-t border-white/5">
+                                    <button onclick="document.getElementById('${detailsId}').classList.toggle('hidden')" class="text-[10px] text-gray-400 hover:text-white flex items-center gap-1 transition w-full">
+                                        <i class="ri-list-check-2"></i> ดูวันหมดอายุทุกใบ
+                                    </button>
+                                    <div id="${detailsId}" class="hidden mt-2 space-y-1 pl-2">
+                                        ${item.expiries.map((exp, i) => `
+                                            <div class="text-[10px] flex justify-between">
+                                                <span class="text-gray-500">ใบที่ ${i + 1}:</span>
+                                                <span class="text-gray-300">${exp}</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            `;
+                        }
 
                         return `
                         <div class="bg-white/5 p-4 rounded-2xl border border-white/10 relative overflow-hidden group">
@@ -1384,10 +1417,11 @@
                                     <span class="text-gray-300 font-medium">${validFrom}</span>
                                 </div>
                                 <div class="flex justify-between items-center text-[10px]">
-                                    <span class="text-gray-500">วันหมดอายุ:</span>
+                                    <span class="text-gray-500">${item.count > 1 ? 'หมดอายุ (ใบแรก):' : 'วันหมดอายุ:'}</span>
                                     <span class="text-red-400 font-bold">${validUntil}</span>
                                 </div>
                             </div>
+                            ${detailsHtml}
                             <!-- Side cutouts for ticket look -->
                             <div class="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#050C0D] rounded-full border-r border-white/10"></div>
                             <div class="absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#050C0D] rounded-full border-l border-white/10"></div>
