@@ -1342,19 +1342,31 @@
                 const data = await res.json();
 
                 if (data.success && data.coupons.length > 0) {
-                    list.innerHTML = data.coupons.map(item => {
+                    const groupedCoupons = data.coupons.reduce((acc, item) => {
+                        const cid = item.coupon.id;
+                        if (!acc[cid]) {
+                            acc[cid] = { ...item, count: 1 };
+                        } else {
+                            acc[cid].count++;
+                        }
+                        return acc;
+                    }, {});
+
+                    list.innerHTML = Object.values(groupedCoupons).map(item => {
                         const validFrom = item.coupon.validFrom ? new Date(item.coupon.validFrom).toLocaleDateString('th-TH') : 'ใช้ได้ทันที';
                         
                         // ถ้าระบบคำนวณวันหมดอายุรายใบ (expiryDate) ให้ใช้ค่านั้นก่อน, ถ้าไม่มีให้ดึงจากแม่แบบ Global (validUntil)
                         const expiryToUse = item.expiryDate || item.coupon.validUntil;
                         const validUntil = expiryToUse ? new Date(expiryToUse).toLocaleDateString('th-TH') : 'ไม่มีวันหมดอายุ';
                         
+                        const countBadge = item.count > 1 ? `<span class="ml-2 px-2 py-0.5 bg-[#050C0D] text-white text-xs rounded-full font-bold border border-white/10">x${item.count}</span>` : '';
+
                         return `
                         <div class="bg-white/5 p-4 rounded-2xl border border-white/10 relative overflow-hidden group">
                             <div class="flex justify-between items-start mb-2">
                                 <div>
                                     <div class="text-[10px] text-yellow-500 font-bold uppercase tracking-wider">${item.coupon.id}</div>
-                                    <div class="text-base font-bold text-white">${item.coupon.name}</div>
+                                    <div class="text-base font-bold text-white flex items-center">${item.coupon.name} ${countBadge}</div>
                                 </div>
                                 <div class="text-right">
                                     <div class="text-xl font-black text-white">

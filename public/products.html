@@ -1334,18 +1334,30 @@
                 return;
             }
 
-            listContainer.innerHTML = availableCoupons.map(cc => {
+            const groupedCoupons = availableCoupons.reduce((acc, item) => {
+                const cid = item.coupon.id;
+                if (!acc[cid]) {
+                    acc[cid] = { ...item, count: 1 };
+                } else {
+                    acc[cid].count++;
+                }
+                return acc;
+            }, {});
+
+            listContainer.innerHTML = Object.values(groupedCoupons).map(cc => {
                 const c = cc.coupon;
                 const isSelected = window.appliedCoupon && window.appliedCoupon.coupon.id === c.id;
                 const minPurchase = parseFloat(c.minPurchase || 0);
                 const isLocked = subtotal < minPurchase;
 
+                const countBadge = cc.count > 1 ? `<span class="ml-2 px-2 py-0.5 bg-zinc-700 text-white text-xs rounded-full font-bold">x${cc.count}</span>` : '';
+
                 return `
-                    <div onclick="${isLocked ? '' : `applyManualCoupon('${c.id}')`}" 
+                    <div onclick="${isLocked ? '' : `applyManualCoupon('${c.id}')`}"
                          class="p-4 rounded-2xl border-2 transition-all ${isSelected ? 'border-yellow-500 bg-yellow-500/10' : 'border-zinc-700 bg-zinc-900/50'} ${isLocked ? 'opacity-50 grayscale cursor-not-allowed' : 'active:scale-95 cursor-pointer'}">
                         <div class="flex justify-between items-start">
                             <div class="flex-grow">
-                                <div class="font-bold text-lg ${isSelected ? 'text-yellow-500' : 'text-white'}">${c.name}</div>
+                                <div class="font-bold text-lg ${isSelected ? 'text-yellow-500' : 'text-white'} flex items-center">${c.name} ${countBadge}</div>
                                 <div class="text-xs text-zinc-400 mt-1">${c.description || ''}</div>
                                 ${minPurchase > 0 ? `<div class="text-[10px] mt-2 ${isLocked ? 'text-red-400' : 'text-zinc-500'}">ขั้นต่ำ ฿${minPurchase.toLocaleString()} (ขาดอีก ฿${Math.max(0, minPurchase - subtotal).toLocaleString()})</div>` : ''}
                             </div>
@@ -1357,7 +1369,6 @@
                 `;
             }).join('');
         };
-
 
         const applyManualCoupon = async (couponId) => {
             try {
