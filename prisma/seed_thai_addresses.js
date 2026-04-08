@@ -27,11 +27,11 @@ async function main() {
         await prisma.thaiAddress.deleteMany({});
 
         console.log('Step 3: Preparing data for insertion (7,000+ records)...');
-        // Structure based on Kongvut dataset: { name_th, zip_code, amphure: { name_th, province: { name_th } } }
+        // Correct Structure: { name_th, zip_code, district: { name_th, province: { name_th } } }
         const formattedData = rawData.map(item => ({
             subdistrict: item.name_th,
-            district: item.amphure?.name_th || 'N/A',
-            province: item.amphure?.province?.name_th || 'N/A',
+            district: item.district?.name_th || 'N/A',
+            province: item.district?.province?.name_th || 'N/A',
             zipcode: item.zip_code?.toString() || '00000'
         }));
 
