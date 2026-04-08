@@ -8,7 +8,7 @@ import { getCustomerByTelegramId, updateCustomer, countCampaignReferralsByTag } 
 import { countMonthlyReferrals } from '../services/referral.service.js';
 import * as referralService from '../services/referral.service.js';
 import { getProductPageData } from '../services/product.service.js';
-import * as couponService from './coupon.service.js';
+import * as couponService from '../services/coupon.service.js';
 import * as shippingService from '../services/shipping.service.js';
 // No longer import orderBotToken directly here due to module issues.
 
