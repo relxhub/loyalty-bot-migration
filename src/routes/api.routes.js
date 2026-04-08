@@ -8,7 +8,8 @@ import { getCustomerByTelegramId, updateCustomer, countCampaignReferralsByTag } 
 import { countMonthlyReferrals } from '../services/referral.service.js';
 import * as referralService from '../services/referral.service.js';
 import { getProductPageData } from '../services/product.service.js';
-import * as couponService from '../services/coupon.service.js';
+import * as couponService from './coupon.service.js';
+import * as shippingService from '../services/shipping.service.js';
 // No longer import orderBotToken directly here due to module issues.
 
 const router = express.Router();
@@ -825,6 +826,84 @@ router.get('/config/shipping', async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ==================================================
+// 🏠 SHIPPING ADDRESSES
+// ==================================================
+
+router.get('/shipping-addresses/:telegramId', async (req, res) => {
+    try {
+        const { telegramId } = req.params;
+        const user = await prisma.customer.findUnique({
+            where: { telegramUserId: telegramId },
+            select: { customerId: true }
+        });
+
+        if (!user) return res.status(404).json({ error: "ไม่พบข้อมูลลูกค้า" });
+
+        const addresses = await shippingService.getShippingAddresses(user.customerId);
+        res.json({ success: true, addresses });
+    } catch (error) {
+        console.error("Fetch Addresses Error:", error);
+        res.status(500).json({ error: "ดึงข้อมูลที่อยู่ไม่สำเร็จ" });
+    }
+});
+
+router.post('/shipping-addresses', async (req, res) => {
+    try {
+        const { telegramId, initData, addressData } = req.body;
+
+        if (!verifyTelegramWebAppData(initData)) {
+            return res.status(401).json({ error: "Invalid Telegram Data" });
+        }
+
+        const user = await prisma.customer.findUnique({
+            where: { telegramUserId: telegramId },
+            select: { customerId: true }
+        });
+
+        if (!user) return res.status(404).json({ error: "ไม่พบข้อมูลลูกค้า" });
+
+        const address = await shippingService.saveShippingAddress(user.customerId, addressData);
+        res.json({ success: true, address });
+    } catch (error) {
+        console.error("Save Address Error:", error);
+        res.status(500).json({ error: "บันทึกที่อยู่ไม่สำเร็จ" });
+    }
+});
+
+router.delete('/shipping-addresses/:telegramId/:addressId', async (req, res) => {
+    try {
+        const { telegramId, addressId } = req.params;
+        const user = await prisma.customer.findUnique({
+            where: { telegramUserId: telegramId },
+            select: { customerId: true }
+        });
+
+        if (!user) return res.status(404).json({ error: "ไม่พบข้อมูลลูกค้า" });
+
+        await shippingService.deleteShippingAddress(user.customerId, addressId);
+        res.json({ success: true, message: "ลบที่อยู่สำเร็จ" });
+    } catch (error) {
+        console.error("Delete Address Error:", error);
+        res.status(500).json({ error: "ลบที่อยู่ไม่สำเร็จ" });
+    }
+});
+
+// ==================================================
+// 🇹🇭 THAI ADDRESS AUTO-COMPLETE
+// ==================================================
+
+router.get('/thai-addresses/search', async (req, res) => {
+    try {
+        const { q } = req.query;
+        const suggestions = await shippingService.searchThaiAddress(q);
+        res.json({ success: true, suggestions });
+    } catch (error) {
+        console.error("Thai Address Search Error:", error);
+        res.status(500).json({ error: "ค้นหาที่อยู่ไม่สำเร็จ" });
     }
 });
 

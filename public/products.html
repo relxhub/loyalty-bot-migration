@@ -1303,6 +1303,240 @@
             if (totalEl) totalEl.textContent = '฿' + Math.max(0, subtotal + shipFee - discount).toLocaleString('th-TH');
         };
 
+        // ==================================================
+        // 🏠 SHIPPING ADDRESS SYSTEM
+        // ==================================================
+        let savedAddresses = [];
+        let selectedAddressId = null;
+
+        window.openAddressSelection = async () => {
+            document.getElementById('address-modal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('address-modal-content').classList.remove('translate-y-full'), 10);
+            await fetchAddresses();
+        };
+
+        window.closeAddressModal = () => {
+            document.getElementById('address-modal-content').classList.add('translate-y-full');
+            setTimeout(() => document.getElementById('address-modal').classList.add('hidden'), 300);
+            window.hideAddressForm();
+        };
+
+        async function fetchAddresses() {
+            const container = document.getElementById('address-list-container');
+            container.innerHTML = '<div class="text-center py-4"><div class="animate-spin h-6 w-6 border-2 border-brand-red border-t-transparent rounded-full mx-auto"></div></div>';
+            
+            try {
+                const telegramId = tg.initDataUnsafe?.user?.id?.toString() || currentUser?.telegramUserId;
+                const res = await fetch(`/api/shipping-addresses/${telegramId}`);
+                const data = await res.json();
+                
+                if (data.success) {
+                    savedAddresses = data.addresses;
+                    renderAddresses();
+                }
+            } catch (err) {
+                container.innerHTML = '<p class="text-center text-red-400">โหลดข้อมูลไม่สำเร็จ</p>';
+            }
+        }
+
+        function renderAddresses() {
+            const container = document.getElementById('address-list-container');
+            if (savedAddresses.length === 0) {
+                container.innerHTML = '<p class="text-center text-zinc-500 py-4 text-sm">คุณยังไม่มีที่อยู่จัดส่งที่บันทึกไว้</p>';
+                return;
+            }
+
+            container.innerHTML = savedAddresses.map(addr => `
+                <div class="p-4 rounded-2xl border-2 transition-all cursor-pointer ${selectedAddressId === addr.id ? 'border-brand-red bg-brand-red/5' : 'border-zinc-700 bg-zinc-900/50'}"
+                     onclick="window.selectAddress(${addr.id})">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-grow min-w-0">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="font-bold text-white">${addr.name}</span>
+                                ${addr.isDefault ? '<span class="text-[10px] bg-zinc-700 text-zinc-300 px-1.5 py-0.5 rounded">หลัก</span>' : ''}
+                            </div>
+                            <div class="text-xs text-zinc-300 font-medium">${addr.receiverName} | ${addr.phone}</div>
+                            <div class="text-xs text-zinc-400 mt-1 line-clamp-2">${addr.address} ${addr.subdistrict} ${addr.district} ${addr.province} ${addr.zipcode}</div>
+                        </div>
+                        <div class="flex flex-col gap-2 ml-3">
+                            <button onclick="event.stopPropagation(); window.showAddressForm(${addr.id})" class="text-zinc-500 hover:text-white transition"><i class="ri-edit-line"></i></button>
+                            <button onclick="event.stopPropagation(); window.deleteAddress(${addr.id})" class="text-zinc-600 hover:text-red-500 transition"><i class="ri-delete-bin-line"></i></button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.showAddressForm = (id = null) => {
+            document.getElementById('address-form-container').classList.remove('hidden');
+            document.getElementById('add-new-addr-btn').classList.add('hidden');
+            document.getElementById('address-list-container').classList.add('hidden');
+            
+            const form = {
+                id: document.getElementById('addr-id'),
+                name: document.getElementById('addr-name'),
+                receiver: document.getElementById('addr-receiver'),
+                phone: document.getElementById('addr-phone'),
+                detail: document.getElementById('addr-detail'),
+                subdistrict: document.getElementById('addr-subdistrict'),
+                district: document.getElementById('addr-district'),
+                province: document.getElementById('addr-province'),
+                zipcode: document.getElementById('addr-zipcode'),
+                default: document.getElementById('addr-default')
+            };
+
+            if (id) {
+                const addr = savedAddresses.find(a => a.id === id);
+                form.id.value = addr.id;
+                form.name.value = addr.name;
+                form.receiver.value = addr.receiverName;
+                form.phone.value = addr.phone;
+                form.detail.value = addr.address;
+                form.subdistrict.value = addr.subdistrict;
+                form.district.value = addr.district;
+                form.province.value = addr.province;
+                form.zipcode.value = addr.zipcode;
+                form.default.checked = addr.isDefault;
+            } else {
+                Object.values(form).forEach(el => {
+                    if (el.type === 'checkbox') el.checked = false;
+                    else el.value = '';
+                });
+            }
+        };
+
+        window.hideAddressForm = () => {
+            document.getElementById('address-form-container').classList.add('hidden');
+            document.getElementById('add-new-addr-btn').classList.remove('hidden');
+            document.getElementById('address-list-container').classList.remove('hidden');
+        };
+
+        window.saveAddress = async () => {
+            const addressData = {
+                id: document.getElementById('addr-id').value,
+                name: document.getElementById('addr-name').value,
+                receiverName: document.getElementById('addr-receiver').value,
+                phone: document.getElementById('addr-phone').value,
+                address: document.getElementById('addr-detail').value,
+                subdistrict: document.getElementById('addr-subdistrict').value,
+                district: document.getElementById('addr-district').value,
+                province: document.getElementById('addr-province').value,
+                zipcode: document.getElementById('addr-zipcode').value,
+                isDefault: document.getElementById('addr-default').checked
+            };
+
+            if (!addressData.name || !addressData.receiverName || !addressData.phone || !addressData.zipcode) {
+                showToast('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน', 'error');
+                return;
+            }
+
+            try {
+                const telegramId = tg.initDataUnsafe?.user?.id?.toString() || currentUser?.telegramUserId;
+                const res = await fetch('/api/shipping-addresses', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ telegramId, initData: tg.initData, addressData })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('บันทึกที่อยู่เรียบร้อย', 'success');
+                    window.hideAddressForm();
+                    await fetchAddresses();
+                }
+            } catch (err) {
+                showToast('บันทึกไม่สำเร็จ', 'error');
+            }
+        };
+
+        window.deleteAddress = async (id) => {
+            if (!confirm('ยืนยันการลบที่อยู่นี้?')) return;
+            try {
+                const telegramId = tg.initDataUnsafe?.user?.id?.toString() || currentUser?.telegramUserId;
+                const res = await fetch(`/api/shipping-addresses/${telegramId}/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('ลบที่อยู่เรียบร้อย', 'info');
+                    await fetchAddresses();
+                }
+            } catch (err) {
+                showToast('ลบไม่สำเร็จ', 'error');
+            }
+        };
+
+        window.selectAddress = (id) => {
+            selectedAddressId = id;
+            const addr = savedAddresses.find(a => a.id === id);
+            const display = document.getElementById('selected-address-display');
+            if (addr) {
+                display.innerHTML = `
+                    <div class="flex items-start gap-2">
+                        <i class="ri-map-pin-2-fill text-brand-red mt-0.5"></i>
+                        <div>
+                            <span class="font-bold text-white">${addr.name}</span>: ${addr.receiverName} (${addr.phone})
+                            <div class="text-zinc-400">${addr.address} ${addr.subdistrict} ${addr.district} ${addr.province} ${addr.zipcode}</div>
+                        </div>
+                    </div>
+                `;
+                display.classList.remove('hidden');
+            }
+            window.closeAddressModal();
+            renderAddresses();
+        };
+
+        // --- Thai Address Auto-complete ---
+        setTimeout(() => {
+            const zipcodeInp = document.getElementById('addr-zipcode');
+            const suggestionsDiv = document.getElementById('zipcode-suggestions');
+            let searchTimeout;
+
+            if (zipcodeInp) {
+                zipcodeInp.addEventListener('input', (e) => {
+                    clearTimeout(searchTimeout);
+                    const q = e.target.value;
+                    if (q.length < 2) {
+                        suggestionsDiv.classList.add('hidden');
+                        return;
+                    }
+
+                    searchTimeout = setTimeout(async () => {
+                        try {
+                            const res = await fetch(`/api/thai-addresses/search?q=${encodeURIComponent(q)}`);
+                            const data = await res.json();
+                            if (data.success && data.suggestions.length > 0) {
+                                suggestionsDiv.innerHTML = data.suggestions.map(s => `
+                                    <div class="p-3 border-b border-zinc-700/50 hover:bg-zinc-700/50 cursor-pointer text-xs"
+                                         onclick="window.fillAddress('${s.subdistrict}', '${s.district}', '${s.province}', '${s.zipcode}')">
+                                        <span class="font-bold text-white">${s.subdistrict}</span> > ${s.district} > ${s.province} <span class="text-brand-red">${s.zipcode}</span>
+                                    </div>
+                                `).join('');
+                                suggestionsDiv.classList.remove('hidden');
+                            } else {
+                                suggestionsDiv.classList.add('hidden');
+                            }
+                        } catch (err) {
+                            console.error("Search Error:", err);
+                        }
+                    }, 300);
+                });
+
+                window.fillAddress = (sub, dist, prov, zip) => {
+                    document.getElementById('addr-subdistrict').value = sub;
+                    document.getElementById('addr-district').value = dist;
+                    document.getElementById('addr-province').value = prov;
+                    document.getElementById('addr-zipcode').value = zip;
+                    suggestionsDiv.classList.add('hidden');
+                };
+
+                // Close suggestions when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (!zipcodeInp.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+                        suggestionsDiv.classList.add('hidden');
+                    }
+                });
+            }
+        }, 1000);
+
+
         // --- Manual Coupon Selection Logic ---
         const openCouponSelection = async () => {
             const listContainer = document.getElementById('available-coupons-list');
@@ -2237,6 +2471,15 @@
                         textToCopy += `🎁 ของแถม: ${gift.nameEn} (แถมฟรี)\n`;
                     }
                     textToCopy += "\n";
+                }
+
+                // --- Shipping Address Integration ---
+                if (selectedAddressId) {
+                    const addr = savedAddresses.find(a => a.id === selectedAddressId);
+                    if (addr) {
+                        textToCopy += `📍 ที่อยู่จัดส่ง: ${addr.receiverName} (${addr.phone})\n`;
+                        textToCopy += `${addr.address} ${addr.subdistrict} ${addr.district} ${addr.province} ${addr.zipcode}\n\n`;
+                    }
                 }
 
                 const total = availableItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -3411,11 +3654,18 @@
                         <span>ยอดรวมสินค้า</span>
                         <span id="summary-subtotal">฿0</span>
                     </div>
-                    <div class="flex justify-between text-zinc-400">
-                        <span id="shipping-label">ค่าจัดส่ง</span>
+                    <div class="flex justify-between items-center text-zinc-400">
+                        <div class="flex items-center gap-2">
+                            <span id="shipping-label">ค่าจัดส่ง</span>
+                            <button onclick="window.openAddressSelection()" class="text-[10px] bg-zinc-800 text-zinc-300 px-2 py-1 rounded-lg border border-zinc-700 hover:bg-zinc-700 active:scale-95 transition flex items-center gap-1">
+                                <i class="ri-map-pin-2-fill text-brand-red"></i> ที่อยู่จัดส่ง
+                            </button>
+                        </div>
                         <span id="summary-shipping">฿0</span>
                     </div>
-                    <div id="summary-discount-row" class="flex justify-between text-yellow-500 hidden">
+                    <div id="selected-address-display" class="text-[10px] text-zinc-500 mt-1 hidden bg-zinc-800/30 p-2 rounded-lg border border-zinc-700/30">
+                        <!-- Selected address info will be here -->
+                    </div>                    <div id="summary-discount-row" class="flex justify-between text-yellow-500 hidden">
                         <span>ส่วนลดคูปอง</span>
                         <span id="summary-discount">-฿0</span>
                     </div>
@@ -3433,6 +3683,69 @@
                         <button id="copy-cart-btn" class="w-3/4 py-3.5 bg-green-600 hover:bg-green-500 rounded-2xl font-bold text-lg text-white transition active:scale-95 disabled:bg-gray-500 disabled:cursor-not-allowed shadow-lg shadow-green-900/20">
                             คัดลอกรายการ
                         </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shipping Address Modal -->
+    <div id="address-modal" class="hidden fixed inset-0 z-[80] flex items-end justify-center bg-black/60 backdrop-blur-sm">
+        <div id="address-modal-content" class="bg-zinc-800 w-full max-w-md rounded-t-3xl flex flex-col max-h-[90vh] transform translate-y-full transition-transform duration-300">
+            <!-- Header -->
+            <div class="flex-shrink-0 p-4 border-b border-zinc-700 flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <i class="ri-map-pin-2-fill text-xl text-brand-red"></i>
+                    <h3 class="text-lg font-bold">สมุดที่อยู่จัดส่ง</h3>
+                </div>
+                <button onclick="window.closeAddressModal()" class="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center hover:bg-zinc-600 transition">
+                    <i class="ri-close-line"></i>
+                </button>
+            </div>
+            
+            <!-- Body -->
+            <div class="flex-grow overflow-y-auto p-4 space-y-4">
+                <!-- Address List -->
+                <div id="address-list-container" class="space-y-3">
+                    <!-- Saved addresses will be here -->
+                </div>
+
+                <!-- Add New Address Button -->
+                <button id="add-new-addr-btn" onclick="window.showAddressForm()" class="w-full py-3 bg-zinc-700/50 border border-zinc-600 border-dashed rounded-2xl text-zinc-300 font-medium flex items-center justify-center gap-2 active:scale-95 transition">
+                    <i class="ri-add-line text-lg"></i> เพิ่มที่อยู่ใหม่
+                </button>
+
+                <!-- Address Form (Initially Hidden) -->
+                <div id="address-form-container" class="hidden space-y-3 pt-2 border-t border-zinc-700">
+                    <h4 class="font-bold text-white flex items-center gap-2"><i class="ri-edit-box-line"></i> กรอกรายละเอียดที่อยู่</h4>
+                    
+                    <div class="space-y-2">
+                        <input type="hidden" id="addr-id">
+                        <input type="text" id="addr-name" placeholder="ชื่อสถานที่ (เช่น บ้าน, ที่ทำงาน)" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:border-brand-red focus:outline-none">
+                        <input type="text" id="addr-receiver" placeholder="ชื่อผู้รับ" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:border-brand-red focus:outline-none">
+                        <input type="tel" id="addr-phone" placeholder="เบอร์โทรศัพท์" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:border-brand-red focus:outline-none">
+                        <textarea id="addr-detail" placeholder="ที่อยู่ (บ้านเลขที่, ถนน, ซอย)" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:border-brand-red focus:outline-none" rows="2"></textarea>
+                        
+                        <div class="relative">
+                            <input type="text" id="addr-zipcode" placeholder="รหัสไปรษณีย์ (พิมพ์เพื่อค้นหาอัตโนมัติ)" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:border-brand-red focus:outline-none" autocomplete="off">
+                            <div id="zipcode-suggestions" class="absolute z-50 left-0 right-0 top-full mt-1 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl max-h-48 overflow-y-auto hidden"></div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <input type="text" id="addr-subdistrict" placeholder="แขวง / ตำบล" class="bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:border-brand-red focus:outline-none">
+                            <input type="text" id="addr-district" placeholder="เขต / อำเภอ" class="bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:border-brand-red focus:outline-none">
+                        </div>
+                        <input type="text" id="addr-province" placeholder="จังหวัด" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:border-brand-red focus:outline-none">
+                        
+                        <label class="flex items-center gap-2 p-2 cursor-pointer">
+                            <input type="checkbox" id="addr-default" class="w-4 h-4 accent-brand-red">
+                            <span class="text-sm text-zinc-400">ตั้งเป็นที่อยู่หลัก</span>
+                        </label>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button onclick="window.hideAddressForm()" class="flex-1 py-3 bg-zinc-700 text-white rounded-xl font-bold">ยกเลิก</button>
+                        <button onclick="window.saveAddress()" class="flex-[2] py-3 bg-brand-red text-white rounded-xl font-bold">บันทึกที่อยู่</button>
                     </div>
                 </div>
             </div>

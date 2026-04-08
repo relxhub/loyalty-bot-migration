@@ -84,6 +84,7 @@ model Customer {
   referredBy        Referral?  @relation("Referred")   // The referral record for how this customer joined
   reviews           ProductReview[] // Relation to reviews
   coupons           CustomerCoupon[] // Relation to coupons
+  shippingAddresses ShippingAddress[] // Relation to shipping addresses
 
   @@index([verificationCode])
   @@index([referrerId])
@@ -318,3 +319,39 @@ model ProductReview {
   @@index([productId])
   @@index([customerId])
 }
+
+// ---------------------------------------------------------
+// SHIPPING & ADDRESS MODELS
+// ---------------------------------------------------------
+
+model ShippingAddress {
+  id              Int      @id @default(autoincrement())
+  customerId      String
+  name            String   // Label like "Home", "Office"
+  receiverName    String
+  phone           String
+  address         String   // House No, Street, etc.
+  subdistrict     String
+  district        String
+  province        String
+  zipcode         String
+  isDefault       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  customer        Customer @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
+
+  @@index([customerId])
+}
+
+model ThaiAddress {
+  id          Int    @id @default(autoincrement())
+  subdistrict String
+  district    String
+  province    String
+  zipcode     String
+
+  @@index([zipcode])
+  @@index([subdistrict])
+}
+
