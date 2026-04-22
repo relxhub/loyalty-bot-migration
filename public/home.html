@@ -8,6 +8,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
     <style>
+        html, body {
+            overscroll-behavior-y: none; /* Prevent rubber-banding */
+        }
         :root {
             --bg-color: #050C0D;
             --secondary-bg: #161B22;
@@ -19,6 +22,10 @@
             display: flex;
             flex-direction: column;
             justify-content: center; /* Center content vertically */
+        }
+        
+        .no-scroll {
+            overflow: hidden !important;
         }
 
         /* CSS สำหรับแถบนำทางด้านล่าง */
@@ -157,6 +164,7 @@
         function openCouponCenter() {
             const modal = document.getElementById('coupon-modal');
             const content = modal.querySelector('div');
+            document.body.classList.add('no-scroll');
             modal.classList.remove('hidden');
             setTimeout(() => {
                 modal.classList.remove('opacity-0');
@@ -168,6 +176,7 @@
         function closeCouponModal() {
             const modal = document.getElementById('coupon-modal');
             const content = modal.querySelector('div');
+            document.body.classList.remove('no-scroll');
             modal.classList.add('opacity-0');
             content.classList.add('translate-y-full');
             setTimeout(() => modal.classList.add('hidden'), 300);
@@ -176,6 +185,7 @@
         function openRedeemCenter() {
             const modal = document.getElementById('redeem-modal');
             const content = modal.querySelector('div');
+            document.body.classList.add('no-scroll');
             modal.classList.remove('hidden');
             setTimeout(() => {
                 modal.classList.remove('opacity-0');
@@ -187,6 +197,7 @@
         function closeRedeemModal() {
             const modal = document.getElementById('redeem-modal');
             const content = modal.querySelector('div');
+            document.body.classList.remove('no-scroll');
             modal.classList.add('opacity-0');
             content.classList.add('translate-y-full');
             setTimeout(() => modal.classList.add('hidden'), 300);
