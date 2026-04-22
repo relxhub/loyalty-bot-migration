@@ -242,6 +242,14 @@
             const progress = c.totalQuota ? (c.claimedCount / c.totalQuota) * 100 : 0;
             const quotaText = c.totalQuota ? `เหลือ ${c.totalQuota - c.claimedCount} ใบ` : 'ไม่จำกัดจำนวน';
             
+            let expiryText = 'ไม่มีวันหมดอายุ';
+            if (c.validityDays) {
+                expiryText = `อายุ ${c.validityDays} วันหลังเก็บ`;
+            } else if (c.validUntil) {
+                const d = new Date(c.validUntil);
+                expiryText = `หมดเขต ${d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}`;
+            }
+            
             let benefitText = '';
             if (c.type === 'DISCOUNT_PERCENT') benefitText = `ลด ${parseFloat(c.value)}%`;
             else if (c.type === 'DISCOUNT_FLAT') benefitText = `ลด ${parseFloat(c.value)} บาท`;
@@ -263,7 +271,10 @@
                 <div class="relative bg-white/5 border border-white/10 rounded-2xl p-4 overflow-hidden group">
                     <div class="flex justify-between items-start mb-3">
                         <div>
-                            <div class="text-xs text-yellow-500 font-bold mb-1 uppercase tracking-wider">${c.id}</div>
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-xs text-yellow-500 font-bold uppercase tracking-wider">${c.id}</span>
+                                <span class="text-[9px] bg-white/10 text-gray-300 px-1.5 py-0.5 rounded-full border border-white/5"><i class="ri-timer-line"></i> ${expiryText}</span>
+                            </div>
                             <div class="text-lg font-bold text-white">${c.name}</div>
                             <div class="text-xs text-gray-400">${c.description || ''}</div>
                         </div>
@@ -303,6 +314,14 @@
             const progress = c.totalQuota ? (c.claimedCount / c.totalQuota) * 100 : 0;
             const quotaText = c.totalQuota ? `เหลือ ${c.totalQuota - c.claimedCount} สิทธิ์` : 'แลกได้ไม่อั้น';
             
+            let expiryText = 'ไม่มีวันหมดอายุ';
+            if (c.validityDays) {
+                expiryText = `อายุ ${c.validityDays} วันหลังแลก`;
+            } else if (c.validUntil) {
+                const d = new Date(c.validUntil);
+                expiryText = `หมดเขต ${d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}`;
+            }
+            
             let benefitText = '';
             if (c.type === 'DISCOUNT_PERCENT') benefitText = `ลด ${parseFloat(c.value)}%`;
             else if (c.type === 'DISCOUNT_FLAT') benefitText = `ลด ${parseFloat(c.value)} บาท`;
@@ -326,7 +345,10 @@
                 <div class="relative bg-gradient-to-br from-blue-900/20 to-[#161B22] border border-blue-500/20 rounded-2xl p-4 overflow-hidden group">
                     <div class="flex justify-between items-start mb-3">
                         <div>
-                            <div class="text-xs text-blue-400 font-bold mb-1 uppercase tracking-wider">${c.id}</div>
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-xs text-blue-400 font-bold uppercase tracking-wider">${c.id}</span>
+                                <span class="text-[9px] bg-white/10 text-gray-300 px-1.5 py-0.5 rounded-full border border-white/5"><i class="ri-timer-line"></i> ${expiryText}</span>
+                            </div>
                             <div class="text-lg font-bold text-white">${c.name}</div>
                             <div class="text-xs text-gray-400">${c.description || ''}</div>
                         </div>
