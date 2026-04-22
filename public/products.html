@@ -1161,7 +1161,20 @@
             }
         };
 
-        const saveCart = () => localStorage.setItem('shoppingCart', JSON.stringify(cart));
+        const saveCart = () => {
+            localStorage.setItem('shoppingCart', JSON.stringify(cart));
+            
+            // Sync to DB in background
+            const telegramId = tg.initDataUnsafe?.user?.id?.toString() || window.currentUser?.telegramUserId || currentUser?.telegramUserId;
+            if (telegramId) {
+                const cartItems = cart.map(i => ({ id: i.id, quantity: i.quantity }));
+                fetch('/api/cart/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ telegramId, cartItems })
+                }).catch(err => console.error("Failed to sync cart:", err));
+            }
+        };
 
         const openCartModal = () => {
             window.updateCartModalDisplay();
@@ -2130,21 +2143,6 @@
             };
 
             // --- Cart Functions ---
-            const saveCart = () => {
-                localStorage.setItem('shoppingCart', JSON.stringify(window.cart));
-
-                // Sync to DB in background
-                const telegramId = tg.initDataUnsafe?.user?.id?.toString() || currentUser?.telegramUserId;
-                if (telegramId) {
-                    const cartItems = window.cart.map(i => ({ id: i.id, quantity: i.quantity }));
-                    fetch('/api/cart/sync', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ telegramId, cartItems })
-                    }).catch(err => console.error("Failed to sync cart:", err));
-                }
-            };
-
             const loadCart = async () => {
                 try {
                     const telegramId = tg.initDataUnsafe?.user?.id?.toString() || currentUser?.telegramUserId;
