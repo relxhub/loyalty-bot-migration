@@ -1933,9 +1933,33 @@
 
             const saveFavorites = () => {
                 localStorage.setItem('favorites', JSON.stringify(favorites));
+
+                // Sync to DB in background
+                const telegramId = tg.initDataUnsafe?.user?.id?.toString() || window.currentUser?.telegramUserId || currentUser?.telegramUserId;
+                if (telegramId) {
+                    fetch('/api/favorites/sync', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ telegramId, favorites })
+                    }).catch(err => console.error("Failed to sync favorites:", err));
+                }
             };
 
-            const loadFavorites = () => {
+            const loadFavorites = async () => {
+                try {
+                    const telegramId = tg.initDataUnsafe?.user?.id?.toString() || currentUser?.telegramUserId;
+                    if (telegramId) {
+                        const res = await fetch(`/api/favorites/${telegramId}`);
+                        const data = await res.json();
+                        if (data.success) {
+                            // Update localStorage from DB as source of truth
+                            localStorage.setItem('favorites', JSON.stringify(data.favorites));
+                        }
+                    }
+                } catch (error) {
+                    console.error("Failed to load favorites from DB, using local cache:", error);
+                }
+
                 const saved = localStorage.getItem('favorites');
                 if (saved) {
                     favorites = JSON.parse(saved);

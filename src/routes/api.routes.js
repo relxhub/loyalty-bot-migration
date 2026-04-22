@@ -976,4 +976,56 @@ router.post('/cart/sync', async (req, res) => {
     }
 });
 
+// ==========================================
+// ❤️ FAVORITES API
+// ==========================================
+
+router.get('/favorites/:telegramId', async (req, res) => {
+    try {
+        const { telegramId } = req.params;
+        const user = await prisma.customer.findUnique({
+            where: { telegramUserId: telegramId },
+            include: { favorites: true }
+        });
+
+        if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+
+        const favorites = user.favorites.map(f => f.productId);
+        res.json({ success: true, favorites });
+    } catch (error) {
+        console.error('GET Favorites Error:', error);
+        res.status(500).json({ success: false, error: 'Internal Server Error' });
+    }
+});
+
+router.post('/favorites/sync', async (req, res) => {
+    try {
+        const { telegramId, favorites } = req.body;
+        // favorites: [productId1, productId2, ...]
+
+        const user = await prisma.customer.findUnique({
+            where: { telegramUserId: telegramId }
+        });
+
+        if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+
+        // Clear existing favorites and replace
+        await prisma.favorite.deleteMany({ where: { customerId: user.customerId } });
+        
+        if (favorites && favorites.length > 0) {
+            await prisma.favorite.createMany({
+                data: favorites.map(productId => ({
+                    customerId: user.customerId,
+                    productId: productId
+                }))
+            });
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Sync Favorites Error:', error);
+        res.status(500).json({ success: false, error: 'Internal Server Error' });
+    }
+});
+
 export default router;
