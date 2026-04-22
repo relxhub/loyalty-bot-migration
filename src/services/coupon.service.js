@@ -265,6 +265,7 @@ export async function validateCouponForCart(customerId, couponId, cartItems, tot
 
 /**
  * ดึงรายการคูปองที่ลูกค้ามี (สำหรับแสดงในกระเป๋า)
+ * ไม่ได้กรอง validFrom ออก เพื่อให้แสดงคูปองที่ยังไม่ถึงเวลาเริ่มใช้ได้
  */
 export async function getCustomerCoupons(customerId) {
     const now = new Date();
@@ -281,12 +282,6 @@ export async function getCustomerCoupons(customerId) {
             coupon: {
                 isActive: true,
                 AND: [
-                    {
-                        OR: [
-                            { validFrom: null },
-                            { validFrom: { lte: now } }
-                        ]
-                    },
                     {
                         OR: [
                             { validUntil: null },
@@ -309,12 +304,16 @@ export async function getCustomerCoupons(customerId) {
  */
 export async function getBestCoupon(customerId, cartItems, totalAmount) {
     const availableCoupons = await getCustomerCoupons(customerId);
+    const now = new Date();
     let bestCoupon = null;
     let maxSaving = 0;
 
     for (const item of availableCoupons) {
         const { coupon } = item;
         let currentSaving = 0;
+
+        // 0. ตรวจสอบวันเริ่มใช้งาน (เพราะ getCustomerCoupons ดึงอันที่ยังไม่เริ่มมาด้วย)
+        if (coupon.validFrom && new Date(coupon.validFrom) > now) continue;
 
         // 1. เช็คยอดขั้นต่ำ (Min Purchase)
         if (coupon.minPurchase && totalAmount < Number(coupon.minPurchase)) continue;

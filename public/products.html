@@ -1591,9 +1591,19 @@
                 const c = cc.coupon;
                 const isSelected = window.appliedCoupon && window.appliedCoupon.coupon.id === c.id;
                 const minPurchase = parseFloat(c.minPurchase || 0);
-                const isLocked = subtotal < minPurchase;
+                
+                const now = new Date();
+                const isUpcoming = c.validFrom && new Date(c.validFrom) > now;
+                const isLocked = subtotal < minPurchase || isUpcoming;
 
                 const countBadge = cc.count > 1 ? `<span class="ml-2 px-2 py-0.5 bg-zinc-700 text-white text-xs rounded-full font-bold">x${cc.count}</span>` : '';
+                
+                let statusText = '';
+                if (isUpcoming) {
+                    statusText = `<div class="text-[10px] mt-2 text-yellow-500"><i class="ri-time-line"></i> เริ่มใช้ได้วันที่ ${new Date(c.validFrom).toLocaleDateString('th-TH')}</div>`;
+                } else if (minPurchase > 0) {
+                    statusText = `<div class="text-[10px] mt-2 ${isLocked ? 'text-red-400' : 'text-zinc-500'}">ขั้นต่ำ ฿${minPurchase.toLocaleString()} ${isLocked ? `(ขาดอีก ฿${Math.max(0, minPurchase - subtotal).toLocaleString()})` : ''}</div>`;
+                }
 
                 return `
                     <div onclick="${isLocked ? '' : `applyManualCoupon('${c.id}')`}"
@@ -1602,7 +1612,7 @@
                             <div class="flex-grow">
                                 <div class="font-bold text-lg ${isSelected ? 'text-yellow-500' : 'text-white'} flex items-center">${c.name} ${countBadge}</div>
                                 <div class="text-xs text-zinc-400 mt-1">${c.description || ''}</div>
-                                ${minPurchase > 0 ? `<div class="text-[10px] mt-2 ${isLocked ? 'text-red-400' : 'text-zinc-500'}">ขั้นต่ำ ฿${minPurchase.toLocaleString()} (ขาดอีก ฿${Math.max(0, minPurchase - subtotal).toLocaleString()})</div>` : ''}
+                                ${statusText}
                             </div>
                             <div class="flex-shrink-0 ml-3 flex items-center justify-center">
                                 ${isSelected ? '<i class="ri-checkbox-circle-fill text-yellow-500 text-2xl"></i>' : '<i class="ri-checkbox-blank-circle-line text-zinc-600 text-2xl"></i>'}
