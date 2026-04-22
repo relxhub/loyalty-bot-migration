@@ -1047,12 +1047,11 @@
             item.quantity += change;
             if (item.quantity <= 0) window.cart = window.cart.filter(i => i.id !== productId);
             
-            localStorage.setItem('shoppingCart', JSON.stringify(window.cart));
-            if (typeof window.calculateCartTotals === "function") window.calculateCartTotals(); // Real-time update
-            if (typeof updateCartIcon === 'function') window.updateCartIcon();
-            if (typeof calculateCartTotals === 'function') window.calculateCartTotals();
-            if (typeof updateProductCardCartControl === 'function') updateProductCardCartControl(productId);
-            if (typeof updateCartModalDisplay === 'function') window.updateCartModalDisplay();
+            if (typeof window.updateCartUI === 'function') {
+                window.updateCartUI(productId);
+            } else {
+                localStorage.setItem('shoppingCart', JSON.stringify(window.cart));
+            }
             
             try { window.Telegram.WebApp.hapticFeedback.selectionChanged(); } catch(e) {}
         };
@@ -2161,13 +2160,18 @@
                 const savedCart = localStorage.getItem('shoppingCart');
                 let parsedCart = savedCart ? JSON.parse(savedCart) : [];
 
-                // --- FIX: Restore missing prices for old cart items ---
+                // --- FIX: Restore missing prices and names for old cart items ---
                 window.cart = parsedCart.map(item => {
                     const product = allProducts.find(p => p.id === item.id);
                     if (product) {
                         const category = allCategories.find(c => c.id === product.categoryId);
-                        item.price = category ? parseFloat(category.price) : 0;
-                        item.categoryName = category ? category.name : item.categoryName;
+                        item.nameEn = product.nameEn;
+                        item.nameTh = product.nameTh;
+                        item.nicotine = product.nicotine;
+                        item.imageUrl = product.imageUrl;
+                        item.price = category ? parseFloat(category.price) : (item.price || 0);
+                        item.categoryName = category ? category.name : (item.categoryName || '');
+                        item.categoryId = product.categoryId;
                     } else {
                         item.price = item.price || 0;
                     }
