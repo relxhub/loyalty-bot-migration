@@ -1332,6 +1332,15 @@
                 
                 if (data.success) {
                     savedAddresses = data.addresses;
+                    
+                    const lastSelected = localStorage.getItem('lastSelectedAddressId');
+                    if (lastSelected && savedAddresses.some(a => a.id === parseInt(lastSelected))) {
+                        window.selectAddress(parseInt(lastSelected), true);
+                    } else {
+                        const defaultAddr = savedAddresses.find(a => a.isDefault);
+                        if (defaultAddr) window.selectAddress(defaultAddr.id, true);
+                    }
+                    
                     renderAddresses();
                 }
             } catch (err) {
@@ -1463,8 +1472,9 @@
             }
         };
 
-        window.selectAddress = (id) => {
+        window.selectAddress = (id, skipModalClose = false) => {
             selectedAddressId = id;
+            localStorage.setItem('lastSelectedAddressId', id);
             const addr = savedAddresses.find(a => a.id === id);
             const display = document.getElementById('selected-address-display');
             if (addr) {
@@ -1476,7 +1486,9 @@
                 `;
                 display.classList.remove('hidden');
             }
-            window.closeAddressModal();
+            if (!skipModalClose) {
+                window.closeAddressModal();
+            }
             renderAddresses();
         };
 
@@ -3503,6 +3515,9 @@
                     showTicker(defaultTickerMessage, 'DEFAULT', false);
                 }
 
+                // Silently load shipping addresses to restore previous selection
+                fetchAddresses();
+
                 loadCart();
                 loadFavorites();
                 renderBanners(data.banners);
@@ -3618,28 +3633,27 @@
                 </button>
             </div>
 
-            <!-- Shipping Address Bar -->
-            <button onclick="window.openAddressSelection()" class="flex-shrink-0 w-full bg-zinc-900/50 p-4 border-b border-zinc-700 flex items-center justify-between hover:bg-zinc-800 transition active:scale-95 text-left">
-                <div class="flex items-center gap-3 w-full overflow-hidden">
-                    <div class="w-10 h-10 rounded-full bg-brand-red/10 flex-shrink-0 flex items-center justify-center">
-                        <i class="ri-home-4-fill text-brand-red text-xl"></i>
-                    </div>
-                    <div class="flex-grow overflow-hidden pr-2">
-                        <div class="text-white font-bold text-sm">จัดส่งที่</div>
-                        <div id="selected-address-display" class="text-xs text-zinc-400 mt-0.5 truncate">
-                            คลิกเพื่อเลือกหรือเพิ่มที่อยู่จัดส่ง
-                        </div>
-                    </div>
-                </div>
-                <i class="ri-arrow-right-s-line text-zinc-500 text-xl flex-shrink-0"></i>
-            </button>
-
             <!-- Scrollable Content -->
             <div class="flex-grow overflow-y-auto">
+                <!-- Shipping Address Bar -->
+                <button onclick="window.openAddressSelection()" class="w-full bg-zinc-900/50 p-4 border-b border-zinc-700 flex items-center justify-between hover:bg-zinc-800 transition active:scale-95 text-left mb-2">
+                    <div class="flex items-center gap-3 w-full overflow-hidden">
+                        <div class="w-10 h-10 rounded-full bg-brand-red/10 flex-shrink-0 flex items-center justify-center">
+                            <i class="ri-home-4-fill text-brand-red text-xl"></i>
+                        </div>
+                        <div class="flex-grow overflow-hidden pr-2">
+                            <div class="text-white font-bold text-sm">จัดส่งที่</div>
+                            <div id="selected-address-display" class="text-xs text-zinc-400 mt-0.5 truncate">
+                                คลิกเพื่อเลือกหรือเพิ่มที่อยู่จัดส่ง
+                            </div>
+                        </div>
+                    </div>
+                    <i class="ri-arrow-right-s-line text-zinc-500 text-xl flex-shrink-0"></i>
+                </button>
+
                 <!-- Body (Cart Items) -->
-                <div id="cart-items-container" class="p-4 space-y-3">
-                    <h4 class="font-bold text-lg mb-2 text-white">My Order</h4>
-                    <div id="cart-list-wrapper">
+                <div id="cart-items-container" class="px-4 pb-4 space-y-3">
+                    <h4 class="font-bold text-lg mb-2 text-white">My Order</h4>                    <div id="cart-list-wrapper">
                         <!-- Cart items will be injected here by JS -->
                         <p class="text-zinc-400 text-center py-4">ตะกร้าของคุณว่างเปล่า</p>
                     </div>
