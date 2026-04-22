@@ -230,24 +230,6 @@ router.post('/link', async (req, res) => {
 });
 
 // ==================================================
-// 🎁 REWARDS
-// ==================================================
-router.get('/rewards', async (req, res) => {
-    try {
-        const rewards = await prisma.reward.findMany({
-            where: { isActive: true }, 
-            orderBy: { pointsCost: 'asc' }
-        });
-        // Frontend expects 'points' field instead of 'pointsCost'
-        const formattedRewards = rewards.map(r => ({ ...r, points: r.pointsCost }));
-        res.json(formattedRewards);
-    } catch (error) {
-        console.error("Reward API Error:", error);
-        res.status(500).json({ error: "Internal Server Error" });
-    }
-});
-
-// ==================================================
 // 📦 PRODUCTS
 // ==================================================
 router.get('/products', async (req, res) => {

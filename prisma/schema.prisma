@@ -218,14 +218,6 @@ model Admin {
   role       Role    @default(Admin)
 }
 
-model Reward {
-  rewardId    String  @id // เช่น R50, R100
-  name        String
-  pointsCost  Int // ใช้ points แทน pointsCost ก็ได้ แต่ pointsCost สื่อความหมายดีกว่า
-  description String?
-  isActive    Boolean @default(true) // เปิด/ปิด การแลกรางวัลนี้
-}
-
 model Campaign {
   id        Int      @id @default(autoincrement())
   name      String   @unique // เปลี่ยนจาก campaignName เป็น name ให้สั้นกระชับ

@@ -488,42 +488,6 @@ async function handleAddPoints(ctx, commandParts, adminUser, chatId) {
     sendAdminReply(chatId, `✅ เพิ่ม ${points} แต้มให้ ${customerId} เรียบร้อย\n💰 ยอดรวม: ${newPoints}`);
 }
 
-async function handleRedeemReward(ctx, commandParts, adminUser, chatId) {
-    const customerId = commandParts[1]?.toUpperCase();
-    const rewardId = commandParts[2]?.toUpperCase();
-
-    if (!customerId || !rewardId) return sendAdminReply(chatId, "❗️รูปแบบคำสั่งผิด\nต้องเป็น: /redeem [รหัสลูกค้า] [รหัสรางวัล]");
-
-    const customer = await prisma.customer.findUnique({ where: { customerId: customerId } });
-    if (!customer || customer.isDeleted) return sendAdminReply(chatId, `🔍 ไม่พบข้อมูลลูกค้า ${customerId}`);
-
-    const reward = await prisma.reward.findUnique({ where: { rewardId: rewardId } });
-    if (!reward) return sendAdminReply(chatId, `🎁 ไม่พบของรางวัลรหัส '${rewardId}'`);
-
-    if (customer.points < reward.pointsCost) return sendAdminReply(chatId, `⚠️ แต้มไม่เพียงพอ (มี ${customer.points}, ใช้ ${reward.pointsCost})`);
-
-    await prisma.customer.update({
-        where: { customerId: customerId },
-        data: { points: { decrement: reward.pointsCost } }
-    });
-
-    const newPoints = customer.points - reward.pointsCost;
-    await createAdminLog(adminUser, "REDEEM_POINTS", customerId, -reward.points, `Redeemed: ${reward.name}`);
-
-    if (customer.telegramUserId) {
-        await prisma.PointTransaction.create({
-            data: {
-                customerId: customerId,
-                type: "REDEEM_REWARD",
-                amount: -reward.pointsCost,
-                detail: `Redeemed: ${reward.name}`
-            }
-        });
-        await sendNotificationToCustomer(customer.telegramUserId, `🎁 คุณใช้ ${reward.points} แต้ม แลก '${reward.name}' สำเร็จ\n💰 แต้มคงเหลือ: ${newPoints}`);
-    }
-    sendAdminReply(chatId, `✅ แลก '${reward.name}' ให้ ${customerId} สำเร็จ\n💰 แต้มคงเหลือ: ${newPoints}`);
-}
-
 async function createAdminLog(admin, action, customerId, pointsChange, details) {
     try {
         let combinedDetails = details || "";

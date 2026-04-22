@@ -396,25 +396,19 @@
         </div>
         <!-- [END] Friends Box -->
 
-        <!-- [START] Rewards & Invite Box -->
-        <div class="grid grid-cols-2 gap-4">
-            <button onclick="openRewardsModal()" class="glass-card p-4 hover:bg-white/10 transition active:scale-95 text-left group">
-                <div class="w-10 h-10 rounded-full bg-[#F22233]/20 flex items-center justify-center text-[#F22233] mb-3 group-hover:scale-110 transition">
-                    <i class="ri-gift-2-line text-xl"></i>
+        <!-- [START] Invite Box -->
+        <div class="grid grid-cols-1 gap-4">
+            <button onclick="openInviteModal()" class="glass-card p-4 hover:bg-white/10 transition active:scale-95 text-left flex items-center gap-4 group">
+                <div class="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 group-hover:scale-110 transition flex-shrink-0">
+                    <i class="ri-user-add-line text-2xl"></i>
                 </div>
-                <div class="font-semibold">ของรางวัล</div>
-                <div class="text-xs text-gray-400">สะสมแต้มแลกรางวัล</div>
-            </button>
-
-            <button onclick="openInviteModal()" class="glass-card p-4 hover:bg-white/10 transition active:scale-95 text-left group">
-                <div class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 mb-3 group-hover:scale-110 transition">
-                    <i class="ri-user-add-line text-xl"></i>
+                <div>
+                    <div class="font-bold text-lg text-white">เชิญเพื่อน</div>
+                    <div class="text-sm text-gray-400">รับแต้มพิเศษเมื่อเพื่อนสมัครสมาชิก</div>
                 </div>
-                <div class="font-semibold">เชิญเพื่อน</div>
-                <div class="text-xs text-gray-400">รับแต้มพิเศษ</div>
             </button>
         </div>
-        <!-- [END] Rewards & Invite Box -->
+        <!-- [END] Invite Box -->
 
 
     </div>
@@ -490,28 +484,6 @@
                         </button>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Rewards Modal -->
-    <div id="rewards-modal" class="hidden fixed inset-0 z-[60] flex items-end justify-center bg-black/90 backdrop-blur-md opacity-0 transition-opacity duration-300">
-        <div class="glass-card w-full max-w-md h-full flex flex-col transform translate-y-full transition-transform duration-300" id="rewards-content">
-
-            <div class="p-6 border-b border-gray-700 bg-gradient-to-r from-[#F22233]/50 to-[#F24E29]/50">
-                <div class="flex justify-between items-center mb-2">
-                    <h3 class="text-xl font-bold flex items-center gap-2 text-white">
-                        <i class="ri-gift-line text-[#F22233]"></i> ของรางวัล
-                    </h3>
-                    <button onclick="closeRewardsModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition text-white">
-                        <i class="ri-close-line"></i>
-                    </button>
-                </div>
-                <p class="text-xs text-gray-400">รายการของรางวัลที่สามารถแลกได้ด้วยแต้มของคุณ</p>
-            </div>
-
-            <div id="rewards-list" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-                <div class="text-center text-gray-500 mt-10 animate-pulse">กำลังโหลดรายการของรางวัล...</div>
             </div>
         </div>
     </div>
@@ -1527,69 +1499,6 @@
             modal.classList.add('opacity-0');
             setTimeout(() => modal.classList.add('hidden'), 300);
         }
-
-        // --- [START] Rewards Logic ---
-        async function openRewardsModal() {
-            hideBottomNav(); // Hide nav bar when modal opens
-            const modal = document.getElementById('rewards-modal');
-            const content = document.getElementById('rewards-content');
-            const list = document.getElementById('rewards-list');
-
-            document.body.classList.add('no-scroll');
-            modal.classList.remove('hidden');
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                content.classList.remove('translate-y-full');
-            }, 10);
-
-            try {
-                const res = await fetch('/api/rewards');
-                const rewards = await res.json();
-
-                if (rewards && rewards.length > 0) {
-                    let html = '<div class="grid grid-cols-2 gap-3">'; // Start with grid for rewards
-                    rewards.forEach(item => {
-                        // Add a check for item.points to ensure it exists
-                        const pointsDisplay = (item.points !== undefined && item.points !== null) ? `${item.points.toLocaleString()} pts` : 'N/A pts';
-
-                        html += `
-                    <div class="bg-white/5 p-3 rounded-xl border border-white/10 flex flex-col items-center text-center group hover:bg-white/10 transition item-hover-effect">
-                        <div class="w-16 h-16 rounded-full bg-[#F22233]/20 text-[#F22233] flex items-center justify-center text-3xl mb-3 shadow-[0_0_15px_rgba(168,85,247,0.3)] group-hover:scale-110 transition">
-                            <i class="ri-gift-2-fill"></i>
-                        </div>
-                        <div class="font-bold text-sm text-white mb-1 line-clamp-2 min-h-[2.5em]">${item.name}</div>
-                        <div class="text-yellow-400 font-bold text-sm bg-yellow-500/10 px-3 py-1 rounded-full border border-yellow-500/20">
-                            ${pointsDisplay}
-                        </div>
-                    </div>`;
-                    });
-                    html += '</div>';
-                    list.innerHTML = html;
-                } else {
-                    list.innerHTML = `
-                    <div class="flex flex-col items-center justify-center h-full text-gray-500 opacity-60">
-                        <i class="ri-gift-line text-6xl mb-4"></i>
-                        <p>ยังไม่มีของรางวัลในขณะนี้</p>
-                    </div>`;
-                }
-            } catch (e) {
-                console.error("Error in openRewardsModal:", e);
-                list.innerHTML = '<div class="text-center text-red-400 mt-10">โหลดข้อมูลไม่สำเร็จ</div>';
-                showToast("เกิดข้อผิดพลาดในการโหลดของรางวัล", 'error');
-            }
-        }
-
-        function closeRewardsModal() {
-            showBottomNav(); // Show nav bar when modal closes
-            const modal = document.getElementById('rewards-modal');
-            const content = document.getElementById('rewards-content');
-
-            document.body.classList.remove('no-scroll');
-            content.classList.add('translate-y-full');
-            modal.classList.add('opacity-0');
-            setTimeout(() => modal.classList.add('hidden'), 300);
-        }
-        // --- [END] Rewards Logic ---
 
         async function openInviteModal() {
             console.log("[Invite Modal] Opening...");
