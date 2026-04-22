@@ -14,6 +14,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.2/color-thief.umd.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tinycolor/1.6.0/tinycolor.min.js"></script>
     <style>
+        html, body {
+            overscroll-behavior-y: none; /* Prevent rubber-banding which breaks sticky headers */
+            background-color: var(--bg-color); /* Ensure dark background */
+        }
         :root {
             --bg-color: #121212;
             --secondary-bg: #1E1E1E;
@@ -2127,10 +2131,35 @@
 
             // --- Cart Functions ---
             const saveCart = () => {
-                localStorage.setItem('shoppingCart', JSON.stringify(cart));
+                localStorage.setItem('shoppingCart', JSON.stringify(window.cart));
+
+                // Sync to DB in background
+                const telegramId = tg.initDataUnsafe?.user?.id?.toString() || currentUser?.telegramUserId;
+                if (telegramId) {
+                    const cartItems = window.cart.map(i => ({ id: i.id, quantity: i.quantity }));
+                    fetch('/api/cart/sync', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ telegramId, cartItems })
+                    }).catch(err => console.error("Failed to sync cart:", err));
+                }
             };
 
-            const loadCart = () => {
+            const loadCart = async () => {
+                try {
+                    const telegramId = tg.initDataUnsafe?.user?.id?.toString() || currentUser?.telegramUserId;
+                    if (telegramId) {
+                        const res = await fetch(`/api/cart/${telegramId}`);
+                        const data = await res.json();
+                        if (data.success) {
+                            // Update localStorage from DB as source of truth
+                            localStorage.setItem('shoppingCart', JSON.stringify(data.items));
+                        }
+                    }
+                } catch (error) {
+                    console.error("Failed to load cart from DB, using local cache:", error);
+                }
+
                 const savedCart = localStorage.getItem('shoppingCart');
                 let parsedCart = savedCart ? JSON.parse(savedCart) : [];
 
@@ -2150,18 +2179,16 @@
                 window.updateCartUI();
             };
 
-            
             const clearCart = () => {
                 if (confirm('ยืนยันล้างตะกร้าสินค้าทั้งหมด?')) {
                     window.cart = [];
-                    localStorage.setItem('shoppingCart', JSON.stringify([]));
-                    
+                    saveCart();
+
                     // Refresh everything
                     if (typeof window.updateCartUI === 'function') window.updateCartUI();
                     if (typeof window.calculateCartTotals === 'function') window.calculateCartTotals();
                     if (typeof window.updateCartIcon === 'function') window.updateCartIcon();
-                    if (typeof window.updateCartModalDisplay === 'function') window.updateCartModalDisplay();
-                    
+                    if (typeof window.updateCartModalDisplay === 'function') window.updateCartModalDisplay();                    
                     // CRITICAL: Refresh the product listing to show "Add" buttons again
                     if (typeof renderProducts === 'function') renderProducts();
                     

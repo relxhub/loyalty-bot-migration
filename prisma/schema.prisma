@@ -19,13 +19,13 @@ enum Role {
 }
 
 enum TransactionType {
-  REFERRAL_BONUS    // ได้แต้มจากการชวนเพื่อน
-  LINK_BONUS        // ได้แต้มจากการผูกบัญชี Telegram
-  REDEEM_REWARD     // แลกของรางวัล (แต้มลด)
-  ADMIN_ADJUST      // แอดมินแก้ไขแต้ม (เพิ่ม/ลด)
-  SYSTEM_ADJUST     // ระบบแก้ไข (เช่น แต้มหมดอายุ)
-  CAMPAIGN_BONUS    // โบนัสพิเศษจากแคมเปญ (เช่น ครบ 5 คน)
-  OTHER             // อื่นๆ
+  REFERRAL_BONUS // ได้แต้มจากการชวนเพื่อน
+  LINK_BONUS // ได้แต้มจากการผูกบัญชี Telegram
+  REDEEM_REWARD // แลกของรางวัล (แต้มลด)
+  ADMIN_ADJUST // แอดมินแก้ไขแต้ม (เพิ่ม/ลด)
+  SYSTEM_ADJUST // ระบบแก้ไข (เช่น แต้มหมดอายุ)
+  CAMPAIGN_BONUS // โบนัสพิเศษจากแคมเปญ (เช่น ครบ 5 คน)
+  OTHER // อื่นๆ
 }
 
 enum ProductStatus {
@@ -56,77 +56,108 @@ enum CouponStatus {
 // ---------------------------------------------------------
 
 model Customer {
-  customerId        String    @id // รหัสสมาชิก (เช่น OTxxxx)
-  referrerId        String?   // รหัสผู้แนะนำ (Upline)
-  points            Int       @default(0)
-  expiryDate        DateTime? // วันหมดอายุแต้ม (ปรับเป็น Nullable เผื่อไม่มีวันหมดอายุ)
-  
+  customerId String    @id // รหัสสมาชิก (เช่น OTxxxx)
+  referrerId String? // รหัสผู้แนะนำ (Upline)
+  points     Int       @default(0)
+  expiryDate DateTime? // วันหมดอายุแต้ม (ปรับเป็น Nullable เผื่อไม่มีวันหมดอายุ)
+
   // Telegram Info
-  telegramUserId    String?   @unique
-  username          String?
-  firstName         String?
-  lastName          String?
-  
+  telegramUserId String? @unique
+  username       String?
+  firstName      String?
+  lastName       String?
+
   // Verification
-  verificationCode  String?
-  
+  verificationCode String?
+
   // Management Info
-  joinDate          DateTime  @default(now()) // วันที่เริ่มเป็นสมาชิก (migrate มาใส่ได้)
-  adminCreatedBy    String?   // admin คนไหนสร้าง (Nullable เผื่อสมัครเอง)
-  referralCount     Int       @default(0)
-  activeCampaignTag String?   // แท็กแคมเปญปัจจุบันที่เข้าร่วม
-  isDeleted         Boolean   @default(false)
+  joinDate          DateTime @default(now()) // วันที่เริ่มเป็นสมาชิก (migrate มาใส่ได้)
+  adminCreatedBy    String? // admin คนไหนสร้าง (Nullable เผื่อสมัครเอง)
+  referralCount     Int      @default(0)
+  activeCampaignTag String? // แท็กแคมเปญปัจจุบันที่เข้าร่วม
+  isDeleted         Boolean  @default(false)
 
   // Relations (ความสัมพันธ์กับตารางอื่น)
   transactions      PointTransaction[]
   auditLogs         AdminAuditLog[]
-  referralsMade     Referral[] @relation("ReferredBy") // People this customer has referred
-  referredBy        Referral?  @relation("Referred")   // The referral record for how this customer joined
+  referralsMade     Referral[]         @relation("ReferredBy") // People this customer has referred
+  referredBy        Referral?          @relation("Referred") // The referral record for how this customer joined
   reviews           ProductReview[] // Relation to reviews
   coupons           CustomerCoupon[] // Relation to coupons
   shippingAddresses ShippingAddress[] // Relation to shipping addresses
+  cart              Cart? // Relation to Cart
 
   @@index([verificationCode])
   @@index([referrerId])
 }
 
+// ---------------------------------------------------------
+// CART MODELS
+// ---------------------------------------------------------
+
+model Cart {
+  id         Int      @id @default(autoincrement())
+  customerId String   @unique
+  updatedAt  DateTime @updatedAt
+
+  customer Customer   @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
+  items    CartItem[]
+
+  @@index([customerId])
+}
+
+model CartItem {
+  id        Int      @id @default(autoincrement())
+  cartId    Int
+  productId Int
+  quantity  Int      @default(1)
+  addedAt   DateTime @default(now())
+
+  cart Cart @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  // Store snapshot of price/category or rely on real-time Product fetch?
+  // Better to rely on real-time Product fetch to always get latest prices
+
+  @@unique([cartId, productId])
+  @@index([cartId])
+}
+
 model Coupon {
-  id                  String       @id // เช่น 'FIRST_ENTRY', 'B3G1_SEPT'
-  name                String
-  description         String?
-  type                CouponType
-  value               Decimal?     @db.Decimal(10, 2) // จำนวนเงินที่ลด หรือ %
-  
+  id          String     @id // เช่น 'FIRST_ENTRY', 'B3G1_SEPT'
+  name        String
+  description String?
+  type        CouponType
+  value       Decimal?   @db.Decimal(10, 2) // จำนวนเงินที่ลด หรือ %
+
   // ส่วนของแถม (กรณี type = GIFT)
-  giftCategoryId      Int?         // เปลี่ยนจาก giftProductId เป็น giftCategoryId
-  giftQty             Int?         @default(1)
-  
+  giftCategoryId Int? // เปลี่ยนจาก giftProductId เป็น giftCategoryId
+  giftQty        Int? @default(1)
+
   // เงื่อนไข (Conditions)
-  minPurchase         Decimal?     @db.Decimal(10, 2)
-  minQty              Int?
-  targetCategoryId    Int?
-  targetProductId     Int?         // ระบุ ID สินค้าที่ต้องซื้อ (ถ้ามี)
-  excludedProductIds  Int[]        // รายชื่อ ID สินค้าที่ไม่เข้าร่วม
-  
+  minPurchase        Decimal? @db.Decimal(10, 2)
+  minQty             Int?
+  targetCategoryId   Int?
+  targetProductId    Int? // ระบุ ID สินค้าที่ต้องซื้อ (ถ้ามี)
+  excludedProductIds Int[] // รายชื่อ ID สินค้าที่ไม่เข้าร่วม
+
   // ใช้แต้มแลก (ถ้ามีค่า แสดงว่าเป็นคูปองที่ต้องใช้แต้มแลก)
-  pointsCost          Int?
-  
+  pointsCost Int?
+
   // ข้อจำกัด (Limits & FCFS)
-  totalQuota          Int?         // จำนวนทั้งหมด (Null = ไม่จำกัด)
-  claimedCount        Int          @default(0)
-  usageLimitPerUser   Int          @default(1)
-  
-  startDate           DateTime?    // วันที่เริ่มให้เก็บคูปอง
-  endDate             DateTime?    // วันที่สิ้นสุดการเก็บคูปอง
-  validFrom           DateTime?    // วันที่เริ่มใช้งานได้
-  validUntil          DateTime?    // วันหมดอายุแบบ Global (ทุกคนหมดพร้อมกัน)
-  validityDays        Int?         // จำนวนวันหมดอายุ นับจากวันที่เก็บ/แลก
-  
-  isActive            Boolean      @default(true)
-  createdAt           DateTime     @default(now())
+  totalQuota        Int? // จำนวนทั้งหมด (Null = ไม่จำกัด)
+  claimedCount      Int  @default(0)
+  usageLimitPerUser Int  @default(1)
+
+  startDate    DateTime? // วันที่เริ่มให้เก็บคูปอง
+  endDate      DateTime? // วันที่สิ้นสุดการเก็บคูปอง
+  validFrom    DateTime? // วันที่เริ่มใช้งานได้
+  validUntil   DateTime? // วันหมดอายุแบบ Global (ทุกคนหมดพร้อมกัน)
+  validityDays Int? // จำนวนวันหมดอายุ นับจากวันที่เก็บ/แลก
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
 
   // ความสัมพันธ์
-  customerCoupons     CustomerCoupon[]
+  customerCoupons CustomerCoupon[]
 }
 
 model CustomerCoupon {
@@ -135,12 +166,12 @@ model CustomerCoupon {
   couponId    String
   status      CouponStatus @default(AVAILABLE)
   claimedAt   DateTime     @default(now())
-  expiryDate  DateTime?    // เก็บไว้เพื่อไม่ให้เสียข้อมูลเดิม
+  expiryDate  DateTime? // เก็บไว้เพื่อไม่ให้เสียข้อมูลเดิม
   usedAt      DateTime?
-  usedByAdmin String?      // เก็บชื่อแอดมินที่กดตัดคูปอง
+  usedByAdmin String? // เก็บชื่อแอดมินที่กดตัดคูปอง
 
-  customer    Customer     @relation(fields: [customerId], references: [customerId])
-  coupon      Coupon       @relation(fields: [couponId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [customerId])
+  coupon   Coupon   @relation(fields: [couponId], references: [id])
 
   @@index([customerId])
   @@index([couponId])
@@ -149,18 +180,18 @@ model CustomerCoupon {
 }
 
 model Referral {
-  id              Int      @id @default(autoincrement())
-  referrerId      String   // Customer ID of the person who refers
-  refereeId       String   @unique // Customer ID of the new person who was referred
-  status          String   // PENDING_PURCHASE, COMPLETED
-  purchaseAmount  Float?   // The amount of the first purchase
-  bonusAwarded    Int?     // How many points the referrer received
-  createdAt       DateTime @default(now())
-  completedAt     DateTime?
+  id             Int       @id @default(autoincrement())
+  referrerId     String // Customer ID of the person who refers
+  refereeId      String    @unique // Customer ID of the new person who was referred
+  status         String // PENDING_PURCHASE, COMPLETED
+  purchaseAmount Float? // The amount of the first purchase
+  bonusAwarded   Int? // How many points the referrer received
+  createdAt      DateTime  @default(now())
+  completedAt    DateTime?
 
   // Relations
-  referrer        Customer @relation("ReferredBy", fields: [referrerId], references: [customerId])
-  referee         Customer @relation("Referred", fields: [refereeId], references: [customerId])
+  referrer Customer @relation("ReferredBy", fields: [referrerId], references: [customerId])
+  referee  Customer @relation("Referred", fields: [refereeId], references: [customerId])
 
   @@index([referrerId])
   @@index([refereeId])
@@ -173,26 +204,26 @@ model Admin {
 }
 
 model Reward {
-  rewardId    String   @id // เช่น R50, R100
+  rewardId    String  @id // เช่น R50, R100
   name        String
-  pointsCost  Int      // ใช้ points แทน pointsCost ก็ได้ แต่ pointsCost สื่อความหมายดีกว่า
+  pointsCost  Int // ใช้ points แทน pointsCost ก็ได้ แต่ pointsCost สื่อความหมายดีกว่า
   description String?
-  isActive    Boolean  @default(true) // เปิด/ปิด การแลกรางวัลนี้
+  isActive    Boolean @default(true) // เปิด/ปิด การแลกรางวัลนี้
 }
 
 model Campaign {
-  id              Int      @id @default(autoincrement())
-  name            String   @unique // เปลี่ยนจาก campaignName เป็น name ให้สั้นกระชับ
-  startDate       DateTime // เปลี่ยนจาก startAt
-  endDate         DateTime // เปลี่ยนจาก endAt
-  
+  id        Int      @id @default(autoincrement())
+  name      String   @unique // เปลี่ยนจาก campaignName เป็น name ให้สั้นกระชับ
+  startDate DateTime // เปลี่ยนจาก startAt
+  endDate   DateTime // เปลี่ยนจาก endAt
+
   // Configuration
-  baseReferral    Int      @default(50) // แต้มพื้นฐานต่อการชวน 1 คน
-  milestoneTarget Int      @default(0)  // เป้าหมายโบนัส (เช่น ครบ 5 คน)
-  milestoneBonus  Int      @default(0)  // แต้มโบนัสเมื่อครบเป้า
-  linkBonus       Int      @default(50) // แต้มเมื่อผูกบัญชี
-  
-  isActive        Boolean  @default(true)
+  baseReferral    Int @default(50) // แต้มพื้นฐานต่อการชวน 1 คน
+  milestoneTarget Int @default(0) // เป้าหมายโบนัส (เช่น ครบ 5 คน)
+  milestoneBonus  Int @default(0) // แต้มโบนัสเมื่อครบเป้า
+  linkBonus       Int @default(50) // แต้มเมื่อผูกบัญชี
+
+  isActive Boolean @default(true)
 }
 
 model SystemConfig {
@@ -201,27 +232,27 @@ model SystemConfig {
 }
 
 model Banner {
-  id        Int      @id @default(autoincrement())
-  imageUrl  String
-  linkUrl   String?
-  isActive  Boolean  @default(true)
-  order     Int      @default(0)
+  id       Int     @id @default(autoincrement())
+  imageUrl String
+  linkUrl  String?
+  isActive Boolean @default(true)
+  order    Int     @default(0)
 }
 
 model Category {
-  id        Int     @id @default(autoincrement())
-  name      String  @unique
-  type      ProductType @default(POD) // POD, DEVICE, DISPOSABLE
-  imageUrl  String?
+  id          Int         @id @default(autoincrement())
+  name        String      @unique
+  type        ProductType @default(POD) // POD, DEVICE, DISPOSABLE
+  imageUrl    String?
   productIcon String? // รูปสินค้าตัวแทนสำหรับ Animation (fly to cart)
-  order     Int     @default(0)
-  price     Decimal @default(0) @db.Decimal(10, 2)
+  order       Int         @default(0)
+  price       Decimal     @default(0) @db.Decimal(10, 2)
 
   products Product[]
 }
 
 model Product {
-  id                   Int      @id @default(autoincrement())
+  id                   Int           @id @default(autoincrement())
   nameTh               String?
   nameEn               String?
   tagline              String?
@@ -233,23 +264,23 @@ model Product {
   isHot                Boolean       @default(false)
   viewCount            Int           @default(0)
   nicotine             Int?
-  coolnessLevel        Int?     @default(0)
-  sweetnessLevel       Int?     @default(0)
-  flavorIntensityLevel Int?     @default(0)
-  
-  // Device Specific Fields
-  color                String?
-  battery              String?
-  wattage              String?
+  coolnessLevel        Int?          @default(0)
+  sweetnessLevel       Int?          @default(0)
+  flavorIntensityLevel Int?          @default(0)
 
-  allowCoupons         Boolean  @default(true) // เลือกได้ว่าสินค้านี้ร่วมรายการคูปองหรือไม่
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  // Device Specific Fields
+  color   String?
+  battery String?
+  wattage String?
+
+  allowCoupons Boolean  @default(true) // เลือกได้ว่าสินค้านี้ร่วมรายการคูปองหรือไม่
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relation to Category
-  categoryId           Int?
-  category             Category? @relation(fields: [categoryId], references: [id])
-  reviews              ProductReview[] // Relation to reviews
+  categoryId Int?
+  category   Category?       @relation(fields: [categoryId], references: [id])
+  reviews    ProductReview[] // Relation to reviews
 }
 
 // ---------------------------------------------------------
@@ -258,16 +289,16 @@ model Product {
 
 // เก็บประวัติการได้/เสียแต้ม ทุกกรณี (ใช้แสดงผลหน้า Frontend ได้เลย)
 model PointTransaction {
-  id          Int             @id @default(autoincrement())
-  customerId  String
-  amount      Int             // จำนวนแต้ม (+ คือได้, - คือเสีย/แลก)
-  type        TransactionType // ประเภทรายการ
-  relatedId   String?         // ID ที่เกี่ยวข้อง (เช่น ID เพื่อนที่แนะนำ หรือ ID ของรางวัล)
-  detail      String?         // รายละเอียดเพิ่มเติม (เช่น "แนะนำเพื่อน OT1234", "แลกส่วนลด 50บ.")
-  createdAt   DateTime        @default(now())
+  id         Int             @id @default(autoincrement())
+  customerId String
+  amount     Int // จำนวนแต้ม (+ คือได้, - คือเสีย/แลก)
+  type       TransactionType // ประเภทรายการ
+  relatedId  String? // ID ที่เกี่ยวข้อง (เช่น ID เพื่อนที่แนะนำ หรือ ID ของรางวัล)
+  detail     String? // รายละเอียดเพิ่มเติม (เช่น "แนะนำเพื่อน OT1234", "แลกส่วนลด 50บ.")
+  createdAt  DateTime        @default(now())
 
   // เชื่อมกับลูกค้า
-  customer    Customer        @relation(fields: [customerId], references: [customerId])
+  customer Customer @relation(fields: [customerId], references: [customerId])
 
   @@index([customerId])
   @@index([type])
@@ -276,12 +307,12 @@ model PointTransaction {
 
 // เก็บประวัติการกระทำของ Admin (ใคร ทำอะไร กับใคร)
 model AdminAuditLog {
-  id          Int      @id @default(autoincrement())
-  adminName   String   // ชื่อ Admin หรือ Telegram ID ที่ทำรายการ
-  action      String   // สิ่งที่ทำ (เช่น EDIT_POINTS, BAN_USER, CREATE_CUSTOMER)
-  targetId    String?  // ID ของลูกค้าที่ถูกกระทำ (ถ้ามี)
-  details     String?  // รายละเอียด JSON หรือ Text (เช่น "แก้แต้มจาก 100 -> 200")
-  createdAt   DateTime @default(now())
+  id        Int      @id @default(autoincrement())
+  adminName String // ชื่อ Admin หรือ Telegram ID ที่ทำรายการ
+  action    String // สิ่งที่ทำ (เช่น EDIT_POINTS, BAN_USER, CREATE_CUSTOMER)
+  targetId  String? // ID ของลูกค้าที่ถูกกระทำ (ถ้ามี)
+  details   String? // รายละเอียด JSON หรือ Text (เช่น "แก้แต้มจาก 100 -> 200")
+  createdAt DateTime @default(now())
 
   // เชื่อมกับลูกค้า (Optional)
   targetCustomer Customer? @relation(fields: [targetId], references: [customerId])
@@ -289,28 +320,28 @@ model AdminAuditLog {
 
 // เก็บ Logs ของระบบ (Error, Cron Job)
 model SystemLog {
-  id          Int      @id @default(autoincrement())
-  level       String   // INFO, WARN, ERROR
-  source      String   // LEGACY_AUTO, CRON, API
-  
+  id     Int    @id @default(autoincrement())
+  level  String // INFO, WARN, ERROR
+  source String // LEGACY_AUTO, CRON, API
+
   // ✅ เพิ่ม Column ใหม่เพื่อเก็บข้อมูลแยก
-  action      String?  // เก็บชื่อ Action เช่น REFERRAL_BONUS, EXPIRE
-  customerId  String?  // เก็บ ID ลูกค้าที่เกี่ยวข้อง
-  points      Int?     // เก็บจำนวนแต้ม
-  
-  message     String   // รายละเอียดอื่นๆ หรือข้อความสรุป
-  createdAt   DateTime @default(now())
+  action     String? // เก็บชื่อ Action เช่น REFERRAL_BONUS, EXPIRE
+  customerId String? // เก็บ ID ลูกค้าที่เกี่ยวข้อง
+  points     Int? // เก็บจำนวนแต้ม
+
+  message   String // รายละเอียดอื่นๆ หรือข้อความสรุป
+  createdAt DateTime @default(now())
 }
 
 model ProductReview {
-  id         Int      @id @default(autoincrement())
-  rating     Int
-  comment    String   @db.Text
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        Int      @id @default(autoincrement())
+  rating    Int
+  comment   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  productId  Int
-  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   customerId String
   customer   Customer @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
@@ -325,21 +356,21 @@ model ProductReview {
 // ---------------------------------------------------------
 
 model ShippingAddress {
-  id              Int      @id @default(autoincrement())
-  customerId      String
-  name            String   // Label like "Home", "Office"
-  receiverName    String
-  phone           String
-  address         String   // House No, Street, etc.
-  subdistrict     String
-  district        String
-  province        String
-  zipcode         String
-  isDefault       Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  customerId   String
+  name         String // Label like "Home", "Office"
+  receiverName String
+  phone        String
+  address      String // House No, Street, etc.
+  subdistrict  String
+  district     String
+  province     String
+  zipcode      String
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  customer        Customer @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
 
   @@index([customerId])
 }
@@ -354,4 +385,3 @@ model ThaiAddress {
   @@index([zipcode])
   @@index([subdistrict])
 }
-

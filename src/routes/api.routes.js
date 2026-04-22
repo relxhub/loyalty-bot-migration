@@ -907,4 +907,73 @@ router.get('/thai-addresses/search', async (req, res) => {
     }
 });
 
+// ==========================================
+// 🛒 CART API
+// ==========================================
+
+router.get('/cart/:telegramId', async (req, res) => {
+    try {
+        const { telegramId } = req.params;
+        const user = await prisma.customer.findUnique({
+            where: { telegramUserId: telegramId },
+            include: { cart: { include: { items: true } } }
+        });
+
+        if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+
+        if (!user.cart) {
+            return res.json({ success: true, items: [] });
+        }
+
+        // Return standard cart items format
+        const items = user.cart.items.map(i => ({
+            id: i.productId,
+            quantity: i.quantity
+        }));
+
+        res.json({ success: true, items });
+    } catch (error) {
+        console.error('GET Cart Error:', error);
+        res.status(500).json({ success: false, error: 'Internal Server Error' });
+    }
+});
+
+router.post('/cart/sync', async (req, res) => {
+    try {
+        const { telegramId, cartItems } = req.body;
+        // cartItems: [{ id: productId, quantity: 2 }, ...]
+
+        const user = await prisma.customer.findUnique({
+            where: { telegramUserId: telegramId }
+        });
+
+        if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+
+        // Upsert cart
+        let cart = await prisma.cart.findUnique({ where: { customerId: user.customerId } });
+        if (!cart) {
+            cart = await prisma.cart.create({ data: { customerId: user.customerId } });
+        }
+
+        // Instead of complex upserts, just clear and re-create items for simple sync
+        // (Since it's a small array, this is fast and robust)
+        await prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
+        
+        if (cartItems && cartItems.length > 0) {
+            await prisma.cartItem.createMany({
+                data: cartItems.map(item => ({
+                    cartId: cart.id,
+                    productId: item.id,
+                    quantity: item.quantity
+                }))
+            });
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Sync Cart Error:', error);
+        res.status(500).json({ success: false, error: 'Internal Server Error' });
+    }
+});
+
 export default router;
