@@ -225,12 +225,6 @@
 </head>
 <body class="min-h-screen flex flex-col p-5 select-none overflow-x-hidden">
 
-    <div class="header-actions">
-        <button class="refresh-btn" onclick="manualRefresh(); try { Telegram.WebApp.hapticFeedback.impactOccurred('medium'); } catch(e){}">
-            <i class="ri-refresh-line text-xl"></i>
-        </button>
-    </div>
-
     <div id="toast-container"></div>
 
     <div id="loading-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#050C0D]">
@@ -560,7 +554,7 @@
 
     <!-- Points History Modal (Original Structure) -->
     <div id="history-modal" class="hidden fixed inset-0 z-[60] flex items-end justify-center bg-black/80 backdrop-blur-md opacity-0 transition-opacity duration-300">
-        <div class="glass-card w-full max-w-md h-[80vh] sm:h-[600px] rounded-t-3xl sm:rounded-2xl flex flex-col transform translate-y-full transition-transform duration-300" id="history-content">
+        <div class="glass-card w-full max-w-md h-full flex flex-col transform translate-y-full transition-transform duration-300" id="history-content">
             
             <div class="p-5 border-b border-gray-700 flex justify-between items-center bg-black/20">
                 <h3 class="text-lg font-bold flex items-center gap-2">
