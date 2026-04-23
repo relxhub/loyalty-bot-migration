@@ -483,7 +483,8 @@
                 } catch(e) {
                     console.log("[Home] Auth check failed, proceeding to redirect:", e);
                 }
-                window.location.replace(`dashboard.html?start_param=${tg.initDataUnsafe.start_param}`);
+                // Use a cache-buster to ensure the latest dashboard.html logic is loaded
+                window.location.replace(`dashboard.html?start_param=${tg.initDataUnsafe.start_param}&v=${Date.now()}`);
             }
         });
     </script>
