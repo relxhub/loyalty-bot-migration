@@ -2235,7 +2235,7 @@
                     cartItem.quantity++;
                 } else {
                     const category = allCategories.find(c => c.id === product.categoryId);
-                    cart.push({
+                    window.cart.push({
                         id: product.id, 
                         nameEn: product.nameEn,
                         nameTh: product.nameTh,
@@ -2887,7 +2887,7 @@
                     `;
                 }
 
-                const cartItem = cart.find(item => item.id === p.id);
+                const cartItem = window.cart.find(item => item.id === p.id);
                 if (cartItem && cartItem.quantity > 0) {
                     return `
                         <div class="cart-control-wrapper ${mode === 'mini' ? '!p-1 !gap-1 !bg-zinc-900/80' : ''}">
