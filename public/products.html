@@ -2097,7 +2097,7 @@
                             <h4 class="text-xs font-bold text-zinc-400 mb-2 uppercase tracking-wider">${catName}</h4>
                             <div class="space-y-2">
                                 ${products.map(p => {
-                                    const cartItem = cart.find(item => item.id === p.id);
+                                    const cartItem = window.cart.find(item => item.id === p.id);
                                     const isInCart = cartItem && cartItem.quantity > 0;
                                     
                                     let cartControlHtml = '';
@@ -2230,7 +2230,7 @@
                 const product = allProducts.find(p => p.id === productId);
                 if (!product) return;
 
-                const cartItem = cart.find(item => item.id === productId);
+                const cartItem = window.cart.find(item => item.id === productId);
                 if (cartItem) {
                     cartItem.quantity++;
                 } else {
@@ -2264,7 +2264,7 @@
             };
 
             window.updateCartModalItem = (productId) => {
-                const item = cart.find(i => i.id === productId);
+                const item = window.cart.find(i => i.id === productId);
                 const total = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
                 cartTotalPrice.textContent = `฿${total.toLocaleString('th-TH')}`;
 
@@ -3566,27 +3566,10 @@
                 // Silently load shipping addresses to restore previous selection
                 fetchAddresses();
 
-                loadCart();
+                await loadCart();
                 loadFavorites();
                 renderBanners(data.banners);
                 renderCategories(data.categories);
-                
-                // --- FIX: Force initial calculation once data is ready ---
-                if (cart.length > 0) {
-                    // Re-run loadCart logic now that allCategories is populated
-                    const savedCart = localStorage.getItem('shoppingCart');
-                    let parsedCart = savedCart ? JSON.parse(savedCart) : [];
-                    window.cart = parsedCart.map(item => {
-                        const product = allProducts.find(p => p.id === item.id);
-                        if (product) {
-                            const category = allCategories.find(c => c.id === product.categoryId);
-                            item.price = category ? parseFloat(category.price) : (item.price || 0);
-                            item.categoryName = category ? category.name : (item.categoryName || '');
-                        }
-                        return item;
-                    });
-                    window.updateCartUI();
-                }
 
                 appContainer.classList.remove('hidden');
                 loader.remove();
