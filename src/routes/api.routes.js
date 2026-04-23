@@ -570,11 +570,24 @@ router.get('/coupons', async (req, res) => {
     try {
         const { telegramId } = req.query;
         
+        const now = new Date();
         const coupons = await prisma.coupon.findMany({
             where: {
                 isActive: true,
                 pointsCost: null, // เฉพาะคูปองที่ไม่ต้องใช้แต้มแลก
-                isAutoAssign: false // ซ่อนคูปองที่ตั้งให้แจกอัตโนมัติ
+                isAutoAssign: false, // ซ่อนคูปองที่ตั้งให้แจกอัตโนมัติ
+                OR: [
+                    { endDate: null },
+                    { endDate: { gt: now } } // ยังไม่หมดเขตแจก
+                ],
+                AND: [
+                    {
+                        OR: [
+                            { validUntil: null },
+                            { validUntil: { gt: now } } // ยังไม่หมดอายุการใช้งาน
+                        ]
+                    }
+                ]
             },
             orderBy: { createdAt: 'desc' }
         });
@@ -620,15 +633,27 @@ router.get('/coupons/redeemable', async (req, res) => {
     try {
         const { telegramId } = req.query;
         
+        const now = new Date();
         const coupons = await prisma.coupon.findMany({
             where: { 
                 isActive: true,
                 pointsCost: { gt: 0 }, // เฉพาะคูปองที่ต้องใช้แต้มแลก
-                isAutoAssign: false // ซ่อนคูปองที่ตั้งให้แจกอัตโนมัติ
+                isAutoAssign: false, // ซ่อนคูปองที่ตั้งให้แจกอัตโนมัติ
+                OR: [
+                    { endDate: null },
+                    { endDate: { gt: now } } // ยังไม่หมดเขตแจก
+                ],
+                AND: [
+                    {
+                        OR: [
+                            { validUntil: null },
+                            { validUntil: { gt: now } } // ยังไม่หมดอายุการใช้งาน
+                        ]
+                    }
+                ]
             },
             orderBy: { pointsCost: 'asc' }
         });
-
         // ถ้ามีการส่ง telegramId มา ให้เช็คโควตาด้วย
         if (telegramId) {
             const user = await prisma.customer.findUnique({

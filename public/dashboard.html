@@ -777,6 +777,13 @@
 
                 if (startParam) {
                     if (startParam.startsWith('ref_')) {
+                        // Pre-flight check: If they are already a member, don't re-run referral flow on back navigation
+                        if (sessionStorage.getItem('isLinked') === 'true') {
+                            console.log("[Init] User is cached as linked. Ignoring ref_ start_param.");
+                            await refreshUserData();
+                            return;
+                        }
+                        
                         console.log("[Init] Referral link detected.");
                         const referrerId = startParam.split('_')[1];
                         await handleReferralFlow(referrerId);
@@ -857,7 +864,7 @@
                 if (authData.isMember) {
                     // User is already a member
                     console.log("[Referral Flow] User is already a member. Showing dashboard.");
-                    showToast("คุณเป็นสมาชิกอยู่แล้ว ไม่จำเป็นต้องลงทะเบียนใหม่", "info");
+                    sessionStorage.setItem('isLinked', 'true'); // Flag to bypass future referral link checks
                     window.currentUser = authData.customer;
                     renderUser(authData.customer); // Go to dashboard
                 } else {
@@ -867,14 +874,12 @@
                     
                     try {
                         await handleReferralRegistration(referrerId);
+                        // If successful, do NOT refresh data yet. Let the user read the success modal.
+                        // When they click the button, closeSuccessModal() will trigger refreshUserData().
                     } catch (regError) {
-                        console.error("Registration failed, but continuing to refresh data.", regError);
-                        // Even if registration fails (e.g., race condition), 
-                        // we still want to try refreshing the user data one last time.
+                        console.error("Registration failed, refreshing data to recover.", regError);
+                        await refreshUserData();
                     }
-
-                    console.log("[Referral Flow] Registration attempt finished. Refreshing user data...");
-                    await refreshUserData();
                 }
             } catch (error) {
                 console.error("Critical Error in Referral Flow:", error);
@@ -915,6 +920,13 @@
                     document.getElementById('loading-screen').classList.add('hidden');
                     
                     document.getElementById('success-modal').classList.remove('hidden');
+
+                    // Auto-hide success modal and load dashboard
+                    setTimeout(() => {
+                        document.getElementById('success-modal').classList.add('hidden');
+                        document.getElementById('loading-screen').classList.remove('hidden');
+                        refreshUserData(); 
+                    }, 3000);
 
                     try {
                         if (tg.hapticFeedback) {
@@ -1953,11 +1965,11 @@
             <i class="ri-home-4-line text-xl"></i>
             <span>หน้าหลัก</span>
         </a>
-        <a href="products.html" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/3 py-1.5 rounded-xl transition active:scale-95">
+        <a href="products.html?v=2" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/3 py-1.5 rounded-xl transition active:scale-95">
             <i class="ri-shopping-cart-line text-xl"></i>
             <span>เมนูสินค้า</span>
         </a>
-        <a href="dashboard.html" class="flex flex-col items-center text-xs font-medium text-white w-1/3 py-1.5 rounded-xl transition active:scale-95">
+        <a href="dashboard.html?v=2" class="flex flex-col items-center text-xs font-medium text-white w-1/3 py-1.5 rounded-xl transition active:scale-95">
             <i class="ri-wallet-3-line text-xl"></i>
             <span>บัตรสมาชิก</span>
         </a>
