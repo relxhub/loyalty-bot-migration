@@ -784,6 +784,25 @@
                     } else if (startParam.startsWith('link_')) {
                         console.log("[Init] Magic link detected.");
                         document.getElementById('loading-text').innerText = "กำลังเชื่อมต่ออัตโนมัติ...";
+                        
+                        try {
+                            const authRes = await fetch('/api/auth', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ initData: tg.initData })
+                            });
+                            if (authRes.ok) {
+                                const authData = await authRes.json();
+                                if (authData.isMember) {
+                                    console.log("[Init] User is already a member. Ignoring magic link.");
+                                    await refreshUserData();
+                                    return;
+                                }
+                            }
+                        } catch(e) {
+                            console.log("Auth check before linking failed, proceeding to link anyway:", e);
+                        }
+
                         const parts = startParam.split('_');
                         if (parts.length === 3) {
                             await performLink(parts[1], parts[2]); 
