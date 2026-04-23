@@ -1040,7 +1040,29 @@
         if (typeof window.shippingConfig === 'undefined') window.shippingConfig = { fee: 60, freeMin: 500 };
 
         // --- CORE GLOBAL FUNCTIONS ---
+        window.checkAuth = (actionName) => {
+            const user = window.currentUser || (typeof currentUser !== 'undefined' ? currentUser : null);
+            if (!user || !user.customerId) {
+                const tg = window.Telegram.WebApp;
+                tg.showPopup({
+                    title: 'กรุณายืนยันตัวตน',
+                    message: `กรุณายืนยันตัวตนเพื่อเป็นสมาชิกก่อนทำการ${actionName}ค่ะ`,
+                    buttons: [
+                        { id: 'login', type: 'default', text: 'ไปหน้ายืนยันตัวตน' },
+                        { id: 'cancel', type: 'cancel', text: 'ยกเลิก' }
+                    ]
+                }, function(buttonId) {
+                    if (buttonId === 'login') {
+                        window.location.href = 'dashboard.html';
+                    }
+                });
+                return false;
+            }
+            return true;
+        };
+
         window.updateQuantity = (productId, change) => {
+            if (!window.checkAuth('จัดการตะกร้าสินค้า')) return;
             console.log('Global updateQuantity called:', productId, change);
             const item = window.cart.find(i => i.id === productId);
             if (!item) return;
@@ -1977,7 +1999,7 @@
             };
 
                         const toggleFavorite = (productId, btnElement) => {
-
+                            if (!window.checkAuth('เพิ่มรายการโปรด')) return;
                             const index = favorites.indexOf(productId);
 
                             
@@ -2227,6 +2249,7 @@
                 }
             };            
             const addToCart = (productId) => {
+                if (!window.checkAuth('หยิบสินค้าลงตะกร้า')) return;
                 const product = allProducts.find(p => p.id === productId);
                 if (!product) return;
 
