@@ -2538,8 +2538,19 @@
                 textToCopy += `\n\n[รหัสลูกค้า: ${currentUser?.customerId || tg.initDataUnsafe?.user?.id}]`;
 
                 navigator.clipboard.writeText(textToCopy.trim()).then(() => {
-                    tg.showAlert('คัดลอกเรียบร้อยแล้ว สามารถนำไปวางและกดส่งข้อความให้กับทางแอดมินได้เลยค่ะ ขอความกรุณาไม่เปลี่ยนแปลงข้อความใดๆ เพื่อความถูกต้องและแม่นยำของข้อมูล');
                     closeCartModal();
+                    tg.showPopup({
+                        title: 'คัดลอกสำเร็จ',
+                        message: 'คัดลอกเรียบร้อยแล้ว สามารถนำไปวางและกดส่งข้อความให้กับทางแอดมินได้เลยค่ะ ขอความกรุณาไม่เปลี่ยนแปลงข้อความใดๆ เพื่อความถูกต้องและแม่นยำของข้อมูล',
+                        buttons: [
+                            { id: 'ok', type: 'default', text: 'OK' },
+                            { id: 'close', type: 'destructive', text: 'Close Application' }
+                        ]
+                    }, function(buttonId) {
+                        if (buttonId === 'close') {
+                            tg.close();
+                        }
+                    });
                 }).catch(err => {
                     showToast('ไม่สามารถคัดลอกได้', 'error');
                     console.error('Failed to copy: ', err);
