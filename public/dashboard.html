@@ -485,22 +485,23 @@
     </div>
 
     <div id="success-modal" class="hidden fixed inset-0 z-[70] flex items-center justify-center bg-black/90 backdrop-blur-sm p-6">
-        <div class="glass-card p-8 w-full max-w-sm text-center shadow-2xl relative overflow-hidden fade-in">
-            <div class="absolute inset-0 bg-green-500/10"></div>
-            
-            <div class="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 text-5xl shadow-[0_0_30px_rgba(34,197,94,0.4)] relative z-10 bounce-in">
-                🎉
+        <div class="glass-card p-8 w-full max-w-sm text-center shadow-2xl relative overflow-hidden fade-in border border-yellow-500/20">
+            <!-- Background Glow -->
+            <div class="absolute -top-10 -right-10 w-32 h-32 bg-yellow-500/10 rounded-full blur-3xl"></div>
+            <div class="absolute -bottom-10 -left-10 w-32 h-32 bg-orange-500/10 rounded-full blur-3xl"></div>
+
+            <div class="w-24 h-24 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-6 text-5xl shadow-[0_0_30px_rgba(245,158,11,0.3)] relative z-10 bounce-in border-4 border-zinc-900">
+                <i class="ri-checkbox-circle-fill text-white"></i>
             </div>
-            
+
             <h2 class="text-3xl font-bold mb-2 text-white relative z-10">ยินดีต้อนรับ!</h2>
-            <p class="text-gray-300 mb-8 relative z-10" id="success-msg">เชื่อมต่อบัญชีสำเร็จ! คุณได้รับ 100 แต้ม</p>
-            
-            <button onclick="closeSuccessModal()" class="w-full py-4 bg-green-600 hover:bg-green-500 rounded-xl font-bold text-lg text-white shadow-lg transition active:scale-95 relative z-10">
+            <p class="text-zinc-400 mb-8 relative z-10 text-sm" id="success-msg">เชื่อมต่อบัญชีสำเร็จ! คุณได้รับ 100 แต้ม</p>
+
+            <button onclick="closeSuccessModal()" class="w-full py-4 bg-gradient-to-br from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 rounded-xl font-bold text-lg text-white shadow-lg shadow-orange-500/20 transition active:scale-95 relative z-10 border border-orange-400/50">
                 เข้าสู่หน้าหลัก
             </button>
         </div>
     </div>
-
     <!-- My Coupons Modal (Moved outside app-content to fix coordinate system) -->
     <div id="my-coupons-modal" class="hidden fixed inset-0 z-[60] flex items-end justify-center bg-black/80 backdrop-blur-md opacity-0 transition-opacity duration-300">
         <div class="glass-card w-full max-w-md h-full flex flex-col transform translate-y-full transition-transform duration-300" id="my-coupons-content">
@@ -756,18 +757,6 @@
         if (user.expiryDate && !isAutoRefresh) { // เตือนวันหมดอายุเฉพาะตอนเปิดแอปพอ
             // ... (โค้ดเดิม) ...
         }
-        }
-
-        function showReferralInstructions() {
-            if (!window.currentUser || !window.currentUser.customerId) {
-                tg.showAlert("ไม่สามารถโหลดรหัสสมาชิกได้ โปรดลองอีกครั้ง");
-                return;
-            }
-            
-            const customerId = window.currentUser.customerId;
-            const message = `รหัสสมาชิกของคุณ: ${customerId}\n\nกรุณาแคปหน้าจอนี้และส่งให้กับแอดมินสำหรับการสั่งซื้อครั้งแรก เพื่อรับส่วนลดพิเศษ 10%`;
-            
-            tg.showAlert(message);
         }
         // --- [END] Helper Functions ---
 
@@ -1037,15 +1026,6 @@
             // Set the user ID
             userIdElement.innerText = user.customerId || 'N/A';
 
-            // If the user is a pending referral, add the clickable badge
-            if (user.isPendingReferral) {
-                const badge = document.createElement('button');
-                // Place it below the ID line with margin-top for alignment
-                badge.className = 'pending-badge mt-2 px-2 py-1 bg-yellow-500/20 text-yellow-300 text-[10px] rounded-md font-mono flex items-center gap-1';
-                badge.innerHTML = '🎁 <span>มีส่วนลดพิเศษ</span>';
-                badge.onclick = () => showReferralInstructions();
-                userInfoContainer.appendChild(badge);
-            }
             // --- End new logic ---
 
             const refreshBtn = document.querySelector('.refresh-btn');

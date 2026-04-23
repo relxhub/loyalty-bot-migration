@@ -1046,7 +1046,7 @@
                 const tg = window.Telegram.WebApp;
                 tg.showPopup({
                     title: 'กรุณายืนยันตัวตน',
-                    message: `กรุณายืนยันตัวตนเพื่อเป็นสมาชิกก่อนทำการ${actionName}ค่ะ`,
+                    message: `กรุณายืนยันตัวตนเพื่อเป็นสมาชิกก่อนทำการ${actionName}`,
                     buttons: [
                         { id: 'login', type: 'default', text: 'ไปหน้ายืนยันตัวตน' },
                         { id: 'cancel', type: 'cancel', text: 'ยกเลิก' }
@@ -2474,7 +2474,7 @@
                 if (cart.length === 0) return;
 
                 if (!selectedAddressId) {
-                    tg.showAlert('กรุณาเลือกที่อยู่จัดส่งก่อนคัดลอกรายการค่ะ');
+                    tg.showAlert('กรุณาเลือกที่อยู่จัดส่งก่อนคัดลอกรายการ');
                     return;
                 }
 
@@ -2562,7 +2562,7 @@
                 navigator.clipboard.writeText(textToCopy.trim()).then(() => {
                     tg.showPopup({
                         title: 'คัดลอกสำเร็จ',
-                        message: 'คัดลอกเรียบร้อยแล้ว สามารถนำไปวางและกดส่งข้อความให้กับทางแอดมินได้เลยค่ะ ขอความกรุณาไม่เปลี่ยนแปลงข้อความใดๆ เพื่อความถูกต้องและแม่นยำของข้อมูล',
+                        message: 'คัดลอกเรียบร้อยแล้ว คุณลูกค้าสามารถนำไปวางและกดส่งข้อความให้กับทางแอดมิน ขอความกรุณาไม่เปลี่ยนแปลงข้อความใดๆ เพื่อความถูกต้องและแม่นยำของข้อมูล',
                         buttons: [
                             { id: 'ok', type: 'default', text: 'OK' },
                             { id: 'close', type: 'destructive', text: 'Close Application' }
