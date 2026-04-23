@@ -628,6 +628,13 @@
     </div>
 
     <script>
+        // Global listener to hide soft keyboard when tapping outside inputs
+        document.addEventListener('touchstart', function(e) {
+            if (document.activeElement && document.activeElement.tagName === 'INPUT' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
+                document.activeElement.blur();
+            }
+        });
+
         const tg = window.Telegram.WebApp;
 
         // 1. ขยายให้เต็มจอสุดก่อน
