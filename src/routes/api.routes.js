@@ -571,13 +571,13 @@ router.get('/coupons', async (req, res) => {
         const { telegramId } = req.query;
         
         const coupons = await prisma.coupon.findMany({
-            where: { 
+            where: {
                 isActive: true,
-                pointsCost: null // เฉพาะคูปองที่ไม่ต้องใช้แต้มแลก
+                pointsCost: null, // เฉพาะคูปองที่ไม่ต้องใช้แต้มแลก
+                isAutoAssign: false // ซ่อนคูปองที่ตั้งให้แจกอัตโนมัติ
             },
             orderBy: { createdAt: 'desc' }
         });
-
         // ถ้ามีการส่ง telegramId มา ให้เช็คด้วยว่าเก็บไปครบหรือยัง
         if (telegramId) {
             const user = await prisma.customer.findUnique({
@@ -623,7 +623,8 @@ router.get('/coupons/redeemable', async (req, res) => {
         const coupons = await prisma.coupon.findMany({
             where: { 
                 isActive: true,
-                pointsCost: { gt: 0 } // เฉพาะคูปองที่ต้องใช้แต้มแลก
+                pointsCost: { gt: 0 }, // เฉพาะคูปองที่ต้องใช้แต้มแลก
+                isAutoAssign: false // ซ่อนคูปองที่ตั้งให้แจกอัตโนมัติ
             },
             orderBy: { pointsCost: 'asc' }
         });

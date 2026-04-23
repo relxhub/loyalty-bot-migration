@@ -51,6 +51,13 @@ enum CouponStatus {
   EXPIRED
 }
 
+enum AutoAssignTrigger {
+  ALL
+  MAGIC_LINK
+  REFERRAL
+  ADMIN_GENCODE
+}
+
 // ---------------------------------------------------------
 // CORE MODELS
 // ---------------------------------------------------------
@@ -169,9 +176,9 @@ model Coupon {
   validityDays Int? // จำนวนวันหมดอายุ นับจากวันที่เก็บ/แลก
 
   // Auto Assign for New Members
-  isAutoAssign      Boolean @default(false)
-  autoAssignQty     Int     @default(0)
-  autoAssignTrigger String  @default("ALL") // เงื่อนไขการแจก: "ALL", "MAGIC_LINK", "REFERRAL", "ADMIN_GENCODE"
+  isAutoAssign      Boolean           @default(false)
+  autoAssignQty     Int               @default(0)
+  autoAssignTrigger AutoAssignTrigger @default(ALL) // เงื่อนไขการแจก: ALL, MAGIC_LINK, REFERRAL, ADMIN_GENCODE
 
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
