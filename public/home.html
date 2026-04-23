@@ -461,6 +461,28 @@
             }
 
             if (tg.initDataUnsafe?.start_param) {
+                // Pre-flight check: If they are already a member, don't redirect to dashboard link logic
+                if (sessionStorage.getItem('isLinked') === 'true') {
+                    console.log("[Home] User is cached as linked. Ignoring start_param redirect.");
+                    return;
+                }
+
+                try {
+                    const authRes = await fetch('/api/auth', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ initData: tg.initData })
+                    });
+                    if (authRes.ok) {
+                        const authData = await authRes.json();
+                        if (authData.isMember) {
+                            console.log("[Home] User is already a member. Ignoring start_param redirect.");
+                            return; // Stop here, let them stay on home.html
+                        }
+                    }
+                } catch(e) {
+                    console.log("[Home] Auth check failed, proceeding to redirect:", e);
+                }
                 window.location.replace(`dashboard.html?start_param=${tg.initDataUnsafe.start_param}`);
             }
         });
