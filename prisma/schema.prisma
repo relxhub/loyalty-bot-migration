@@ -168,6 +168,11 @@ model Coupon {
   validUntil   DateTime? // วันหมดอายุแบบ Global (ทุกคนหมดพร้อมกัน)
   validityDays Int? // จำนวนวันหมดอายุ นับจากวันที่เก็บ/แลก
 
+  // Auto Assign for New Members
+  isAutoAssign      Boolean @default(false)
+  autoAssignQty     Int     @default(0)
+  autoAssignTrigger String  @default("ALL") // เงื่อนไขการแจก: "ALL", "MAGIC_LINK", "REFERRAL", "ADMIN_GENCODE"
+
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 

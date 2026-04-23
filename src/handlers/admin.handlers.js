@@ -219,6 +219,9 @@ async function handleGencodeCommand(ctx, commandParts, adminUser, chatId) {
             }
         });
 
+        // 5. Assign auto coupons
+        await couponService.assignAutoCoupons(newCustomer.customerId).catch(err => console.error("Auto assign coupons failed for gencode:", err));
+
         await createAdminLog(adminUser, "GENCODE_CUSTOMER", newCustomer.customerId, 0, `Generated specific customer ID`);
 
         const msg = `✅ <b>สร้างรหัสสำเร็จ!</b>\n` +
@@ -287,7 +290,7 @@ async function handleNewCustomer(ctx, commandParts, adminUser, chatId) {
             username: null,
             adminCreatedBy: adminUser
         };
-        const customer = await createCustomer(newCustomerData);
+        const customer = await createCustomer(newCustomerData, "ADMIN_GENCODE");
 
         // Log Creation
         await createAdminLog(adminUser, "CREATE_CUSTOMER", customer.customerId, 0, `Auto-generated customer via /new`);

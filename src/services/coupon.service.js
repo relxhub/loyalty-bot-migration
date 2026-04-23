@@ -509,3 +509,73 @@ export async function restoreCoupon(customerId, couponId, adminName) {
 
     return restored;
 }
+
+/**
+ * แจกคูปองอัตโนมัติให้กับสมาชิกรหัสใหม่
+ * @param {string} customerId
+ * @param {string} triggerSource - "MAGIC_LINK", "REFERRAL", or "ADMIN_GENCODE"
+ */
+export async function assignAutoCoupons(customerId, triggerSource = "ALL") {
+    const now = new Date();
+    
+    // ดึงคูปองทั้งหมดที่เปิดโหมดแจกอัตโนมัติ
+    const autoCoupons = await prisma.coupon.findMany({
+        where: {
+            isActive: true,
+            isAutoAssign: true,
+            autoAssignQty: { gt: 0 },
+            OR: [
+                { endDate: null },
+                { endDate: { gt: now } }
+            ]
+        }
+    });
+
+    if (autoCoupons.length === 0) return;
+
+    let couponsToCreate = [];
+
+    for (const coupon of autoCoupons) {
+        // 1. เช็คว่าทริกเกอร์ตรงไหม
+        // ถ้าคูปองตั้งว่า ALL คือแจกหมด, ถ้าไม่ จะแจกเฉพาะ trigger ที่ตรงกัน
+        if (coupon.autoAssignTrigger && coupon.autoAssignTrigger !== "ALL") {
+             if (coupon.autoAssignTrigger !== triggerSource) continue;
+        }
+
+        // 2. เช็คว่าคูปองเริ่มแจกหรือยัง
+        if (coupon.startDate && now < coupon.startDate) continue;
+        
+        // เช็คโควตากลาง ถ้าเต็มแล้วข้าม
+        if (coupon.totalQuota !== null && coupon.claimedCount + coupon.autoAssignQty > coupon.totalQuota) continue;
+
+        let expiryDate = null;
+        if (coupon.validityDays) {
+            expiryDate = new Date(now.getTime() + coupon.validityDays * 24 * 60 * 60 * 1000);
+        } else if (coupon.validUntil) {
+            expiryDate = coupon.validUntil;
+        }
+
+        // เตรียมข้อมูลสร้างคูปองตามจำนวน autoAssignQty
+        for (let i = 0; i < coupon.autoAssignQty; i++) {
+            couponsToCreate.push({
+                customerId: customerId,
+                couponId: coupon.id,
+                expiryDate: expiryDate,
+                status: 'AVAILABLE'
+            });
+        }
+        
+        // อัปเดตยอดการแจกของคูปองนั้นๆ
+        await prisma.coupon.update({
+            where: { id: coupon.id },
+            data: { claimedCount: { increment: coupon.autoAssignQty } }
+        });
+    }
+
+    if (couponsToCreate.length > 0) {
+        await prisma.customerCoupon.createMany({
+            data: couponsToCreate
+        });
+        console.log(`[Auto Coupon] Assigned ${couponsToCreate.length} coupons to new customer ${customerId}`);
+    }
+}

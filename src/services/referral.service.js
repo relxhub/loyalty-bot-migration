@@ -16,7 +16,7 @@ const createPendingReferral = async (referrerId, refereeData) => {
   return prisma.$transaction(async (tx) => {
     // 1. Create the new customer (referee)
     // TODO: Refactor customerService.createCustomer to accept a transaction client (tx)
-    const newCustomer = await customerService.createCustomer(refereeData); 
+    const newCustomer = await customerService.createCustomer(refereeData, "REFERRAL"); 
 
     // 2. Create the referral record with 'PENDING_PURCHASE' status
     const referral = await tx.referral.create({

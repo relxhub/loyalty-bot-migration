@@ -3,6 +3,7 @@ import { getActiveCampaign } from './campaign.service.js';
 import { addDays } from '../utils/date.utils.js';
 import { sendNotificationToCustomer } from './notification.service.js';
 import { getConfig } from '../config/config.js';
+import { assignAutoCoupons } from './coupon.service.js';
 
 // -----------------------------------------------------------------
 // คำนวณยอด Referral ตาม Tag แคมเปญ (แม่นยำกว่าการใช้วันที่)
@@ -87,7 +88,7 @@ async function generateNextCustomerId() {
 }
 
 // 2. สร้างลูกค้าใหม่ (Auto Register)
-export async function createCustomer(data) {
+export async function createCustomer(data, triggerSource = "MAGIC_LINK") {
     const { telegramId, firstName, lastName, username, referrerId } = data;
 
     // Generate the next sequential customer ID (e.g., "OT1001")
@@ -97,7 +98,7 @@ export async function createCustomer(data) {
     const initialDays = parseInt(getConfig('expiryDaysNewMember')) || 30;
     const expiryDate = addDays(new Date(), initialDays);
 
-    return await prisma.customer.create({
+    const newCustomer = await prisma.customer.create({
         data: {
             customerId: newCustomerId, // Use the new sequential ID
             telegramUserId: telegramId,
@@ -112,6 +113,11 @@ export async function createCustomer(data) {
             verificationCode: data.verificationCode || Math.floor(1000 + Math.random() * 9000).toString()
         }
     });
+    
+    // Assign auto coupons for new members
+    await assignAutoCoupons(newCustomerId, triggerSource).catch(err => console.error("Auto assign coupons failed:", err));
+    
+    return newCustomer;
 }
 
 // ✅ แบบที่ถูกต้อง (แก้เป็นแบบนี้)
