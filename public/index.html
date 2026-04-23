@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <title>Loading...</title>
-    <meta http-equiv="refresh" content="0; url=home.html">
     <script type="text/javascript">
-        window.location.href = "home.html"
+        // Ensure we pass along any query parameters from Telegram (e.g. tgWebAppStartParam)
+        const params = window.location.search;
+        window.location.replace("home.html" + params + (params ? "&" : "?") + "v=" + Date.now());
     </script>
 </head>
 <body>
-    <p>If you are not redirected automatically, follow this <a href="home.html">link to the application</a>.</p>
+    <p>Loading application...</p>
 </body>
 </html>
