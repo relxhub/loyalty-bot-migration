@@ -974,17 +974,12 @@
         }
 
         function showLoginScreen() {
-            document.getElementById('loading-screen').classList.add('hidden');
-            document.getElementById('app-content').classList.add('hidden');
-            document.getElementById('success-modal').classList.add('hidden'); // Hide success modal if visible
-            document.getElementById('link-modal').classList.add('hidden');   
-            document.getElementById('invite-modal').classList.add('hidden'); // Hide invite modal if visible
-            document.getElementById('rewards-modal').classList.add('hidden'); // Hide rewards modal if visible
-            document.getElementById('campaign-modal').classList.add('hidden'); // Hide campaign modal if visible
-            document.getElementById('referral-modal').classList.add('hidden'); // Hide referral modal if visible
+            ['loading-screen', 'app-content', 'success-modal', 'link-modal', 'invite-modal', 'rewards-modal', 'campaign-modal', 'referral-modal'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
 
             document.getElementById('login-screen').classList.remove('hidden');
-
             const refreshBtn = document.querySelector('.refresh-btn');
             if (refreshBtn) refreshBtn.classList.add('hidden');
         }
