@@ -307,9 +307,11 @@
             <div class="mt-5 grid grid-cols-2 gap-3 border-t border-zinc-700/50 pt-5">
                 <button 
                     onclick="openMyCouponsModal(); try { Telegram.WebApp.hapticFeedback.impactOccurred('medium'); } catch(e){}" 
-                    class="bg-zinc-700/50 hover:bg-zinc-700 border border-zinc-600/50 py-3 rounded-xl flex items-center justify-center gap-2 transition group active:scale-95 w-full">
-                    <i class="ri-ticket-2-line text-zinc-300 text-lg"></i>
-                    <span class="text-sm font-bold text-white">คูปองของฉัน</span>
+                    class="relative bg-gradient-to-br from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 border border-orange-400/50 py-3 rounded-xl flex items-center justify-center gap-2 transition group active:scale-95 w-full shadow-lg shadow-orange-500/20">
+                    <i class="ri-ticket-2-line text-white text-lg drop-shadow-md"></i>
+                    <span class="text-sm font-bold text-white drop-shadow-md">คูปองของฉัน</span>
+                    <!-- Coupon Badge -->
+                    <span id="coupon-badge" class="hidden absolute -top-2 -right-2 bg-red-600 text-white text-[10px] rounded-full h-[22px] w-[22px] flex items-center justify-center font-bold border-2 border-zinc-800 z-20">0</span>
                 </button>
                 <button 
                     onclick="openHistoryModal(); try { Telegram.WebApp.hapticFeedback.impactOccurred('medium'); } catch(e){}" 
@@ -975,8 +977,29 @@
                 window.currentUser = user; // Cache User Data
                 renderUser(user);
                 checkNotifications(user, isSilent);
+                updateCouponBadge(); // Add this line
             } else {
                 if (!isSilent) showLoginScreen();
+            }
+        }
+
+        async function updateCouponBadge() {
+            try {
+                const telegramId = window.currentUser?.telegramUserId || tg.initDataUnsafe?.user?.id;
+                if (!telegramId) return;
+
+                const res = await fetch(`/api/coupons/my/${telegramId}`);
+                const data = await res.json();
+                const badge = document.getElementById('coupon-badge');
+
+                if (data.success && data.coupons && data.coupons.length > 0) {
+                    badge.innerText = data.coupons.length;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            } catch (err) {
+                console.error("Failed to update coupon badge", err);
             }
         }
 

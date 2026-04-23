@@ -2538,7 +2538,7 @@
                 textToCopy += `\n\n[รหัสลูกค้า: ${currentUser?.customerId || tg.initDataUnsafe?.user?.id}]`;
 
                 navigator.clipboard.writeText(textToCopy.trim()).then(() => {
-                    showToast('คัดลอกรายการแล้ว!', 'success');
+                    tg.showAlert('คัดลอกเรียบร้อยแล้ว สามารถนำไปวางและกดส่งข้อความให้กับทางแอดมินได้เลยค่ะ ขอความกรุณาไม่เปลี่ยนแปลงข้อความใดๆ เพื่อความถูกต้องและแม่นยำของข้อมูล');
                     closeCartModal();
                 }).catch(err => {
                     showToast('ไม่สามารถคัดลอกได้', 'error');
