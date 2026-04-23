@@ -88,7 +88,7 @@ async function generateNextCustomerId() {
 
 // 2. สร้างลูกค้าใหม่ (Auto Register)
 export async function createCustomer(data) {
-    const { telegramId, firstName, lastName, username } = data;
+    const { telegramId, firstName, lastName, username, referrerId } = data;
 
     // Generate the next sequential customer ID (e.g., "OT1001")
     const newCustomerId = await generateNextCustomerId();
@@ -104,6 +104,7 @@ export async function createCustomer(data) {
             firstName: firstName,
             lastName: lastName,
             username: username,
+            referrerId: referrerId || null,
             points: 0,
             referralCount: 0,
             expiryDate: expiryDate,

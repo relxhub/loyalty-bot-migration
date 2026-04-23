@@ -142,6 +142,14 @@ const completeReferral = async (refereeId, purchaseAmount) => {
       }
     });
 
+    // 7. Fallback: Ensure referee's Customer record has referrerId set (for backwards compatibility)
+    await tx.customer.update({
+      where: { customerId: refereeId },
+      data: {
+        referrerId: referral.referrerId
+      }
+    });
+
     return { success: true, message: `การแนะนำสำเร็จ! ผู้แนะนำ ${referral.referrerId} ได้รับ ${totalPointsToAdd} แต้ม${milestoneMessage}`, bonus: totalPointsToAdd };
   });
 };

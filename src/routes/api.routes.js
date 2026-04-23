@@ -362,7 +362,7 @@ router.post('/referral/register', async (req, res) => {
     }
 
     try {
-        const refereeData = { telegramId, firstName, lastName, username };
+        const refereeData = { telegramId, firstName, lastName, username, referrerId };
         const result = await referralService.createPendingReferral(referrerId, refereeData);
         
         res.status(201).json({ 
