@@ -3513,16 +3513,24 @@
                 });
                 if (authResponse.ok) {
                     const authData = await authResponse.json();
-                    currentUser = authData.customer;
-                    
-                    // --- SuperAdmin UI Adjustments ---
-                    if (currentUser && currentUser.role === 'SuperAdmin') {
-                        cartButton.classList.add('hidden');
-                        // Refresh products to show IS/OOS toggles
-                        if (allProducts.length > 0) renderProducts();
+
+                    if (authData.isMember) {
+                        currentUser = authData.customer;
+
+                        // --- SuperAdmin UI Adjustments ---
+                        if (currentUser && currentUser.role === 'SuperAdmin') {
+                            cartButton.classList.add('hidden');
+                            // Refresh products to show IS/OOS toggles
+                            if (allProducts.length > 0) renderProducts();
+                        }
+                    } else {
+                        // User is not a member, clear local storage to simulate a fresh session
+                        localStorage.removeItem('shoppingCart');
+                        localStorage.removeItem('favorites');
+                        window.cart = [];
+                        window.favorites = [];
                     }
                 }
-
                 const response = await fetch('/api/products', { cache: 'no-cache' });
                 if (!response.ok) {
                     const errorData = await response.json();
