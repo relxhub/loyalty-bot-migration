@@ -413,6 +413,22 @@ model ThaiAddress {
 // E-COMMERCE & PAYMENT MODELS
 // ---------------------------------------------------------
 
+model BankAccount {
+  id              Int      @id @default(autoincrement())
+  bankName        String   // e.g., "ธนาคารกสิกรไทย"
+  accountName     String   // e.g., "บจก. ลอยัลตี้ ช็อป"
+  accountNumber   String   // e.g., "123-4-56789-0"
+  promptPayId     String   // Phone number or Tax ID for QR Generation
+  minAmount       Decimal? @default(0) @db.Decimal(10, 2)
+  maxAmount       Decimal? @default(9999999) @db.Decimal(10, 2)
+  activeStartTime String?  // e.g., "00:00"
+  activeEndTime   String?  // e.g., "23:59"
+  isActive        Boolean  @default(true)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
 // ตั้งค่าร้านค้า (เช่น จำนวนเตือนสต็อกใกล้หมด)
 model StoreSetting {
   id                  Int @id @default(1)

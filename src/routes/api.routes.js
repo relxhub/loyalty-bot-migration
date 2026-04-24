@@ -325,7 +325,46 @@ router.get('/orders/:orderId', async (req, res) => {
             return res.status(404).json({ error: "ไม่พบรายการสั่งซื้อนี้" });
         }
 
-        res.json({ success: true, order });
+        // Fetch appropriate active bank accounts based on the total amount
+        const activeBankAccounts = await prisma.bankAccount.findMany({
+            where: {
+                isActive: true,
+                minAmount: { lte: order.totalAmount },
+                maxAmount: { gte: order.totalAmount }
+            }
+        });
+
+        // Filter by active time window in Bangkok Time
+        let bankAccount = null;
+        
+        if (activeBankAccounts.length > 0) {
+            const bkkTimeOpts = { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false };
+            const currentTimeStr = new Date().toLocaleTimeString('en-US', bkkTimeOpts); // e.g., "14:30"
+            
+            bankAccount = activeBankAccounts.find(account => {
+                if (!account.activeStartTime || !account.activeEndTime) return true; // No time limit
+                
+                const start = account.activeStartTime;
+                const end = account.activeEndTime;
+                
+                if (start <= end) {
+                    // Normal range, e.g., 08:00 to 18:00
+                    return currentTimeStr >= start && currentTimeStr <= end;
+                } else {
+                    // Crosses midnight, e.g., 18:00 to 06:00
+                    return currentTimeStr >= start || currentTimeStr <= end;
+                }
+            });
+            
+            // Fallback to the first one if none matched the time window (or if you prefer, it can be null to show no accounts available)
+            if (!bankAccount) {
+                 // Or return null if we strictly want no account shown outside hours
+                 // bankAccount = null;
+                 bankAccount = activeBankAccounts[0]; 
+            }
+        }
+
+        res.json({ success: true, order, bankAccount });
     } catch (error) {
         console.error("Get Order Error:", error);
         res.status(500).json({ error: "เกิดข้อผิดพลาดในการดึงข้อมูลสั่งซื้อ" });
