@@ -2661,7 +2661,7 @@
                     const btn = document.getElementById('copy-cart-btn');
                     btn.innerHTML = 'ชำระเงิน';
                     btn.disabled = false;
-                    tg.showAlert('เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองอีกครั้ง');
+                    tg.showAlert(`Error: ${err.message}`);
                 }
             };
 
