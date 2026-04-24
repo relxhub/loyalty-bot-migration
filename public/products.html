@@ -2373,16 +2373,30 @@
                     return;
                 }
 
+                const product = window.allProducts.find(p => p.id === productId);
+                const maxStock = product ? product.stockQuantity : 0;
+                const isAtMaxStock = item.quantity >= maxStock;
+
                 const row = document.querySelector(`.cart-item-row[data-product-id="${productId}"]`);
                 if (row) {
                     const subtotalEl = row.querySelector('.cart-item-subtotal');
                     const qtyDisplayEl = row.querySelector('.cart-qty-display');
                     const minusIcon = row.querySelector('.btn-minus i');
+                    const plusBtn = row.querySelector('.btn-plus');
 
                     if (subtotalEl) subtotalEl.textContent = `${(item.price * item.quantity).toLocaleString('th-TH')} ฿`;
                     if (qtyDisplayEl) qtyDisplayEl.textContent = item.quantity;
                     if (minusIcon) {
                         minusIcon.className = item.quantity === 1 ? 'ri-delete-bin-line' : 'ri-subtract-line';
+                    }
+                    if (plusBtn) {
+                        if (isAtMaxStock) {
+                            plusBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                            plusBtn.setAttribute('disabled', 'true');
+                        } else {
+                            plusBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                            plusBtn.removeAttribute('disabled');
+                        }
                     }
                 }
             };
