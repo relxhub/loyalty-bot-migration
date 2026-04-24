@@ -2654,14 +2654,28 @@
                     } else {
                         btn.innerHTML = originalText;
                         btn.disabled = false;
-                        tg.showAlert(data.error || 'เกิดข้อผิดพลาดในการสั่งซื้อ');
+                        
+                        // Prevent WebAppPopupParamInvalid by truncating or using toast
+                        const errMsg = data.error || 'เกิดข้อผิดพลาดในการสั่งซื้อ';
+                        if (errMsg.length > 200) {
+                            showToast('เกิดข้อผิดพลาดจากเซิร์ฟเวอร์', 'error');
+                            console.error("Backend Error:", errMsg);
+                        } else {
+                            tg.showAlert(errMsg);
+                        }
                     }
                 } catch (err) {
                     console.error('Checkout Error:', err);
                     const btn = document.getElementById('copy-cart-btn');
                     btn.innerHTML = 'ชำระเงิน';
                     btn.disabled = false;
-                    tg.showAlert(`Error: ${err.message}`);
+                    
+                    const errMsg = err.message || 'Unknown error';
+                    if (errMsg.length > 200) {
+                        showToast('เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error');
+                    } else {
+                        tg.showAlert(`Error: ${errMsg}`);
+                    }
                 }
             };
 
