@@ -2330,7 +2330,9 @@
                 if (!product) return;
 
                 const containers = document.querySelectorAll(`.cart-control-container[data-product-id="${productId}"]`);
-                const isOutOfStock = product.status === 'OUT_OF_STOCK';
+                // Use raw stockQuantity to determine outOfStock state dynamically to fix button stuck bug
+                const threshold = storeSetting.outOfStockThreshold || 0;
+                const isOutOfStock = product.status === 'OUT_OF_STOCK' || product.stockQuantity <= threshold;
 
                 containers.forEach(container => {
                     const mode = container.dataset.mode || 'standard';
