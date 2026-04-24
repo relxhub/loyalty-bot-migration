@@ -70,6 +70,7 @@ model Customer {
 
   // Telegram Info
   telegramUserId String? @unique
+  phoneNumber    String? @unique
   username       String?
   firstName      String?
   lastName       String?

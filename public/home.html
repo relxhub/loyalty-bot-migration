@@ -45,13 +45,47 @@
         });
     </script>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center p-5 text-white">
+<body class="min-h-screen flex flex-col items-center justify-center p-5 text-white relative">
 
-    <div class="text-center mb-12">
-        <img src="logo.png" alt="Company Logo" class="w-64 mx-auto mb-8">
-        <h1 class="text-3xl font-bold mb-2">ยินดีต้อนรับ</h1>
-        <p class="text-gray-400">เลือกเมนูด้านล่างเพื่อเริ่มต้นใช้งาน</p>
+    <div id="loading-screen" class="fixed inset-0 z-[110] flex flex-col items-center justify-center bg-[#050C0D]">
+        <div class="w-16 h-16 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p class="text-gray-400 animate-pulse">กำลังตรวจสอบข้อมูล...</p>
     </div>
+
+    <div id="phone-screen" class="hidden fixed inset-0 z-[100] bg-[#050C0D] flex flex-col items-center justify-center p-6">
+        <div class="bg-[#161B22] p-8 w-full max-w-sm text-center shadow-2xl relative overflow-hidden rounded-2xl border border-white/10">
+            <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl"></div>
+            
+            <div class="w-20 h-20 bg-gradient-to-tr from-blue-500 to-cyan-400 text-white rounded-full flex items-center justify-center mx-auto mb-6 text-4xl shadow-lg relative z-10">
+                📱
+            </div>
+            
+            <h2 class="text-2xl font-bold mb-2 text-white relative z-10">ยืนยันเบอร์โทรศัพท์</h2>
+            <p class="text-gray-400 text-sm mb-8 relative z-10">กรุณากรอกเบอร์โทรศัพท์ที่ติดต่อได้<br>เพื่อรับสิทธิพิเศษและเริ่มช้อปปิ้ง</p>
+            
+            <div class="space-y-4 text-left relative z-10">
+                <div>
+                    <label class="text-xs text-gray-500 ml-1">เบอร์โทรศัพท์ (10 หลัก)</label>
+                    <input type="tel" id="phone-input" placeholder="เช่น 0891234567" maxlength="10" class="w-full bg-black/30 border border-gray-600 rounded-xl p-4 text-white text-center tracking-widest text-lg placeholder-gray-600 mt-1 focus:outline-none focus:border-blue-500">
+                </div>
+            </div>
+            
+            <button onclick="submitPhone()" id="submit-phone-btn" class="w-full mt-8 py-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 rounded-xl font-bold text-lg text-white shadow-lg shadow-blue-500/30 transition active:scale-95 relative z-10 flex items-center justify-center gap-2">
+                <i class="ri-check-line"></i> ยืนยันเบอร์โทรศัพท์
+            </button>
+            
+            <p class="text-[10px] text-gray-500 mt-6 relative z-10">
+                *ข้อมูลของท่านจะถูกเก็บเป็นความลับตามนโยบายความเป็นส่วนตัว
+            </p>
+        </div>
+    </div>
+
+    <div id="main-content" class="w-full max-w-sm hidden flex-col items-center justify-center">
+        <div class="text-center mb-12">
+            <img src="logo.png" alt="Company Logo" class="w-64 mx-auto mb-8">
+            <h1 class="text-3xl font-bold mb-2">ยินดีต้อนรับ</h1>
+            <p class="text-gray-400">เลือกเมนูด้านล่างเพื่อเริ่มต้นใช้งาน</p>
+        </div>
 
     <!-- Buttons Container -->
     <div class="w-full max-w-sm px-4 mb-24 space-y-4">
@@ -471,39 +505,95 @@
             }
         }
 
+        async function submitPhone() {
+            const phoneInput = document.getElementById('phone-input').value.trim();
+            if (!phoneInput || phoneInput.length < 9) {
+                return tg.showAlert("กรุณากรอกเบอร์โทรศัพท์ให้ครบถ้วน");
+            }
+
+            document.getElementById('phone-screen').classList.add('hidden');
+            document.getElementById('loading-screen').classList.remove('hidden');
+
+            try {
+                const response = await fetch('/api/update-phone', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        initData: tg.initData,
+                        phoneNumber: phoneInput
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    window.location.reload();
+                } else {
+                    document.getElementById('loading-screen').classList.add('hidden');
+                    document.getElementById('phone-screen').classList.remove('hidden');
+                    tg.showAlert(result.error || "เกิดข้อผิดพลาดในการบันทึก");
+                }
+            } catch (error) {
+                console.error("Submit Phone Error:", error);
+                document.getElementById('loading-screen').classList.add('hidden');
+                document.getElementById('phone-screen').classList.remove('hidden');
+                tg.showAlert("เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ");
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', async function() {
             if (tg.isVersionAtLeast('7.7')) {
                 tg.disableVerticalSwipes();
             }
 
+            // Always check auth on load to enforce phone verification
+            try {
+                const authRes = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData })
+                });
+                
+                if (authRes.ok) {
+                    const authData = await authRes.json();
+                    document.getElementById('loading-screen').classList.add('hidden');
+                    
+                    if (authData.isMember) {
+                        if (!authData.hasPhone) {
+                            document.getElementById('phone-screen').classList.remove('hidden');
+                            return; // Stop execution until they provide contact
+                        }
+                        
+                        sessionStorage.setItem('isLinked', 'true');
+                        if (window.posthog) {
+                            posthog.identify(authData.customer.telegramUserId || tg.initDataUnsafe?.user?.id?.toString(), {
+                                customerId: authData.customer.customerId,
+                                name: `${authData.customer.firstName} ${authData.customer.lastName || ''}`.trim()
+                            });
+                        }
+                    } else {
+                        sessionStorage.removeItem('isLinked');
+                    }
+                    
+                    document.getElementById('main-content').classList.remove('hidden');
+                    document.getElementById('main-content').classList.add('flex');
+                } else {
+                    document.getElementById('loading-screen').classList.add('hidden');
+                    document.getElementById('main-content').classList.remove('hidden');
+                    document.getElementById('main-content').classList.add('flex');
+                }
+            } catch (e) {
+                console.log("[Home] Auth check failed:", e);
+                document.getElementById('loading-screen').classList.add('hidden');
+                document.getElementById('main-content').classList.remove('hidden');
+                document.getElementById('main-content').classList.add('flex');
+            }
+
             if (tg.initDataUnsafe?.start_param) {
-                // Pre-flight check: If they are already a member, don't redirect to dashboard link logic
+                // If they have start_param but are already linked, don't redirect
                 if (sessionStorage.getItem('isLinked') === 'true') {
                     console.log("[Home] User is cached as linked. Ignoring start_param redirect.");
                     return;
-                }
-
-                try {
-                    const authRes = await fetch('/api/auth', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ initData: tg.initData })
-                    });
-                    if (authRes.ok) {
-                        const authData = await authRes.json();
-                        if (authData.isMember) {
-                            console.log("[Home] User is already a member. Ignoring start_param redirect.");
-                            if (window.posthog) {
-                                posthog.identify(authData.customer.telegramUserId || tg.initDataUnsafe?.user?.id?.toString(), {
-                                    customerId: authData.customer.customerId,
-                                    name: `${authData.customer.firstName} ${authData.customer.lastName || ''}`.trim()
-                                });
-                            }
-                            return; // Stop here, let them stay on home.html
-                        }
-                    }
-                } catch(e) {
-                    console.log("[Home] Auth check failed, proceeding to redirect:", e);
                 }
                 // Use a cache-buster to ensure the latest dashboard.html logic is loaded
                 window.location.replace(`dashboard.html?start_param=${tg.initDataUnsafe.start_param}&v=${Date.now()}`);

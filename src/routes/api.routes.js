@@ -80,6 +80,8 @@ router.post('/auth', async (req, res) => {
             return res.json({ success: true, isMember: false });
         }
 
+        const hasPhone = !!customer.phoneNumber;
+
         // Check if the user is also an admin to get their role
         const admin = await prisma.admin.findUnique({
             where: { telegramId: telegramId }
@@ -157,11 +159,57 @@ router.post('/auth', async (req, res) => {
             orderBotUsername: getConfig('orderBotUsername', 'Onehub_bot') // Add bot username
         };
 
-        return res.json({ success: true, isMember: true, customer: customerDataForFrontend });
+        return res.json({ success: true, isMember: true, customer: customerDataForFrontend, hasPhone });
 
     } catch (error) {
         console.error("Auth Error:", error);
         res.status(500).json({ error: 'Auth failed: ' + error.message });
+    }
+});
+
+// ==================================================
+// 📱 UPDATE PHONE
+// ==================================================
+router.post('/update-phone', async (req, res) => {
+    try {
+        const { initData, phoneNumber } = req.body;
+        
+        if (!verifyTelegramWebAppData(initData)) {
+            return res.status(401).json({ error: "Invalid Telegram Data" });
+        }
+
+        if (!phoneNumber || phoneNumber.trim() === '') {
+            return res.status(400).json({ error: "กรุณากรอกเบอร์โทรศัพท์" });
+        }
+
+        const urlParams = new URLSearchParams(initData);
+        const userData = JSON.parse(urlParams.get('user'));
+        const telegramId = userData.id.toString();
+
+        let customer = await getCustomerByTelegramId(telegramId);
+        if (!customer) {
+            return res.status(404).json({ error: "ไม่พบข้อมูลลูกค้า กรุณาเข้าสู่ระบบก่อน" });
+        }
+
+        // Check if phone number is already used by someone else
+        const existingPhone = await prisma.customer.findUnique({
+            where: { phoneNumber: phoneNumber }
+        });
+
+        if (existingPhone && existingPhone.customerId !== customer.customerId) {
+            return res.status(400).json({ error: "เบอร์โทรศัพท์นี้ถูกใช้งานโดยบัญชีอื่นแล้ว" });
+        }
+
+        // Update phone number
+        await updateCustomer(customer.customerId, {
+            phoneNumber: phoneNumber
+        });
+
+        res.json({ success: true, message: "บันทึกเบอร์โทรศัพท์สำเร็จ" });
+
+    } catch (error) {
+        console.error("Update Phone Error:", error);
+        res.status(500).json({ error: "เกิดข้อผิดพลาดในการบันทึกเบอร์โทรศัพท์" });
     }
 });
 

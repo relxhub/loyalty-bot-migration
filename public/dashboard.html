@@ -242,6 +242,33 @@
         <p class="text-gray-400 animate-pulse" id="loading-text">กำลังเชื่อมต่อข้อมูล...</p>
     </div>
 
+    <div id="phone-screen" class="hidden fixed inset-0 z-40 bg-[#050C0D] flex flex-col items-center justify-center p-6">
+        <div class="glass-card p-8 w-full max-w-sm text-center shadow-2xl relative overflow-hidden fade-in">
+            <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl"></div>
+            
+            <div class="w-20 h-20 bg-gradient-to-tr from-blue-500 to-cyan-400 text-white rounded-full flex items-center justify-center mx-auto mb-6 text-4xl shadow-lg relative z-10">
+                📱
+            </div>
+            
+            <h2 class="text-2xl font-bold mb-2 text-white relative z-10">ยืนยันเบอร์โทรศัพท์</h2>
+            <p class="text-gray-400 text-sm mb-8 relative z-10">กรุณากรอกเบอร์โทรศัพท์ที่ติดต่อได้<br>เพื่อรับสิทธิพิเศษและเริ่มช้อปปิ้ง</p>
+            
+            <div class="space-y-4 text-left relative z-10">
+                <div>
+                    <label class="text-xs text-gray-500 ml-1">เบอร์โทรศัพท์ (10 หลัก)</label>
+                    <input type="tel" id="phone-input" placeholder="เช่น 0891234567" maxlength="10" class="w-full input-box rounded-xl p-4 text-white tracking-widest text-lg text-center placeholder-gray-600 mt-1">
+                </div>
+            </div>
+            
+            <button onclick="submitPhone()" class="w-full mt-8 py-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 rounded-xl font-bold text-lg text-white shadow-lg shadow-blue-500/30 transition active:scale-95 relative z-10 flex items-center justify-center gap-2">
+                <i class="ri-check-line"></i> ยืนยันเบอร์โทรศัพท์
+            </button>
+            <p class="text-[10px] text-gray-500 mt-6 relative z-10">
+                *ข้อมูลของท่านจะถูกเก็บเป็นความลับตามนโยบายความเป็นส่วนตัว
+            </p>
+        </div>
+    </div>
+
     <div id="login-screen" class="hidden fixed inset-0 z-40 bg-[#050C0D] flex flex-col items-center justify-center p-6">
         <div class="glass-card p-8 w-full max-w-sm text-center shadow-2xl relative overflow-hidden fade-in">
             <div class="absolute -top-10 -right-10 w-32 h-32 bg-[#F22233]/20 rounded-full blur-3xl"></div>
@@ -874,7 +901,14 @@
                     console.log("[Referral Flow] User is already a member. Showing dashboard.");
                     sessionStorage.setItem('isLinked', 'true'); // Flag to bypass future referral link checks
                     window.currentUser = authData.customer;
-                    renderUser(authData.customer); // Go to dashboard
+                    hasPhone = authData.hasPhone;
+                    
+                    document.getElementById('loading-screen').classList.add('hidden');
+                    if (!hasPhone) {
+                        document.getElementById('phone-screen').classList.remove('hidden');
+                    } else {
+                        renderUser(authData.customer); // Go to dashboard
+                    }
                 } else {
                     // User is not a member, proceed with automatic referral registration
                     console.log("[Referral Flow] New user detected. Attempting automatic registration...");
@@ -951,6 +985,48 @@
         }
 
 
+        let hasPhone = false;
+
+        async function submitPhone() {
+            const phoneInput = document.getElementById('phone-input').value.trim();
+            if (!phoneInput || phoneInput.length < 9) {
+                return showToast("กรุณากรอกเบอร์โทรศัพท์ให้ครบถ้วน", "error");
+            }
+
+            document.getElementById('loading-text').innerText = "กำลังบันทึกข้อมูล...";
+            document.getElementById('phone-screen').classList.add('hidden');
+            document.getElementById('loading-screen').classList.remove('hidden');
+
+            try {
+                const response = await fetch('/api/update-phone', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        initData: tg.initData,
+                        phoneNumber: phoneInput
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    showToast("บันทึกเบอร์โทรศัพท์สำเร็จ!", "success");
+                    hasPhone = true;
+                    // Resume to dashboard
+                    refreshUserData(false);
+                } else {
+                    document.getElementById('loading-screen').classList.add('hidden');
+                    document.getElementById('phone-screen').classList.remove('hidden');
+                    showToast(result.error || "เกิดข้อผิดพลาดในการบันทึก", "error");
+                }
+            } catch (error) {
+                console.error("Submit Phone Error:", error);
+                document.getElementById('loading-screen').classList.add('hidden');
+                document.getElementById('phone-screen').classList.remove('hidden');
+                showToast("เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ", "error");
+            }
+        }
+
         // รับ Parameter isSilent (ถ้าเป็น true แปลว่าเช็คเงียบๆ)
         async function refreshUserData(isSilent = false) {
             let user;
@@ -963,10 +1039,9 @@
 
             if (!tg.initData) {
                 // --- DEMO MODE ---
-                // If Telegram Web App data is not available (e.g. running in a browser directly),
-                // simulate a logged-in state for demonstration purposes.
                 console.log("[Init] DEMO MODE: Telegram Web App data not available.");
                 isMember = false; 
+                hasPhone = false;
                 user = { firstName: "Demo", customerId: "MEM-9999", points: 0, referralCount: 0 };
             } else {
                 try {
@@ -976,14 +1051,11 @@
                         body: JSON.stringify({ initData: tg.initData })
                     });
                     
-                    // Check if the response is OK before parsing JSON
                     if(!response.ok) {
                         const errorData = await response.json();
-                        // If it's a 401 or 404, show the login screen
                         if (response.status === 401 || response.status === 404) {
                             throw new Error(errorData.message || "Authentication failed. Please log in again.");
                         } else {
-                            // For other errors, just log and show a generic message
                             throw new Error(`Request failed: ${response.statusText}`);
                         }
                     }
@@ -991,22 +1063,18 @@
                     const data = await response.json();
                     isMember = data.isMember;
                     user = data.customer;
+                    hasPhone = data.hasPhone;
 
-                    // Dynamically update the bot username from the backend response
                     if (user && user.orderBotUsername) {
                         window.appConfig.orderBotUsername = user.orderBotUsername;
                     }
                 } catch (e) {
                     console.error("Error fetching user data:", e);
-                    // If there's an error, show the login screen unless it's a silent refresh
                     if (!isSilent) {
                         showToast(e.message || "เกิดข้อผิดพลาดในการดึงข้อมูล", 'error');
                         showLoginScreen();
-                    } else {
-                        // For silent refreshes, if user data fetch fails, we simply stop.
-                        // This might happen if the token expires or network issues occur.
                     }
-                    return; // Stop execution if there was an error
+                    return; 
                 }
             }
 
@@ -1014,10 +1082,9 @@
             document.getElementById('loading-screen').classList.add('hidden');
 
             if (isMember) {
-                sessionStorage.setItem('isLinked', 'true'); // Flag to bypass future magic link checks
-                window.currentUser = user; // Cache User Data
+                sessionStorage.setItem('isLinked', 'true');
+                window.currentUser = user; 
                 
-                // Track user in PostHog
                 if (window.posthog) {
                     posthog.identify(user.telegramUserId || tg.initDataUnsafe?.user?.id?.toString(), {
                         customerId: user.customerId,
@@ -1025,9 +1092,13 @@
                     });
                 }
                 
-                renderUser(user);
-                checkNotifications(user, isSilent);
-                updateCouponBadge(); // Add this line
+                if (!hasPhone) {
+                    document.getElementById('phone-screen').classList.remove('hidden');
+                } else {
+                    renderUser(user);
+                    checkNotifications(user, isSilent);
+                    updateCouponBadge(); 
+                }
             } else {
                 if (!isSilent) showLoginScreen();
             }
