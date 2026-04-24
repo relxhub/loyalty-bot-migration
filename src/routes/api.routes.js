@@ -284,16 +284,16 @@ router.post('/orders/checkout', async (req, res) => {
                 data: {
                     id: orderId,
                     customerId: customer.customerId,
-                    totalAmount: totalAmount,
+                    totalAmount: parseFloat(totalAmount),
                     status: 'PENDING_PAYMENT',
-                    shippingAddressId: shippingAddressId,
+                    shippingAddressId: parseInt(shippingAddressId, 10),
                     appliedCouponId: appliedCouponId,
-                    discountAmount: discountAmount || 0,
+                    discountAmount: parseFloat(discountAmount) || 0,
                     items: {
                         create: cart.map(item => ({
-                            productId: item.id,
-                            quantity: item.quantity,
-                            priceAtPurchase: item.price
+                            productId: parseInt(item.id, 10),
+                            quantity: parseInt(item.quantity, 10),
+                            priceAtPurchase: parseFloat(item.price)
                         }))
                     }
                 }
@@ -307,6 +307,32 @@ router.post('/orders/checkout', async (req, res) => {
     } catch (error) {
         console.error("Checkout Error:", error);
         res.status(400).json({ error: error.message || "เกิดข้อผิดพลาดในการสร้างรายการสั่งซื้อ" });
+    }
+});
+
+router.get('/orders/:orderId', async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const order = await prisma.order.findUnique({
+            where: { id: orderId },
+            include: {
+                items: {
+                    include: { product: true }
+                },
+                customer: {
+                    select: { firstName: true, lastName: true }
+                }
+            }
+        });
+
+        if (!order) {
+            return res.status(404).json({ error: "ไม่พบรายการสั่งซื้อนี้" });
+        }
+
+        res.json({ success: true, order });
+    } catch (error) {
+        console.error("Get Order Error:", error);
+        res.status(500).json({ error: "เกิดข้อผิดพลาดในการดึงข้อมูลสั่งซื้อ" });
     }
 });
 
