@@ -271,12 +271,8 @@ router.post('/orders/checkout', async (req, res) => {
                      throw new Error(`คูปอง ${appliedCouponId} ไม่สามารถใช้งานได้ หรือถูกใช้ไปแล้ว`);
                 }
                 
-                // Mark coupon as used immediately to prevent double spending
-                // If payment fails/cancels later, we can implement a refund logic.
-                await tx.customerCoupon.update({
-                    where: { id: customerCoupon.id },
-                    data: { status: 'USED', usedAt: new Date() }
-                });
+                // Do NOT mark coupon as used here anymore to allow users to return and pay later.
+                // We will mark it as USED in Phase 3 when the SlipOK API confirms payment.
             }
 
             // Create Order
