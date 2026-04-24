@@ -95,6 +95,7 @@ model Customer {
   shippingAddresses ShippingAddress[] // Relation to shipping addresses
   cart              Cart? // Relation to Cart
   favorites         Favorite[] // Relation to Favorites
+  orders            Order[] // Relation to Orders
 
   @@index([verificationCode])
   @@index([referrerId])
@@ -283,6 +284,7 @@ model Product {
   isNew                Boolean       @default(false)
   isHot                Boolean       @default(false)
   viewCount            Int           @default(0)
+  stockQuantity        Int           @default(0) // สำหรับตัดสต็อก
   nicotine             Int?
   coolnessLevel        Int?          @default(0)
   sweetnessLevel       Int?          @default(0)
@@ -301,6 +303,7 @@ model Product {
   categoryId Int?
   category   Category?       @relation(fields: [categoryId], references: [id])
   reviews    ProductReview[] // Relation to reviews
+  orderItems OrderItem[]     // Relation to OrderItems
 }
 
 // ---------------------------------------------------------
@@ -404,4 +407,81 @@ model ThaiAddress {
 
   @@index([zipcode])
   @@index([subdistrict])
+}
+
+// ---------------------------------------------------------
+// E-COMMERCE & PAYMENT MODELS
+// ---------------------------------------------------------
+
+// ตั้งค่าร้านค้า (เช่น จำนวนเตือนสต็อกใกล้หมด)
+model StoreSetting {
+  id                  Int @id @default(1)
+  lowStockThreshold   Int @default(50)
+  outOfStockThreshold Int @default(20)
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  SHIPPED
+  CANCELLED
+}
+
+model Order {
+  id                String      @id // รหัสออเดอร์ เช่น ORD-12345
+  customerId        String
+  totalAmount       Decimal     @db.Decimal(10, 2)
+  status            OrderStatus @default(PENDING_PAYMENT)
+  shippingAddressId Int?
+  
+  // ข้อมูลคูปองส่วนลดที่ใช้
+  appliedCouponId   String?
+  discountAmount    Decimal     @default(0) @db.Decimal(10, 2)
+
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  customer Customer  @relation(fields: [customerId], references: [customerId])
+  items    OrderItem[]
+  payment  Payment?
+
+  @@index([customerId])
+  @@index([status])
+}
+
+model OrderItem {
+  id              Int     @id @default(autoincrement())
+  orderId         String
+  productId       Int
+  quantity        Int
+  priceAtPurchase Decimal @db.Decimal(10, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+enum PaymentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+model Payment {
+  id                  Int           @id @default(autoincrement())
+  orderId             String        @unique
+  slipUrl             String        // ลิงก์รูปสลิปที่ลูกค้าอัปโหลด
+  amount              Decimal       @db.Decimal(10, 2)
+  status              PaymentStatus @default(PENDING)
+  
+  // ข้อมูลจาก SlipOK
+  slipOkTransactionId String?       @unique // รหัสอ้างอิงของธนาคาร ป้องกันสลิปซ้ำ
+  payload             String?       @db.Text // ข้อมูล JSON เต็มๆ จาก SlipOK
+  
+  verifiedAt          DateTime?
+  createdAt           DateTime      @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }
