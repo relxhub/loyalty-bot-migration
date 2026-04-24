@@ -1120,6 +1120,7 @@
         const tg = window.Telegram.WebApp;
         let allProducts = [];
         let allCategories = [];
+        let storeSetting = { lowStockThreshold: 50, outOfStockThreshold: 20 };
         // Use window.cart
         let favorites = []; 
         let currentUser = null;
@@ -3213,12 +3214,21 @@
                             if (special === 'hot') return p.isHot;
                             if (special === 'new') return p.isNew;
                             if (special === 'cool') return p.coolnessLevel >= 6;
-                            if (special === 'instock') return p.status !== 'OUT_OF_STOCK';
-                            if (special === 'outstock') return p.status === 'OUT_OF_STOCK';
+                            if (special === 'instock') return p.status !== 'OUT_OF_STOCK' && p.stockQuantity > (storeSetting.outOfStockThreshold || 0);
+                            if (special === 'outstock') return p.status === 'OUT_OF_STOCK' || p.stockQuantity <= (storeSetting.outOfStockThreshold || 0);
                             return true;
                         })
                     )
                 );
+
+                // --- E-commerce Inventory Override ---
+                // Force status to OUT_OF_STOCK if stockQuantity is <= outOfStockThreshold
+                filteredProducts.forEach(p => {
+                    const threshold = storeSetting.outOfStockThreshold || 0;
+                    if (p.stockQuantity <= threshold) {
+                        p.status = 'OUT_OF_STOCK';
+                    }
+                });
 
                 // Check if we are in "All Nicotine" mode
                 // Only if filtering by category (usually implies viewing a product line) and nicotine is ALL
@@ -3632,6 +3642,9 @@
                 const data = await response.json();
                 allProducts = data.products;
                 allCategories = data.categories;
+                if (data.storeSetting) {
+                    storeSetting = data.storeSetting;
+                }
 
                 // --- FETCH SHIPPING CONFIG ---
                 try {
