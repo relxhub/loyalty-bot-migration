@@ -247,7 +247,7 @@ router.post('/orders/checkout', async (req, res) => {
         const result = await prisma.$transaction(async (tx) => {
             // Verify stock for all items
             for (const item of cart) {
-                const product = await tx.product.findUnique({ where: { id: item.id } });
+                const product = await tx.product.findUnique({ where: { id: parseInt(item.id, 10) } });
                 if (!product) {
                     throw new Error(`ไม่พบสินค้า: ${item.nameEn}`);
                 }
