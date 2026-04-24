@@ -1300,7 +1300,11 @@
                 <div class="mb-4">
                     <div class="text-[0.8rem] font-bold text-zinc-500 uppercase tracking-wider mb-2 pl-1">${cat}</div>
                     <div class="space-y-2">
-                        ${items.map(item => `
+                        ${items.map(item => {
+                            const product = window.allProducts.find(p => p.id === item.id);
+                            const maxStock = product ? product.stockQuantity : 0;
+                            const isAtMaxStock = item.quantity >= maxStock;
+                            return `
                             <div class="cart-item-row flex items-center gap-3 text-white p-2.5 bg-zinc-800/50 rounded-xl border border-zinc-700/30" data-product-id="${item.id}">
                                 <div class="flex-grow min-w-0">
                                     <p class="font-bold text-[1rem] leading-tight truncate">${item.nameEn}</p>
@@ -1312,12 +1316,13 @@
                                         <i class="${item.quantity === 1 ? 'ri-delete-bin-line' : 'ri-subtract-line'}"></i>
                                     </button>
                                     <div class="cart-qty-display !min-w-[20px] !text-sm">${item.quantity}</div>
-                                    <button class="cart-qty-btn btn-plus !w-7 !h-7 !text-xs" onclick="window.updateQuantity(${item.id}, 1)">
+                                    <button class="cart-qty-btn btn-plus !w-7 !h-7 !text-xs ${isAtMaxStock ? 'opacity-50 cursor-not-allowed' : ''}" onclick="window.updateQuantity(${item.id}, 1)" ${isAtMaxStock ? 'disabled' : ''}>
                                         <i class="ri-add-line"></i>
                                     </button>
                                 </div>
                             </div>
-                        `).join('')}
+                            `;
+                        }).join('')}
                     </div>
                 </div>`).join('');
 
