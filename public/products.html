@@ -2295,6 +2295,16 @@
                         quantity: 1 
                     });
                 }
+
+                // Track in PostHog
+                if (window.posthog) {
+                    posthog.capture('Add to Cart', { 
+                        productId: product.id, 
+                        productName: product.nameEn,
+                        categoryId: product.categoryId 
+                    });
+                }
+
                 window.updateCartUI(productId);
             };
             
