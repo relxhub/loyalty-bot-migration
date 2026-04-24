@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Payment</title>
+    
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-color: #121212;
+            --secondary-bg: #1E1E1E;
+            --text-primary: #FFFFFF;
+            --brand-gradient: linear-gradient(to right, #f6971f, #e32622);
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: 'Kanit', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            overscroll-behavior-y: none;
+        }
+        .glass-card {
+            background: rgba(30, 30, 30, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+        }
+        
+        /* Toast Notification */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 90%;
+            max-width: 350px;
+            pointer-events: none;
+        }
+        .toast {
+            background: rgba(30, 30, 30, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: white;
+            padding: 14px 16px;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+            opacity: 0;
+            transform: translateY(-20px) scale(0.95);
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+        }
+        .toast.show { opacity: 1; transform: translateY(0) scale(1); }
+        .toast.success .toast-icon { color: #4ade80; }
+        .toast.error .toast-icon { color: #f87171; }
+        .toast.info .toast-icon { color: #60a5fa; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col p-5 select-none overflow-x-hidden relative pb-32">
+
+    <div id="toast-container"></div>
+
+    <div id="loading-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#050C0D]">
+        <div class="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p class="text-gray-400 animate-pulse">กำลังโหลดข้อมูลชำระเงิน...</p>
+    </div>
+
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <button onclick="window.history.back()" class="w-10 h-10 rounded-full bg-zinc-800/50 flex items-center justify-center border border-zinc-700/50 active:scale-95 transition">
+            <i class="ri-arrow-left-s-line text-xl text-white"></i>
+        </button>
+        <h1 class="text-xl font-bold">ชำระเงิน</h1>
+        <div class="w-10 h-10"></div> <!-- Spacer -->
+    </div>
+
+    <div id="payment-content" class="hidden space-y-5">
+        <!-- Order Summary -->
+        <div class="glass-card p-5">
+            <div class="flex justify-between items-start mb-3">
+                <div>
+                    <p class="text-sm text-gray-400">รหัสออเดอร์</p>
+                    <p id="display-order-id" class="font-bold tracking-wider">ORD-XXXXXX</p>
+                </div>
+                <div class="bg-orange-500/20 text-orange-400 px-3 py-1 rounded-full text-xs font-bold border border-orange-500/30">
+                    รอชำระเงิน
+                </div>
+            </div>
+            
+            <div class="border-t border-white/10 my-4"></div>
+            
+            <div class="flex justify-between items-center">
+                <p class="text-gray-400">ยอดที่ต้องชำระ</p>
+                <p id="display-total" class="text-2xl font-bold text-brand-red">0 ฿</p>
+            </div>
+        </div>
+
+        <!-- Bank Details -->
+        <div class="glass-card p-5 overflow-hidden relative">
+            <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none"></div>
+            
+            <h2 class="font-bold text-lg mb-4 flex items-center gap-2">
+                <i class="ri-bank-card-line text-blue-400"></i> โอนเงินเข้าบัญชี
+            </h2>
+
+            <div class="flex items-center gap-4 mb-4 bg-zinc-900/50 p-4 rounded-xl border border-zinc-700/50">
+                <div class="w-12 h-12 bg-white rounded-lg flex items-center justify-center overflow-hidden shrink-0">
+                    <!-- Placeholder Bank Logo (e.g., KBank) -->
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/Kasikornbank_logo.svg/1200px-Kasikornbank_logo.svg.png" alt="Bank" class="w-8 h-8 object-contain">
+                </div>
+                <div class="flex-grow min-w-0">
+                    <p class="text-xs text-gray-400">ธนาคารกสิกรไทย</p>
+                    <p class="font-bold text-sm truncate">บจก. ลอยัลตี้ ช็อป</p>
+                    <div class="flex items-center gap-2 mt-1">
+                        <p class="font-mono text-lg text-blue-400 tracking-wider">123-4-56789-0</p>
+                    </div>
+                </div>
+                <button onclick="copyBankAccount('1234567890')" class="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center hover:bg-blue-500/30 transition active:scale-90 shrink-0">
+                    <i class="ri-file-copy-line text-lg"></i>
+                </button>
+            </div>
+
+            <!-- QR Code Placeholder -->
+            <div class="mt-4 flex flex-col items-center">
+                <p class="text-xs text-gray-400 mb-2">หรือสแกน QR Code (บันทึกรูปภาพเพื่อสแกน)</p>
+                <div class="bg-white p-3 rounded-2xl w-48 h-48 flex items-center justify-center relative">
+                    <!-- Replace src with actual QR Code image -->
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/d/d0/QR_code_for_mobile_English_Wikipedia.svg" alt="QR Code" class="w-full h-full object-contain rounded-xl opacity-50 grayscale">
+                    <div class="absolute inset-0 flex flex-col items-center justify-center text-black/60 font-bold bg-white/80 rounded-xl backdrop-blur-sm border border-dashed border-gray-400 m-3">
+                        <i class="ri-qr-code-line text-3xl mb-1"></i>
+                        <span>อัปโหลดรูป QR Code</span>
+                        <span class="text-[10px] mt-1 text-gray-500">(โดย Admin)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Slip Area (Phase 3 Prep) -->
+        <div class="mt-6">
+            <div class="border-2 border-dashed border-zinc-600 rounded-2xl p-8 text-center bg-zinc-800/30 transition-all hover:bg-zinc-800/50" id="upload-area">
+                <input type="file" id="slip-input" accept="image/*" class="hidden">
+                <label for="slip-input" class="cursor-pointer flex flex-col items-center">
+                    <div class="w-16 h-16 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center mb-4">
+                        <i class="ri-upload-cloud-2-line text-3xl"></i>
+                    </div>
+                    <p class="font-bold text-lg">อัปโหลดสลิปโอนเงิน</p>
+                    <p class="text-sm text-gray-500 mt-1">รองรับไฟล์ JPG, PNG</p>
+                </label>
+            </div>
+            
+            <button id="submit-slip-btn" disabled class="w-full mt-4 py-4 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl font-bold text-lg text-white shadow-lg opacity-50 cursor-not-allowed flex items-center justify-center gap-2 transition-all">
+                <i class="ri-check-double-line"></i> ยืนยันการชำระเงิน
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            let icon = 'ri-checkbox-circle-fill';
+            if (type === 'error') icon = 'ri-error-warning-fill';
+            else if (type === 'warning') icon = 'ri-alert-fill';
+            else if (type === 'info') icon = 'ri-information-fill';
+
+            toast.innerHTML = `<i class="${icon} toast-icon"></i><span>${message}</span>`;
+            container.appendChild(toast);
+            
+            // Trigger reflow for animation
+            void toast.offsetWidth;
+            toast.classList.add('show');
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 400);
+            }, 3000);
+            
+            if (tg.HapticFeedback) {
+                if (type === 'error') tg.HapticFeedback.notificationOccurred('error');
+                else if (type === 'success') tg.HapticFeedback.notificationOccurred('success');
+                else tg.HapticFeedback.notificationOccurred('warning');
+            }
+        }
+
+        function copyBankAccount(accNumber) {
+            navigator.clipboard.writeText(accNumber).then(() => {
+                showToast('คัดลอกเลขบัญชีแล้ว', 'success');
+            }).catch(() => {
+                showToast('ไม่สามารถคัดลอกได้', 'error');
+            });
+        }
+
+        async function initPayment() {
+            if (tg.isVersionAtLeast('7.7')) {
+                tg.disableVerticalSwipes();
+            }
+            tg.expand();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const orderId = urlParams.get('orderId');
+
+            if (!orderId) {
+                document.getElementById('loading-screen').classList.add('hidden');
+                showToast('ไม่พบรหัสออเดอร์', 'error');
+                return;
+            }
+
+            try {
+                // Fetch Order Details
+                const res = await fetch(`/api/orders/${orderId}`);
+                const data = await res.json();
+
+                if (data.success && data.order) {
+                    const order = data.order;
+                    document.getElementById('display-order-id').textContent = order.id;
+                    document.getElementById('display-total').textContent = `${parseFloat(order.totalAmount).toLocaleString('th-TH')} ฿`;
+                    
+                    document.getElementById('loading-screen').classList.add('hidden');
+                    document.getElementById('payment-content').classList.remove('hidden');
+                } else {
+                    throw new Error(data.error || 'ไม่สามารถโหลดข้อมูลออเดอร์ได้');
+                }
+            } catch (err) {
+                console.error("Payment Init Error:", err);
+                document.getElementById('loading-screen').classList.add('hidden');
+                showToast(err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error');
+            }
+
+            // Dummy Slip Upload Logic for Phase 2 UI
+            const slipInput = document.getElementById('slip-input');
+            const submitBtn = document.getElementById('submit-slip-btn');
+            const uploadArea = document.getElementById('upload-area');
+
+            slipInput.addEventListener('change', function(e) {
+                if (this.files && this.files[0]) {
+                    const file = this.files[0];
+                    uploadArea.innerHTML = `
+                        <div class="flex flex-col items-center">
+                            <i class="ri-image-circle-line text-4xl text-green-400 mb-2"></i>
+                            <p class="text-white font-medium">${file.name}</p>
+                            <p class="text-xs text-gray-400 mt-1 cursor-pointer underline" onclick="document.getElementById('slip-input').click()">เปลี่ยนรูปภาพ</p>
+                        </div>
+                    `;
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    submitBtn.classList.add('shadow-blue-500/50');
+                    submitBtn.onclick = () => {
+                        showToast('ระบบกำลังอยู่ระหว่างอัปเกรด (Phase 3)', 'info');
+                    };
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', initPayment);
+    </script>
+</body>
+</html>
