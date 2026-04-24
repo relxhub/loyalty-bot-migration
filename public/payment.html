@@ -323,8 +323,51 @@
                     submitBtn.disabled = false;
                     submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
                     submitBtn.classList.add('shadow-blue-500/50');
-                    submitBtn.onclick = () => {
-                        showToast('ระบบกำลังอยู่ระหว่างอัปเกรด (Phase 3)', 'info');
+                    submitBtn.onclick = async () => {
+                        const originalText = submitBtn.innerHTML;
+                        submitBtn.innerHTML = '<div class="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full mr-2"></div> กำลังตรวจสอบ...';
+                        submitBtn.disabled = true;
+                        
+                        const formData = new FormData();
+                        formData.append('files', file);
+
+                        try {
+                            const res = await fetch(`/api/orders/${orderId}/verify-slip`, {
+                                method: 'POST',
+                                body: formData
+                            });
+                            
+                            const data = await res.json();
+                            
+                            if (data.success) {
+                                // Clear cart on successful payment
+                                window.localStorage.removeItem('cart');
+                                
+                                tg.showPopup({
+                                    title: 'ชำระเงินสำเร็จ',
+                                    message: 'ตรวจสอบสลิปและยืนยันคำสั่งซื้อเรียบร้อยแล้ว แอดมินจะทำการจัดส่งสินค้าโดยเร็วที่สุด',
+                                    buttons: [{ id: 'ok', type: 'default', text: 'ตกลง' }]
+                                }, () => {
+                                    // Optionally redirect to a success page or back to home
+                                    window.location.href = 'index.html'; 
+                                });
+                            } else {
+                                submitBtn.innerHTML = originalText;
+                                submitBtn.disabled = false;
+                                
+                                const errMsg = data.error || 'ตรวจสอบสลิปไม่สำเร็จ';
+                                if (errMsg.length > 200) {
+                                    showToast('ข้อผิดพลาดจากเซิร์ฟเวอร์', 'error');
+                                } else {
+                                    tg.showAlert(errMsg);
+                                }
+                            }
+                        } catch (err) {
+                            console.error('Verify Slip Error:', err);
+                            submitBtn.innerHTML = originalText;
+                            submitBtn.disabled = false;
+                            showToast('เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่', 'error');
+                        }
                     };
                 }
             });
