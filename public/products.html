@@ -611,11 +611,11 @@
             border: none;
         }
         .cart-qty-btn:active { transform: scale(0.8); }
-        .cart-qty-btn.btn-minus { 
+        .cart-qty-btn.btn-minus {
             background-color: rgba(239, 68, 68, 0.15);
-            color: #f87171; 
-        }
-        .cart-qty-btn.btn-plus { 
+            color: #f87171;
+            opacity: 1 !important; /* Ensure minus button never fades */
+        }        .cart-qty-btn.btn-plus { 
             background-image: var(--brand-gradient);
             color: white;
             box-shadow: 0 2px 8px rgba(227, 38, 34, 0.3);
