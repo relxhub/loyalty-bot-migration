@@ -1076,16 +1076,23 @@
             if (!item) return;
             item.quantity += change;
             if (item.quantity <= 0) window.cart = window.cart.filter(i => i.id !== productId);
-            
+
+            // Track in PostHog
+            if (window.posthog && change !== 0) {
+                posthog.capture(change > 0 ? 'Increase Quantity' : 'Decrease Quantity', { 
+                    productId: productId,
+                    newQuantity: item.quantity
+                });
+            }
+
             if (typeof window.updateCartUI === 'function') {
                 window.updateCartUI(productId);
             } else {
                 localStorage.setItem('shoppingCart', JSON.stringify(window.cart));
             }
-            
+
             try { window.Telegram.WebApp.hapticFeedback.selectionChanged(); } catch(e) {}
         };
-
         window.addToCart = (productId) => {
             console.log('Global addToCart called:', productId);
             const product = window.allProducts.find(p => p.id === productId);
