@@ -3690,8 +3690,8 @@
                 }
                 
                 const data = await response.json();
-                allProducts = data.products;
-                allCategories = data.categories;
+                window.allProducts = allProducts = data.products;
+                window.allCategories = allCategories = data.categories;
                 if (data.storeSetting) {
                     storeSetting = data.storeSetting;
                 }
