@@ -2644,10 +2644,11 @@
                     const data = await res.json();
 
                     if (data.success) {
-                        // Clear local cart since it's converted to an order
-                        window.cart = [];
-                        saveCart();
-                        window.appliedCoupon = null;
+                        // DO NOT clear local cart yet, so they can come back and pay later if needed.
+                        // We only clear the cart when payment is confirmed in Phase 3.
+                        // But we DO need to reset the button state so it doesn't keep spinning if they hit 'back'
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
 
                         // Redirect to payment page
                         window.location.href = `payment.html?orderId=${data.orderId}&v=${Date.now()}`;
