@@ -7,6 +7,8 @@
     
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script src="https://unpkg.com/promptpay-qr@0.5.0/lib/promptpay-qr.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
 
@@ -107,7 +109,7 @@
         </div>
 
         <!-- Bank Details -->
-        <div class="glass-card p-5 overflow-hidden relative">
+        <div id="bank-details-container" class="glass-card p-5 overflow-hidden relative">
             <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none"></div>
             
             <h2 class="font-bold text-lg mb-4 flex items-center gap-2">
@@ -116,32 +118,31 @@
 
             <div class="flex items-center gap-4 mb-4 bg-zinc-900/50 p-4 rounded-xl border border-zinc-700/50">
                 <div class="w-12 h-12 bg-white rounded-lg flex items-center justify-center overflow-hidden shrink-0">
-                    <!-- Placeholder Bank Logo (e.g., KBank) -->
                     <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/Kasikornbank_logo.svg/1200px-Kasikornbank_logo.svg.png" alt="Bank" class="w-8 h-8 object-contain">
                 </div>
                 <div class="flex-grow min-w-0">
-                    <p class="text-xs text-gray-400">ธนาคารกสิกรไทย</p>
-                    <p class="font-bold text-sm truncate">บจก. ลอยัลตี้ ช็อป</p>
+                    <p id="display-bank-name" class="text-xs text-gray-400">กำลังโหลด...</p>
+                    <p id="display-account-name" class="font-bold text-sm truncate">กำลังโหลด...</p>
                     <div class="flex items-center gap-2 mt-1">
-                        <p class="font-mono text-lg text-blue-400 tracking-wider">123-4-56789-0</p>
+                        <p id="display-account-number" class="font-mono text-lg text-blue-400 tracking-wider">---</p>
                     </div>
                 </div>
-                <button onclick="copyBankAccount('1234567890')" class="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center hover:bg-blue-500/30 transition active:scale-90 shrink-0">
+                <button id="btn-copy-account" class="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center hover:bg-blue-500/30 transition active:scale-90 shrink-0">
                     <i class="ri-file-copy-line text-lg"></i>
                 </button>
             </div>
 
-            <!-- QR Code Placeholder -->
+            <!-- QR Code Area -->
             <div class="mt-4 flex flex-col items-center">
                 <p class="text-xs text-gray-400 mb-2">หรือสแกน QR Code (บันทึกรูปภาพเพื่อสแกน)</p>
                 <div class="bg-white p-3 rounded-2xl w-48 h-48 flex items-center justify-center relative">
-                    <!-- Replace src with actual QR Code image -->
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/d/d0/QR_code_for_mobile_English_Wikipedia.svg" alt="QR Code" class="w-full h-full object-contain rounded-xl opacity-50 grayscale">
-                    <div class="absolute inset-0 flex flex-col items-center justify-center text-black/60 font-bold bg-white/80 rounded-xl backdrop-blur-sm border border-dashed border-gray-400 m-3">
+                    <!-- Placeholder before QR is generated -->
+                    <div id="qr-placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-black/60 font-bold bg-white/80 rounded-xl backdrop-blur-sm border border-dashed border-gray-400 m-3">
                         <i class="ri-qr-code-line text-3xl mb-1"></i>
-                        <span>อัปโหลดรูป QR Code</span>
-                        <span class="text-[10px] mt-1 text-gray-500">(โดย Admin)</span>
+                        <span>กำลังสร้าง QR...</span>
                     </div>
+                    <!-- The actual canvas where QRCode will render -->
+                    <canvas id="qr-canvas" class="hidden"></canvas>
                 </div>
             </div>
         </div>
@@ -227,9 +228,39 @@
 
                 if (data.success && data.order) {
                     const order = data.order;
+                    const bankAccount = data.bankAccount;
+
                     document.getElementById('display-order-id').textContent = order.id;
                     document.getElementById('display-total').textContent = `${parseFloat(order.totalAmount).toLocaleString('th-TH')} ฿`;
                     
+                    if (bankAccount) {
+                        // Populate Bank Details
+                        document.getElementById('display-bank-name').textContent = bankAccount.bankName;
+                        document.getElementById('display-account-name').textContent = bankAccount.accountName;
+                        document.getElementById('display-account-number').textContent = bankAccount.accountNumber;
+                        document.getElementById('btn-copy-account').onclick = () => copyBankAccount(bankAccount.accountNumber);
+
+                        // Generate PromptPay QR
+                        if (bankAccount.promptPayId && window.promptpayQr && window.QRCode) {
+                            const payload = window.promptpayQr(bankAccount.promptPayId, { amount: parseFloat(order.totalAmount) });
+                            const canvas = document.getElementById('qr-canvas');
+                            window.QRCode.toCanvas(canvas, payload, {
+                                width: 200,
+                                margin: 2,
+                                color: { dark: '#000000', light: '#ffffff' }
+                            }, function (error) {
+                                if (error) console.error('QR Generate Error:', error);
+                                else {
+                                    document.getElementById('qr-placeholder').classList.add('hidden');
+                                    canvas.classList.remove('hidden');
+                                }
+                            });
+                        }
+                    } else {
+                        // Hide bank section or show warning if no bank account is available
+                        document.getElementById('bank-details-container').innerHTML = '<p class="text-center text-red-400 p-4">ไม่มีช่องทางชำระเงินที่รองรับสำหรับยอดนี้</p>';
+                    }
+
                     document.getElementById('loading-screen').classList.add('hidden');
                     document.getElementById('payment-content').classList.remove('hidden');
                 } else {
