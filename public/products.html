@@ -2994,13 +2994,14 @@
 
                 const cartItem = window.cart.find(item => item.id === p.id);
                 if (cartItem && cartItem.quantity > 0) {
+                    const isAtMaxStock = cartItem.quantity >= p.stockQuantity;
                     return `
                         <div class="cart-control-wrapper ${mode === 'mini' ? '!p-1 !gap-1 !bg-zinc-900/80' : ''}">
                             <button class="cart-qty-btn btn-minus ${mode === 'mini' ? '!w-7 !h-7 !text-xs' : ''}" data-product-id="${p.id}" data-action="minus">
                                 <i class="${cartItem.quantity === 1 ? 'ri-delete-bin-line' : 'ri-subtract-line'}"></i>
                             </button>
                             <div class="cart-qty-display ${mode === 'mini' ? '!min-w-[20px] !text-sm' : ''}">${cartItem.quantity}</div>
-                            <button class="cart-qty-btn btn-plus ${mode === 'mini' ? '!w-7 !h-7 !text-xs' : ''}" data-product-id="${p.id}" data-action="plus">
+                            <button class="cart-qty-btn btn-plus ${mode === 'mini' ? '!w-7 !h-7 !text-xs' : ''} ${isAtMaxStock ? 'opacity-50 cursor-not-allowed' : ''}" data-product-id="${p.id}" data-action="plus" ${isAtMaxStock ? 'disabled' : ''}>
                                 <i class="ri-add-line"></i>
                             </button>
                         </div>
