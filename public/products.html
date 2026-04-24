@@ -1074,6 +1074,15 @@
             console.log('Global updateQuantity called:', productId, change);
             const item = window.cart.find(i => i.id === productId);
             if (!item) return;
+
+            if (change > 0) {
+                const product = window.allProducts.find(p => p.id === productId);
+                if (product && (item.quantity + change) > product.stockQuantity) {
+                    showToast(`สั่งซื้อได้สูงสุด ${product.stockQuantity} ชิ้น`, 'error');
+                    return; // Prevent adding more than stock
+                }
+            }
+
             item.quantity += change;
             if (item.quantity <= 0) window.cart = window.cart.filter(i => i.id !== productId);
 
@@ -3223,6 +3232,7 @@
 
                 // --- E-commerce Inventory Override ---
                 // Force status to OUT_OF_STOCK if stockQuantity is <= outOfStockThreshold
+                // This only affects rendering, we don't want to permanently change the DB state here, but changing it in the array is fine for UI
                 filteredProducts.forEach(p => {
                     const threshold = storeSetting.outOfStockThreshold || 0;
                     if (p.stockQuantity <= threshold) {
