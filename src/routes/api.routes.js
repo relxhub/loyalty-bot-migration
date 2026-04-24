@@ -10,9 +10,10 @@ import * as referralService from '../services/referral.service.js';
 import { getProductPageData } from '../services/product.service.js';
 import * as couponService from '../services/coupon.service.js';
 import * as shippingService from '../services/shipping.service.js';
-// No longer import orderBotToken directly here due to module issues.
+import multer from 'multer';
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB limit
 
 console.log("✅ API Routes loaded successfully");
 
@@ -380,6 +381,179 @@ router.get('/orders/:orderId', async (req, res) => {
     } catch (error) {
         console.error("Get Order Error:", error);
         res.status(500).json({ error: "เกิดข้อผิดพลาดในการดึงข้อมูลสั่งซื้อ" });
+    }
+});
+
+// SLIPOK Integration
+router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const files = req.files;
+
+        if (!files || files.length === 0) {
+            return res.status(400).json({ success: false, error: 'กรุณาอัปโหลดรูปสลิป' });
+        }
+
+        const file = files[0];
+
+        // 1. Get Order
+        const order = await prisma.order.findUnique({
+            where: { id: orderId },
+            include: { items: true, customer: true }
+        });
+
+        if (!order) return res.status(404).json({ success: false, error: 'ไม่พบออเดอร์นี้' });
+        if (order.status !== 'PENDING_PAYMENT') return res.status(400).json({ success: false, error: 'ออเดอร์นี้ชำระเงินไปแล้ว หรือถูกยกเลิก' });
+
+        // 2. Call SlipOK API
+        const slipOkApiKey = process.env.SLIPOK_API_KEY;
+        if (!slipOkApiKey) {
+             console.error("Missing SLIPOK_API_KEY in environment variables.");
+             return res.status(500).json({ success: false, error: 'ระบบตรวจสอบสลิปยังไม่พร้อมใช้งาน (Missing API Key)' });
+        }
+
+        const formData = new FormData();
+        const blob = new Blob([file.buffer], { type: file.mimetype || 'image/jpeg' });
+        formData.append('files', blob, file.originalname || 'slip.jpg');
+
+        const slipOkRes = await fetch(`https://api.slipok.com/api/line/apikey/${slipOkApiKey}`, {
+            method: 'POST',
+            body: formData,
+            // FormData will automatically set Content-Type with the correct boundary
+        });
+
+        const slipData = await slipOkRes.json();
+
+        if (!slipData.success) {
+            console.error("SlipOK Verification Failed:", slipData);
+            return res.status(400).json({ 
+                success: false, 
+                error: slipData.message || 'สลิปไม่ถูกต้อง หรือไม่สามารถตรวจสอบได้' 
+            });
+        }
+
+        const slipAmount = slipData.data.amount;
+        const slipTransRef = slipData.data.transRef;
+
+        // 3. Validate Amount
+        if (parseFloat(slipAmount) !== parseFloat(order.totalAmount)) {
+            return res.status(400).json({ 
+                success: false, 
+                error: `ยอดเงินไม่ตรงกัน (ยอดที่ต้องชำระ: ${order.totalAmount} ฿, ยอดในสลิป: ${slipAmount} ฿)` 
+            });
+        }
+
+        // Optional: Validate Receiver Account if needed (slipData.data.receiver)
+        
+        // 4. Check for duplicate slip usage
+        const existingPayment = await prisma.payment.findFirst({
+            where: { transactionRef: slipTransRef }
+        });
+
+        if (existingPayment) {
+             return res.status(400).json({ success: false, error: 'สลิปนี้ถูกใช้งานไปแล้ว' });
+        }
+
+        // 5. Update Database in Transaction
+        await prisma.$transaction(async (tx) => {
+            // A. Update Order Status
+            await tx.order.update({
+                where: { id: orderId },
+                data: { status: 'PAID' }
+            });
+
+            // B. Create Payment Record
+            await tx.payment.create({
+                data: {
+                    orderId: order.id,
+                    amount: parseFloat(slipAmount),
+                    method: 'PROMPTPAY',
+                    status: 'COMPLETED',
+                    slipUrl: slipData.data.url || '',
+                    transactionRef: slipTransRef,
+                    slipDataPayload: JSON.stringify(slipData.data),
+                    verifiedAt: new Date()
+                }
+            });
+
+            // C. Deduct Stock
+            for (const item of order.items) {
+                await tx.product.update({
+                    where: { id: item.productId },
+                    data: { stockQuantity: { decrement: item.quantity } }
+                });
+            }
+
+            // D. Deduct Coupon (if any)
+            if (order.appliedCouponId) {
+                const customerCoupon = await tx.customerCoupon.findFirst({
+                    where: {
+                        customerId: order.customerId,
+                        couponId: order.appliedCouponId,
+                        status: 'AVAILABLE'
+                    }
+                });
+                
+                if (customerCoupon) {
+                    await tx.customerCoupon.update({
+                        where: { id: customerCoupon.id },
+                        data: { status: 'USED', usedAt: new Date() }
+                    });
+                }
+            }
+        });
+
+        // 6. Send Notification to Admin (using orderBotToken if possible)
+        try {
+             const token = getVerificationToken();
+             const adminGroupId = process.env.ADMIN_GROUP_ID; // Ensure this is set
+             
+             if (token && adminGroupId) {
+                  const message = `✅ <b>ได้รับการชำระเงินใหม่</b>\n\n` +
+                                  `ออเดอร์: #${order.id}\n` +
+                                  `ลูกค้า: ${order.customer.firstName} ${order.customer.lastName || ''}\n` +
+                                  `ยอดเงิน: ${slipAmount} ฿\n` +
+                                  `ตรวจสอบสลิปผ่าน SlipOK เรียบร้อย`;
+                  
+                  // Send message with slip photo
+                  const photoUrl = slipData.data.url;
+                  let telegramUrl = `https://api.telegram.org/bot${token}/sendPhoto`;
+                  
+                  if (photoUrl) {
+                      await fetch(telegramUrl, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                              chat_id: adminGroupId,
+                              photo: photoUrl,
+                              caption: message,
+                              parse_mode: 'HTML'
+                          })
+                      });
+                  } else {
+                      // Fallback to text message if no URL
+                      telegramUrl = `https://api.telegram.org/bot${token}/sendMessage`;
+                      await fetch(telegramUrl, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                              chat_id: adminGroupId,
+                              text: message,
+                              parse_mode: 'HTML'
+                          })
+                      });
+                  }
+             }
+        } catch (notifErr) {
+             console.error("Failed to send admin notification:", notifErr);
+             // Non-fatal error, proceed
+        }
+
+        res.json({ success: true, message: 'ตรวจสอบสลิปและยืนยันการสั่งซื้อสำเร็จ', slipUrl: slipData.data.url });
+
+    } catch (error) {
+        console.error("Verify Slip Error:", error);
+        res.status(500).json({ success: false, error: error.message || 'เกิดข้อผิดพลาดในการตรวจสอบสลิป' });
     }
 });
 
