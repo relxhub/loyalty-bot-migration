@@ -7,7 +7,7 @@
     
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script src="/js/qr-code-styling.browser.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
 
@@ -141,7 +141,7 @@
                         <span>กำลังสร้าง QR...</span>
                     </div>
                     <!-- The actual canvas where QRCode will render -->
-                    <canvas id="qr-canvas" class="hidden"></canvas>
+                    <div id="qr-canvas" class="hidden"></div>
                 </div>
             </div>
         </div>
@@ -272,20 +272,22 @@
                         document.getElementById('btn-copy-account').onclick = () => copyBankAccount(bankAccount.accountNumber);
 
                         // Generate PromptPay QR
-                        if (bankAccount.promptPayId && window.QRCode) {
+                        if (bankAccount.promptPayId && window.QRCodeStyling) {
                             const payload = generatePromptPayPayload(bankAccount.promptPayId, parseFloat(order.totalAmount));
-                            const canvas = document.getElementById('qr-canvas');
-                            window.QRCode.toCanvas(canvas, payload, {
+                            const qrContainer = document.getElementById('qr-canvas');
+                            
+                            const qrCode = new QRCodeStyling({
                                 width: 200,
-                                margin: 2,
-                                color: { dark: '#000000', light: '#ffffff' }
-                            }, function (error) {
-                                if (error) console.error('QR Generate Error:', error);
-                                else {
-                                    document.getElementById('qr-placeholder').classList.add('hidden');
-                                    canvas.classList.remove('hidden');
-                                }
+                                height: 200,
+                                data: payload,
+                                dotsOptions: { color: "#000000", type: "rounded" },
+                                backgroundOptions: { color: "#ffffff" },
+                                imageOptions: { crossOrigin: "anonymous", margin: 5 }
                             });
+                            
+                            document.getElementById('qr-placeholder').classList.add('hidden');
+                            qrContainer.classList.remove('hidden');
+                            qrCode.append(qrContainer);
                         }
                     } else {
                         // Hide bank section or show warning if no bank account is available
