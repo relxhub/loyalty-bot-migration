@@ -2561,23 +2561,23 @@
             };
             window.closeCartModal = closeCartModal;
 
-            const copyCartToClipboard = () => {
+            const executeCheckout = async () => {
                 if (cart.length === 0) return;
 
                 if (!selectedAddressId) {
-                    tg.showAlert('กรุณาเลือกที่อยู่จัดส่งก่อนคัดลอกรายการ');
+                    tg.showAlert('กรุณาเลือกที่อยู่จัดส่งก่อนชำระเงิน');
                     return;
                 }
 
                 // --- NEW: Identify and Filter out items that became OUT_OF_STOCK ---
                 const outOfStockItems = cart.filter(item => {
-                    const product = allProducts.find(p => p.id === item.id);
-                    return !product || product.status === 'OUT_OF_STOCK';
+                    const product = allProducts.find(p => p.id == item.id);
+                    return !product || product.status === 'OUT_OF_STOCK' || product.stockQuantity <= 0;
                 });
 
                 const availableItems = cart.filter(item => {
-                    const product = allProducts.find(p => p.id === item.id);
-                    return product && product.status !== 'OUT_OF_STOCK';
+                    const product = allProducts.find(p => p.id == item.id);
+                    return product && product.status !== 'OUT_OF_STOCK' && product.stockQuantity > 0;
                 });
 
                 // Show notifications for each out-of-stock item
@@ -2596,88 +2596,73 @@
                     // Some items were removed, wait a tiny bit so error toasts are seen first
                     setTimeout(() => {
                         showToast('ตัดรายการสินค้าที่หมดออกให้แล้ว', 'info');
+                        // Update cart in state to remove out of stock items before proceeding
+                        window.cart = availableItems;
+                        window.updateCartUI();
                     }, 500);
-                }
-
-                let textToCopy = "รายการสั่งซื้อสินค้า\n\n";
-
-                // --- Shipping Address Integration (Moved to Top) ---
-                if (selectedAddressId) {
-                    const addr = savedAddresses.find(a => a.id === selectedAddressId);
-                    if (addr) {
-                        textToCopy += `[ข้อมูลจัดส่ง]\n`;
-                        textToCopy += `ชื่อผู้รับ : ${addr.receiverName}\n`;
-                        textToCopy += `เบอร์ผู้รับ : ${addr.phone}\n`;
-                        textToCopy += `ที่อยู่ : ${addr.address} ${addr.subdistrict} ${addr.district} ${addr.province} ${addr.zipcode}\n\n`;
-                    }
-                }
-                
-                // Group available items by categoryName (รุ่นสินค้า)
-                const groups = availableItems.reduce((acc, item) => {
-                    if (!acc[item.categoryName]) acc[item.categoryName] = [];
-                    acc[item.categoryName].push(item);
-                    return acc;
-                }, {});
-
-                // Format text by groups
-                Object.keys(groups).forEach(category => {
-                    textToCopy += `[${category}]\n`;
-                    groups[category].forEach(item => {
-                        const nicStr = item.nicotine !== null ? ` (${item.nicotine}%)` : '';
-                        textToCopy += `- ${item.nameEn}${nicStr} จำนวน ${item.quantity} ชิ้น\n`;
-                    });
-                    textToCopy += "\n"; // Space between groups
-                });
-
-                // --- Coupon Integration into Copy Message ---
-                if (window.appliedCoupon) {
-                    textToCopy += `🎫 คูปองที่ใช้: ${window.appliedCoupon.coupon.id}\n`;
-                    if (selectedGift) {
-                        const gift = allProducts.find(p => p.id === selectedGift);
-                        textToCopy += `🎁 ของแถม: ${gift.nameEn} (แถมฟรี)\n`;
-                    }
-                    textToCopy += "\n";
+                    return; // Stop here, let them review the updated cart
                 }
 
                 const total = availableItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                let finalTotal = total;
+                const isFree = total >= (window.shippingConfig?.freeMin || 500);
+                const shipFee = !isFree ? (window.shippingConfig?.fee || 60) : 0;
+                
+                let discountAmount = 0;
+                let appliedCouponId = null;
+
                 if (window.appliedCoupon) {
-                    const coupon = window.appliedCoupon.coupon;
-                    if (coupon.type === 'DISCOUNT_PERCENT') finalTotal -= (total * (parseFloat(coupon.value) / 100));
-                    else if (coupon.type === 'DISCOUNT_FLAT') finalTotal -= parseFloat(coupon.value);
+                    const c = window.appliedCoupon.coupon;
+                    if (total >= parseFloat(c.minPurchase || 0)) {
+                        if (c.type === 'DISCOUNT_PERCENT') discountAmount = total * (parseFloat(c.value) / 100);
+                        else if (c.type === 'DISCOUNT_FLAT') discountAmount = parseFloat(c.value);
+                        appliedCouponId = c.id;
+                    }
                 }
 
-                textToCopy += `ยอดรวมสุทธิ: ฿${finalTotal.toLocaleString('th-TH')}`;
-                textToCopy += `\n\n[รหัสลูกค้า: ${currentUser?.customerId || tg.initDataUnsafe?.user?.id}]`;
+                const finalTotal = Math.max(0, total + shipFee - discountAmount);
 
-                navigator.clipboard.writeText(textToCopy.trim()).then(() => {
-                    
-                    // Track Checkout in PostHog
-                    if (window.posthog) {
-                        posthog.capture('Checkout Copied', {
-                            totalAmount: finalTotal,
-                            totalItems: availableItems.reduce((sum, i) => sum + i.quantity, 0),
-                            appliedCoupon: window.appliedCoupon ? window.appliedCoupon.coupon.id : null,
-                            shippingZipcode: selectedAddressId ? savedAddresses.find(a => a.id === selectedAddressId)?.zipcode : null
-                        });
-                    }
+                try {
+                    // Show loading on the button
+                    const btn = document.getElementById('copy-cart-btn');
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = '<div class="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full mx-auto"></div>';
+                    btn.disabled = true;
 
-                    tg.showPopup({
-                        title: 'คัดลอกสำเร็จ',
-                        message: 'คัดลอกเรียบร้อยแล้ว คุณลูกค้าสามารถนำไปวางและกดส่งข้อความให้กับทางแอดมิน ขอความกรุณาไม่เปลี่ยนแปลงข้อความใดๆ เพื่อความถูกต้องและแม่นยำของข้อมูล',
-                        buttons: [
-                            { id: 'ok', type: 'default', text: 'OK' },
-                            { id: 'close', type: 'destructive', text: 'Close Application' }
-                        ]
-                    }, function(buttonId) {
-                        if (buttonId === 'close') {
-                            tg.close();
-                        }
+                    const res = await fetch('/api/orders/checkout', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            initData: tg.initData,
+                            cart: availableItems,
+                            shippingAddressId: selectedAddressId,
+                            appliedCouponId: appliedCouponId,
+                            discountAmount: discountAmount,
+                            totalAmount: finalTotal
+                        })
                     });
-                }).catch(err => {
-                    showToast('ไม่สามารถคัดลอกได้', 'error');
-                    console.error('Failed to copy: ', err);
-                });
+
+                    const data = await res.json();
+
+                    if (data.success) {
+                        // Clear local cart since it's converted to an order
+                        window.cart = [];
+                        saveCart();
+                        window.appliedCoupon = null;
+
+                        // Redirect to payment page
+                        window.location.href = `payment.html?orderId=${data.orderId}&v=${Date.now()}`;
+                    } else {
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                        tg.showAlert(data.error || 'เกิดข้อผิดพลาดในการสั่งซื้อ');
+                    }
+                } catch (err) {
+                    console.error('Checkout Error:', err);
+                    const btn = document.getElementById('copy-cart-btn');
+                    btn.innerHTML = 'ชำระเงิน';
+                    btn.disabled = false;
+                    tg.showAlert('เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองอีกครั้ง');
+                }
             };
 
             // --- Fly to Cart Animation ---
@@ -3636,7 +3621,7 @@
             cartButton.addEventListener('click', openCartModal);
             closeCartModalBtn.addEventListener('click', closeCartModal);
             cartModal.addEventListener('click', (e) => e.target === cartModal && closeCartModal());
-            copyCartBtn.addEventListener('click', copyCartToClipboard);
+            copyCartBtn.addEventListener('click', executeCheckout);
             clearCartBtn.addEventListener('click', clearCart);
 
             // --- Expose functions for inline HTML handlers ---
@@ -3892,7 +3877,7 @@
                             <i class="ri-delete-bin-line"></i>
                         </button>
                         <button id="copy-cart-btn" class="w-3/4 py-3.5 bg-gradient-to-br from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 rounded-2xl font-bold text-lg text-white transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/20">
-                            คัดลอกรายการ
+                            ชำระเงิน
                         </button>
                     </div>
                 </div>

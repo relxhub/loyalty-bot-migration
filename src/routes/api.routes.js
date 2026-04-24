@@ -214,6 +214,103 @@ router.post('/update-phone', async (req, res) => {
 });
 
 // ==================================================
+// 🛍️ ORDERS & CHECKOUT
+// ==================================================
+router.post('/orders/checkout', async (req, res) => {
+    try {
+        const { initData, cart, shippingAddressId, appliedCouponId, discountAmount, totalAmount } = req.body;
+        
+        if (!verifyTelegramWebAppData(initData)) {
+            return res.status(401).json({ error: "Invalid Telegram Data" });
+        }
+
+        const urlParams = new URLSearchParams(initData);
+        const userData = JSON.parse(urlParams.get('user'));
+        const telegramId = userData.id.toString();
+
+        let customer = await getCustomerByTelegramId(telegramId);
+        if (!customer) {
+            return res.status(404).json({ error: "ไม่พบข้อมูลลูกค้า" });
+        }
+
+        if (!cart || cart.length === 0) {
+            return res.status(400).json({ error: "ตะกร้าสินค้าว่างเปล่า" });
+        }
+
+        if (!shippingAddressId) {
+            return res.status(400).json({ error: "กรุณาเลือกที่อยู่จัดส่ง" });
+        }
+
+        // 1. Verify Stock & Generate Order ID inside a transaction
+        const orderId = `ORD-${Date.now().toString().slice(-6)}-${Math.floor(1000 + Math.random() * 9000)}`;
+        
+        const result = await prisma.$transaction(async (tx) => {
+            // Verify stock for all items
+            for (const item of cart) {
+                const product = await tx.product.findUnique({ where: { id: item.id } });
+                if (!product) {
+                    throw new Error(`ไม่พบสินค้า: ${item.nameEn}`);
+                }
+                if (product.stockQuantity < item.quantity) {
+                    throw new Error(`สินค้า ${product.nameEn} มีไม่พอ (เหลือ ${product.stockQuantity} ชิ้น)`);
+                }
+            }
+
+            // Verify Coupon if applied
+            if (appliedCouponId) {
+                const customerCoupon = await tx.customerCoupon.findFirst({
+                    where: {
+                        customerId: customer.customerId,
+                        couponId: appliedCouponId,
+                        isUsed: false
+                    },
+                    include: { coupon: true }
+                });
+                
+                if (!customerCoupon) {
+                     throw new Error(`คูปอง ${appliedCouponId} ไม่สามารถใช้งานได้ หรือถูกใช้ไปแล้ว`);
+                }
+                
+                // Mark coupon as used immediately to prevent double spending
+                // If payment fails/cancels later, we can implement a refund logic.
+                await tx.customerCoupon.update({
+                    where: { id: customerCoupon.id },
+                    data: { isUsed: true, usedAt: new Date() }
+                });
+            }
+
+            // Create Order
+            const newOrder = await tx.order.create({
+                data: {
+                    id: orderId,
+                    customerId: customer.customerId,
+                    totalAmount: totalAmount,
+                    status: 'PENDING_PAYMENT',
+                    shippingAddressId: shippingAddressId,
+                    appliedCouponId: appliedCouponId,
+                    discountAmount: discountAmount || 0,
+                    items: {
+                        create: cart.map(item => ({
+                            productId: item.id,
+                            quantity: item.quantity,
+                            priceAtPurchase: item.price
+                        }))
+                    }
+                }
+            });
+
+            return newOrder;
+        });
+
+        res.json({ success: true, orderId: result.id });
+
+    } catch (error) {
+        console.error("Checkout Error:", error);
+        res.status(400).json({ error: error.message || "เกิดข้อผิดพลาดในการสร้างรายการสั่งซื้อ" });
+    }
+});
+
+// ==================================================
 // 🔗 LINK ACCOUNT
 // ==================================================
 router.post('/link', async (req, res) => {
