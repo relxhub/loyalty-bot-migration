@@ -8,7 +8,6 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-    <script src="https://unpkg.com/promptpay-qr@0.5.0/lib/promptpay-qr.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
 
@@ -206,6 +205,38 @@
             });
         }
 
+        function generatePromptPayPayload(target, amount) {
+            function crc16(data) {
+                let crc = 0xFFFF;
+                for (let i = 0; i < data.length; i++) {
+                    crc ^= data.charCodeAt(i) << 8;
+                    for (let j = 0; j < 8; j++) {
+                        if ((crc & 0x8000) > 0) crc = (crc << 1) ^ 0x1021;
+                        else crc <<= 1;
+                    }
+                }
+                return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+            }
+
+            let targetType = target.length >= 13 ? '02' : '01';
+            let targetStr = target;
+            if (targetType === '01') {
+                targetStr = targetStr.replace(/^0/, '66');
+                targetStr = targetStr.padStart(13, '0');
+            }
+            
+            let amountStr = '';
+            if (amount) {
+                let amt = amount.toFixed(2);
+                amountStr = `54${String(amt.length).padStart(2, '0')}${amt}`;
+            }
+
+            let payload29 = `0016A000000677010111${targetType}${String(targetStr.length).padStart(2, '0')}${targetStr}`;
+            let payload = `00020101021129${String(payload29.length).padStart(2, '0')}${payload29}5802TH5303764${amountStr}6304`;
+            
+            return payload + crc16(payload);
+        }
+
         async function initPayment() {
             if (tg.isVersionAtLeast('7.7')) {
                 tg.disableVerticalSwipes();
@@ -241,8 +272,8 @@
                         document.getElementById('btn-copy-account').onclick = () => copyBankAccount(bankAccount.accountNumber);
 
                         // Generate PromptPay QR
-                        if (bankAccount.promptPayId && window.promptpayQr && window.QRCode) {
-                            const payload = window.promptpayQr(bankAccount.promptPayId, { amount: parseFloat(order.totalAmount) });
+                        if (bankAccount.promptPayId && window.QRCode) {
+                            const payload = generatePromptPayPayload(bankAccount.promptPayId, parseFloat(order.totalAmount));
                             const canvas = document.getElementById('qr-canvas');
                             window.QRCode.toCanvas(canvas, payload, {
                                 width: 200,
