@@ -2297,11 +2297,19 @@
 
                 const cartItem = window.cart.find(item => item.id === productId);
                 if (cartItem) {
+                    if (cartItem.quantity + 1 > product.stockQuantity) {
+                        showToast(`สั่งซื้อได้สูงสุด ${product.stockQuantity} ชิ้น`, 'error');
+                        return;
+                    }
                     cartItem.quantity++;
                 } else {
+                    if (1 > product.stockQuantity) {
+                        showToast(`สินค้าหมด`, 'error');
+                        return;
+                    }
                     const category = allCategories.find(c => c.id === product.categoryId);
                     window.cart.push({
-                        id: product.id, 
+                        id: product.id,
                         nameEn: product.nameEn,
                         nameTh: product.nameTh,
                         nicotine: product.nicotine,
@@ -2309,7 +2317,7 @@
                         price: category ? parseFloat(category.price) : 0,
                         categoryName: category ? category.name : '',
                         categoryId: product.categoryId,
-                        quantity: 1 
+                        quantity: 1
                     });
                 }
 
@@ -2323,8 +2331,7 @@
                 }
 
                 window.updateCartUI(productId);
-            };
-            
+            };            
             window.updateProductCardCartControl = (productId) => {
                 const product = allProducts.find(p => p.id === productId);
                 if (!product) return;
