@@ -510,6 +510,9 @@
             if (!phoneInput || phoneInput.length < 9) {
                 return tg.showAlert("กรุณากรอกเบอร์โทรศัพท์ให้ครบถ้วน");
             }
+            if (!phoneInput.startsWith('0')) {
+                return tg.showAlert("กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง (ต้องขึ้นต้นด้วย 0)");
+            }
 
             document.getElementById('phone-screen').classList.add('hidden');
             document.getElementById('loading-screen').classList.remove('hidden');
