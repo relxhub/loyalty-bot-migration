@@ -262,7 +262,7 @@ router.post('/orders/checkout', async (req, res) => {
                     where: {
                         customerId: customer.customerId,
                         couponId: appliedCouponId,
-                        isUsed: false
+                        status: 'AVAILABLE'
                     },
                     include: { coupon: true }
                 });
@@ -275,7 +275,7 @@ router.post('/orders/checkout', async (req, res) => {
                 // If payment fails/cancels later, we can implement a refund logic.
                 await tx.customerCoupon.update({
                     where: { id: customerCoupon.id },
-                    data: { isUsed: true, usedAt: new Date() }
+                    data: { status: 'USED', usedAt: new Date() }
                 });
             }
 
