@@ -989,8 +989,8 @@
 
         async function submitPhone() {
             const phoneInput = document.getElementById('phone-input').value.trim();
-            if (!phoneInput || phoneInput.length < 9) {
-                return showToast("กรุณากรอกเบอร์โทรศัพท์ให้ครบถ้วน", "error");
+            if (!phoneInput || phoneInput.length !== 10) {
+                return showToast("กรุณากรอกเบอร์มือถือให้ครบ 10 หลัก", "error");
             }
             if (!phoneInput.startsWith('0')) {
                 return showToast("กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง (ต้องขึ้นต้นด้วย 0)", "error");
