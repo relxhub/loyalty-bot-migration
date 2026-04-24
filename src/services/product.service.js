@@ -9,7 +9,7 @@ export const getProductPageData = async () => {
   console.log('[SERVICE TRACE] getProductPageData: Starting...');
   try {
     // Step 1: Fetch primary data in a transaction
-    const [banners, categories, products, tickerConfig] = await prisma.$transaction([
+    const [banners, categories, products, tickerConfig, storeSetting] = await prisma.$transaction([
       prisma.banner.findMany({
         where: { isActive: true },
         orderBy: { order: 'asc' },
@@ -38,6 +38,7 @@ export const getProductPageData = async () => {
           status: true,
           isNew: true,
           isHot: true,
+          stockQuantity: true,
           nicotine: true,
           coolnessLevel: true,
           sweetnessLevel: true,
@@ -48,14 +49,13 @@ export const getProductPageData = async () => {
           createdAt: true,
           updatedAt: true,
           categoryId: true,
-          category: true,
-        },
-        orderBy: {
-          nameTh: 'asc',
         },
       }),
       prisma.systemConfig.findUnique({
         where: { key: 'ticker_default_message' }
+      }),
+      prisma.storeSetting.findUnique({
+        where: { id: 1 }
       })
     ]);
 
@@ -88,7 +88,13 @@ export const getProductPageData = async () => {
 
     console.log('[SERVICE TRACE] getProductPageData: Database transaction and aggregation successful.');
     const tickerMessage = tickerConfig ? tickerConfig.value : "🎉 ยินดีต้อนรับสู่ร้าน Loyalty Shop! สินค้าคุณภาพพร้อมส่ง";
-    return { banners, categories, products: productsWithRatings, tickerDefaultMessage: tickerMessage };
+    return { 
+      banners, 
+      categories, 
+      products: productsWithRatings, 
+      tickerDefaultMessage: tickerMessage,
+      storeSetting: storeSetting || { lowStockThreshold: 50, outOfStockThreshold: 20 }
+    };
 
   } catch (error) {
     console.error('[SERVICE ERROR] Error in getProductPageData:', error);
