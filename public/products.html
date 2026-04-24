@@ -612,8 +612,9 @@
         }
         .cart-qty-btn:active { transform: scale(0.8); }
         .cart-qty-btn.btn-minus {
-            background-color: rgba(239, 68, 68, 0.15);
-            color: #f87171;
+            background-color: #ef4444;
+            color: white;
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
             opacity: 1 !important; /* Ensure minus button never fades */
         }        .cart-qty-btn.btn-plus { 
             background-image: var(--brand-gradient);
@@ -1301,7 +1302,7 @@
                     <div class="text-[0.8rem] font-bold text-zinc-500 uppercase tracking-wider mb-2 pl-1">${cat}</div>
                     <div class="space-y-2">
                         ${items.map(item => {
-                            const product = window.allProducts.find(p => p.id === item.id);
+                            const product = window.allProducts.find(p => p.id == item.id);
                             const maxStock = product ? product.stockQuantity : 0;
                             const isAtMaxStock = item.quantity >= maxStock;
                             return `
@@ -2363,7 +2364,7 @@
             };
 
             window.updateCartModalItem = (productId) => {
-                const item = window.cart.find(i => i.id === productId);
+                const item = window.cart.find(i => i.id == productId);
                 const total = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
                 cartTotalPrice.textContent = `฿${total.toLocaleString('th-TH')}`;
 
@@ -2373,7 +2374,7 @@
                     return;
                 }
 
-                const product = window.allProducts.find(p => p.id === productId);
+                const product = window.allProducts.find(p => p.id == productId);
                 const maxStock = product ? product.stockQuantity : 0;
                 const isAtMaxStock = item.quantity >= maxStock;
 
