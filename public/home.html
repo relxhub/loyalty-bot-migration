@@ -417,6 +417,10 @@
                     const data = await res.json();
                     
                     if (data.success) {
+                        // Track in PostHog
+                        if (window.posthog) {
+                            posthog.capture('Redeem Reward Coupon', { couponId: id });
+                        }
                         tg.showPopup({
                             title: 'แลกสำเร็จ! 🎉',
                             message: 'คูปองถูกส่งเข้ากระเป๋าของคุณแล้ว สามารถนำไปใช้เป็นส่วนลดได้ที่หน้าตะกร้าสินค้า',
@@ -449,6 +453,10 @@
                 const data = await res.json();
                 
                 if (data.success) {
+                    // Track in PostHog
+                    if (window.posthog) {
+                        posthog.capture('Claim Coupon', { couponId: id });
+                    }
                     tg.showPopup({
                         title: 'สำเร็จ!',
                         message: 'เก็บคูปองเข้ากระเป๋าเรียบร้อยแล้วครับ',

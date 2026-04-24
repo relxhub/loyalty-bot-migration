@@ -1096,6 +1096,15 @@
                 const category = window.allCategories.find(c => c.id === product.categoryId);
                 window.cart.push({ id: product.id, nameEn: product.nameEn, nameTh: product.nameTh, nicotine: product.nicotine, imageUrl: product.imageUrl, price: category ? parseFloat(category.price) : 0, categoryName: category ? category.name : '', categoryId: product.categoryId, quantity: 1 });
             }
+            
+            if (window.posthog) {
+                posthog.capture('Add to Cart', { 
+                    productId: product.id, 
+                    productName: product.nameEn,
+                    categoryId: product.categoryId 
+                });
+            }
+
             window.updateQuantity(productId, 0); // Trigger UI update
         };
 
@@ -2048,6 +2057,14 @@
 
                             }
 
+                            // Track user in PostHog
+                            if (window.posthog) {
+                                posthog.capture('Toggle Favorite', { 
+                                    productId: productId,
+                                    action: index === -1 ? 'add' : 'remove'
+                                });
+                            }
+
                             
 
                             saveFavorites();
@@ -2568,6 +2585,17 @@
                 textToCopy += `\n\n[รหัสลูกค้า: ${currentUser?.customerId || tg.initDataUnsafe?.user?.id}]`;
 
                 navigator.clipboard.writeText(textToCopy.trim()).then(() => {
+                    
+                    // Track Checkout in PostHog
+                    if (window.posthog) {
+                        posthog.capture('Checkout Copied', {
+                            totalAmount: finalTotal,
+                            totalItems: availableItems.reduce((sum, i) => sum + i.quantity, 0),
+                            appliedCoupon: window.appliedCoupon ? window.appliedCoupon.coupon.id : null,
+                            shippingZipcode: selectedAddressId ? savedAddresses.find(a => a.id === selectedAddressId)?.zipcode : null
+                        });
+                    }
+
                     tg.showPopup({
                         title: 'คัดลอกสำเร็จ',
                         message: 'คัดลอกเรียบร้อยแล้ว คุณลูกค้าสามารถนำไปวางและกดส่งข้อความให้กับทางแอดมิน ขอความกรุณาไม่เปลี่ยนแปลงข้อความใดๆ เพื่อความถูกต้องและแม่นยำของข้อมูล',
