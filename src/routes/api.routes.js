@@ -329,8 +329,20 @@ router.get('/orders/:orderId', async (req, res) => {
         const activeBankAccounts = await prisma.bankAccount.findMany({
             where: {
                 isActive: true,
-                minAmount: { lte: order.totalAmount },
-                maxAmount: { gte: order.totalAmount }
+                AND: [
+                    {
+                        OR: [
+                            { minAmount: null },
+                            { minAmount: { lte: order.totalAmount } }
+                        ]
+                    },
+                    {
+                        OR: [
+                            { maxAmount: null },
+                            { maxAmount: { gte: order.totalAmount } }
+                        ]
+                    }
+                ]
             }
         });
 
