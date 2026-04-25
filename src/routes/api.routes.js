@@ -578,47 +578,133 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
             }
         });
 
-        // 6. Send Notification to Admin (using orderBotToken if possible)
+        // 6. Send Notification to Admin (Round-Robin & Detailed Summary)
         try {
-             const token = getVerificationToken();
-             const adminGroupId = process.env.ADMIN_GROUP_ID; // Ensure this is set
-             
-             if (token && adminGroupId) {
-                  const message = `✅ <b>ได้รับการชำระเงินใหม่</b>\n\n` +
-                                  `ออเดอร์: #${order.id}\n` +
-                                  `รหัสลูกค้า: ${order.customerId}\n` +
-                                  `ยอดเงิน: ${slipAmount} ฿\n` +
-                                  `ตรวจสอบสลิปผ่าน SlipOK เรียบร้อย`;
-                  
-                  // Send message with slip photo
-                  const photoUrl = slipData.data.url;
-                  let telegramUrl = `https://api.telegram.org/bot${token}/sendPhoto`;
-                  
-                  if (photoUrl) {
-                      await fetch(telegramUrl, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                              chat_id: adminGroupId,
-                              photo: photoUrl,
-                              caption: message,
-                              parse_mode: 'HTML'
-                          })
-                      });
-                  } else {
-                      // Fallback to text message if no URL
-                      telegramUrl = `https://api.telegram.org/bot${token}/sendMessage`;
-                      await fetch(telegramUrl, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                              chat_id: adminGroupId,
-                              text: message,
-                              parse_mode: 'HTML'
-                          })
-                      });
-                  }
-             }
+            const token = getVerificationToken();
+            if (token) {
+                // Prepare highly detailed message
+                const bkkOpts = { timeZone: 'Asia/Bangkok', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+                const orderTimeStr = new Date(order.createdAt).toLocaleDateString('th-TH', bkkOpts);
+                
+                let shippingInfo = 'ไม่ระบุที่อยู่จัดส่ง';
+                if (order.shippingAddressId) {
+                    const addr = await prisma.shippingAddress.findUnique({ where: { id: order.shippingAddressId } });
+                    if (addr) {
+                        shippingInfo = `ชื่อ: ${addr.receiverName}\nโทร: ${addr.phone}\nที่อยู่: ${addr.address} ${addr.subdistrict} ${addr.district} ${addr.province} ${addr.zipcode}`;
+                    }
+                }
+
+                let itemsDetails = '';
+                for (const item of order.items) {
+                    const nicStr = item.product.nicotine !== null ? ` (${item.product.nicotine}%)` : '';
+                    itemsDetails += `- ${item.product.nameEn}${nicStr} x${item.quantity} = ฿${(item.quantity * parseFloat(item.priceAtPurchase)).toLocaleString('th-TH')}\n`;
+                }
+
+                // Retrieve shipping fee context from config
+                const shipConfigRaw = await prisma.systemConfig.findUnique({ where: { key: 'shippingFee' } });
+                const freeMinRaw = await prisma.systemConfig.findUnique({ where: { key: 'freeShippingMin' } });
+                const shipFeeBase = shipConfigRaw ? parseFloat(shipConfigRaw.value) : 60;
+                const freeMin = freeMinRaw ? parseFloat(freeMinRaw.value) : 500;
+                
+                const itemsSubtotal = order.items.reduce((sum, item) => sum + (item.quantity * parseFloat(item.priceAtPurchase)), 0);
+                const actualShipFee = itemsSubtotal >= freeMin ? 0 : shipFeeBase;
+
+                let message = `✅ <b>ได้รับการชำระเงินใหม่</b>\n\n` +
+                              `<b>วันที่:</b> ${orderTimeStr}\n` +
+                              `<b>ออเดอร์:</b> #${order.id}\n` +
+                              `<b>รหัสลูกค้า:</b> ${order.customerId}\n\n` +
+                              `📦 <b>[ข้อมูลจัดส่ง]</b>\n${shippingInfo}\n\n` +
+                              `🛍️ <b>[รายการสินค้า]</b>\n${itemsDetails}\n` +
+                              `<b>รวมค่าสินค้า:</b> ฿${itemsSubtotal.toLocaleString('th-TH')}\n` +
+                              `<b>ค่าจัดส่ง:</b> ${actualShipFee === 0 ? 'ฟรี' : '฿' + actualShipFee.toLocaleString('th-TH')}\n`;
+
+                if (parseFloat(order.discountAmount) > 0) {
+                    message += `<b>ส่วนลดคูปอง:</b> -฿${parseFloat(order.discountAmount).toLocaleString('th-TH')} (${order.appliedCouponId || ''})\n`;
+                }
+                
+                message += `\n💰 <b>ยอดสุทธิ:</b> ฿${parseFloat(slipAmount).toLocaleString('th-TH')}\n` +
+                           `<i>(ตรวจสอบสลิปผ่าน SlipOK สำเร็จ)</i>`;
+
+                // Admin Round-Robin Selection
+                const dayOfWeek = new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok', weekday: 'short' });
+                const daysMap = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 };
+                const currentDayInt = daysMap[dayOfWeek];
+                
+                const currentBkkTime = new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false });
+
+                // Find all shifts for today
+                const todaysShifts = await prisma.adminShift.findMany({
+                    where: { dayOfWeek: currentDayInt },
+                    include: { admin: true }
+                });
+
+                // Filter active admins
+                const activeAdminsMap = new Map(); // using Map to ensure unique admins
+                for (const shift of todaysShifts) {
+                    const checkTime = (start, end) => {
+                        if (!start || !end) return false;
+                        if (start <= end) return currentBkkTime >= start && currentBkkTime <= end;
+                        return currentBkkTime >= start || currentBkkTime <= end; // crosses midnight
+                    };
+
+                    if (checkTime(shift.shift1Start, shift.shift1End) || 
+                        checkTime(shift.shift2Start, shift.shift2End) || 
+                        checkTime(shift.shift3Start, shift.shift3End)) {
+                        activeAdminsMap.set(shift.adminTelegramId, shift.adminTelegramId);
+                    }
+                }
+
+                let targetAdminId = process.env.ADMIN_GROUP_ID; // Fallback to group
+                const activeAdminIds = Array.from(activeAdminsMap.values()).sort(); // deterministic order
+
+                if (activeAdminIds.length > 0) {
+                    const storeSetting = await prisma.storeSetting.findUnique({ where: { id: 1 } });
+                    const lastId = storeSetting?.lastAssignedAdminId;
+                    
+                    let nextIndex = 0;
+                    if (lastId && activeAdminIds.includes(lastId)) {
+                        const lastIndex = activeAdminIds.indexOf(lastId);
+                        nextIndex = (lastIndex + 1) % activeAdminIds.length;
+                    }
+                    
+                    targetAdminId = activeAdminIds[nextIndex];
+                    
+                    // Update state
+                    await prisma.storeSetting.update({
+                        where: { id: 1 },
+                        data: { lastAssignedAdminId: targetAdminId }
+                    });
+                }
+
+                if (targetAdminId) {
+                    const photoUrl = slipData.data.url;
+                    let telegramUrl = `https://api.telegram.org/bot${token}/sendPhoto`;
+                    
+                    if (photoUrl) {
+                        await fetch(telegramUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                chat_id: targetAdminId,
+                                photo: photoUrl,
+                                caption: message,
+                                parse_mode: 'HTML'
+                            })
+                        });
+                    } else {
+                        telegramUrl = `https://api.telegram.org/bot${token}/sendMessage`;
+                        await fetch(telegramUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                chat_id: targetAdminId,
+                                text: message,
+                                parse_mode: 'HTML'
+                            })
+                        });
+                    }
+                }
+            }
         } catch (notifErr) {
              console.error("Failed to send admin notification:", notifErr);
              // Non-fatal error, proceed

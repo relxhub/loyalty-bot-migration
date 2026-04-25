@@ -230,6 +230,8 @@ model Admin {
   telegramId String  @id
   name       String?
   role       Role    @default(Admin)
+
+  adminShifts AdminShift[]
 }
 
 model Campaign {
@@ -435,6 +437,30 @@ model StoreSetting {
   lowStockThreshold   Int @default(50)
   outOfStockThreshold Int @default(20)
   orderExpiryMinutes  Int @default(30)
+  lastAssignedAdminId String? // เก็บ telegramId ของแอดมินคนล่าสุดที่ได้รับออเดอร์
+}
+
+// ---------------------------------------------------------
+// ADMIN SHIFT MODELS (Phase 7)
+// ---------------------------------------------------------
+model AdminShift {
+  id              Int      @id @default(autoincrement())
+  adminTelegramId String
+  dayOfWeek       Int      // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  
+  shift1Start     String?  // e.g. "08:00"
+  shift1End       String?  // e.g. "12:00"
+  shift2Start     String?  // e.g. "13:00"
+  shift2End       String?  // e.g. "17:00"
+  shift3Start     String?  // e.g. "18:00"
+  shift3End       String?  // e.g. "22:00"
+
+  admin           Admin    @relation(fields: [adminTelegramId], references: [telegramId], onDelete: Cascade)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([adminTelegramId, dayOfWeek])
 }
 
 enum OrderStatus {

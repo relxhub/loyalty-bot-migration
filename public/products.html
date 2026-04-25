@@ -3380,13 +3380,9 @@
 
                 // Inventory Badge (Low Stock or Out of Stock)
                 let inventoryBadge = '';
-                if (isOutOfStock) {
-                    inventoryBadge = '<div class="absolute top-2 left-2 bg-black/80 text-white text-[0.6rem] font-bold px-2 py-0.5 rounded backdrop-blur-md border border-red-500/30 z-10 uppercase tracking-widest"><i class="ri-error-warning-line mr-1 text-red-500"></i>OUT OF STOCK</div>';
-                } else if (p.isLowStock) {
+                if (p.isLowStock && !isOutOfStock) {
                     inventoryBadge = `<div class="absolute top-2 left-2 bg-orange-500/90 text-white text-[0.65rem] font-bold px-2 py-0.5 rounded backdrop-blur-md shadow-lg shadow-orange-500/20 z-10 tracking-wide animate-pulse flex items-center gap-1"><i class="ri-alarm-warning-fill"></i>ใกล้หมด (${p.stockQuantity})</div>`;
                 }
-
-                const outOfStockOverlay = isOutOfStock ? '<div class="absolute inset-0 bg-black/60 z-[5] rounded-xl pointer-events-none"></div>' : '';
 
                 // --- CONTENT GENERATION ---
                 
