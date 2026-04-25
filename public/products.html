@@ -1333,8 +1333,8 @@
 
             // --- REAL-TIME CALCULATIONS ---
             const subtotal = currentCart.reduce((sum, item) => sum + (parseFloat(item.price || 0) * item.quantity), 0);
-            const isFree = subtotal >= (window.shippingConfig?.freeMin || 500);
-            const shipFee = !isFree ? (window.shippingConfig?.fee || 60) : 0;
+            const isFree = subtotal >= (window.shippingConfig?.freeMin ?? 500);
+            const shipFee = !isFree ? (window.shippingConfig?.fee ?? 60) : 0;
             
             let discount = 0;
             if (window.appliedCoupon && subtotal > 0) {
@@ -2873,8 +2873,8 @@
                 }
 
                 const total = availableItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                const isFree = total >= (window.shippingConfig?.freeMin || 500);
-                const shipFee = !isFree ? (window.shippingConfig?.fee || 60) : 0;
+                const isFree = total >= (window.shippingConfig?.freeMin ?? 500);
+                const shipFee = !isFree ? (window.shippingConfig?.fee ?? 60) : 0;
                 
                 let discountAmount = 0;
                 let appliedCouponId = null;
