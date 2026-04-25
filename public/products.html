@@ -1231,20 +1231,19 @@
         };
 
         const saveCart = () => {
-            localStorage.setItem('shoppingCart', JSON.stringify(cart));
-            
+            localStorage.setItem('shoppingCart', JSON.stringify(window.cart));
+
             // Sync to DB in background
-            const telegramId = tg.initDataUnsafe?.user?.id?.toString() || window.currentUser?.telegramUserId || currentUser?.telegramUserId;
+            const telegramId = tg.initDataUnsafe?.user?.id?.toString() || window.currentUser?.telegramUserId || (typeof currentUser !== 'undefined' ? currentUser?.telegramUserId : null);
             if (telegramId) {
-                const cartItems = cart.map(i => ({ id: i.id, quantity: i.quantity }));
+                const cartItems = window.cart.map(i => ({ id: i.id, quantity: i.quantity }));
                 fetch('/api/cart/sync', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ telegramId, cartItems })
+                    body: JSON.stringify({ telegramId, cartItems, initData: tg.initData })
                 }).catch(err => console.error("Failed to sync cart:", err));
             }
         };
-
         const openCartModal = () => {
             window.updateCartModalDisplay();
             const modal = document.getElementById('cart-modal');

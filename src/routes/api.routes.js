@@ -316,6 +316,12 @@ router.post('/orders/checkout', async (req, res) => {
                 }
             });
 
+            // Clear the user's cart from the database
+            const userCart = await tx.cart.findUnique({ where: { customerId: customer.customerId } });
+            if (userCart) {
+                await tx.cartItem.deleteMany({ where: { cartId: userCart.id } });
+            }
+
             return newOrder;
         });
 
