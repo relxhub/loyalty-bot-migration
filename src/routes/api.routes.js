@@ -627,14 +627,15 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
 
                 // Admin Round-Robin Selection
                 const dayOfWeek = new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok', weekday: 'short' });
-                const daysMap = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 };
+                // 0 = Every day, 1 = Mon, 2 = Tue, ..., 7 = Sun
+                const daysMap = { 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6, 'Sun': 7 };
                 const currentDayInt = daysMap[dayOfWeek];
                 
                 const currentBkkTime = new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false });
 
-                // Find all shifts for today
+                // Find all shifts for today (including 0 which means 'Every day')
                 const todaysShifts = await prisma.adminShift.findMany({
-                    where: { dayOfWeek: currentDayInt },
+                    where: { dayOfWeek: { in: [0, currentDayInt] } },
                     include: { admin: true }
                 });
 
