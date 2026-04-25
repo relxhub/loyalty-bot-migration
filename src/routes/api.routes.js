@@ -416,7 +416,7 @@ router.get('/orders/history/:telegramId', async (req, res) => {
             return res.status(404).json({ error: "ไม่พบข้อมูลลูกค้า" });
         }
 
-        const orders = await prisma.order.findMany({
+        let orders = await prisma.order.findMany({
             where: { 
                 customerId: customer.customerId,
                 status: { not: 'CANCELLED' }
@@ -425,10 +425,20 @@ router.get('/orders/history/:telegramId', async (req, res) => {
             include: {
                 items: {
                     include: { product: true }
-                },
-                shippingAddress: true
+                }
             }
         });
+
+        // Manually fetch shipping address for each order if needed
+        orders = await Promise.all(orders.map(async (order) => {
+            let shippingAddress = null;
+            if (order.shippingAddressId) {
+                shippingAddress = await prisma.shippingAddress.findUnique({
+                    where: { id: order.shippingAddressId }
+                });
+            }
+            return { ...order, shippingAddress };
+        }));
 
         const storeSetting = await prisma.storeSetting.findUnique({ where: { id: 1 } });
         const orderExpiryMinutes = storeSetting?.orderExpiryMinutes || 30;
