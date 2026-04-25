@@ -19,7 +19,7 @@ export async function claimCoupon(customerId, couponId) {
         if (coupon.startDate && now < coupon.startDate) throw new Error('คูปองยังไม่เริ่มแจก');
         if (coupon.endDate && now > coupon.endDate) throw new Error('คูปองหมดอายุการแจกแล้ว');
 
-        // เช็คจำนวนรวม (FCFS)
+        // เช็คจำนวนรวมเบื้องต้น (FCFS)
         if (coupon.totalQuota !== null && coupon.claimedCount >= coupon.totalQuota) {
             throw new Error('ขออภัย คูปองถูกเก็บจนเต็มจำนวนแล้ว');
         }
@@ -34,10 +34,15 @@ export async function claimCoupon(customerId, couponId) {
         }
 
         // 3. ทำการเพิ่มคูปองเข้ากระเป๋า และอัปเดตตัวนับแม่แบบ
-        await tx.coupon.update({
+        const updatedCoupon = await tx.coupon.update({
             where: { id: couponId },
             data: { claimedCount: { increment: 1 } }
         });
+
+        // 4. เช็คความถูกต้องหลังอัปเดต (ป้องกันการแย่งกันกด - Race Condition)
+        if (updatedCoupon.totalQuota !== null && updatedCoupon.claimedCount > updatedCoupon.totalQuota) {
+            throw new Error('ขออภัย คูปองถูกเก็บจนเต็มจำนวนแล้ว'); // จะทำให้ Transaction Rollback ทันที
+        }
 
         let calculatedExpiry = coupon.validUntil;
         if (coupon.validityDays) {
@@ -80,7 +85,7 @@ export async function redeemCouponWithPoints(customerId, couponId) {
         if (coupon.startDate && now < coupon.startDate) throw new Error('คูปองยังไม่เริ่มให้แลก');
         if (coupon.endDate && now > coupon.endDate) throw new Error('คูปองหมดอายุการแลกแล้ว');
 
-        // เช็คจำนวนรวม (FCFS)
+        // เช็คจำนวนรวมเบื้องต้น (FCFS)
         if (coupon.totalQuota !== null && coupon.claimedCount >= coupon.totalQuota) {
             throw new Error('ขออภัย สิทธิ์คูปองถูกแลกจนเต็มแล้ว');
         }
@@ -120,10 +125,15 @@ export async function redeemCouponWithPoints(customerId, couponId) {
         });
 
         // 3. เพิ่มยอดการแลกของคูปอง
-        await tx.coupon.update({
+        const updatedCoupon = await tx.coupon.update({
             where: { id: couponId },
             data: { claimedCount: { increment: 1 } }
         });
+
+        // 4. เช็คความถูกต้องหลังอัปเดต (ป้องกัน Race Condition)
+        if (updatedCoupon.totalQuota !== null && updatedCoupon.claimedCount > updatedCoupon.totalQuota) {
+            throw new Error('ขออภัย สิทธิ์คูปองถูกแลกจนเต็มแล้ว'); // จะทำให้ Transaction Rollback (คืนแต้มอัตโนมัติ)
+        }
 
         let calculatedExpiry = coupon.validUntil;
         if (coupon.validityDays) {
@@ -131,7 +141,7 @@ export async function redeemCouponWithPoints(customerId, couponId) {
             calculatedExpiry.setDate(calculatedExpiry.getDate() + coupon.validityDays);
         }
 
-        // 4. นำคูปองเข้ากระเป๋า
+        // 5. นำคูปองเข้ากระเป๋า
         const customerCoupon = await tx.customerCoupon.create({
             data: {
                 customerId,

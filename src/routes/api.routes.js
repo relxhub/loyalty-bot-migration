@@ -11,9 +11,29 @@ import { getProductPageData } from '../services/product.service.js';
 import * as couponService from '../services/coupon.service.js';
 import * as shippingService from '../services/shipping.service.js';
 import multer from 'multer';
+import rateLimit from 'express-rate-limit';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB limit
+
+// --- Rate Limiters (Phase 8: Security) ---
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 200, // Limit each IP to 200 requests per windowMs
+    message: { error: 'ส่งคำขอมากเกินไป กรุณารอสักครู่แล้วลองใหม่ (Rate Limit Exceeded)' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const strictLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: 15, // Limit each IP to 15 requests per windowMs
+    message: { error: 'ระบบทำงานหนัก กรุณารอสักครู่ (Strict Rate Limit Exceeded)' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+router.use(apiLimiter); // Apply globally to all /api routes
 
 console.log("✅ API Routes loaded successfully");
 
@@ -1350,7 +1370,11 @@ router.post('/coupons/best', async (req, res) => {
  */
 router.post('/coupons/validate', async (req, res) => {
     try {
-        const { telegramId, couponId, cartItems, totalAmount } = req.body;
+        const { telegramId, couponId, cartItems, totalAmount, initData } = req.body;
+
+        if (!verifyTelegramWebAppData(initData)) {
+            return res.status(401).json({ error: "Invalid Telegram Data" });
+        }
 
         const user = await prisma.customer.findUnique({
             where: { telegramUserId: telegramId },
@@ -1502,8 +1526,11 @@ router.get('/cart/:telegramId', async (req, res) => {
 
 router.post('/cart/sync', async (req, res) => {
     try {
-        const { telegramId, cartItems } = req.body;
-        // cartItems: [{ id: productId, quantity: 2 }, ...]
+        const { telegramId, cartItems, initData } = req.body;
+
+        if (!verifyTelegramWebAppData(initData)) {
+            return res.status(401).json({ error: "Invalid Telegram Data" });
+        }
 
         const user = await prisma.customer.findUnique({
             where: { telegramUserId: telegramId }
@@ -1562,8 +1589,11 @@ router.get('/favorites/:telegramId', async (req, res) => {
 
 router.post('/favorites/sync', async (req, res) => {
     try {
-        const { telegramId, favorites } = req.body;
-        // favorites: [productId1, productId2, ...]
+        const { telegramId, favorites, initData } = req.body;
+
+        if (!verifyTelegramWebAppData(initData)) {
+            return res.status(401).json({ error: "Invalid Telegram Data" });
+        }
 
         const user = await prisma.customer.findUnique({
             where: { telegramUserId: telegramId }
