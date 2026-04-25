@@ -518,7 +518,7 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
              if (token && adminGroupId) {
                   const message = `✅ <b>ได้รับการชำระเงินใหม่</b>\n\n` +
                                   `ออเดอร์: #${order.id}\n` +
-                                  `ลูกค้า: ${order.customer.firstName} ${order.customer.lastName || ''}\n` +
+                                  `รหัสลูกค้า: ${order.customerId}\n` +
                                   `ยอดเงิน: ${slipAmount} ฿\n` +
                                   `ตรวจสอบสลิปผ่าน SlipOK เรียบร้อย`;
                   
