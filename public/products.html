@@ -1077,11 +1077,11 @@
         window.updateQuantity = (productId, change) => {
             if (!window.checkAuth('จัดการตะกร้าสินค้า')) return;
             console.log('Global updateQuantity called:', productId, change);
-            const item = window.cart.find(i => i.id === productId);
+            const item = window.cart.find(i => i.id == productId);
             if (!item) return;
 
             if (change > 0) {
-                const product = window.allProducts.find(p => p.id === productId);
+                const product = window.allProducts.find(p => p.id == productId);
                 if (product && (item.quantity + change) > product.stockQuantity) {
                     showToast(`สั่งซื้อได้สูงสุด ${product.stockQuantity} ชิ้น`, 'error');
                     return; // Prevent adding more than stock
@@ -1089,7 +1089,7 @@
             }
 
             item.quantity += change;
-            if (item.quantity <= 0) window.cart = window.cart.filter(i => i.id !== productId);
+            if (item.quantity <= 0) window.cart = window.cart.filter(i => i.id != productId);
 
             // Track in PostHog
             if (window.posthog && change !== 0) {
@@ -1109,9 +1109,9 @@
         };
         window.addToCart = (productId) => {
             console.log('Global addToCart called:', productId);
-            const product = window.allProducts.find(p => p.id === productId);
+            const product = window.allProducts.find(p => p.id == productId);
             if (!product) return;
-            const cartItem = window.cart.find(item => item.id === productId);
+            const cartItem = window.cart.find(item => item.id == productId);
 
             if (cartItem) {
                 if (cartItem.quantity + 1 > product.stockQuantity) {
@@ -2313,10 +2313,10 @@
             };            
             const addToCart = (productId) => {
                 if (!window.checkAuth('หยิบสินค้าลงตะกร้า')) return;
-                const product = allProducts.find(p => p.id === productId);
+                const product = allProducts.find(p => p.id == productId);
                 if (!product) return;
 
-                const cartItem = window.cart.find(item => item.id === productId);
+                const cartItem = window.cart.find(item => item.id == productId);
                 if (cartItem) {
                     if (cartItem.quantity + 1 > product.stockQuantity) {
                         showToast(`สั่งซื้อได้สูงสุด ${product.stockQuantity} ชิ้น`, 'error');
