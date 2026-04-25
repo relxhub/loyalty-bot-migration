@@ -3719,7 +3719,7 @@
                     const shipRes = await fetch('/api/config/shipping');
                     const shipData = await shipRes.json();
                     if (shipData.success) {
-                        shippingConfig = { fee: shipData.shippingFee, freeMin: shipData.freeShippingMin };
+                        window.shippingConfig = { fee: shipData.shippingFee, freeMin: shipData.freeShippingMin };
                     }
                 } catch (err) { console.error("Failed to load shipping config:", err); }
 
