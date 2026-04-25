@@ -659,11 +659,11 @@
             box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
         }
 
-        #cart-modal.show, #history-modal.show {
+        #cart-modal.show, #history-modal.show, #order-details-modal.show {
             opacity: 1;
             pointer-events: all;
         }
-        #cart-modal.show #cart-modal-content, #history-modal.show #history-modal-content {
+        #cart-modal.show #cart-modal-content, #history-modal.show #history-modal-content, #order-details-modal.show #order-details-modal-content {
             transform: translateY(0);
         }
 
@@ -2587,6 +2587,100 @@
             };
             window.closeHistoryModal = closeHistoryModal;
 
+            window.showOrderDetails = (orderId) => {
+                const order = window.currentOrders?.find(o => o.id === orderId);
+                if (!order) return;
+
+                const modal = document.getElementById('order-details-modal');
+                const body = document.getElementById('order-details-body');
+                if (!modal || !body) return;
+
+                const date = new Date(order.createdAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                
+                let itemsHtml = '';
+                let subtotal = 0;
+                order.items.forEach(item => {
+                    const price = parseFloat(item.priceAtPurchase);
+                    const itemTotal = price * item.quantity;
+                    subtotal += itemTotal;
+                    itemsHtml += `
+                        <div class="flex justify-between items-center text-sm text-zinc-300 py-1">
+                            <span class="truncate pr-2">${item.product.nameEn} x${item.quantity}</span>
+                            <span class="whitespace-nowrap">${itemTotal.toLocaleString('th-TH')} ฿</span>
+                        </div>
+                    `;
+                });
+
+                const discount = parseFloat(order.discountAmount || 0);
+                const total = parseFloat(order.totalAmount);
+                let shipping = total - subtotal + discount;
+                shipping = Math.max(0, Math.round(shipping));
+
+                let discountHtml = '';
+                if (discount > 0) {
+                    discountHtml = `
+                        <div class="flex justify-between text-green-400 py-1">
+                            <span>ส่วนลดคูปอง <span class="text-xs">(${order.appliedCouponId || ''})</span></span>
+                            <span>- ${discount.toLocaleString('th-TH')} ฿</span>
+                        </div>
+                    `;
+                }
+
+                body.innerHTML = `
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center border-b border-zinc-700/50 pb-3">
+                            <div>
+                                <div class="text-xs text-zinc-400">รหัสคำสั่งซื้อ</div>
+                                <div class="font-mono text-sm font-bold text-white">${order.id}</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-xs text-zinc-400">วันที่สั่งซื้อ</div>
+                                <div class="text-sm text-white">${date}</div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="text-xs text-zinc-400 font-bold uppercase tracking-wider mb-2">รายการสินค้า</div>
+                            <div class="bg-zinc-800/80 rounded-xl p-3 border border-zinc-700/50">
+                                ${itemsHtml}
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="text-xs text-zinc-400 font-bold uppercase tracking-wider mb-2">สรุปยอดเงิน</div>
+                            <div class="bg-zinc-800/80 rounded-xl p-3 border border-zinc-700/50 text-sm">
+                                <div class="flex justify-between py-1 text-zinc-300">
+                                    <span>ค่าสินค้า</span>
+                                    <span>${subtotal.toLocaleString('th-TH')} ฿</span>
+                                </div>
+                                ${discountHtml}
+                                <div class="flex justify-between py-1 text-zinc-300">
+                                    <span>ค่าจัดส่ง</span>
+                                    <span>${shipping === 0 ? 'ฟรี' : shipping.toLocaleString('th-TH') + ' ฿'}</span>
+                                </div>
+                                <div class="border-t border-zinc-700/50 mt-2 pt-2 flex justify-between items-center">
+                                    <span class="font-bold text-white">ยอดสุทธิ</span>
+                                    <span class="font-bold text-brand-red text-lg">${total.toLocaleString('th-TH')} ฿</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                modal.classList.remove('hidden');
+                // document.body.classList.add('modal-open'); // Already open from history
+                setTimeout(() => modal.classList.add('show'), 10);
+            };
+
+            window.closeOrderDetailsModal = () => {
+                const modal = document.getElementById('order-details-modal');
+                if (!modal) return;
+                modal.classList.remove('show');
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                }, 300);
+            };
+
             const fetchHistory = async () => {
                 const wrapper = document.getElementById('history-list-wrapper');
                 wrapper.innerHTML = '<div class="text-center py-8"><div class="animate-spin h-6 w-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto"></div></div>';
@@ -2626,6 +2720,7 @@
             };
 
             const renderHistory = (orders, expiryMinutes = 30) => {
+                window.currentOrders = orders; // Store for details view
                 const wrapper = document.getElementById('history-list-wrapper');
                 if (!orders || orders.length === 0) {
                     wrapper.innerHTML = '<div class="text-center py-8 text-zinc-500 flex flex-col items-center gap-2"><i class="ri-receipt-line text-4xl text-zinc-600"></i><p>ยังไม่มีประวัติการสั่งซื้อ</p></div>';
@@ -2725,8 +2820,11 @@
                             </div>
                             
                             <div class="flex justify-between items-end mt-auto pt-2 border-t border-zinc-700/50">
-                                <span class="text-xs text-zinc-400">ยอดรวม</span>
-                                <span class="font-bold text-brand-red">฿${parseFloat(order.totalAmount).toLocaleString('th-TH')}</span>
+                                <button onclick="window.showOrderDetails('${order.id}')" class="text-blue-400 text-xs underline mt-1 cursor-pointer">ดูรายละเอียด</button>
+                                <div class="text-right">
+                                    <span class="text-xs text-zinc-400">ยอดรวม </span>
+                                    <span class="font-bold text-brand-red">฿${parseFloat(order.totalAmount).toLocaleString('th-TH')}</span>
+                                </div>
                             </div>
                             ${actionButton}
                         </div>
@@ -2773,6 +2871,9 @@
                         if (order && order.items) {
                             let addedCount = 0;
                             let oosCount = 0;
+                            
+                            // ⭐️ NEW: Clear the cart before adding reordered items
+                            window.cart = [];
                             
                             order.items.forEach(item => {
                                 const product = window.allProducts.find(p => p.id == item.productId);
@@ -4103,6 +4204,25 @@
                     <!-- History items injected by JS -->
                     <div class="text-center py-8"><div class="animate-spin h-6 w-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto"></div></div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Details Modal -->
+    <div id="order-details-modal" class="hidden fixed inset-0 z-[80] flex items-end justify-center bg-black/60 backdrop-blur-sm">
+        <div id="order-details-modal-content" class="bg-zinc-800 w-full max-w-md rounded-t-3xl flex flex-col h-[90vh] transform translate-y-full transition-transform duration-300">
+            <!-- Header -->
+            <div class="flex-shrink-0 p-4 border-b border-zinc-700 flex justify-between items-center relative">
+                <div class="flex items-center gap-2">
+                    <button onclick="window.closeOrderDetailsModal()" class="w-8 h-8 rounded-full bg-zinc-700/50 flex items-center justify-center hover:bg-zinc-600 transition text-white">
+                        <i class="ri-arrow-left-s-line text-lg"></i>
+                    </button>
+                    <h3 class="text-lg font-bold">รายละเอียดคำสั่งซื้อ</h3>
+                </div>
+            </div>
+            <!-- Body -->
+            <div class="flex-grow overflow-y-auto p-4 bg-zinc-900/50" id="order-details-body">
+                <!-- Content injected by JS -->
             </div>
         </div>
     </div>

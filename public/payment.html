@@ -100,6 +100,29 @@
             </div>
             
             <div class="border-t border-white/10 my-4"></div>
+
+            <div id="order-items-list" class="space-y-2 mb-4 text-sm text-zinc-300">
+                <!-- Items injected via JS -->
+            </div>
+
+            <div class="border-t border-white/10 my-4"></div>
+            
+            <div class="space-y-1 mb-4 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-zinc-400">ค่าสินค้า</span>
+                    <span id="display-subtotal">0 ฿</span>
+                </div>
+                <div id="discount-row" class="flex justify-between text-green-400 hidden">
+                    <span>ส่วนลดคูปอง <span id="display-coupon-id" class="text-xs"></span></span>
+                    <span id="display-discount">-0 ฿</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-zinc-400">ค่าจัดส่ง</span>
+                    <span id="display-shipping">0 ฿</span>
+                </div>
+            </div>
+
+            <div class="border-t border-white/10 my-4"></div>
             
             <div class="flex justify-between items-center">
                 <p class="text-gray-400">ยอดที่ต้องชำระ</p>
@@ -263,7 +286,47 @@
 
                     document.getElementById('display-order-id').textContent = order.id;
                     document.getElementById('display-total').textContent = `${parseFloat(order.totalAmount).toLocaleString('th-TH')} ฿`;
+
+                    // Populate Order Items
+                    const itemsContainer = document.getElementById('order-items-list');
+                    let itemsHtml = '';
+                    let subtotal = 0;
+                    if (order.items && order.items.length > 0) {
+                        order.items.forEach(item => {
+                            const name = item.product ? item.product.nameEn : 'สินค้า';
+                            const price = parseFloat(item.priceAtPurchase);
+                            const itemTotal = price * item.quantity;
+                            subtotal += itemTotal;
+                            itemsHtml += `
+                                <div class="flex justify-between items-center">
+                                    <span class="truncate pr-2">${name} x${item.quantity}</span>
+                                    <span class="whitespace-nowrap">${itemTotal.toLocaleString('th-TH')} ฿</span>
+                                </div>
+                            `;
+                        });
+                        itemsContainer.innerHTML = itemsHtml;
+                    }
+
+                    // Populate breakdown
+                    document.getElementById('display-subtotal').textContent = `${subtotal.toLocaleString('th-TH')} ฿`;
                     
+                    const discount = parseFloat(order.discountAmount || 0);
+                    if (discount > 0) {
+                        const discountRow = document.getElementById('discount-row');
+                        discountRow.classList.remove('hidden');
+                        document.getElementById('display-discount').textContent = `- ${discount.toLocaleString('th-TH')} ฿`;
+                        if (order.appliedCouponId) {
+                            document.getElementById('display-coupon-id').textContent = `(${order.appliedCouponId})`;
+                        }
+                    }
+
+                    // Calculate Shipping (Total = Subtotal - Discount + Shipping) => Shipping = Total - Subtotal + Discount
+                    const total = parseFloat(order.totalAmount);
+                    let shipping = total - subtotal + discount;
+                    // Fix floating point math issues
+                    shipping = Math.max(0, Math.round(shipping));
+                    document.getElementById('display-shipping').textContent = shipping === 0 ? 'ฟรี' : `${shipping.toLocaleString('th-TH')} ฿`;
+
                     if (bankAccount) {
                         // Populate Bank Details
                         document.getElementById('display-bank-name').textContent = bankAccount.bankName;
