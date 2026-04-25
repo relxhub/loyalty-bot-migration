@@ -406,20 +406,28 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
         if (order.status !== 'PENDING_PAYMENT') return res.status(400).json({ success: false, error: 'ออเดอร์นี้ชำระเงินไปแล้ว หรือถูกยกเลิก' });
 
         // 2. Call SlipOK API
-        const slipOkApiKey = process.env.SLIPOK_API_KEY;
-        if (!slipOkApiKey) {
-             console.error("Missing SLIPOK_API_KEY in environment variables.");
-             return res.status(500).json({ success: false, error: 'ระบบตรวจสอบสลิปยังไม่พร้อมใช้งาน (Missing API Key)' });
+        const slipOkBranchId = process.env.SLIPOK_BRANCH_ID ? process.env.SLIPOK_BRANCH_ID.trim() : null;
+        const slipOkApiKey = process.env.SLIPOK_API_KEY ? process.env.SLIPOK_API_KEY.trim() : null;
+        
+        if (!slipOkBranchId || !slipOkApiKey) {
+             console.error("Missing SLIPOK_BRANCH_ID or SLIPOK_API_KEY in environment variables.");
+             return res.status(500).json({ success: false, error: 'ระบบตรวจสอบสลิปยังไม่พร้อมใช้งาน (Missing API Keys)' });
+        }
+
+        if (isNaN(slipOkBranchId)) {
+             return res.status(500).json({ success: false, error: 'การตั้งค่า SLIPOK_BRANCH_ID ผิดพลาด (ต้องเป็นตัวเลขเท่านั้น)' });
         }
 
         const formData = new FormData();
         const blob = new Blob([file.buffer], { type: file.mimetype || 'image/jpeg' });
         formData.append('files', blob, file.originalname || 'slip.jpg');
 
-        const slipOkRes = await fetch(`https://api.slipok.com/api/line/apikey/${slipOkApiKey}`, {
+        const slipOkRes = await fetch(`https://api.slipok.com/api/line/apikey/${slipOkBranchId}`, {
             method: 'POST',
-            body: formData,
-            // FormData will automatically set Content-Type with the correct boundary
+            headers: {
+                'x-authorization': slipOkApiKey
+            },
+            body: formData
         });
 
         const slipData = await slipOkRes.json();
