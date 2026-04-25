@@ -455,7 +455,7 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
         
         // 4. Check for duplicate slip usage
         const existingPayment = await prisma.payment.findFirst({
-            where: { transactionRef: slipTransRef }
+            where: { slipOkTransactionId: slipTransRef }
         });
 
         if (existingPayment) {
@@ -475,11 +475,10 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                 data: {
                     orderId: order.id,
                     amount: parseFloat(slipAmount),
-                    method: 'PROMPTPAY',
-                    status: 'COMPLETED',
+                    status: 'VERIFIED',
                     slipUrl: slipData.data.url || '',
-                    transactionRef: slipTransRef,
-                    slipDataPayload: JSON.stringify(slipData.data),
+                    slipOkTransactionId: slipTransRef,
+                    payload: JSON.stringify(slipData.data),
                     verifiedAt: new Date()
                 }
             });
