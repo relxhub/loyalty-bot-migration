@@ -434,6 +434,7 @@ model StoreSetting {
   id                  Int @id @default(1)
   lowStockThreshold   Int @default(50)
   outOfStockThreshold Int @default(20)
+  orderExpiryMinutes  Int @default(30)
 }
 
 enum OrderStatus {

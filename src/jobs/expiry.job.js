@@ -110,3 +110,51 @@ export async function runReminderJob() {
     console.log("[ReminderJob] Checking for upcoming expiry...");
     // (ใส่ตรรกะแจ้งเตือนที่นี่ ถ้าต้องการ)
 }
+
+/**
+ * E-commerce: Auto-cancel pending orders that have exceeded their expiry time.
+ */
+export async function runOrderExpiryJob() {
+    try {
+        const storeSetting = await prisma.storeSetting.findUnique({ where: { id: 1 } });
+        const expiryMinutes = storeSetting?.orderExpiryMinutes || 30;
+        
+        // Calculate the cutoff time (orders older than this are expired)
+        const cutoffTime = new Date(Date.now() - (expiryMinutes * 60 * 1000));
+        
+        const expiredOrders = await prisma.order.findMany({
+            where: {
+                status: 'PENDING_PAYMENT',
+                createdAt: { lt: cutoffTime }
+            },
+            select: { id: true }
+        });
+
+        if (expiredOrders.length === 0) return; // Silent return
+
+        console.log(`[OrderExpiryJob] 🔍 Found ${expiredOrders.length} expired orders. Cancelling...`);
+
+        await prisma.$transaction(async (tx) => {
+            const orderIds = expiredOrders.map(o => o.id);
+            
+            await tx.order.updateMany({
+                where: { id: { in: orderIds } },
+                data: { status: 'CANCELLED' }
+            });
+            
+            await tx.systemLog.create({
+                data: {
+                    level: 'INFO',
+                    source: 'CRON',
+                    action: 'ORDER_AUTO_CANCEL',
+                    message: `Auto-cancelled ${orderIds.length} expired orders: ${orderIds.join(', ')}`
+                }
+            });
+            
+            console.log(`[OrderExpiryJob] ✅ Successfully cancelled orders: ${orderIds.join(', ')}`);
+        });
+
+    } catch (error) {
+         console.error(`[OrderExpiryJob] ❌ Error cancelling expired orders:`, error);
+    }
+}

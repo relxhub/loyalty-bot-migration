@@ -406,10 +406,49 @@ router.get('/orders/history/:telegramId', async (req, res) => {
             }
         });
 
-        res.json({ success: true, orders });
+        const storeSetting = await prisma.storeSetting.findUnique({ where: { id: 1 } });
+        const orderExpiryMinutes = storeSetting?.orderExpiryMinutes || 30;
+
+        res.json({ success: true, orders, orderExpiryMinutes });
     } catch (error) {
         console.error("Order History Error:", error);
         res.status(500).json({ error: "เกิดข้อผิดพลาดในการดึงข้อมูลประวัติคำสั่งซื้อ" });
+    }
+});
+
+// Manual Cancel Order
+router.post('/orders/:orderId/cancel', async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const { initData } = req.body;
+
+        if (!verifyTelegramWebAppData(initData)) {
+            return res.status(401).json({ error: "Invalid Telegram Data" });
+        }
+
+        const urlParams = new URLSearchParams(initData);
+        const userData = JSON.parse(urlParams.get('user'));
+        const telegramId = userData.id.toString();
+
+        const customer = await getCustomerByTelegramId(telegramId);
+        if (!customer) {
+            return res.status(404).json({ error: "ไม่พบข้อมูลลูกค้า" });
+        }
+
+        const order = await prisma.order.findUnique({ where: { id: orderId } });
+        if (!order) return res.status(404).json({ error: "ไม่พบออเดอร์นี้" });
+        if (order.customerId !== customer.customerId) return res.status(403).json({ error: "ไม่มีสิทธิ์ยกเลิกออเดอร์นี้" });
+        if (order.status !== 'PENDING_PAYMENT') return res.status(400).json({ error: "ออเดอร์นี้ไม่สามารถยกเลิกได้แล้ว" });
+
+        await prisma.order.update({
+            where: { id: orderId },
+            data: { status: 'CANCELLED' }
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error("Cancel Order Error:", error);
+        res.status(500).json({ error: "เกิดข้อผิดพลาดในการยกเลิกออเดอร์" });
     }
 });
 

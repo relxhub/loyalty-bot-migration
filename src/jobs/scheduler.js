@@ -1,8 +1,8 @@
 // src/jobs/scheduler.js
 
-import cron from 'node-cron'; 
+import cron from 'node-cron';
 import { getConfig } from '../config/config.js';
-import { runPointExpiryJob, runReminderJob, runCouponExpiryJob } from './expiry.job.js';
+import { runPointExpiryJob, runReminderJob, runCouponExpiryJob, runOrderExpiryJob } from './expiry.job.js';
 
 export function runScheduler(timezone) {
     // ดึงค่าจาก Config
@@ -28,16 +28,22 @@ export function runScheduler(timezone) {
     try {
         cron.schedule(cutoffTime, runPointExpiryJob, {
             scheduled: true,
-            timezone: timezone 
+            timezone: timezone
         });
 
         cron.schedule(reminderTime, runReminderJob, {
             scheduled: true,
-            timezone: timezone 
+            timezone: timezone
         });
 
         // ตรวจสอบคูปองหมดอายุทุกวัน เวลา 00:10
         cron.schedule('10 0 * * *', runCouponExpiryJob, {
+            scheduled: true,
+            timezone: timezone
+        });
+
+        // E-commerce: ตรวจสอบออเดอร์หมดอายุทุกๆ 1 นาที
+        cron.schedule('* * * * *', runOrderExpiryJob, {
             scheduled: true,
             timezone: timezone
         });
