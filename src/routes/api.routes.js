@@ -417,12 +417,16 @@ router.get('/orders/history/:telegramId', async (req, res) => {
         }
 
         const orders = await prisma.order.findMany({
-            where: { customerId: customer.customerId },
+            where: { 
+                customerId: customer.customerId,
+                status: { not: 'CANCELLED' }
+            },
             orderBy: { createdAt: 'desc' },
             include: {
                 items: {
                     include: { product: true }
-                }
+                },
+                shippingAddress: true
             }
         });
 

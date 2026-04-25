@@ -1200,7 +1200,7 @@
                 const res = await fetch('/api/coupons/validate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ telegramId, couponId: window.appliedCoupon.coupon.id, cartItems, totalAmount })
+                    body: JSON.stringify({ telegramId, couponId: window.appliedCoupon.coupon.id, cartItems, totalAmount, initData: tg.initData })
                 });
                 
                 const data = await res.json();
@@ -1727,7 +1727,8 @@
                         telegramId,
                         couponId,
                         cartItems,
-                        totalAmount
+                        totalAmount,
+                        initData: tg.initData
                     })
                 });
 
@@ -2626,6 +2627,20 @@
                     `;
                 }
 
+                let shippingAddressHtml = '';
+                if (order.shippingAddress) {
+                    const addr = order.shippingAddress;
+                    shippingAddressHtml = `
+                        <div>
+                            <div class="text-xs text-zinc-400 font-bold uppercase tracking-wider mb-2">ข้อมูลจัดส่ง</div>
+                            <div class="bg-zinc-800/80 rounded-xl p-3 border border-zinc-700/50 text-sm text-zinc-300">
+                                <div class="font-bold text-white mb-1">${addr.receiverName} <span class="font-normal text-zinc-400 text-xs ml-2">${addr.phone}</span></div>
+                                <div class="leading-tight">${addr.address} ${addr.subdistrict} ${addr.district} ${addr.province} ${addr.zipcode}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+
                 body.innerHTML = `
                     <div class="space-y-4">
                         <div class="flex justify-between items-center border-b border-zinc-700/50 pb-3">
@@ -2638,6 +2653,8 @@
                                 <div class="text-sm text-white">${date}</div>
                             </div>
                         </div>
+
+                        ${shippingAddressHtml}
 
                         <div>
                             <div class="text-xs text-zinc-400 font-bold uppercase tracking-wider mb-2">รายการสินค้า</div>
@@ -2681,13 +2698,13 @@
                 }, 300);
             };
 
-            const fetchHistory = async () => {
+            const fetchHistory = async (silent = false) => {
                 const wrapper = document.getElementById('history-list-wrapper');
-                wrapper.innerHTML = '<div class="text-center py-8"><div class="animate-spin h-6 w-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto"></div></div>';
+                if (!silent) wrapper.innerHTML = '<div class="text-center py-8"><div class="animate-spin h-6 w-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto"></div></div>';
                 
                 const telegramId = tg.initDataUnsafe?.user?.id?.toString() || window.currentUser?.telegramUserId;
                 if (!telegramId) {
-                    wrapper.innerHTML = '<div class="text-center py-8 text-zinc-500">ไม่สามารถระบุตัวตนได้</div>';
+                    if (!silent) wrapper.innerHTML = '<div class="text-center py-8 text-zinc-500">ไม่สามารถระบุตัวตนได้</div>';
                     return;
                 }
 
@@ -2695,14 +2712,14 @@
                     const res = await fetch(`/api/orders/history/${telegramId}`);
                     const data = await res.json();
                     if (data.success) {
-                        renderHistory(data.orders, data.orderExpiryMinutes);
+                        if (!silent) renderHistory(data.orders, data.orderExpiryMinutes);
                         updatePendingBadge(data.orders);
                     } else {
-                        wrapper.innerHTML = `<div class="text-center py-8 text-red-500">${data.error || 'โหลดประวัติล้มเหลว'}</div>`;
+                        if (!silent) wrapper.innerHTML = `<div class="text-center py-8 text-red-500">${data.error || 'โหลดประวัติล้มเหลว'}</div>`;
                     }
                 } catch (err) {
                     console.error("Fetch History Error:", err);
-                    wrapper.innerHTML = '<div class="text-center py-8 text-red-500">ข้อผิดพลาดในการเชื่อมต่อ</div>';
+                    if (!silent) wrapper.innerHTML = '<div class="text-center py-8 text-red-500">ข้อผิดพลาดในการเชื่อมต่อ</div>';
                 }
             };
             
@@ -4103,6 +4120,7 @@
 
                 await loadCart();
                 loadFavorites();
+                fetchHistory(true); // Silent fetch to populate pending badge
                 renderBanners(data.banners);
                 renderCategories(data.categories);
 
