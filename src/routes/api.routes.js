@@ -384,6 +384,35 @@ router.get('/orders/:orderId', async (req, res) => {
     }
 });
 
+// Fetch user's order history
+router.get('/orders/history/:telegramId', async (req, res) => {
+    try {
+        const { telegramId } = req.params;
+        const customer = await prisma.customer.findUnique({
+            where: { telegramUserId: telegramId }
+        });
+
+        if (!customer) {
+            return res.status(404).json({ error: "ไม่พบข้อมูลลูกค้า" });
+        }
+
+        const orders = await prisma.order.findMany({
+            where: { customerId: customer.customerId },
+            orderBy: { createdAt: 'desc' },
+            include: {
+                items: {
+                    include: { product: true }
+                }
+            }
+        });
+
+        res.json({ success: true, orders });
+    } catch (error) {
+        console.error("Order History Error:", error);
+        res.status(500).json({ error: "เกิดข้อผิดพลาดในการดึงข้อมูลประวัติคำสั่งซื้อ" });
+    }
+});
+
 // SLIPOK Integration
 router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, res) => {
     try {
