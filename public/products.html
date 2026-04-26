@@ -2888,39 +2888,6 @@
                 });
             };
 
-            window.openTrackingLink = (url) => {
-                try {
-                    const absoluteUrl = url.startsWith('http') ? url : `https://${url}`;
-                    // We must use a direct DOM manipulation to bypass Telegram's strict WebView rules
-                    const a = document.createElement('a');
-                    a.href = absoluteUrl;
-                    a.target = '_blank';
-                    a.rel = 'noopener noreferrer';
-                    document.body.appendChild(a);
-                    a.click();
-                    setTimeout(() => document.body.removeChild(a), 100);
-                } catch (e) {
-                    console.error("Failed to open link:", e);
-                }
-            };
-
-            window.copyTrackingLink = (trackNumber, fullUrl) => {
-                tg.showConfirm('คุณต้องการคัดลอกลิงก์เพื่อนำไปเปิดในเบราว์เซอร์หรือไม่?', (confirmed) => {
-                    if (confirmed) {
-                        try {
-                            navigator.clipboard.writeText(fullUrl).then(() => {
-                                showToast('คัดลอกลิงก์เช็คพัสดุแล้ว', 'success');
-                            }).catch(() => {
-                                showToast('ไม่สามารถคัดลอกได้', 'error');
-                            });
-                        } catch (e) {
-                            console.error("Failed to copy link:", e);
-                            showToast('ระบบอุปกรณ์ของคุณไม่รองรับ', 'error');
-                        }
-                    }
-                });
-            };
-
             window.reorder = async (orderId) => {
                 const wrapper = document.getElementById('history-list-wrapper');
                 const originalHtml = wrapper.innerHTML;
