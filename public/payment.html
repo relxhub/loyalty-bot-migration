@@ -325,14 +325,25 @@
                         if (hasOutOfStockItems) {
                             const uploadSection = document.getElementById('upload-section');
                             if (uploadSection) {
-                                uploadSection.innerHTML = `
-                                    <div class="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-center mt-4">
-                                        <i class="ri-error-warning-fill text-red-500 text-3xl mb-2"></i>
-                                        <div class="text-red-500 font-bold mb-1">ไม่สามารถชำระเงินได้</div>
-                                        <div class="text-xs text-red-400 mb-4 leading-relaxed">ขออภัย สินค้าบางรายการในคำสั่งซื้อนี้หมดสต๊อกแล้วระหว่างรอชำระเงิน กรุณายกเลิกคำสั่งซื้อนี้ในหน้าประวัติแล้วทำรายการใหม่</div>
-                                        <button onclick="window.location.href='products.html'" class="w-full py-3 bg-zinc-800 text-white rounded-xl text-sm font-bold active:scale-95 transition border border-zinc-700">กลับสู่หน้าหลัก</button>
-                                    </div>
+                                const warningDiv = document.createElement('div');
+                                warningDiv.className = "bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-center mt-4 mb-4";
+                                warningDiv.innerHTML = `
+                                    <i class="ri-error-warning-fill text-red-500 text-3xl mb-2"></i>
+                                    <div class="text-red-500 font-bold mb-1">ไม่สามารถชำระเงินได้</div>
+                                    <div class="text-xs text-red-400 mb-4 leading-relaxed">ขออภัย สินค้าบางรายการในคำสั่งซื้อนี้หมดสต๊อกแล้วระหว่างรอชำระเงิน กรุณายกเลิกคำสั่งซื้อนี้ในหน้าประวัติแล้วทำรายการใหม่</div>
+                                    <button onclick="window.location.href='products.html'" class="w-full py-3 bg-zinc-800 text-white rounded-xl text-sm font-bold active:scale-95 transition border border-zinc-700">กลับสู่หน้าหลัก</button>
                                 `;
+                                
+                                const uploadArea = document.getElementById('upload-area');
+                                const submitBtn = document.getElementById('submit-slip-btn');
+                                const bankDetailsContainer = document.getElementById('bank-details-container');
+                                
+                                if (uploadArea) uploadArea.style.display = 'none';
+                                if (submitBtn) submitBtn.style.display = 'none';
+                                if (bankDetailsContainer) bankDetailsContainer.style.display = 'none';
+                                
+                                uploadSection.prepend(warningDiv);
+                                window.isPaymentBlocked = true; // Set a global flag
                             }
                         }
                     }
@@ -467,7 +478,55 @@
             });
         }
 
-        document.addEventListener('DOMContentLoaded', initPayment);
+                    // Real-time polling
+            if (!window.isPaymentBlocked) {
+                setInterval(async () => {
+                    if (window.isPaymentBlocked) return;
+                    try {
+                        const pollRes = await fetch(`/api/orders/${orderId}?v=${Date.now()}`, { cache: 'no-cache', headers: { 'x-silent-poll': 'true' } });
+                        const pollData = await pollRes.json();
+                        if (pollData.success && pollData.order && pollData.order.items) {
+                            let outOfStock = false;
+                            pollData.order.items.forEach(item => {
+                                if (item.product && item.product.stockQuantity < item.quantity) {
+                                    outOfStock = true;
+                                }
+                            });
+                            
+                            if (outOfStock) {
+                                window.isPaymentBlocked = true;
+                                const uploadSection = document.getElementById('upload-section');
+                                const bankDetailsContainer = document.getElementById('bank-details-container');
+                                
+                                if (bankDetailsContainer) bankDetailsContainer.style.display = 'none';
+                                
+                                if (uploadSection) {
+                                    const warningDiv = document.createElement('div');
+                                    warningDiv.className = "bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-center mt-4 mb-4";
+                                    warningDiv.innerHTML = `
+                                        <i class="ri-error-warning-fill text-red-500 text-3xl mb-2"></i>
+                                        <div class="text-red-500 font-bold mb-1">ไม่สามารถชำระเงินได้</div>
+                                        <div class="text-xs text-red-400 mb-4 leading-relaxed">ขออภัย สินค้าบางรายการในคำสั่งซื้อนี้หมดสต๊อกแล้วระหว่างรอชำระเงิน กรุณายกเลิกคำสั่งซื้อนี้ในหน้าประวัติแล้วทำรายการใหม่</div>
+                                        <button onclick="window.location.href='products.html'" class="w-full py-3 bg-zinc-800 text-white rounded-xl text-sm font-bold active:scale-95 transition border border-zinc-700">กลับสู่หน้าหลัก</button>
+                                    `;
+                                    
+                                    const uploadArea = document.getElementById('upload-area');
+                                    const submitBtn = document.getElementById('submit-slip-btn');
+                                    if (uploadArea) uploadArea.style.display = 'none';
+                                    if (submitBtn) submitBtn.style.display = 'none';
+                                    
+                                    uploadSection.prepend(warningDiv);
+                                }
+                            }
+                        }
+                    } catch(e) {}
+                }, 5000); // 5 sec poll
+            }
+        }         if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initPayment);
+        } else {
+            initPayment();
+        }
     </script>
 </body>
 </html>
