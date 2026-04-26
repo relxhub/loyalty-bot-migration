@@ -514,7 +514,7 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
         const order = await prisma.order.findUnique({
             where: { id: orderId },
             include: { 
-                items: { include: { product: true } },
+                items: { include: { product: { include: { category: true } } } },
                 customer: true 
             }
         });
@@ -644,9 +644,20 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                 }
 
                 let itemsDetails = '';
+                const itemsByCategory = {};
                 for (const item of order.items) {
-                    const nicStr = item.product.nicotine !== null ? ` (${item.product.nicotine}%)` : '';
-                    itemsDetails += `- ${item.product.nameEn}${nicStr} x${item.quantity} = ฿${(item.quantity * parseFloat(item.priceAtPurchase)).toLocaleString('th-TH')}\n`;
+                    const categoryName = item.product.category?.nameTh || item.product.category?.nameEn || 'ไม่ระบุหมวดหมู่';
+                    if (!itemsByCategory[categoryName]) itemsByCategory[categoryName] = [];
+                    itemsByCategory[categoryName].push(item);
+                }
+                
+                for (const [catName, catItems] of Object.entries(itemsByCategory)) {
+                    itemsDetails += `<b>[${catName}]</b>\n`;
+                    for (const item of catItems) {
+                        const nicStr = item.product.nicotine !== null ? ` (${item.product.nicotine}%)` : '';
+                        itemsDetails += `- ${item.product.nameEn}${nicStr} x${item.quantity} = ฿${(item.quantity * parseFloat(item.priceAtPurchase)).toLocaleString('th-TH')}\n`;
+                    }
+                    itemsDetails += '\n';
                 }
 
                 // Retrieve shipping fee context from config
@@ -729,9 +740,21 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                 const notifyTelegram = async (chatId) => {
                     if (!chatId) return;
                     try {
+                        const adminToken = process.env.ADMIN_BOT_TOKEN;
+                        if (!adminToken) {
+                            console.error('FATAL: ADMIN_BOT_TOKEN is missing for admin notifications.');
+                            return;
+                        }
+
                         const photoUrl = slipData.data.url;
-                        let telegramUrl = `https://api.telegram.org/bot${token}/sendPhoto`;
+                        let telegramUrl = `https://api.telegram.org/bot${adminToken}/sendPhoto`;
                         let res;
+                        
+                        const replyMarkup = {
+                            inline_keyboard: [[
+                                { text: "📝 แนบเลขบิล", callback_data: `addbill_${order.id}` }
+                            ]]
+                        };
                         
                         if (photoUrl) {
                             res = await fetch(telegramUrl, {
@@ -741,18 +764,20 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                                     chat_id: chatId,
                                     photo: photoUrl,
                                     caption: message,
-                                    parse_mode: 'HTML'
+                                    parse_mode: 'HTML',
+                                    reply_markup: replyMarkup
                                 })
                             });
                         } else {
-                            telegramUrl = `https://api.telegram.org/bot${token}/sendMessage`;
+                            telegramUrl = `https://api.telegram.org/bot${adminToken}/sendMessage`;
                             res = await fetch(telegramUrl, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
                                     chat_id: chatId,
                                     text: message,
-                                    parse_mode: 'HTML'
+                                    parse_mode: 'HTML',
+                                    reply_markup: replyMarkup
                                 })
                             });
                         }

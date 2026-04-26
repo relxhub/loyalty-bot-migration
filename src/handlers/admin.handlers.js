@@ -33,6 +33,60 @@ export async function handleAdminCommand(ctx) {
         console.log(`[AdminCommand] ID: ${userTgId}, User: ${adminUser}, Command: ${command}, Role: ${role}`);
 
         if (!role) return sendAdminReply(chatId, "⛔️ คุณไม่มีสิทธิ์ใช้งานคำสั่งนี้");
+
+        // Handle Force Reply for Bill Number
+        if (ctx.message.reply_to_message && ctx.message.reply_to_message.text) {
+            const repliedText = ctx.message.reply_to_message.text;
+            if (repliedText.includes('กรุณาตอบกลับข้อความนี้พร้อมแนบ "เลขพัสดุ/บิล" สำหรับออเดอร์: #ORD-')) {
+                const match = repliedText.match(/#ORD-[\d-]+/);
+                if (match) {
+                    const orderId = match[0].replace('#', '');
+                    const billNumber = text.trim();
+                    
+                    // Update Database (save tracking number)
+                    await prisma.order.update({
+                        where: { id: orderId },
+                        data: { 
+                            trackingNumber: billNumber,
+                            status: 'SHIPPED', // Or whatever status is appropriate
+                            updatedAt: new Date()
+                        }
+                    });
+
+                    // Send confirmation to admin
+                    const bkkTime = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
+                    await sendAdminReply(chatId, `✅ บันทึกเลขพัสดุ/บิล <b>${billNumber}</b>\nสำหรับออเดอร์ <b>#${orderId}</b> สำเร็จแล้ว\nเมื่อเวลา: ${bkkTime}`);
+
+                    // Send alert to Super Admins & Group
+                    const alertMsg = `📦 <b>แอดมิน ${adminUser} ได้แนบเลขพัสดุ/บิล</b>\n` +
+                                     `<b>ออเดอร์:</b> #${orderId}\n` +
+                                     `<b>เลขที่:</b> ${billNumber}\n` +
+                                     `<b>เวลา:</b> ${bkkTime}`;
+                    
+                    const groupId = process.env.ADMIN_GROUP_ID || process.env.SUPER_ADMIN_TELEGRAM_ID;
+                    if (groupId) {
+                        try {
+                            const adminToken = process.env.ADMIN_BOT_TOKEN;
+                            if (adminToken) {
+                                await fetch(`https://api.telegram.org/bot${adminToken}/sendMessage`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        chat_id: groupId,
+                                        text: alertMsg,
+                                        parse_mode: 'HTML'
+                                    })
+                                });
+                            }
+                        } catch (e) {
+                            console.error('Failed to alert group about bill:', e);
+                        }
+                    }
+
+                    return;
+                }
+            }
+        }
         
         if (["/add", "/addadmin", "/fixreferrals"].includes(command) && role !== "SuperAdmin") {
             return sendAdminReply(chatId, `⛔️ คุณไม่มีสิทธิ์ใช้งานคำสั่ง ${command}`);

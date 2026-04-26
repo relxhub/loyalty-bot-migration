@@ -142,6 +142,20 @@ async function startServer() {
     // =========================================
     // --- Admin Bot Webhook ---
     adminBot.on('message', handleAdminCommand);
+    adminBot.on('callback_query', async (ctx) => {
+        try {
+            const data = ctx.callbackQuery.data;
+            if (data && data.startsWith('addbill_')) {
+                const orderId = data.replace('addbill_', '');
+                await ctx.reply(`กรุณาตอบกลับข้อความนี้พร้อมแนบ "เลขพัสดุ/บิล" สำหรับออเดอร์: #${orderId}`, {
+                    reply_markup: { force_reply: true }
+                });
+                await ctx.answerCbQuery();
+            }
+        } catch (error) {
+            console.error('Admin callback error:', error);
+        }
+    });
     app.post(`/webhook/admin`, (req, res) => {
         adminBot.handleUpdate(req.body);
         res.sendStatus(200);
