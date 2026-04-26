@@ -1,4 +1,156 @@
 import { prisma } from '../db.js';
+import fetch from 'node-fetch';
+import csvParser from 'csv-parser';
+import { Readable } from 'stream';
+import { sendNotificationToCustomer } from './notification.service.js';
+
+/**
+ * Parses a Google Sheets URL to download and sync shipping tracking numbers.
+ * @param {string} sheetUrl 
+ * @returns {Promise<{totalProcessed: number, totalUpdated: number, errors: string[]}>}
+ */
+export async function syncShippingFromGoogleSheet(sheetUrl) {
+    const stats = { totalProcessed: 0, totalUpdated: 0, errors: [] };
+
+    try {
+        // Extract Doc ID and GID
+        const docIdMatch = sheetUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        if (!docIdMatch) throw new Error("ไม่พบ Document ID ในลิงก์");
+        const docId = docIdMatch[1];
+        
+        let gid = "0";
+        const gidMatch = sheetUrl.match(/[#&]gid=([0-9]+)/);
+        if (gidMatch) gid = gidMatch[1];
+
+        const csvUrl = `https://docs.google.com/spreadsheets/d/${docId}/export?format=csv&gid=${gid}`;
+        
+        const response = await fetch(csvUrl);
+        if (!response.ok) throw new Error(`ไม่สามารถดาวน์โหลดข้อมูลจาก Google Sheet ได้ (${response.status})`);
+        
+        const csvText = await response.text();
+        const results = [];
+        
+        await new Promise((resolve, reject) => {
+            Readable.from(csvText)
+                .pipe(csvParser())
+                .on('data', (data) => results.push(data))
+                .on('error', reject)
+                .on('end', resolve);
+        });
+
+        if (results.length === 0) throw new Error("ไม่พบข้อมูลใดๆ ในตาราง");
+
+        // Assuming Column 1 is Tracking, Column 3 is Phone (0-indexed) or relying on object keys
+        // The user's pattern: Column B (เลขพัสดุ), Column D (เบอร์โทรผู้รับ)
+        const keys = Object.keys(results[0]);
+        // Find keys that contain 'เลขพัสดุ' or are at index 1, and 'เบอร์' or index 3
+        const trackingKey = keys.find(k => k.includes('เลขพัสดุ') || k.includes('Tracking')) || keys[1];
+        const phoneKey = keys.find(k => k.includes('เบอร์') || k.includes('Phone')) || keys[3];
+
+        if (!trackingKey || !phoneKey) {
+            throw new Error(`ไม่พบคอลัมน์ 'เลขพัสดุ' หรือ 'เบอร์โทร' ในตาราง (พบ: ${keys.join(', ')})`);
+        }
+
+        // Group tracking numbers by sanitized phone number
+        const phoneToTracking = new Map();
+        for (const row of results) {
+            let phone = row[phoneKey]?.toString().replace(/\D/g, ''); // Keep only digits
+            let tracking = row[trackingKey]?.toString().trim();
+            
+            if (phone && tracking) {
+                // If phone starts with 66, convert to 0 for internal matching
+                if (phone.startsWith('66') && phone.length > 10) {
+                    phone = '0' + phone.substring(2);
+                }
+                
+                if (!phoneToTracking.has(phone)) {
+                    phoneToTracking.set(phone, new Set());
+                }
+                phoneToTracking.get(phone).add(tracking);
+                stats.totalProcessed++;
+            }
+        }
+
+        // Fetch tracking template config
+        const trackingConfig = await prisma.systemConfig.findUnique({ where: { key: 'tracking_url_template' } });
+        const trackingUrlTemplate = trackingConfig ? trackingConfig.value : 'https://track.thailandpost.co.th/?trackNumber={{TRACK}}';
+
+        // Process each phone number group
+        for (const [phone, trackingSet] of phoneToTracking.entries()) {
+            const trackingNumbersStr = Array.from(trackingSet).join(', ');
+
+            // First find matching ShippingAddress IDs for this phone number
+            const matchingAddresses = await prisma.shippingAddress.findMany({
+                where: {
+                    phone: { contains: phone }
+                },
+                select: { id: true }
+            });
+
+            if (matchingAddresses.length === 0) {
+                stats.errors.push(`ไม่พบที่อยู่จัดส่งสำหรับเบอร์: ${phone}`);
+                continue;
+            }
+
+            const addressIds = matchingAddresses.map(a => a.id);
+
+            // Find PAID orders linked to these addresses
+            const matchingOrders = await prisma.order.findMany({
+                where: {
+                    status: 'PAID',
+                    shippingAddressId: { in: addressIds }
+                },
+                include: { customer: true }
+            });
+
+            if (matchingOrders.length > 0) {
+                for (const order of matchingOrders) {
+                    // Update Order
+                    await prisma.order.update({
+                        where: { id: order.id },
+                        data: {
+                            status: 'SHIPPED',
+                            trackingNumber: trackingNumbersStr
+                        }
+                    });
+                    
+                    // Construct tracking links for notification
+                    const trackers = Array.from(trackingSet);
+                    let trackingLinksStr = trackers.map(t => {
+                        const url = trackingUrlTemplate.replace('{{TRACK}}', t);
+                        return `<a href="${url}">${t}</a>`;
+                    }).join('\n');
+
+                    // Send Notification to Customer safely
+                    if (order.customer && order.customer.telegramUserId) {
+                        const msg = `📦 <b>สินค้าของคุณจัดส่งแล้ว!</b>\n\n` +
+                                    `ออเดอร์: #${order.id}\n` +
+                                    `เลขพัสดุ:\n${trackingLinksStr}\n\n` +
+                                    `ขอบคุณที่อุดหนุนครับ 🙏`;
+                        
+                        try {
+                            await sendNotificationToCustomer(order.customer.telegramUserId, msg);
+                            // Rate limit pause (100ms) to avoid Telegram 429
+                            await new Promise(r => setTimeout(r, 100));
+                        } catch (err) {
+                            console.error(`Failed to notify ${order.customer.telegramUserId}:`, err.message);
+                            stats.errors.push(`แจ้งเตือนลูกค้า ${phone} ไม่สำเร็จ`);
+                        }
+                    }
+                    stats.totalUpdated++;
+                }
+            } else {
+                stats.errors.push(`ไม่พบออเดอร์ที่ชำระเงินแล้วสำหรับเบอร์: ${phone}`);
+            }
+        }
+
+        return stats;
+
+    } catch (error) {
+        console.error("Sync Shipping Error:", error);
+        throw new Error(error.message || "เกิดข้อผิดพลาดในการประมวลผล Google Sheet");
+    }
+}
 
 /**
  * Get all shipping addresses for a customer

@@ -481,6 +481,9 @@ model Order {
   appliedCouponId   String?
   discountAmount    Decimal     @default(0) @db.Decimal(10, 2)
 
+  // ข้อมูลการจัดส่ง
+  trackingNumber    String?     @db.Text
+
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 

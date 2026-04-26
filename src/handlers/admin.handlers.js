@@ -10,6 +10,7 @@ import { getConfig } from '../config/config.js';
 import { createCustomer, giveReferralBonus } from '../services/customer.service.js';
 import * as referralService from '../services/referral.service.js'; // Import the new referral service
 import * as couponService from '../services/coupon.service.js';
+import * as shippingService from '../services/shipping.service.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -35,6 +36,22 @@ export async function handleAdminCommand(ctx) {
         
         if (["/add", "/addadmin", "/fixreferrals"].includes(command) && role !== "SuperAdmin") {
             return sendAdminReply(chatId, `⛔️ คุณไม่มีสิทธิ์ใช้งานคำสั่ง ${command}`);
+        }
+
+        // Check for Google Sheets Link for Shipping Sync
+        if (role === "SuperAdmin" && text.includes("docs.google.com/spreadsheets")) {
+            sendAdminReply(chatId, "⏳ กำลังดึงข้อมูลและอัปเดตเลขพัสดุจาก Google Sheet... (กรุณารอสักครู่)");
+            try {
+                const stats = await shippingService.syncShippingFromGoogleSheet(text);
+                const msg = `✅ <b>อัปเดตเลขพัสดุสำเร็จ!</b>\n\n` +
+                            `ออเดอร์ที่อัปเดตและแจ้งลูกค้า: <b>${stats.totalUpdated}</b> รายการ\n` +
+                            `เบอร์โทรที่พบในชีต: <b>${stats.totalProcessed}</b> เบอร์\n\n` +
+                            (stats.errors.length > 0 ? `⚠️ ข้อผิดพลาดบางส่วน:\n- ${stats.errors.slice(0, 5).join('\n- ')}\n${stats.errors.length > 5 ? '...และอื่นๆ' : ''}` : `ไม่มีข้อผิดพลาดเลย 🎉`);
+                return sendAdminReply(chatId, msg);
+            } catch (err) {
+                console.error("Sheet Sync Error:", err);
+                return sendAdminReply(chatId, `❌ เกิดข้อผิดพลาดในการซิงค์ข้อมูล:\n${err.message}`);
+            }
         }
 
         switch (command) {

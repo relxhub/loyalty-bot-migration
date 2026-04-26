@@ -2711,7 +2711,7 @@
                     const res = await fetch(`/api/orders/history/${telegramId}`);
                     const data = await res.json();
                     if (data.success) {
-                        if (!silent) renderHistory(data.orders, data.orderExpiryMinutes);
+                        if (!silent) renderHistory(data.orders, data.orderExpiryMinutes, data.trackingUrlTemplate);
                         updatePendingBadge(data.orders);
                     } else {
                         if (!silent) wrapper.innerHTML = `<div class="text-center py-8 text-red-500">${data.error || 'โหลดประวัติล้มเหลว'}</div>`;
@@ -2735,8 +2735,9 @@
                 }
             };
 
-            const renderHistory = (orders, expiryMinutes = 30) => {
+            const renderHistory = (orders, expiryMinutes = 30, trackingUrlTemplate = '') => {
                 window.currentOrders = orders; // Store for details view
+                window.currentTrackingTemplate = trackingUrlTemplate; // Store for details view
                 const wrapper = document.getElementById('history-list-wrapper');
                 if (!orders || orders.length === 0) {
                     wrapper.innerHTML = '<div class="text-center py-8 text-zinc-500 flex flex-col items-center gap-2"><i class="ri-receipt-line text-4xl text-zinc-600"></i><p>ยังไม่มีประวัติการสั่งซื้อ</p></div>';
@@ -2758,6 +2759,18 @@
                     let statusBadge = '';
                     let actionButton = '';
                     let expiryHtml = '';
+                    let trackingHtml = '';
+                    
+                    if (order.trackingNumber) {
+                        // Split by comma in case of multiple tracking numbers
+                        const trackers = order.trackingNumber.split(',').map(t => t.trim()).filter(Boolean);
+                        const links = trackers.map(t => {
+                            const url = trackingUrlTemplate.replace('{{TRACK}}', t);
+                            return `<a href="${url}" target="_blank" class="text-blue-400 hover:text-blue-300 underline font-mono ml-1"><i class="ri-truck-line"></i> ${t}</a>`;
+                        }).join(' | ');
+                        
+                        trackingHtml = `<div class="text-xs text-zinc-300 mt-1 flex flex-wrap items-center gap-1">พัสดุ: ${links}</div>`;
+                    }
                     
                     if (order.status === 'PENDING_PAYMENT') {
                         const createdAtMs = new Date(order.createdAt).getTime();
@@ -2831,7 +2844,9 @@
                                 ${statusBadge}
                             </div>
                             
-                            <div class="text-[0.8rem] text-zinc-300 leading-tight mb-3">
+                            ${trackingHtml}
+
+                            <div class="text-[0.8rem] text-zinc-300 leading-tight mb-3 mt-2">
                                 ${itemsPreview}
                             </div>
                             
