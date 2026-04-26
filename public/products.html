@@ -4236,7 +4236,7 @@
             // Background polling for real-time stock updates
             setInterval(async () => {
                 try {
-                    const res = await fetch('/api/products', { headers: { 'x-silent-poll': 'true' } });
+                    const res = await fetch('/api/products?v=' + new Date().getTime(), { cache: 'no-cache', headers: { 'x-silent-poll': 'true' } });
                     const data = await res.json();
                     if (data.products && window.allProducts) {
                         let needsProductRender = false;
@@ -4244,22 +4244,24 @@
                         let needsBannerRender = false;
 
                         if (JSON.stringify(window.allCategories) !== JSON.stringify(data.categories)) {
-                            window.allCategories = data.categories;
+                            window.allCategories = allCategories = data.categories;
                             needsCategoryRender = true;
                         }
 
                         if (JSON.stringify(window.allBanners) !== JSON.stringify(data.banners)) {
-                            window.allBanners = data.banners;
+                            window.allBanners = allBanners = data.banners;
                             needsBannerRender = true;
                         }
 
                         if (JSON.stringify(window.storeSetting) !== JSON.stringify(data.storeSetting)) {
-                            window.storeSetting = data.storeSetting;
+                            window.storeSetting = storeSetting = data.storeSetting;
                             needsProductRender = true;
                         }
 
-                        if (JSON.stringify(window.allProducts) !== JSON.stringify(data.products)) {
-                            window.allProducts = data.products;
+                        // Compare only DB fields to ignore frontend-injected 'isLowStock' etc.
+                        const getPState = (arr) => arr.map(p => ({id: p.id, s: p.stockQuantity, p: parseFloat(p.price), st: p.status, a: p.isActive})).sort((a,b) => a.id - b.id);
+                        if (JSON.stringify(getPState(window.allProducts)) !== JSON.stringify(getPState(data.products))) {
+                            window.allProducts = allProducts = data.products;
                             needsProductRender = true;
                         }
 
@@ -4267,21 +4269,20 @@
                         if (needsCategoryRender) renderCategories(window.allCategories);
                         
                         if (needsProductRender) {
-                            // Preserve scroll position
-                            const container = document.getElementById('products-container');
-                            const currentScroll = container ? container.scrollTop : 0;
+                            // Preserve scroll position for full page scroll
+                            const currentScroll = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
                             
                             renderProducts(window.currentCategoryId);
                             
                             // Restore scroll immediately
-                            if (container) container.scrollTop = currentScroll;
+                            window.scrollTo(0, currentScroll);
                             updateCartModal();
                         }
                     }
                 } catch(e) {
                     // Ignore polling errors
                 }
-            }, 10000); // 10 seconds
+            }, 5000); // 5 seconds
 
 
                 appContainer.classList.remove('hidden');
