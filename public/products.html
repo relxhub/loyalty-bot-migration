@@ -2195,7 +2195,7 @@
                                     
                                     let cartControlHtml = '';
                                     if (p.status === 'OUT_OF_STOCK') {
-                                        cartControlHtml = `<span class="text-[0.7rem] font-bold text-zinc-500 px-2">OUT OF STOCK</span>`;
+                                        cartControlHtml = `<button class="w-8 h-8 rounded-full bg-zinc-700 text-zinc-500 flex items-center justify-center cursor-not-allowed opacity-50 grayscale" disabled><i class="ri-shopping-cart-2-line"></i></button>`;
                                     } else if (isInCart) {
                                         cartControlHtml = `
                                             <div class="flex items-center bg-zinc-900/80 rounded-full p-1 gap-1 border border-zinc-700/50">
@@ -3521,7 +3521,7 @@
                     }
                     return `
                         <button class="flex items-center justify-center px-4 py-2 bg-zinc-600 text-zinc-400 rounded-full font-bold text-sm cursor-not-allowed opacity-50 grayscale mr-1" data-product-id="${p.id}" disabled>
-                            <i class="ri-shopping-cart-2-line mr-1"></i> สินค้าหมด
+                            <i class="ri-shopping-cart-2-line mr-1"></i> Add
                         </button>
                     `;
                 }

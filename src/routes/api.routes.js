@@ -513,7 +513,10 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
         // 1. Get Order
         const order = await prisma.order.findUnique({
             where: { id: orderId },
-            include: { items: true, customer: true }
+            include: { 
+                items: { include: { product: true } },
+                customer: true 
+            }
         });
 
         if (!order) return res.status(404).json({ success: false, error: 'ไม่พบออเดอร์นี้' });
