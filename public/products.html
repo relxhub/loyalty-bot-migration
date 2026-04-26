@@ -2707,7 +2707,7 @@
                                     let url = window.currentTrackingTemplate.replace('{{TRACK}}', rawT);
                                     url = url.startsWith('http') ? url : 'https://' + url;
                                     const encodedUrl = encodeURIComponent(url);
-                                    return `<button onclick="window.openTrackingLink(decodeURIComponent('${encodedUrl}'))" class="inline-flex items-center justify-center gap-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg text-xs font-mono font-bold active:scale-95 transition hover:bg-blue-500/20"><i class="ri-truck-line text-sm"></i> ${rawT}</button>`;
+                                    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg text-xs font-mono font-bold active:scale-95 transition hover:bg-blue-500/20"><i class="ri-truck-line text-sm"></i> ${rawT}</a>`;
                                 }).join('')}
                             </div>
                         </div>` : ''}
@@ -2858,7 +2858,7 @@
                             let url = trackingUrlTemplate.replace('{{TRACK}}', t);
                             url = url.startsWith('http') ? url : `https://${url}`;
                             const encodedUrl = encodeURIComponent(url);
-                            return `<button onclick="window.openTrackingLink(decodeURIComponent('${encodedUrl}'))" class="inline-flex items-center justify-center gap-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg text-xs font-mono font-bold active:scale-95 transition hover:bg-blue-500/20"><i class="ri-truck-line text-sm"></i> ${t}</button>`;
+                            return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg text-xs font-mono font-bold active:scale-95 transition hover:bg-blue-500/20"><i class="ri-truck-line text-sm"></i> ${t}</a>`;
                         }).join(' ');
                         trackingHtml = `<div class="w-full flex flex-wrap gap-2 mt-3">${links}</div>`;
                     }
@@ -2980,23 +2980,6 @@
                         }
                     }
                 });
-            };
-
-            window.openTrackingLink = (url) => {
-                try {
-                    const absoluteUrl = url.startsWith('http') ? url : `https://${url}`;
-                    // The most robust way to force an external browser in Telegram WebView without double prompts
-                    const a = document.createElement('a');
-                    a.href = absoluteUrl;
-                    a.target = '_blank';
-                    a.rel = 'noopener noreferrer';
-                    document.body.appendChild(a);
-                    a.click();
-                    setTimeout(() => document.body.removeChild(a), 100);
-                } catch (e) {
-                    console.error("Failed to open link:", e);
-                    window.open(url, '_blank');
-                }
             };
 
             window.reorder = async (orderId) => {
@@ -4250,6 +4233,36 @@
                 renderBanners(data.banners);
                 renderCategories(data.categories);
 
+            // Background polling for real-time stock updates
+            setInterval(async () => {
+                try {
+                    const res = await fetch('/api/products', { headers: { 'x-silent-poll': 'true' } });
+                    const data = await res.json();
+                    if (data.success && window.allProducts) {
+                        let stockChanged = false;
+                        
+                        // Check if any stock values differ
+                        data.products.forEach(newP => {
+                            const oldP = window.allProducts.find(p => p.id === newP.id);
+                            if (oldP && oldP.stockQuantity !== newP.stockQuantity) {
+                                oldP.stockQuantity = newP.stockQuantity;
+                                stockChanged = true;
+                            }
+                        });
+                        
+                        if (stockChanged) {
+                            console.log("Stock updated in background, refreshing UI...");
+                            window.storeSetting = data.storeSetting; // Update thresholds too
+                            renderProducts(window.currentCategoryId); // Re-render current category silently
+                            updateCartModal(); // Refresh cart max limits if open
+                        }
+                    }
+                } catch(e) {
+                    // Ignore polling errors
+                }
+            }, 10000); // 10 seconds
+
+
                 appContainer.classList.remove('hidden');
                 loader.remove();
 
@@ -4331,7 +4344,7 @@
     
     <!-- Order History Modal -->
     <div id="history-modal" class="hidden fixed inset-0 z-[70] flex items-end justify-center bg-black/60 backdrop-blur-sm">
-        <div id="history-modal-content" class="bg-zinc-800 w-full max-w-md flex flex-col h-[100dvh] transform translate-y-full transition-transform duration-300">
+        <div id="history-modal-content" class="bg-zinc-800 w-full max-w-md flex flex-col max-h-[85vh] rounded-t-3xl transform translate-y-full transition-transform duration-300">
             <!-- Header -->
             <div class="flex-shrink-0 p-4 border-b border-zinc-700 flex flex-col">
                 <div class="flex justify-between items-center mb-3">
@@ -4363,7 +4376,7 @@
 
     <!-- Order Details Modal -->
     <div id="order-details-modal" class="hidden fixed inset-0 z-[80] flex items-end justify-center bg-black/60 backdrop-blur-sm">
-        <div id="order-details-modal-content" class="bg-zinc-800 w-full max-w-md flex flex-col h-[100dvh] transform translate-y-full transition-transform duration-300">
+        <div id="order-details-modal-content" class="bg-zinc-800 w-full max-w-md flex flex-col max-h-[85vh] rounded-t-3xl transform translate-y-full transition-transform duration-300">
             <!-- Header -->
             <div class="flex-shrink-0 p-4 border-b border-zinc-700 flex justify-between items-center relative">
                 <div class="flex items-center gap-2">
