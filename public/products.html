@@ -3815,7 +3815,7 @@
                     // Unified Sorted Grid View (Nicotine Low -> High)
                     productGrid.style.display = 'block'; // Block to contain header + grid
                     
-                    const sortedProducts = [...filteredProducts].sort((a, b) => {
+                    const sortedProducts = [...renderReadyProducts].sort((a, b) => {
                         // Handle nulls: push to end (matches previous "Others" at bottom behavior)
                         if (a.nicotine === null && b.nicotine !== null) return 1;
                         if (a.nicotine !== null && b.nicotine === null) return -1;
@@ -3836,19 +3836,19 @@
 
                 } else {
                     // Standard Filtered View (specific nicotine selected OR no results)
-                    if (currentFilter.nicotine !== null && filteredProducts.length > 0) {
+                    if (currentFilter.nicotine !== null && renderReadyProducts.length > 0) {
                         productGrid.style.display = 'block';
                         productGrid.innerHTML = `
                             <div class="mb-4 px-1">
-                                <span class="text-xs text-zinc-500 font-medium">[${filteredProducts.length} items]</span>
+                                <span class="text-xs text-zinc-500 font-medium">[${renderReadyProducts.length} items]</span>
                             </div>
                             <div class="product-group-grid">
-                                ${filteredProducts.map(createProductCardHtml).join('')}
+                                ${renderReadyProducts.map(createProductCardHtml).join('')}
                             </div>
                         `;
                     } else {
                         productGrid.style.display = 'grid'; // Re-enable grid layout for general searches or no results
-                        productGrid.innerHTML = filteredProducts.map(createProductCardHtml).join('');
+                        productGrid.innerHTML = renderReadyProducts.map(createProductCardHtml).join('');
                     }
                 }
                 

@@ -403,6 +403,7 @@
             const submitBtn = document.getElementById('submit-slip-btn');
             const uploadArea = document.getElementById('upload-area');
 
+            if (slipInput && !window.isPaymentBlocked) {
             slipInput.addEventListener('change', function(e) {
                 if (this.files && this.files[0]) {
                     const file = this.files[0];
