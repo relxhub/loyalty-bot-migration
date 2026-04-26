@@ -39,6 +39,8 @@ export async function handleAdminCommand(ctx) {
             const repliedText = ctx.message.reply_to_message.text;
             if (repliedText.includes('กรุณาตอบกลับข้อความนี้พร้อมแนบ "เลขพัสดุ/บิล" สำหรับออเดอร์: #ORD-')) {
                 const match = repliedText.match(/#ORD-[\d-]+/);
+                const refMatch = repliedText.match(/\[RefMsgID:(\d+)\]/);
+                
                 if (match) {
                     const orderId = match[0].replace('#', '');
                     const billNumber = text.trim();
@@ -52,6 +54,16 @@ export async function handleAdminCommand(ctx) {
                             updatedAt: new Date()
                         }
                     });
+
+                    // Remove the inline button from the original message
+                    if (refMatch) {
+                        try {
+                            const refMsgId = parseInt(refMatch[1], 10);
+                            await ctx.telegram.editMessageReplyMarkup(chatId, refMsgId, undefined, { inline_keyboard: [] });
+                        } catch (e) {
+                            console.error('Failed to remove inline keyboard from original message:', e);
+                        }
+                    }
 
                     // Send confirmation to admin
                     const bkkTime = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });

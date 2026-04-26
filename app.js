@@ -147,7 +147,9 @@ async function startServer() {
             const data = ctx.callbackQuery.data;
             if (data && data.startsWith('addbill_')) {
                 const orderId = data.replace('addbill_', '');
-                await ctx.reply(`กรุณาตอบกลับข้อความนี้พร้อมแนบ "เลขพัสดุ/บิล" สำหรับออเดอร์: #${orderId}`, {
+                const originalMessageId = ctx.callbackQuery.message?.message_id;
+                
+                await ctx.reply(`กรุณาตอบกลับข้อความนี้พร้อมแนบ "เลขพัสดุ/บิล" สำหรับออเดอร์: #${orderId}\n[RefMsgID:${originalMessageId}]`, {
                     reply_markup: { force_reply: true }
                 });
                 await ctx.answerCbQuery();
