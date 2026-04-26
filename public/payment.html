@@ -291,24 +291,50 @@
                     const itemsContainer = document.getElementById('order-items-list');
                     let itemsHtml = '';
                     let subtotal = 0;
+                    let hasOutOfStockItems = false;
                     if (order.items && order.items.length > 0) {
                         order.items.forEach(item => {
                             const name = item.product ? item.product.nameEn : 'สินค้า';
                             const categoryName = item.product?.category?.name ? `<span class="text-[10px] text-zinc-500 bg-zinc-800 px-1.5 py-0.5 rounded mr-1 whitespace-nowrap">${item.product.category.name}</span>` : '';
+                            const nicotineStr = item.product?.nicotine !== null ? `(${item.product.nicotine}%)` : '';
+                            
+                            let stockWarningHtml = '';
+                            if (item.product && item.product.stockQuantity < item.quantity) {
+                                hasOutOfStockItems = true;
+                                stockWarningHtml = `<div class="text-[10px] text-red-500 mt-0.5"><i class="ri-error-warning-line"></i> สินค้ามีไม่เพียงพอ (เหลือ ${item.product.stockQuantity} ชิ้น)</div>`;
+                            }
+
                             const price = parseFloat(item.priceAtPurchase);
                             const itemTotal = price * item.quantity;
                             subtotal += itemTotal;
                             itemsHtml += `
-                                <div class="flex justify-between items-start text-sm py-1">
-                                    <div class="flex items-center pr-2 overflow-hidden flex-wrap gap-y-1">
-                                        ${categoryName}
-                                        <span class="truncate text-zinc-300 text-xs">${name} x${item.quantity}</span>
+                                <div class="py-1.5 border-b border-zinc-700/30 last:border-0">
+                                    <div class="flex justify-between items-start text-sm">
+                                        <div class="flex items-center pr-2 overflow-hidden flex-wrap gap-y-1">
+                                            ${categoryName}
+                                            <span class="truncate text-zinc-300 text-xs">${name} ${nicotineStr} x${item.quantity}</span>
+                                        </div>
+                                        <span class="whitespace-nowrap text-zinc-300 flex-shrink-0">${itemTotal.toLocaleString('th-TH')} ฿</span>
                                     </div>
-                                    <span class="whitespace-nowrap text-zinc-300 flex-shrink-0">${itemTotal.toLocaleString('th-TH')} ฿</span>
+                                    ${stockWarningHtml}
                                 </div>
                             `;
                         });
                         itemsContainer.innerHTML = itemsHtml;
+                        
+                        if (hasOutOfStockItems) {
+                            const uploadSection = document.getElementById('upload-section');
+                            if (uploadSection) {
+                                uploadSection.innerHTML = `
+                                    <div class="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-center mt-4">
+                                        <i class="ri-error-warning-fill text-red-500 text-3xl mb-2"></i>
+                                        <div class="text-red-500 font-bold mb-1">ไม่สามารถชำระเงินได้</div>
+                                        <div class="text-xs text-red-400 mb-4 leading-relaxed">ขออภัย สินค้าบางรายการในคำสั่งซื้อนี้หมดสต๊อกแล้วระหว่างรอชำระเงิน กรุณายกเลิกคำสั่งซื้อนี้ในหน้าประวัติแล้วทำรายการใหม่</div>
+                                        <button onclick="window.location.href='products.html'" class="w-full py-3 bg-zinc-800 text-white rounded-xl text-sm font-bold active:scale-95 transition border border-zinc-700">กลับสู่หน้าหลัก</button>
+                                    </div>
+                                `;
+                            }
+                        }
                     }
 
                     // Populate breakdown
