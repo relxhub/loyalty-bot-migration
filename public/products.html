@@ -2768,7 +2768,7 @@
                             let url = trackingUrlTemplate.replace('{{TRACK}}', t);
                             url = url.startsWith('http') ? url : `https://${url}`;
                             const encodedUrl = encodeURIComponent(url);
-                            return `<button onclick="window.copyTrackingLink('${t}', decodeURIComponent('${encodedUrl}'))" class="text-blue-400 hover:text-blue-300 underline font-mono ml-1 active:scale-95 transition"><i class="ri-truck-line"></i> ${t}</button>`;
+                            return `<button onclick="tg.openLink(decodeURIComponent('${encodedUrl}'), {try_instant_view: false})" class="text-blue-400 hover:text-blue-300 underline font-mono ml-1 active:scale-95 transition"><i class="ri-truck-line"></i> ${t}</button>`;
                         }).join(' | ');
                         trackingHtml = `<div class="text-xs text-zinc-300 mt-1 flex flex-wrap items-center gap-1">พัสดุ: ${links}</div>`;
                     }
