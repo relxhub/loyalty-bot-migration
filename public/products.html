@@ -2602,6 +2602,7 @@
             });
 
             window.showOrderDetails = (orderId) => {
+                window.currentOpenOrderId = orderId;
                 const order = window.currentOrders?.find(o => o.id === orderId);
                 if (!order) return;
 
@@ -2747,6 +2748,7 @@
             };
 
             window.closeOrderDetailsModal = () => {
+                window.currentOpenOrderId = null;
                 const modal = document.getElementById('order-details-modal');
                 if (!modal) return;
                 modal.classList.remove('show');
@@ -2761,6 +2763,7 @@
 
             const fetchHistory = async (silent = false) => {
                 const wrapper = document.getElementById('history-list-wrapper');
+                const isPoll = silent === 'poll';
                 if (!silent) wrapper.innerHTML = '<div class="text-center py-8"><div class="animate-spin h-6 w-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto"></div></div>';
                 
                 const telegramId = tg.initDataUnsafe?.user?.id?.toString() || window.currentUser?.telegramUserId;
@@ -2770,15 +2773,27 @@
                 }
 
                 try {
-                    const res = await fetch(`/api/orders/history/${telegramId}`);
+                    const url = isPoll ? `/api/orders/history/${telegramId}?v=${new Date().getTime()}` : `/api/orders/history/${telegramId}`;
+                    const res = await fetch(url, isPoll ? { cache: 'no-cache', headers: { 'x-silent-poll': 'true' } } : undefined);
                     const data = await res.json();
                     if (data.success) {
+                        const getOState = (arr) => arr.map(o => ({id: o.id, s: o.status})).sort((a,b) => a.id.localeCompare(b.id));
+                        const historyChanged = JSON.stringify(getOState(window.allOrders || [])) !== JSON.stringify(getOState(data.orders));
+                        
                         window.allOrders = data.orders;
                         window.currentExpiryMinutes = data.orderExpiryMinutes;
                         window.currentTrackingTemplate = data.trackingUrlTemplate;
                         window.currentHistoryFilter = window.currentHistoryFilter || 'ALL';
                         
-                        if (!silent) window.filterHistory(window.currentHistoryFilter);
+                        if (!silent || (isPoll && historyChanged)) {
+                            window.filterHistory(window.currentHistoryFilter);
+                            
+                            // If order details modal is open, refresh it
+                            const detailsModal = document.getElementById('order-details-modal');
+                            if (detailsModal && !detailsModal.classList.contains('hidden') && window.currentOpenOrderId) {
+                                window.showOrderDetails(window.currentOpenOrderId);
+                            }
+                        }
                         updatePendingBadge(data.orders);
                     } else {
                         if (!silent) wrapper.innerHTML = `<div class="text-center py-8 text-red-500">${data.error || 'โหลดประวัติล้มเหลว'}</div>`;
@@ -4268,6 +4283,7 @@
                         if (needsBannerRender) renderBanners(window.allBanners);
                         if (needsCategoryRender) renderCategories(window.allCategories);
                         
+                        fetchHistory('poll');
                         if (needsProductRender) {
                             // Preserve scroll position for full page scroll
                             const currentScroll = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
