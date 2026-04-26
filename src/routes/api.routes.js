@@ -646,7 +646,7 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                 let itemsDetails = '';
                 const itemsByCategory = {};
                 for (const item of order.items) {
-                    const categoryName = item.product.category?.nameTh || item.product.category?.nameEn || 'ไม่ระบุหมวดหมู่';
+                    const categoryName = item.product.category?.name || 'ไม่ระบุหมวดหมู่';
                     if (!itemsByCategory[categoryName]) itemsByCategory[categoryName] = [];
                     itemsByCategory[categoryName].push(item);
                 }
