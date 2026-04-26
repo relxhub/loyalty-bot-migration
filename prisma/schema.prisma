@@ -483,6 +483,7 @@ model Order {
 
   // ข้อมูลการจัดส่ง
   trackingNumber    String?     @db.Text
+  billNumber        String?     @db.Text
 
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt

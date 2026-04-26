@@ -43,11 +43,11 @@ export async function handleAdminCommand(ctx) {
                     const orderId = match[0].replace('#', '');
                     const billNumber = text.trim();
                     
-                    // Update Database (save tracking number)
+                    // Update Database (save bill number)
                     await prisma.order.update({
                         where: { id: orderId },
                         data: { 
-                            trackingNumber: billNumber,
+                            billNumber: billNumber,
                             status: 'SHIPPED', // Or whatever status is appropriate
                             updatedAt: new Date()
                         }
