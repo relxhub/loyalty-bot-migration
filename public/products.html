@@ -2192,9 +2192,11 @@
                                 ${products.map(p => {
                                     const cartItem = window.cart.find(item => item.id === p.id);
                                     const isInCart = cartItem && cartItem.quantity > 0;
+                                    const outThreshold = window.storeSetting?.outOfStockThreshold || 0;
+                                    const isOutOfStock = p.status === 'OUT_OF_STOCK' || p.stockQuantity <= outThreshold;
                                     
                                     let cartControlHtml = '';
-                                    if (p.status === 'OUT_OF_STOCK') {
+                                    if (isOutOfStock) {
                                         cartControlHtml = `<button class="w-8 h-8 rounded-full bg-zinc-700 text-zinc-500 flex items-center justify-center cursor-not-allowed opacity-50 grayscale" disabled><i class="ri-shopping-cart-2-line"></i></button>`;
                                     } else if (isInCart) {
                                         cartControlHtml = `
