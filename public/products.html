@@ -2696,7 +2696,23 @@
                         ${shippingAddressHtml}
 
                         <div>
-                            <div class="text-xs text-zinc-400 font-bold uppercase tracking-wider mb-2">รายการสินค้า</div>
+                            
+                        ${order.trackingNumber ? `
+                        <div>
+                            <div class="text-xs text-zinc-400 font-bold uppercase tracking-wider mb-2">เลขพัสดุ</div>
+                            <div class="bg-zinc-800/80 rounded-xl p-3 border border-zinc-700/50 flex flex-wrap gap-2">
+                                ${order.trackingNumber.split(',').map(t => {
+                                    const rawT = t.trim();
+                                    if(!rawT) return '';
+                                    let url = window.currentTrackingTemplate.replace('{{TRACK}}', rawT);
+                                    url = url.startsWith('http') ? url : 'https://' + url;
+                                    const encodedUrl = encodeURIComponent(url);
+                                    return `<button onclick="window.openTrackingLink(decodeURIComponent('${encodedUrl}'))" class="inline-flex items-center justify-center gap-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg text-xs font-mono font-bold active:scale-95 transition hover:bg-blue-500/20"><i class="ri-truck-line text-sm"></i> ${rawT}</button>`;
+                                }).join('')}
+                            </div>
+                        </div>` : ''}
+                        
+                        <div class="text-xs text-zinc-400 font-bold uppercase tracking-wider mb-2">รายการสินค้า</div>
                             <div class="bg-zinc-800/80 rounded-xl p-3 border border-zinc-700/50">
                                 ${itemsHtml}
                             </div>
@@ -2842,7 +2858,7 @@
                             let url = trackingUrlTemplate.replace('{{TRACK}}', t);
                             url = url.startsWith('http') ? url : `https://${url}`;
                             const encodedUrl = encodeURIComponent(url);
-                            return `<button onclick="window.copyTrackingLink('${t}', decodeURIComponent('${encodedUrl}'))" class="inline-flex items-center justify-center gap-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg text-xs font-mono font-bold active:scale-95 transition hover:bg-blue-500/20"><i class="ri-truck-line text-sm"></i> ${t}</button>`;
+                            return `<button onclick="window.openTrackingLink(decodeURIComponent('${encodedUrl}'))" class="inline-flex items-center justify-center gap-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg text-xs font-mono font-bold active:scale-95 transition hover:bg-blue-500/20"><i class="ri-truck-line text-sm"></i> ${t}</button>`;
                         }).join(' ');
                         trackingHtml = `<div class="w-full flex flex-wrap gap-2 mt-3">${links}</div>`;
                     }
@@ -2924,7 +2940,7 @@
                                 </div>
                                 
                                 <div class="flex justify-between items-end mt-2 pt-3 border-t border-zinc-700/50">
-                                    <span class="text-xs text-zinc-500">แตะเพื่อดูรายละเอียด</span>
+                                    <div></div>
                                     <div class="text-right">
                                         <span class="text-xs text-zinc-400">ยอดรวม </span>
                                         <span class="font-bold text-brand-red text-base">฿${parseFloat(order.totalAmount).toLocaleString('th-TH')}</span>
@@ -2966,21 +2982,21 @@
                 });
             };
 
-            window.copyTrackingLink = (trackNumber, fullUrl) => {
-                tg.showConfirm('คุณต้องการคัดลอกลิงก์เพื่อนำไปเปิดในเบราว์เซอร์หรือไม่?', (confirmed) => {
-                    if (confirmed) {
-                        try {
-                            navigator.clipboard.writeText(fullUrl).then(() => {
-                                showToast('คัดลอกลิงก์เช็คพัสดุแล้ว', 'success');
-                            }).catch(() => {
-                                showToast('ไม่สามารถคัดลอกได้', 'error');
-                            });
-                        } catch (e) {
-                            console.error("Failed to copy link:", e);
-                            showToast('ระบบอุปกรณ์ของคุณไม่รองรับ', 'error');
-                        }
-                    }
-                });
+            window.openTrackingLink = (url) => {
+                try {
+                    const absoluteUrl = url.startsWith('http') ? url : `https://${url}`;
+                    // The most robust way to force an external browser in Telegram WebView without double prompts
+                    const a = document.createElement('a');
+                    a.href = absoluteUrl;
+                    a.target = '_blank';
+                    a.rel = 'noopener noreferrer';
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => document.body.removeChild(a), 100);
+                } catch (e) {
+                    console.error("Failed to open link:", e);
+                    window.open(url, '_blank');
+                }
             };
 
             window.reorder = async (orderId) => {
