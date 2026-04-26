@@ -4238,7 +4238,7 @@
                 try {
                     const res = await fetch('/api/products', { headers: { 'x-silent-poll': 'true' } });
                     const data = await res.json();
-                    if (data.success && window.allProducts) {
+                    if (data.products && window.allProducts) {
                         let needsProductRender = false;
                         let needsCategoryRender = false;
                         let needsBannerRender = false;
@@ -4365,7 +4365,7 @@
     
     <!-- Order History Modal -->
     <div id="history-modal" class="hidden fixed inset-0 z-[70] flex items-end justify-center bg-black/60 backdrop-blur-sm">
-        <div id="history-modal-content" class="bg-zinc-800 w-full max-w-md flex flex-col h-[80dvh] rounded-t-3xl transform translate-y-full transition-transform duration-300">
+        <div id="history-modal-content" class="bg-zinc-800 w-full max-w-md flex flex-col h-[90dvh] rounded-t-3xl transform translate-y-full transition-transform duration-300">
             <!-- Header -->
             <div class="flex-shrink-0 p-4 border-b border-zinc-700 flex flex-col">
                 <div class="flex justify-between items-center mb-3">
@@ -4397,7 +4397,7 @@
 
     <!-- Order Details Modal -->
     <div id="order-details-modal" class="hidden fixed inset-0 z-[80] flex items-end justify-center bg-black/60 backdrop-blur-sm">
-        <div id="order-details-modal-content" class="bg-zinc-800 w-full max-w-md flex flex-col h-[80dvh] rounded-t-3xl transform translate-y-full transition-transform duration-300">
+        <div id="order-details-modal-content" class="bg-zinc-800 w-full max-w-md flex flex-col h-[90dvh] rounded-t-3xl transform translate-y-full transition-transform duration-300">
             <!-- Header -->
             <div class="flex-shrink-0 p-4 border-b border-zinc-700 flex justify-between items-center relative">
                 <div class="flex items-center gap-2">
