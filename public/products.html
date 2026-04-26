@@ -3792,12 +3792,12 @@
                 );
 
                 // --- E-commerce Inventory Override ---
-                // Force status to OUT_OF_STOCK if stockQuantity is <= outOfStockThreshold
-                // This only affects rendering, we don't want to permanently change the DB state here, but changing it in the array is fine for UI
-                filteredProducts.forEach(p => {
+                // Map to a new array to prevent mutating the global window.allProducts which breaks the polling diff
+                let renderReadyProducts = filteredProducts.map(origP => {
+                    const p = { ...origP };
                     const outThreshold = storeSetting.outOfStockThreshold || 0;
                     const lowThreshold = storeSetting.lowStockThreshold || 50;
-                    
+
                     if (p.stockQuantity <= outThreshold) {
                         p.status = 'OUT_OF_STOCK';
                         p.isLowStock = false;
@@ -3806,11 +3806,12 @@
                     } else {
                         p.isLowStock = false;
                     }
+                    return p;
                 });
 
                 // Check if we are in "All Nicotine" mode
                 // Only if filtering by category (usually implies viewing a product line) and nicotine is ALL
-                if (currentFilter.nicotine === null && filteredProducts.length > 0) {
+                if (currentFilter.nicotine === null && renderReadyProducts.length > 0) {
                     // Unified Sorted Grid View (Nicotine Low -> High)
                     productGrid.style.display = 'block'; // Block to contain header + grid
                     
@@ -4285,20 +4286,28 @@
                         
                         fetchHistory('poll');
                         if (needsProductRender) {
-                            // Preserve scroll position for full page scroll
-                            const currentScroll = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
-                            
-                            renderProducts(window.currentCategoryId);
-                            
-                            // Restore scroll immediately
-                            window.scrollTo(0, currentScroll);
+                            const container = document.getElementById('products-container');
+                            if (container) {
+                                // Prevent scroll jumping by temporarily freezing container height
+                                const prevHeight = container.offsetHeight;
+                                container.style.minHeight = prevHeight + 'px';
+                                
+                                renderProducts(window.currentCategoryId);
+                                
+                                // Release height lock after render frame
+                                requestAnimationFrame(() => {
+                                    container.style.minHeight = '';
+                                });
+                            } else {
+                                renderProducts(window.currentCategoryId);
+                            }
                             updateCartModal();
                         }
                     }
                 } catch(e) {
                     // Ignore polling errors
                 }
-            }, 5000); // 5 seconds
+            }, 10000); // 10 seconds
 
 
                 appContainer.classList.remove('hidden');
