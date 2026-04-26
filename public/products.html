@@ -2765,11 +2765,12 @@
                         // Split by comma in case of multiple tracking numbers
                         const trackers = order.trackingNumber.split(',').map(t => t.trim()).filter(Boolean);
                         const links = trackers.map(t => {
-                            const url = trackingUrlTemplate.replace('{{TRACK}}', t);
-                            // Avoid quoting issues by passing url as a data attribute or safely escaped string.
-                            // But since the url might have quotes, we encode it.
-                            const encodedUrl = encodeURIComponent(url);
-                            return `<button onclick="window.openTrackingLink(decodeURIComponent('${encodedUrl}'))" class="text-blue-400 hover:text-blue-300 underline font-mono ml-1 active:scale-95 transition"><i class="ri-truck-line"></i> ${t}</button>`;
+                            let url = trackingUrlTemplate.replace('{{TRACK}}', t);
+                            url = url.startsWith('http') ? url : `https://${url}`;
+                            // The most robust way to force an external browser in Telegram WebView is opening _blank programmatically or clicking a blank link.
+                            // Since standard <a> didn't work and tg.openLink had double prompts, we'll try tg.openLink with options if available, 
+                            // otherwise fallback to a clean window.open without custom confirms.
+                            return `<button onclick="tg.openLink('${url}', {try_instant_view: false})" class="text-blue-400 hover:text-blue-300 underline font-mono ml-1 active:scale-95 transition"><i class="ri-truck-line"></i> ${t}</button>`;
                         }).join(' | ');
                         
                         trackingHtml = `<div class="text-xs text-zinc-300 mt-1 flex flex-wrap items-center gap-1">พัสดุ: ${links}</div>`;
@@ -2885,21 +2886,6 @@
                             }
                         } catch (err) {
                             showToast('เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error');
-                        }
-                    }
-                });
-            };
-
-            window.openTrackingLink = (url) => {
-                tg.showConfirm('คุณต้องการเปิดเว็บไซต์เพื่อเช็คสถานะพัสดุใช่หรือไม่?', (confirmed) => {
-                    if (confirmed) {
-                        try {
-                            // Ensure URL is absolute before passing to tg.openLink
-                            const absoluteUrl = url.startsWith('http') ? url : `https://${url}`;
-                            tg.openLink(absoluteUrl);
-                        } catch (e) {
-                            console.error("Failed to open link:", e);
-                            window.open(url, '_blank'); // fallback
                         }
                     }
                 });
