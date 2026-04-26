@@ -294,13 +294,17 @@
                     if (order.items && order.items.length > 0) {
                         order.items.forEach(item => {
                             const name = item.product ? item.product.nameEn : 'สินค้า';
+                            const categoryName = item.product?.category?.name ? `<span class="text-[10px] text-zinc-500 bg-zinc-800 px-1.5 py-0.5 rounded mr-1 whitespace-nowrap">${item.product.category.name}</span>` : '';
                             const price = parseFloat(item.priceAtPurchase);
                             const itemTotal = price * item.quantity;
                             subtotal += itemTotal;
                             itemsHtml += `
-                                <div class="flex justify-between items-center">
-                                    <span class="truncate pr-2">${name} x${item.quantity}</span>
-                                    <span class="whitespace-nowrap">${itemTotal.toLocaleString('th-TH')} ฿</span>
+                                <div class="flex justify-between items-start text-sm py-1">
+                                    <div class="flex items-center pr-2 overflow-hidden flex-wrap gap-y-1">
+                                        ${categoryName}
+                                        <span class="truncate text-zinc-300 text-xs">${name} x${item.quantity}</span>
+                                    </div>
+                                    <span class="whitespace-nowrap text-zinc-300 flex-shrink-0">${itemTotal.toLocaleString('th-TH')} ฿</span>
                                 </div>
                             `;
                         });
