@@ -78,8 +78,8 @@ async function startServer() {
     // loadConfig() is now called at the top of the file.
     await loadAdminCache();
 
-    const PUBLIC_URL = getConfig('publicUrl');
-    if (!PUBLIC_URL) throw new Error("PUBLIC_URL is missing from config");
+    const PUBLIC_URL = getConfig('publicUrl') || process.env.PUBLIC_URL;
+    if (!PUBLIC_URL) throw new Error("PUBLIC_URL is missing from config or .env");
 
     // 2. Express Setup
     app.use(express.json());
