@@ -449,7 +449,10 @@ router.get('/orders/history/:telegramId', async (req, res) => {
         const storeSetting = await prisma.storeSetting.findUnique({ where: { id: 1 } });
         const orderExpiryMinutes = storeSetting?.orderExpiryMinutes || 30;
 
-        res.json({ success: true, orders, orderExpiryMinutes });
+        const trackingConfig = await prisma.systemConfig.findUnique({ where: { key: 'tracking_url_template' } });
+        const trackingUrlTemplate = (trackingConfig && trackingConfig.value && trackingConfig.value.trim() !== '') ? trackingConfig.value.trim() : 'https://track.thailandpost.co.th/?trackNumber={{TRACK}}';
+
+        res.json({ success: true, orders, orderExpiryMinutes, trackingUrlTemplate });
     } catch (error) {
         console.error("Order History Error:", error);
         res.status(500).json({ error: "เกิดข้อผิดพลาดในการดึงข้อมูลประวัติคำสั่งซื้อ" });
