@@ -652,10 +652,10 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                 }
                 
                 for (const [catName, catItems] of Object.entries(itemsByCategory)) {
-                    itemsDetails += `<b>[${catName}]</b>\n`;
+                    itemsDetails += `<b>${catName}</b>\n`;
                     for (const item of catItems) {
                         const nicStr = item.product.nicotine !== null ? ` (${item.product.nicotine}%)` : '';
-                        itemsDetails += `- ${item.product.nameEn}${nicStr} x${item.quantity} = ฿${(item.quantity * parseFloat(item.priceAtPurchase)).toLocaleString('th-TH')}\n`;
+                        itemsDetails += `${item.product.nameEn}${nicStr} x${item.quantity}\n`;
                     }
                     itemsDetails += '\n';
                 }

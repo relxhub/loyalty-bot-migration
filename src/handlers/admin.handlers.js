@@ -20,7 +20,7 @@ import path from 'path';
 export async function handleAdminCommand(ctx) {
     try {
         const userTgId = String(ctx.from.id);
-        const text = ctx.message.text || "";
+        const text = ctx.message.text || ctx.message.caption || "";
         const role = await getAdminRole(userTgId);
         
         const commandParts = text.trim().split(/\s+/);
