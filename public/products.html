@@ -2201,7 +2201,7 @@
                                         `;
                                     } else {
                                         cartControlHtml = `
-                                            <button class="add-to-cart-btn w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-red-500 text-white flex items-center justify-center shadow-lg active:scale-90 transition" 
+                                            <button class="add-to-cart-btn w-8 h-8 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white flex items-center justify-center shadow-lg active:scale-90 transition" 
                                                 data-product-id="${p.id}">
                                                 <i class="ri-shopping-cart-2-line"></i>
                                             </button>
@@ -2660,8 +2660,8 @@
                 }
                 
                 let reorderButtonHtml = '';
-                if (order.status === 'PAID' || order.status === 'SHIPPED') {
-                    reorderButtonHtml = `<button onclick="window.closeOrderDetailsModal(); window.reorder('${order.id}')" class="mt-4 w-full py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl text-md font-bold active:scale-95 transition hover:opacity-90 shadow-lg flex justify-center items-center gap-2"><i class="ri-restart-line text-lg"></i> สั่งซื้ออีกครั้ง</button>`;
+                if (order.status === 'PAID' || order.status === 'SHIPPED' || order.status === 'CANCELLED') {
+                    reorderButtonHtml = `<button onclick="window.closeOrderDetailsModal(); window.reorder('${order.id}')" class="mt-4 w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-xl text-md font-bold active:scale-95 transition hover:opacity-90 shadow-lg flex justify-center items-center gap-2"><i class="ri-restart-line text-lg"></i> สั่งซื้ออีกครั้ง</button>`;
                 }
 
                 body.innerHTML = `
@@ -2764,11 +2764,11 @@
                 const tabs = document.querySelectorAll('.history-tab');
                 tabs.forEach(tab => {
                     if (tab.dataset.status === status || tab.getAttribute('onclick').includes(`'${status}'`)) {
-                        tab.classList.remove('bg-zinc-700/50', 'text-zinc-400');
-                        tab.classList.add('bg-zinc-700', 'text-white', 'active');
+                        tab.classList.remove('text-zinc-500', 'hover:text-zinc-300', 'border-transparent');
+                        tab.classList.add('text-brand-red', 'border-b-2', 'border-brand-red', 'active');
                     } else {
-                        tab.classList.add('bg-zinc-700/50', 'text-zinc-400');
-                        tab.classList.remove('bg-zinc-700', 'text-white', 'active');
+                        tab.classList.add('text-zinc-500', 'hover:text-zinc-300', 'border-transparent');
+                        tab.classList.remove('text-brand-red', 'border-b-2', 'border-brand-red', 'active');
                     }
                 });
 
@@ -2842,7 +2842,7 @@
                             actionButton = `
                                 <div class="flex gap-2 w-full mt-3">
                                     <button onclick="window.cancelOrder('${order.id}')" class="w-1/3 py-2 bg-zinc-700 text-white rounded-lg text-sm font-bold active:scale-95 transition">ยกเลิก</button>
-                                    <button onclick="window.location.href='payment.html?orderId=${order.id}'" class="w-2/3 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg text-sm font-bold active:scale-95 transition">ชำระเงิน</button>
+                                    <button onclick="window.location.href='payment.html?orderId=${order.id}'" class="w-2/3 py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-lg text-sm font-bold active:scale-95 transition">ชำระเงิน</button>
                                 </div>
                             `;
                             
@@ -2880,12 +2880,13 @@
                     
                     if (order.status === 'PAID') {
                         statusBadge = '<span class="px-2 py-0.5 bg-green-500/20 text-green-400 border border-green-500/30 rounded-full text-xs font-bold">ชำระเงินแล้ว</span>';
-                        actionButton = `<button onclick="window.reorder('${order.id}')" class="mt-3 w-full py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg text-sm font-bold active:scale-95 transition hover:opacity-90 flex justify-center items-center gap-1"><i class="ri-restart-line"></i> สั่งซื้ออีกครั้ง</button>`;
+                        actionButton = `<button onclick="window.reorder('${order.id}')" class="mt-3 w-full py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-lg text-sm font-bold active:scale-95 transition hover:opacity-90 flex justify-center items-center gap-1"><i class="ri-restart-line"></i> สั่งซื้ออีกครั้ง</button>`;
                     } else if (order.status === 'SHIPPED') {
                         statusBadge = '<span class="px-2 py-0.5 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-full text-xs font-bold">จัดส่งแล้ว</span>';
-                        actionButton = `<button onclick="window.reorder('${order.id}')" class="mt-3 w-full py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg text-sm font-bold active:scale-95 transition hover:opacity-90 flex justify-center items-center gap-1"><i class="ri-restart-line"></i> สั่งซื้ออีกครั้ง</button>`;
+                        actionButton = `<button onclick="window.reorder('${order.id}')" class="mt-3 w-full py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-lg text-sm font-bold active:scale-95 transition hover:opacity-90 flex justify-center items-center gap-1"><i class="ri-restart-line"></i> สั่งซื้ออีกครั้ง</button>`;
                     } else if (order.status === 'CANCELLED') {
                         if (!statusBadge) statusBadge = '<span class="px-2 py-0.5 bg-zinc-500/20 text-zinc-400 border border-zinc-500/30 rounded-full text-xs font-bold">ยกเลิก</span>';
+                        actionButton = `<button onclick="window.reorder('${order.id}')" class="mt-3 w-full py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-lg text-sm font-bold active:scale-95 transition hover:opacity-90 flex justify-center items-center gap-1 relative z-10 shadow-lg shadow-orange-500/20"><i class="ri-restart-line"></i> สั่งซื้ออีกครั้ง</button>`;
                     }
 
                     html += `
@@ -3513,7 +3514,7 @@
 
                 if (mode === 'mini') {
                     return `
-                        <button class="add-to-cart-btn w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-red-500 text-white flex items-center justify-center shadow-lg active:scale-90 transition" 
+                        <button class="add-to-cart-btn w-8 h-8 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white flex items-center justify-center shadow-lg active:scale-90 transition" 
                             data-product-id="${p.id}">
                             <i class="ri-shopping-cart-2-line"></i>
                         </button>
@@ -4298,7 +4299,7 @@
     
     <!-- Order History Modal -->
     <div id="history-modal" class="hidden fixed inset-0 z-[70] flex items-end justify-center bg-black/60 backdrop-blur-sm">
-        <div id="history-modal-content" class="bg-zinc-800 w-full max-w-md flex flex-col h-full transform translate-y-full transition-transform duration-300">
+        <div id="history-modal-content" class="bg-zinc-800 w-full max-w-md flex flex-col h-[100dvh] transform translate-y-full transition-transform duration-300">
             <!-- Header -->
             <div class="flex-shrink-0 p-4 border-b border-zinc-700 flex flex-col">
                 <div class="flex justify-between items-center mb-3">
@@ -4310,11 +4311,12 @@
                     </div>
                 </div>
                 <!-- Filter Tabs -->
-                <div class="flex overflow-x-auto no-scrollbar gap-2 pb-1" id="history-filter-tabs">
-                    <button onclick="window.filterHistory('ALL')" class="history-tab active px-3 py-1.5 bg-zinc-700 text-white rounded-full text-xs font-bold whitespace-nowrap transition">ทั้งหมด</button>
-                    <button onclick="window.filterHistory('PENDING_PAYMENT')" class="history-tab px-3 py-1.5 bg-zinc-700/50 text-zinc-400 rounded-full text-xs font-bold whitespace-nowrap transition">รอชำระเงิน</button>
-                    <button onclick="window.filterHistory('PAID')" class="history-tab px-3 py-1.5 bg-zinc-700/50 text-zinc-400 rounded-full text-xs font-bold whitespace-nowrap transition">ชำระเงินแล้ว</button>
-                    <button onclick="window.filterHistory('SHIPPED')" class="history-tab px-3 py-1.5 bg-zinc-700/50 text-zinc-400 rounded-full text-xs font-bold whitespace-nowrap transition">จัดส่งแล้ว</button>
+                <div class="flex overflow-x-auto no-scrollbar gap-5 border-b border-zinc-700/50 px-2" id="history-filter-tabs">
+                    <button onclick="window.filterHistory('ALL')" class="history-tab active text-brand-red border-b-2 border-brand-red pb-2 text-sm font-bold whitespace-nowrap transition">ทั้งหมด</button>
+                    <button onclick="window.filterHistory('PENDING_PAYMENT')" class="history-tab text-zinc-500 hover:text-zinc-300 pb-2 text-sm font-bold whitespace-nowrap transition border-b-2 border-transparent">รอชำระเงิน</button>
+                    <button onclick="window.filterHistory('PAID')" class="history-tab text-zinc-500 hover:text-zinc-300 pb-2 text-sm font-bold whitespace-nowrap transition border-b-2 border-transparent">ชำระเงินแล้ว</button>
+                    <button onclick="window.filterHistory('SHIPPED')" class="history-tab text-zinc-500 hover:text-zinc-300 pb-2 text-sm font-bold whitespace-nowrap transition border-b-2 border-transparent">จัดส่งแล้ว</button>
+                    <button onclick="window.filterHistory('CANCELLED')" class="history-tab text-zinc-500 hover:text-zinc-300 pb-2 text-sm font-bold whitespace-nowrap transition border-b-2 border-transparent">ยกเลิก</button>
                 </div>
             </div>
             <!-- Body -->
@@ -4329,7 +4331,7 @@
 
     <!-- Order Details Modal -->
     <div id="order-details-modal" class="hidden fixed inset-0 z-[80] flex items-end justify-center bg-black/60 backdrop-blur-sm">
-        <div id="order-details-modal-content" class="bg-zinc-800 w-full max-w-md flex flex-col h-full transform translate-y-full transition-transform duration-300">
+        <div id="order-details-modal-content" class="bg-zinc-800 w-full max-w-md flex flex-col h-[100dvh] transform translate-y-full transition-transform duration-300">
             <!-- Header -->
             <div class="flex-shrink-0 p-4 border-b border-zinc-700 flex justify-between items-center relative">
                 <div class="flex items-center gap-2">
