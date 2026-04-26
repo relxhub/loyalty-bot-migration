@@ -701,7 +701,7 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                     }
                 }
 
-                let targetAdminId = process.env.ADMIN_GROUP_ID; // Fallback to group
+                let activeAdminId = null;
                 const activeAdminIds = Array.from(activeAdminsMap.values()).sort(); // deterministic order
 
                 if (activeAdminIds.length > 0) {
@@ -714,42 +714,63 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                         nextIndex = (lastIndex + 1) % activeAdminIds.length;
                     }
                     
-                    targetAdminId = activeAdminIds[nextIndex];
+                    activeAdminId = activeAdminIds[nextIndex];
                     
                     // Update state
                     await prisma.storeSetting.update({
                         where: { id: 1 },
-                        data: { lastAssignedAdminId: targetAdminId }
+                        data: { lastAssignedAdminId: activeAdminId }
                     });
                 }
 
-                if (targetAdminId) {
-                    const photoUrl = slipData.data.url;
-                    let telegramUrl = `https://api.telegram.org/bot${token}/sendPhoto`;
-                    
-                    if (photoUrl) {
-                        await fetch(telegramUrl, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                chat_id: targetAdminId,
-                                photo: photoUrl,
-                                caption: message,
-                                parse_mode: 'HTML'
-                            })
-                        });
-                    } else {
-                        telegramUrl = `https://api.telegram.org/bot${token}/sendMessage`;
-                        await fetch(telegramUrl, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                chat_id: targetAdminId,
-                                text: message,
-                                parse_mode: 'HTML'
-                            })
-                        });
+                const notifyTelegram = async (chatId) => {
+                    if (!chatId) return;
+                    try {
+                        const photoUrl = slipData.data.url;
+                        let telegramUrl = `https://api.telegram.org/bot${token}/sendPhoto`;
+                        let res;
+                        
+                        if (photoUrl) {
+                            res = await fetch(telegramUrl, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    chat_id: chatId,
+                                    photo: photoUrl,
+                                    caption: message,
+                                    parse_mode: 'HTML'
+                                })
+                            });
+                        } else {
+                            telegramUrl = `https://api.telegram.org/bot${token}/sendMessage`;
+                            res = await fetch(telegramUrl, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    chat_id: chatId,
+                                    text: message,
+                                    parse_mode: 'HTML'
+                                })
+                            });
+                        }
+                        if (!res.ok) {
+                            const errData = await res.json();
+                            console.error(`Telegram API Error for chat ${chatId}:`, errData);
+                        }
+                    } catch (e) {
+                        console.error(`Fetch error sending to ${chatId}:`, e);
                     }
+                };
+
+                // 1. Send to Active Admin (if any)
+                if (activeAdminId) {
+                    await notifyTelegram(activeAdminId);
+                }
+
+                // 2. ALWAYS send to Group Admin (or Super Admin fallback)
+                const groupId = process.env.ADMIN_GROUP_ID || process.env.SUPER_ADMIN_TELEGRAM_ID;
+                if (groupId && groupId !== activeAdminId) {
+                    await notifyTelegram(groupId);
                 }
             }
         } catch (notifErr) {
