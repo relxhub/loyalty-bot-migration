@@ -94,10 +94,10 @@ export async function syncShippingFromGoogleSheet(sheetUrl) {
 
             const addressIds = matchingAddresses.map(a => a.id);
 
-            // Find PAID orders linked to these addresses
+            // Find PROCESSING orders linked to these addresses
             const matchingOrders = await prisma.order.findMany({
                 where: {
-                    status: 'PAID',
+                    status: 'PROCESSING',
                     shippingAddressId: { in: addressIds }
                 },
                 include: { customer: true }
@@ -140,7 +140,7 @@ export async function syncShippingFromGoogleSheet(sheetUrl) {
                     stats.totalUpdated++;
                 }
             } else {
-                stats.errors.push(`ไม่พบออเดอร์ที่ชำระเงินแล้วสำหรับเบอร์: ${phone}`);
+                stats.errors.push(`ไม่พบออเดอร์สถานะเตรียมจัดส่ง (PROCESSING) สำหรับเบอร์: ${phone}`);
             }
         }
 

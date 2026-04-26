@@ -50,7 +50,7 @@ export async function handleAdminCommand(ctx) {
                         where: { id: orderId },
                         data: { 
                             billNumber: billNumber,
-                            status: 'SHIPPED', // Or whatever status is appropriate
+                            status: 'PROCESSING', // Status after PAID but before SHIPPED
                             updatedAt: new Date()
                         }
                     });

@@ -466,6 +466,7 @@ model AdminShift {
 enum OrderStatus {
   PENDING_PAYMENT
   PAID
+  PROCESSING
   SHIPPED
   CANCELLED
 }
