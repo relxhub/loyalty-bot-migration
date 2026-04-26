@@ -2766,7 +2766,7 @@
                         const trackers = order.trackingNumber.split(',').map(t => t.trim()).filter(Boolean);
                         const links = trackers.map(t => {
                             const url = trackingUrlTemplate.replace('{{TRACK}}', t);
-                            return `<button onclick="tg.openLink('${url}')" class="text-blue-400 hover:text-blue-300 underline font-mono ml-1 active:scale-95 transition"><i class="ri-truck-line"></i> ${t}</button>`;
+                            return `<button onclick="window.open('${url}', '_blank')" class="text-blue-400 hover:text-blue-300 underline font-mono ml-1 active:scale-95 transition"><i class="ri-truck-line"></i> ${t}</button>`;
                         }).join(' | ');
                         
                         trackingHtml = `<div class="text-xs text-zinc-300 mt-1 flex flex-wrap items-center gap-1">พัสดุ: ${links}</div>`;
