@@ -2766,7 +2766,10 @@
                         const trackers = order.trackingNumber.split(',').map(t => t.trim()).filter(Boolean);
                         const links = trackers.map(t => {
                             const url = trackingUrlTemplate.replace('{{TRACK}}', t);
-                            return `<button onclick="window.open('${url}', '_blank')" class="text-blue-400 hover:text-blue-300 underline font-mono ml-1 active:scale-95 transition"><i class="ri-truck-line"></i> ${t}</button>`;
+                            // Avoid quoting issues by passing url as a data attribute or safely escaped string.
+                            // But since the url might have quotes, we encode it.
+                            const encodedUrl = encodeURIComponent(url);
+                            return `<button onclick="window.openTrackingLink(decodeURIComponent('${encodedUrl}'))" class="text-blue-400 hover:text-blue-300 underline font-mono ml-1 active:scale-95 transition"><i class="ri-truck-line"></i> ${t}</button>`;
                         }).join(' | ');
                         
                         trackingHtml = `<div class="text-xs text-zinc-300 mt-1 flex flex-wrap items-center gap-1">พัสดุ: ${links}</div>`;
@@ -2882,6 +2885,21 @@
                             }
                         } catch (err) {
                             showToast('เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error');
+                        }
+                    }
+                });
+            };
+
+            window.openTrackingLink = (url) => {
+                tg.showConfirm('คุณต้องการเปิดเว็บไซต์เพื่อเช็คสถานะพัสดุใช่หรือไม่?', (confirmed) => {
+                    if (confirmed) {
+                        try {
+                            // Ensure URL is absolute before passing to tg.openLink
+                            const absoluteUrl = url.startsWith('http') ? url : `https://${url}`;
+                            tg.openLink(absoluteUrl);
+                        } catch (e) {
+                            console.error("Failed to open link:", e);
+                            window.open(url, '_blank'); // fallback
                         }
                     }
                 });
