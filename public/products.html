@@ -2767,12 +2767,9 @@
                         const links = trackers.map(t => {
                             let url = trackingUrlTemplate.replace('{{TRACK}}', t);
                             url = url.startsWith('http') ? url : `https://${url}`;
-                            // The most robust way to force an external browser in Telegram WebView is opening _blank programmatically or clicking a blank link.
-                            // Since standard <a> didn't work and tg.openLink had double prompts, we'll try tg.openLink with options if available, 
-                            // otherwise fallback to a clean window.open without custom confirms.
-                            return `<button onclick="tg.openLink('${url}', {try_instant_view: false})" class="text-blue-400 hover:text-blue-300 underline font-mono ml-1 active:scale-95 transition"><i class="ri-truck-line"></i> ${t}</button>`;
-                        }).join(' | ');
-                        
+                            const encodedUrl = encodeURIComponent(url);
+                            return `<button onclick="window.openTrackingLink(decodeURIComponent('${encodedUrl}'))" class="text-blue-400 hover:text-blue-300 underline font-mono ml-1 active:scale-95 transition"><i class="ri-truck-line"></i> ${t}</button>`;
+                        }).join(' | ');                        
                         trackingHtml = `<div class="text-xs text-zinc-300 mt-1 flex flex-wrap items-center gap-1">พัสดุ: ${links}</div>`;
                     }
                     
@@ -2889,6 +2886,22 @@
                         }
                     }
                 });
+            };
+
+            window.openTrackingLink = (url) => {
+                try {
+                    const absoluteUrl = url.startsWith('http') ? url : `https://${url}`;
+                    // We must use a direct DOM manipulation to bypass Telegram's strict WebView rules
+                    const a = document.createElement('a');
+                    a.href = absoluteUrl;
+                    a.target = '_blank';
+                    a.rel = 'noopener noreferrer';
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => document.body.removeChild(a), 100);
+                } catch (e) {
+                    console.error("Failed to open link:", e);
+                }
             };
 
             window.reorder = async (orderId) => {
