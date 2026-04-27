@@ -750,7 +750,7 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                 // Append the assigned admin info to the message
                 message += `\n👨‍💼 <b>แอดมินผู้รับผิดชอบ:</b> ${activeAdminName}`;
 
-                const notifyTelegram = async (chatId) => {
+                const notifyTelegram = async (chatId, isPersonalAdmin) => {
                     if (!chatId) return;
                     try {
                         const adminToken = process.env.ADMIN_BOT_TOKEN;
@@ -763,11 +763,11 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                         let telegramUrl = `https://api.telegram.org/bot${adminToken}/sendPhoto`;
                         let res;
                         
-                        const replyMarkup = {
+                        const replyMarkup = isPersonalAdmin ? {
                             inline_keyboard: [[
                                 { text: "📝 แนบเลขบิล", callback_data: `addbill_${order.id}` }
                             ]]
-                        };
+                        } : undefined;
                         
                         if (photoUrl) {
                             res = await fetch(telegramUrl, {
@@ -805,13 +805,13 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
 
                 // 1. Send to Active Admin (if any)
                 if (activeAdminId) {
-                    await notifyTelegram(activeAdminId);
+                    await notifyTelegram(activeAdminId, true);
                 }
 
                 // 2. ALWAYS send to Group Admin (or Super Admin fallback)
                 const groupId = process.env.ADMIN_GROUP_ID || process.env.SUPER_ADMIN_TELEGRAM_ID;
                 if (groupId && groupId !== activeAdminId) {
-                    await notifyTelegram(groupId);
+                    await notifyTelegram(groupId, false);
                 }
             }
         } catch (notifErr) {
