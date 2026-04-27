@@ -46,27 +46,46 @@ export async function syncShippingFromGoogleSheet(sheetUrl) {
         // Find keys that contain 'เลขพัสดุ' or are at index 1, and 'เบอร์' or index 3
         const trackingKey = keys.find(k => k.includes('เลขพัสดุ') || k.includes('Tracking')) || keys[1];
         const phoneKey = keys.find(k => k.includes('เบอร์') || k.includes('Phone')) || keys[3];
+        const zipcodeKey = keys.find(k => k.includes('รหัสไปรษณีย์') || k.includes('Zip') || k.includes('Postcode'));
 
         if (!trackingKey || !phoneKey) {
             throw new Error(`ไม่พบคอลัมน์ 'เลขพัสดุ' หรือ 'เบอร์โทร' ในตาราง (พบ: ${keys.join(', ')})`);
         }
 
-        // Group tracking numbers by sanitized phone number
-        const phoneToTracking = new Map();
+        // Group tracking numbers by sanitized phone + zipcode
+        const identifierToTracking = new Map();
         for (const row of results) {
             let phone = row[phoneKey]?.toString().replace(/\D/g, ''); // Keep only digits
             let tracking = row[trackingKey]?.toString().trim();
-            
+            let zipcode = '';
+
+            // Try to extract zipcode
+            if (zipcodeKey && row[zipcodeKey]) {
+                zipcode = row[zipcodeKey].toString().replace(/\D/g, '');
+            } else {
+                // Fallback: search for 5-digit number across all values in the row
+                for (const key of keys) {
+                    const val = row[key]?.toString() || '';
+                    const match = val.match(/\b\d{5}\b/);
+                    if (match) {
+                        zipcode = match[0];
+                        break;
+                    }
+                }
+            }
+
             if (phone && tracking) {
                 // If phone starts with 66, convert to 0 for internal matching
                 if (phone.startsWith('66') && phone.length > 10) {
                     phone = '0' + phone.substring(2);
                 }
                 
-                if (!phoneToTracking.has(phone)) {
-                    phoneToTracking.set(phone, new Set());
+                const identifier = zipcode ? `${phone}_${zipcode}` : phone;
+                
+                if (!identifierToTracking.has(identifier)) {
+                    identifierToTracking.set(identifier, { phone, zipcode, trackings: new Set() });
                 }
-                phoneToTracking.get(phone).add(tracking);
+                identifierToTracking.get(identifier).trackings.add(tracking);
                 stats.totalProcessed++;
             }
         }
@@ -76,19 +95,23 @@ export async function syncShippingFromGoogleSheet(sheetUrl) {
         const trackingUrlTemplate = trackingConfig ? trackingConfig.value : 'https://track.thailandpost.co.th/?trackNumber={{TRACK}}';
 
         // Process each phone number group
-        for (const [phone, trackingSet] of phoneToTracking.entries()) {
-            const trackingNumbersStr = Array.from(trackingSet).join(', ');
+        for (const [identifier, groupData] of identifierToTracking.entries()) {
+            const { phone, zipcode, trackings } = groupData;
+            const trackingNumbersStr = Array.from(trackings).join(', ');
 
-            // First find matching ShippingAddress IDs for this phone number
+            // First find matching ShippingAddress IDs for this phone number (and zipcode if available)
+            const addressWhere = { phone: { contains: phone } };
+            if (zipcode) {
+                addressWhere.zipcode = zipcode;
+            }
+
             const matchingAddresses = await prisma.shippingAddress.findMany({
-                where: {
-                    phone: { contains: phone }
-                },
+                where: addressWhere,
                 select: { id: true }
             });
 
             if (matchingAddresses.length === 0) {
-                stats.errors.push(`ไม่พบที่อยู่จัดส่งสำหรับเบอร์: ${phone}`);
+                stats.errors.push(`ไม่พบที่อยู่จัดส่งสำหรับเบอร์: ${phone} ${zipcode ? '(รหัสไปรษณีย์: ' + zipcode + ')' : ''}`);
                 continue;
             }
 

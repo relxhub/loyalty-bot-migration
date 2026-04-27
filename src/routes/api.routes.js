@@ -716,6 +716,7 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                 }
 
                 let activeAdminId = null;
+                let activeAdminName = 'ไม่ระบุ';
                 const activeAdminIds = Array.from(activeAdminsMap.values()).sort(); // deterministic order
 
                 if (activeAdminIds.length > 0) {
@@ -730,12 +731,24 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                     
                     activeAdminId = activeAdminIds[nextIndex];
                     
+                    // Fetch the assigned admin's name
+                    const assignedAdmin = await prisma.admin.findUnique({
+                        where: { telegramId: activeAdminId },
+                        select: { name: true }
+                    });
+                    if (assignedAdmin && assignedAdmin.name) {
+                        activeAdminName = assignedAdmin.name;
+                    }
+                    
                     // Update state
                     await prisma.storeSetting.update({
                         where: { id: 1 },
                         data: { lastAssignedAdminId: activeAdminId }
                     });
                 }
+
+                // Append the assigned admin info to the message
+                message += `\n👨‍💼 <b>แอดมินผู้รับผิดชอบ:</b> ${activeAdminName}`;
 
                 const notifyTelegram = async (chatId) => {
                     if (!chatId) return;
