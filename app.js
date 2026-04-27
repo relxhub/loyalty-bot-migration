@@ -194,9 +194,15 @@ async function startServer() {
     // Global Error Handler
     app.use((err, req, res, next) => {
         console.error("Global Error Handler Caught:", err);
+        
+        let errorMessage = err.message || 'Internal Server Error';
+        if (errorMessage === 'File too large') {
+            errorMessage = 'ขนาดรูปภาพหรือไฟล์ใหญ่เกินไป (รองรับสูงสุด 50MB)';
+        }
+
         res.status(err.status || 500).json({
             success: false,
-            error: err.message || 'Internal Server Error'
+            error: errorMessage
         });
     });
 
