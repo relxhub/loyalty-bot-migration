@@ -142,22 +142,7 @@ async function startServer() {
     // =========================================
     // --- Admin Bot Webhook ---
     adminBot.on('message', handleAdminCommand);
-    adminBot.on('callback_query', async (ctx) => {
-        try {
-            const data = ctx.callbackQuery.data;
-            if (data && data.startsWith('addbill_')) {
-                const orderId = data.replace('addbill_', '');
-                const originalMessageId = ctx.callbackQuery.message?.message_id;
-                
-                await ctx.reply(`กรุณาตอบกลับข้อความนี้พร้อมแนบ "เลขพัสดุ/บิล" สำหรับออเดอร์: #${orderId}\n[RefMsgID:${originalMessageId}]`, {
-                    reply_markup: { force_reply: true }
-                });
-                await ctx.answerCbQuery();
-            }
-        } catch (error) {
-            console.error('Admin callback error:', error);
-        }
-    });
+    adminBot.on('callback_query', handleAdminCallback);
     app.post(`/webhook/admin`, (req, res) => {
         adminBot.handleUpdate(req.body);
         res.sendStatus(200);
@@ -203,6 +188,15 @@ async function startServer() {
         res.status(404).json({
             error: 'Not Found',
             message: `The requested URL ${req.originalUrl} was not found on this server.`
+        });
+    });
+
+    // Global Error Handler
+    app.use((err, req, res, next) => {
+        console.error("Global Error Handler Caught:", err);
+        res.status(err.status || 500).json({
+            success: false,
+            error: err.message || 'Internal Server Error'
         });
     });
 
