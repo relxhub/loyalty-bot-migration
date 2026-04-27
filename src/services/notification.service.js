@@ -55,13 +55,33 @@ export async function sendAlertToSuperAdmin(text) {
  * 3. ส่งข้อความแจ้งเตือนไปหาลูกค้า/ผู้แนะนำ
  */
 export async function sendNotificationToCustomer(telegramUserId, text) {
-    if (!injectedOrderBotInstance) {
-        console.error("Order bot instance not set for sendNotificationToCustomer.");
-        return;
-    }
     if (!telegramUserId) return;
     try {
-        await injectedOrderBotInstance.telegram.sendMessage(telegramUserId, text, { parse_mode: 'HTML' });
+        const orderBotToken = process.env.ORDER_BOT_TOKEN;
+        if (!orderBotToken) {
+            console.error("ORDER_BOT_TOKEN is missing");
+            return;
+        }
+        
+        // Use fetch directly to bypass any dependency injection issues
+        const fetchModule = await import('node-fetch');
+        const fetchFn = fetchModule.default;
+        
+        const url = `https://api.telegram.org/bot${orderBotToken}/sendMessage`;
+        const res = await fetchFn(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: telegramUserId,
+                text: text,
+                parse_mode: 'HTML'
+            })
+        });
+        
+        const data = await res.json();
+        if (!data.ok) {
+            console.error(`Telegram API Error notifying customer ${telegramUserId}:`, data);
+        }
     } catch (e) {
         console.error(`Failed to notify customer ${telegramUserId}: ${e.message}`);
     }

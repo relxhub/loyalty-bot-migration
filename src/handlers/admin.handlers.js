@@ -55,93 +55,96 @@ export async function handleAdminCommand(ctx) {
                         }
                     });
 
-                    // Reconstruct and update original message
-                    if (refMatch) {
-                        try {
-                            const refMsgId = parseInt(refMatch[1], 10);
-                            const updatedOrder = await prisma.order.findUnique({
-                                where: { id: orderId },
-                                include: { 
-                                    items: { include: { product: { include: { category: true } } } },
-                                    payment: true,
-                                    customer: true 
-                                }
-                            });
+                    // Reconstruct order message for updates
+                    let message = '';
+                    const updatedOrder = await prisma.order.findUnique({
+                        where: { id: orderId },
+                        include: { 
+                            items: { include: { product: { include: { category: true } } } },
+                            payment: true,
+                            customer: true 
+                        }
+                    });
 
-                            let shippingInfo = 'ไม่ระบุที่อยู่จัดส่ง';
-                            if (updatedOrder.shippingAddressId) {
-                                const addr = await prisma.shippingAddress.findUnique({ where: { id: updatedOrder.shippingAddressId } });
-                                if (addr) {
-                                    shippingInfo = `ชื่อ: ${addr.receiverName}\nโทร: ${addr.phone}\nที่อยู่: ${addr.address} ${addr.subdistrict} ${addr.district} ${addr.province} ${addr.zipcode}`;
-                                }
+                    if (updatedOrder) {
+                        let shippingInfo = 'ไม่ระบุที่อยู่จัดส่ง';
+                        if (updatedOrder.shippingAddressId) {
+                            const addr = await prisma.shippingAddress.findUnique({ where: { id: updatedOrder.shippingAddressId } });
+                            if (addr) {
+                                shippingInfo = `ชื่อ: ${addr.receiverName}\nโทร: ${addr.phone}\nที่อยู่: ${addr.address} ${addr.subdistrict} ${addr.district} ${addr.province} ${addr.zipcode}`;
                             }
+                        }
 
-                            let itemsDetails = '';
-                            const itemsByCategory = {};
-                            for (const item of updatedOrder.items) {
-                                const categoryName = item.product.category?.name || 'ไม่ระบุหมวดหมู่';
-                                const categoryPrice = item.product.category?.price ? ` (฿${parseFloat(item.product.category.price).toLocaleString('th-TH')})` : '';
-                                const catKey = `${categoryName}${categoryPrice}`;
-                                if (!itemsByCategory[catKey]) itemsByCategory[catKey] = [];
-                                itemsByCategory[catKey].push(item);
+                        let itemsDetails = '';
+                        const itemsByCategory = {};
+                        for (const item of updatedOrder.items) {
+                            const categoryName = item.product.category?.name || 'ไม่ระบุหมวดหมู่';
+                            const categoryPrice = item.product.category?.price ? ` (฿${parseFloat(item.product.category.price).toLocaleString('th-TH')})` : '';
+                            const catKey = `${categoryName}${categoryPrice}`;
+                            if (!itemsByCategory[catKey]) itemsByCategory[catKey] = [];
+                            itemsByCategory[catKey].push(item);
+                        }
+                        
+                        for (const [catName, catItems] of Object.entries(itemsByCategory)) {
+                            itemsDetails += `<b>${catName}</b>\n`;
+                            for (const item of catItems) {
+                                const nicStr = item.product.nicotine !== null ? ` (${item.product.nicotine}%)` : '';
+                                itemsDetails += `${item.product.nameEn}${nicStr} x${item.quantity}\n`;
                             }
-                            
-                            for (const [catName, catItems] of Object.entries(itemsByCategory)) {
-                                itemsDetails += `<b>${catName}</b>\n`;
-                                for (const item of catItems) {
-                                    const nicStr = item.product.nicotine !== null ? ` (${item.product.nicotine}%)` : '';
-                                    itemsDetails += `${item.product.nameEn}${nicStr} x${item.quantity}\n`;
-                                }
-                                itemsDetails += '\n';
-                            }
+                            itemsDetails += '\n';
+                        }
 
-                            const shipConfigRaw = await prisma.systemConfig.findUnique({ where: { key: 'shippingFee' } });
-                            const freeMinRaw = await prisma.systemConfig.findUnique({ where: { key: 'freeShippingMin' } });
-                            const shipFeeBase = shipConfigRaw ? parseFloat(shipConfigRaw.value) : 60;
-                            const freeMin = freeMinRaw ? parseFloat(freeMinRaw.value) : 500;
-                            const itemsSubtotal = updatedOrder.items.reduce((sum, item) => sum + (item.quantity * parseFloat(item.priceAtPurchase)), 0);
-                            const actualShipFee = itemsSubtotal >= freeMin ? 0 : shipFeeBase;
+                        const shipConfigRaw = await prisma.systemConfig.findUnique({ where: { key: 'shippingFee' } });
+                        const freeMinRaw = await prisma.systemConfig.findUnique({ where: { key: 'freeShippingMin' } });
+                        const shipFeeBase = shipConfigRaw ? parseFloat(shipConfigRaw.value) : 60;
+                        const freeMin = freeMinRaw ? parseFloat(freeMinRaw.value) : 500;
+                        const itemsSubtotal = updatedOrder.items.reduce((sum, item) => sum + (item.quantity * parseFloat(item.priceAtPurchase)), 0);
+                        const actualShipFee = itemsSubtotal >= freeMin ? 0 : shipFeeBase;
 
-                            const bkkOpts = { timeZone: 'Asia/Bangkok', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false };
-                            const orderTimeStr = new Date(updatedOrder.createdAt).toLocaleDateString('th-TH', bkkOpts);
-                            
-                            let message = `✅ <b>ได้รับการชำระเงินใหม่</b>\n\n` +
-                                          `<b>วันที่:</b> ${orderTimeStr}\n` +
-                                          `<b>ออเดอร์:</b> #${updatedOrder.id}\n` +
-                                          `<b>รหัสลูกค้า:</b> ${updatedOrder.customerId}\n\n` +
-                                          `📦 <b>[ข้อมูลจัดส่ง]</b>\n${shippingInfo}\n\n` +
-                                          `🛍️ <b>[รายการสินค้า]</b>\n${itemsDetails}` +
-                                          `<b>รวมค่าสินค้า:</b> ฿${itemsSubtotal.toLocaleString('th-TH')}\n` +
-                                          `<b>ค่าจัดส่ง:</b> ${actualShipFee === 0 ? 'ฟรี' : '฿' + actualShipFee.toLocaleString('th-TH')}\n`;
+                        const bkkOpts = { timeZone: 'Asia/Bangkok', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false };
+                        const orderTimeStr = new Date(updatedOrder.createdAt).toLocaleDateString('th-TH', bkkOpts);
+                        
+                        message = `✅ <b>ได้รับการชำระเงินใหม่</b>\n\n` +
+                                      `<b>วันที่:</b> ${orderTimeStr}\n` +
+                                      `<b>ออเดอร์:</b> #${updatedOrder.id}\n` +
+                                      `<b>รหัสลูกค้า:</b> ${updatedOrder.customerId}\n\n` +
+                                      `📦 <b>[ข้อมูลจัดส่ง]</b>\n${shippingInfo}\n\n` +
+                                      `🛍️ <b>[รายการสินค้า]</b>\n${itemsDetails}` +
+                                      `<b>รวมค่าสินค้า:</b> ฿${itemsSubtotal.toLocaleString('th-TH')}\n` +
+                                      `<b>ค่าจัดส่ง:</b> ${actualShipFee === 0 ? 'ฟรี' : '฿' + actualShipFee.toLocaleString('th-TH')}\n`;
 
-                            if (parseFloat(updatedOrder.discountAmount) > 0) {
-                                message += `<b>ส่วนลดคูปอง:</b> -฿${parseFloat(updatedOrder.discountAmount).toLocaleString('th-TH')} (${updatedOrder.appliedCouponId || ''})\n`;
-                            }
-                            const slipAmount = updatedOrder.payment ? updatedOrder.payment.amount : updatedOrder.totalAmount;
-                            message += `\n💰 <b>ยอดสุทธิ:</b> ฿${parseFloat(slipAmount).toLocaleString('th-TH')}\n` +
-                                       `<i>(ตรวจสอบสลิปผ่าน SlipOK สำเร็จ)</i>`;
+                        if (parseFloat(updatedOrder.discountAmount) > 0) {
+                            message += `<b>ส่วนลดคูปอง:</b> -฿${parseFloat(updatedOrder.discountAmount).toLocaleString('th-TH')} (${updatedOrder.appliedCouponId || ''})\n`;
+                        }
+                        const slipAmount = updatedOrder.payment ? updatedOrder.payment.amount : updatedOrder.totalAmount;
+                        message += `\n💰 <b>ยอดสุทธิ:</b> ฿${parseFloat(slipAmount).toLocaleString('th-TH')}\n` +
+                                   `<i>(ตรวจสอบสลิปผ่าน SlipOK สำเร็จ)</i>`;
 
-                            const storeSetting = await prisma.storeSetting.findUnique({ where: { id: 1 } });
-                            const lastId = storeSetting?.lastAssignedAdminId;
-                            let activeAdminName = 'ไม่ระบุ';
-                            if (lastId) {
-                                const adminRec = await prisma.admin.findUnique({ where: { telegramId: lastId }, select: { name: true }});
-                                if (adminRec && adminRec.name) activeAdminName = adminRec.name;
-                            }
-                            message += `\n👨‍💼 <b>แอดมินผู้รับผิดชอบ:</b> ${activeAdminName}`;
-                            message += `\n\n📝 <b>เลขบิล:</b> ${billNumber}`;
+                        const storeSetting = await prisma.storeSetting.findUnique({ where: { id: 1 } });
+                        const lastId = storeSetting?.lastAssignedAdminId;
+                        let activeAdminName = 'ไม่ระบุ';
+                        if (lastId) {
+                            const adminRec = await prisma.admin.findUnique({ where: { telegramId: lastId }, select: { name: true }});
+                            if (adminRec && adminRec.name) activeAdminName = adminRec.name;
+                        }
+                        message += `\n👨‍💼 <b>แอดมินผู้รับผิดชอบ:</b> ${activeAdminName}`;
+                        message += `\n\n📝 <b>เลขบิล:</b> ${billNumber}`;
 
+                        if (refMatch) {
                             try {
-                                await ctx.telegram.editMessageCaption(chatId, refMsgId, undefined, message, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } });
-                            } catch (e) {
+                                const refMsgId = parseInt(refMatch[1], 10);
                                 try {
-                                    await ctx.telegram.editMessageText(chatId, refMsgId, undefined, message, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } });
-                                } catch(e2) {
-                                    console.error('Failed to edit original message:', e2);
+                                    await ctx.telegram.editMessageCaption(chatId, refMsgId, undefined, message, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } });
+                                } catch (e) {
+                                    try {
+                                        await ctx.telegram.editMessageText(chatId, refMsgId, undefined, message, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } });
+                                    } catch(e2) {
+                                        console.error('Failed to edit original message:', e2);
+                                    }
                                 }
+                            } catch (e) {
+                                console.error('Failed to parse refMsgId:', e);
                             }
-                        } catch (e) {
-                            console.error('Failed to reconstruct/edit original message:', e);
                         }
                     }
 
@@ -188,9 +191,11 @@ export async function handleAdminCommand(ctx) {
                                 if (updatedOrder.groupMsgId) {
                                     const groupKeyboard = [[{ text: "⚙️ แก้ไข/ยกเลิกออเดอร์", callback_data: `manage_order_${orderId}` }]];
                                     try {
-                                        // Use fetch directly to bypass any telegraf signature issues
+                                        const fetchModule = await import('node-fetch');
+                                        const fetchFn = fetchModule.default;
+                                        
                                         const editCaptionUrl = `https://api.telegram.org/bot${adminToken}/editMessageCaption`;
-                                        const resCaption = await fetch(editCaptionUrl, {
+                                        const resCaption = await fetchFn(editCaptionUrl, {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({
@@ -203,9 +208,8 @@ export async function handleAdminCommand(ctx) {
                                         });
                                         const captionData = await resCaption.json();
                                         if (!captionData.ok) {
-                                            // Fallback to editMessageText if it was not a caption (bypassed slipok)
                                             const editTextUrl = `https://api.telegram.org/bot${adminToken}/editMessageText`;
-                                            const resText = await fetch(editTextUrl, {
+                                            const resText = await fetchFn(editTextUrl, {
                                                 method: 'POST',
                                                 headers: { 'Content-Type': 'application/json' },
                                                 body: JSON.stringify({
@@ -993,8 +997,7 @@ export async function handleAdminCallback(ctx) {
             const orderId = data.replace('cancel_order_', '');
             
             const order = await prisma.order.findUnique({
-                where: { id: orderId },
-                include: { items: true }
+                where: { id: orderId }, include: { items: true, customer: true }
             });
             
             if (!order || order.status === 'CANCELLED') return ctx.answerCbQuery("❌ ออเดอร์นี้ถูกยกเลิกไปแล้ว", { show_alert: true });
@@ -1033,7 +1036,7 @@ export async function handleAdminCallback(ctx) {
             const orderId = data.replace('edit_items_', '');
             const order = await prisma.order.findUnique({
                 where: { id: orderId },
-                include: { items: { include: { product: true } } }
+                include: { items: { include: { product: true } }, customer: true }
             });
             
             if (!order || order.status === 'CANCELLED') return ctx.answerCbQuery("❌ ออเดอร์นี้ถูกยกเลิกแล้ว", { show_alert: true });
@@ -1084,7 +1087,7 @@ export async function handleAdminCallback(ctx) {
             
             const order = await prisma.order.findUnique({
                 where: { id: orderId },
-                include: { items: { include: { product: true } } }
+                include: { items: { include: { product: true } }, customer: true }
             });
             
             const keyboard = order.items.filter(item => item.quantity > 0).map(item => {
