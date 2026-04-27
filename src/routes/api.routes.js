@@ -4,7 +4,7 @@ import { prisma } from '../db.js';
 import { getActiveCampaign } from '../services/campaign.service.js';
 import { getConfig } from '../config/config.js';
 import { addDays, formatToBangkok } from '../utils/date.utils.js';
-import { getCustomerByTelegramId, updateCustomer, countCampaignReferralsByTag } from '../services/customer.service.js';
+import { getCustomerByTelegramId, updateCustomer, countCampaignReferralsByTag, createCustomer } from '../services/customer.service.js';
 import { countMonthlyReferrals } from '../services/referral.service.js';
 import * as referralService from '../services/referral.service.js';
 import { getProductPageData } from '../services/product.service.js';
@@ -96,9 +96,17 @@ router.post('/auth', async (req, res) => {
         const telegramId = userData.id.toString();
 
         let customer = await getCustomerByTelegramId(telegramId);
+        let isNewCustomer = false;
         
         if (!customer) {
-            return res.json({ success: true, isMember: false });
+            console.log(`[Auto-Signup] Creating new customer for Telegram ID: ${telegramId}`);
+            customer = await createCustomer({
+                telegramId: telegramId,
+                firstName: userData.first_name || '',
+                lastName: userData.last_name || '',
+                username: userData.username || ''
+            }, "AUTO_SIGNUP");
+            isNewCustomer = true;
         }
 
         const hasPhone = !!customer.phoneNumber;

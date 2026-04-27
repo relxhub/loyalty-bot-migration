@@ -1063,21 +1063,21 @@
 
         // --- CORE GLOBAL FUNCTIONS ---
         window.checkAuth = (actionName) => {
+            const tg = window.Telegram.WebApp;
+            const isTelegram = tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id;
             const user = window.currentUser || (typeof currentUser !== 'undefined' ? currentUser : null);
+
+            if (!isTelegram) {
+                const botUsername = (user && user.orderBotUsername) ? user.orderBotUsername : 'ONEHUB_Order_Backup_Bot';
+                const confirmOpen = window.confirm(`คุณกำลังใช้งานในโหมดเยี่ยมชม (Guest Mode)\nกรุณาใช้งานผ่านแอป Telegram เพื่อ${actionName} หรือรับสิทธิพิเศษ\n\nต้องการเปิดแอป Telegram ทันทีหรือไม่?`);
+                if (confirmOpen) {
+                    window.location.href = `https://t.me/${botUsername}/app`;
+                }
+                return false;
+            }
+
             if (!user || !user.customerId) {
-                const tg = window.Telegram.WebApp;
-                tg.showPopup({
-                    title: 'กรุณายืนยันตัวตน',
-                    message: `กรุณายืนยันตัวตนเพื่อเป็นสมาชิกก่อนทำการ${actionName}`,
-                    buttons: [
-                        { id: 'login', type: 'default', text: 'ไปหน้ายืนยันตัวตน' },
-                        { id: 'cancel', type: 'cancel', text: 'ยกเลิก' }
-                    ]
-                }, function(buttonId) {
-                    if (buttonId === 'login') {
-                        window.location.href = 'dashboard.html?v=2';
-                    }
-                });
+                showToast('กำลังโหลดข้อมูลสมาชิก กรุณารอสักครู่...', 'warning');
                 return false;
             }
             return true;

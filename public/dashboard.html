@@ -1041,11 +1041,13 @@
             }
 
             if (!tg.initData) {
-                // --- DEMO MODE ---
-                console.log("[Init] DEMO MODE: Telegram Web App data not available.");
-                isMember = false; 
-                hasPhone = false;
-                user = { firstName: "Demo", customerId: "MEM-9999", points: 0, referralCount: 0 };
+                console.log("[Init] External browser detected.");
+                const botUsername = window.appConfig.orderBotUsername || 'ONEHUB_Order_Backup_Bot';
+                const confirmOpen = window.confirm("กรุณาใช้งานผ่านแอป Telegram เพื่อเข้าสู่ระบบบัญชีสมาชิก\n\nต้องการเปิดแอป Telegram ทันทีหรือไม่?");
+                if (confirmOpen) {
+                    window.location.href = `https://t.me/${botUsername}/app`;
+                }
+                return; // Stop execution
             } else {
                 try {
                     const response = await fetch('/api/auth', {
