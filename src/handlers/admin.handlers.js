@@ -69,8 +69,22 @@ export async function handleAdminCommand(ctx) {
                     const bkkTime = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
                     await sendAdminReply(chatId, `✅ บันทึกเลขพัสดุ/บิล <b>${billNumber}</b>\nสำหรับออเดอร์ <b>#${orderId}</b> สำเร็จแล้ว\nเมื่อเวลา: ${bkkTime}`);
 
+                    // Get Admin Name from DB
+                    let displayName = adminUser; // Fallback to telegram username
+                    try {
+                        const adminRec = await prisma.admin.findUnique({
+                            where: { telegramId: userTgId },
+                            select: { name: true }
+                        });
+                        if (adminRec && adminRec.name) {
+                            displayName = adminRec.name;
+                        }
+                    } catch (err) {
+                        console.error('Failed to get admin name:', err);
+                    }
+
                     // Send alert to Super Admins & Group
-                    const alertMsg = `📦 <b>แอดมิน ${adminUser} ได้แนบเลขพัสดุ/บิล</b>\n` +
+                    const alertMsg = `📦 <b>แอดมิน ${displayName} ได้แนบเลขพัสดุ/บิล</b>\n` +
                                      `<b>ออเดอร์:</b> #${orderId}\n` +
                                      `<b>เลขที่:</b> ${billNumber}\n` +
                                      `<b>เวลา:</b> ${bkkTime}`;
