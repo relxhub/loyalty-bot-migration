@@ -246,7 +246,7 @@ export async function handleAdminCommand(ctx) {
                     const photo = ctx.message.photo[ctx.message.photo.length - 1];
                     const refundSlipUrl = `/api/images/${photo.file_id}`;
 
-                    await prisma.order.update({
+                    const currentOrder = await prisma.order.update({
                         where: { id: orderId },
                         data: { refundSlipUrl: refundSlipUrl }
                     });
@@ -255,7 +255,6 @@ export async function handleAdminCommand(ctx) {
                     if (refMatch) {
                         try {
                             const refMsgId = parseInt(refMatch[1], 10);
-                            const currentOrder = await prisma.order.findUnique({ where: { id: orderId } });
                             const keyboard = [];
                             if (currentOrder && currentOrder.status !== 'CANCELLED') {
                                 keyboard.push([{ text: "✏️ จัดการสินค้ารายชิ้น", callback_data: `edit_items_${orderId}` }]);
