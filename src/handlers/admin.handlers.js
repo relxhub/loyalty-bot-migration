@@ -115,6 +115,12 @@ export async function handleAdminCommand(ctx) {
 
                         if (parseFloat(updatedOrder.discountAmount) > 0) {
                             message += `<b>ส่วนลดคูปอง:</b> -฿${parseFloat(updatedOrder.discountAmount).toLocaleString('th-TH')} (${updatedOrder.appliedCouponId || ''})\n`;
+                            if (updatedOrder.appliedCouponId) {
+                                const appliedCoupon = await prisma.coupon.findUnique({ where: { id: updatedOrder.appliedCouponId } });
+                                if (appliedCoupon && appliedCoupon.description) {
+                                    message += `   🎁 <i>รายละเอียด: ${appliedCoupon.description}</i>\n`;
+                                }
+                            }
                         }
                         const slipAmount = updatedOrder.payment ? updatedOrder.payment.amount : updatedOrder.totalAmount;
                         message += `\n💰 <b>ยอดสุทธิ:</b> ฿${parseFloat(slipAmount).toLocaleString('th-TH')}\n` +

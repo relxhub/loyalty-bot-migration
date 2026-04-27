@@ -741,6 +741,12 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
 
                 if (parseFloat(order.discountAmount) > 0) {
                     message += `<b>ส่วนลดคูปอง:</b> -฿${parseFloat(order.discountAmount).toLocaleString('th-TH')} (${order.appliedCouponId || ''})\n`;
+                    if (order.appliedCouponId) {
+                        const appliedCoupon = await prisma.coupon.findUnique({ where: { id: order.appliedCouponId } });
+                        if (appliedCoupon && appliedCoupon.description) {
+                            message += `   🎁 <i>รายละเอียด: ${appliedCoupon.description}</i>\n`;
+                        }
+                    }
                 }
                 
                 message += `\n💰 <b>ยอดสุทธิ:</b> ฿${parseFloat(slipAmount).toLocaleString('th-TH')}\n` +
