@@ -3379,6 +3379,7 @@
                     reviewContentContainer.innerHTML = `<div class="text-center text-red-400 py-4">เกิดข้อผิดพลาดในการโหลดรีวิว</div>`;
                 }
             };
+            window.handleReadReviews = handleReadReviews;
             
             window.toggleLikeReview = async (reviewId, btnElement) => {
                 const telegramId = tg.initDataUnsafe?.user?.id?.toString() || window.currentUser?.telegramUserId || '';
