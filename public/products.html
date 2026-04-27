@@ -659,11 +659,11 @@
             box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
         }
 
-        #cart-modal.show, #history-modal.show, #order-details-modal.show {
+        #cart-modal.show, #history-modal.show, #order-details-modal.show, #refund-slip-modal.show {
             opacity: 1;
             pointer-events: all;
         }
-        #cart-modal.show #cart-modal-content, #history-modal.show #history-modal-content, #order-details-modal.show #order-details-modal-content {
+        #cart-modal.show #cart-modal-content, #history-modal.show #history-modal-content, #order-details-modal.show #order-details-modal-content, #refund-slip-modal.show #refund-slip-img {
             transform: translateY(0);
         }
 
@@ -4655,12 +4655,15 @@
 
 
     <!-- Refund Slip Modal -->
-    <div id="refund-slip-modal" class="hidden fixed inset-0 z-[90] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 opacity-0 transition-opacity duration-300">
-        <div class="relative w-full max-w-md flex flex-col items-center">
-            <button onclick="window.closeRefundSlip()" class="absolute -top-12 right-0 w-10 h-10 rounded-full bg-zinc-800/80 text-white flex items-center justify-center hover:bg-zinc-700 transition border border-zinc-600 shadow-xl">
-                <i class="ri-close-line text-2xl"></i>
-            </button>
-            <img id="refund-slip-img" src="" alt="Refund Slip" class="max-w-full max-h-[85vh] rounded-xl shadow-2xl object-contain">
+    <div id="refund-slip-modal" onclick="window.closeRefundSlip()" class="hidden fixed inset-0 z-[90] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 opacity-0 transition-opacity duration-300">
+        <button onclick="window.closeRefundSlip()" class="fixed top-4 right-4 z-[100] w-12 h-12 rounded-full bg-zinc-800/80 text-white flex items-center justify-center hover:bg-zinc-700 transition border border-zinc-600 shadow-xl">
+            <i class="ri-close-line text-2xl"></i>
+        </button>
+        <div onclick="event.stopPropagation()" class="relative w-full max-w-md flex flex-col items-center">
+            <div id="refund-slip-loading" class="absolute inset-0 flex items-center justify-center">
+                <i class="ri-loader-4-line text-4xl text-brand-red animate-spin"></i>
+            </div>
+            <img id="refund-slip-img" src="" alt="Refund Slip" class="max-w-full max-h-[85vh] rounded-xl shadow-2xl object-contain relative z-10" onload="document.getElementById('refund-slip-loading').style.display='none'" onerror="this.style.display='none'; document.getElementById('refund-slip-loading').innerHTML='<div class=\\'text-center text-zinc-400\\'><i class=\\'ri-error-warning-line text-4xl mb-2\\'></i><br>ไม่สามารถโหลดรูปภาพได้</div>'">
         </div>
     </div>
 
