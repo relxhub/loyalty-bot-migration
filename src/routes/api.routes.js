@@ -647,8 +647,10 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                 const itemsByCategory = {};
                 for (const item of order.items) {
                     const categoryName = item.product.category?.name || 'ไม่ระบุหมวดหมู่';
-                    if (!itemsByCategory[categoryName]) itemsByCategory[categoryName] = [];
-                    itemsByCategory[categoryName].push(item);
+                    const categoryPrice = item.product.category?.price ? ` (฿${parseFloat(item.product.category.price).toLocaleString('th-TH')})` : '';
+                    const catKey = `${categoryName}${categoryPrice}`;
+                    if (!itemsByCategory[catKey]) itemsByCategory[catKey] = [];
+                    itemsByCategory[catKey].push(item);
                 }
                 
                 for (const [catName, catItems] of Object.entries(itemsByCategory)) {
