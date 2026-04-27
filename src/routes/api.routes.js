@@ -1229,15 +1229,40 @@ router.get('/referrals/:telegramId', async (req, res) => {
 router.get('/reviews/:productId', async (req, res) => {
     try {
         const { productId } = req.params;
-        const { telegramId, sort = 'newest' } = req.query;
+        const { telegramId, sort = 'newest', star } = req.query;
+
+        // Base where clause
+        let whereClause = { productId: parseInt(productId) };
+        if (star) {
+            whereClause.rating = parseInt(star);
+        }
 
         let orderBy = { createdAt: 'desc' };
         if (sort === 'oldest') orderBy = { createdAt: 'asc' };
         else if (sort === 'most_likes') orderBy = { likesCount: 'desc' };
         else if (sort === 'least_likes') orderBy = { likesCount: 'asc' };
 
-        const reviews = await prisma.productReview.findMany({
+        // Fetch all reviews for this product to calculate stats (ignoring star filter)
+        const allReviews = await prisma.productReview.findMany({
             where: { productId: parseInt(productId) },
+            select: { rating: true }
+        });
+
+        const totalReviews = allReviews.length;
+        const averageRating = totalReviews > 0 
+            ? (allReviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(1) 
+            : 0;
+
+        const starCounts = {
+            5: allReviews.filter(r => r.rating === 5).length,
+            4: allReviews.filter(r => r.rating === 4).length,
+            3: allReviews.filter(r => r.rating === 3).length,
+            2: allReviews.filter(r => r.rating === 2).length,
+            1: allReviews.filter(r => r.rating === 1).length,
+        };
+
+        const reviews = await prisma.productReview.findMany({
+            where: whereClause,
             orderBy: orderBy,
             include: {
                 customer: {
@@ -1253,17 +1278,37 @@ router.get('/reviews/:productId', async (req, res) => {
             }
         });
 
-        const formattedReviews = reviews.map(r => ({
-            id: r.id,
-            rating: r.rating,
-            comment: r.comment,
-            likesCount: r.likesCount,
-            isLikedByMe: r.likes ? r.likes.length > 0 : false,
-            createdAt: formatToBangkok(r.createdAt),
-            author: r.customer.firstName || 'Anonymous'
-        }));
+        const formattedReviews = reviews.map(r => {
+            let authorName = r.customer.firstName || 'Anonymous';
+            if (r.isAnonymous && authorName !== 'Anonymous') {
+                if (authorName.length <= 2) {
+                    authorName = authorName[0] + '*';
+                } else {
+                    authorName = authorName[0] + '*'.repeat(Math.max(1, authorName.length - 2)) + authorName[authorName.length - 1];
+                }
+            }
 
-        res.json({ success: true, reviews: formattedReviews });
+            return {
+                id: r.id,
+                rating: r.rating,
+                comment: r.comment,
+                tags: r.tags ? r.tags.split(',') : [],
+                likesCount: r.likesCount,
+                isLikedByMe: r.likes ? r.likes.length > 0 : false,
+                createdAt: formatToBangkok(r.createdAt),
+                author: authorName
+            };
+        });
+
+        res.json({ 
+            success: true, 
+            stats: {
+                averageRating,
+                totalReviews,
+                starCounts
+            },
+            reviews: formattedReviews 
+        });
 
     } catch (error) {
         console.error("Review Fetch Error:", error);
@@ -1271,9 +1316,64 @@ router.get('/reviews/:productId', async (req, res) => {
     }
 });
 
+router.get('/reviews/check-eligibility/:productId', async (req, res) => {
+    try {
+        const { productId } = req.params;
+        const { initData } = req.query;
+
+        if (!verifyTelegramWebAppData(initData)) {
+            return res.status(401).json({ error: "Invalid Telegram Data." });
+        }
+        
+        const urlParams = new URLSearchParams(initData);
+        const userData = JSON.parse(urlParams.get('user'));
+        const telegramId = userData.id.toString();
+
+        const customer = await getCustomerByTelegramId(telegramId);
+        if (!customer) {
+            return res.status(403).json({ error: "User not found." });
+        }
+
+        // 1. Check if already reviewed
+        const existingReview = await prisma.productReview.findUnique({
+            where: {
+                productId_customerId: {
+                    productId: parseInt(productId),
+                    customerId: customer.customerId
+                }
+            }
+        });
+
+        if (existingReview) {
+            return res.json({ eligible: false, reason: "ALREADY_REVIEWED" });
+        }
+
+        // 2. Check if purchased
+        const hasPurchased = await prisma.orderItem.findFirst({
+            where: {
+                productId: parseInt(productId),
+                order: {
+                    customerId: customer.customerId,
+                    status: { in: ['PAID', 'PROCESSING', 'SHIPPED'] }
+                }
+            }
+        });
+
+        if (!hasPurchased) {
+            return res.json({ eligible: false, reason: "NOT_PURCHASED" });
+        }
+
+        res.json({ eligible: true });
+
+    } catch (error) {
+        console.error("Review Eligibility Check Error:", error);
+        res.status(500).json({ error: "Failed to check eligibility." });
+    }
+});
+
 router.post('/reviews', async (req, res) => {
     try {
-        const { productId, customerId, rating, comment, initData } = req.body;
+        const { productId, customerId, rating, comment, tags, isAnonymous, initData } = req.body;
 
         // 1. Validate user identity
         if (!verifyTelegramWebAppData(initData)) {
@@ -1295,6 +1395,9 @@ router.post('/reviews', async (req, res) => {
         }
         if (rating < 1 || rating > 5) {
             return res.status(400).json({ error: "Rating must be between 1 and 5." });
+        }
+        if (comment.length > 200) {
+            return res.status(400).json({ error: "ความคิดเห็นต้องไม่เกิน 200 ตัวอักษร" });
         }
 
         // 2.5 Check if user purchased the product
@@ -1322,6 +1425,8 @@ router.post('/reviews', async (req, res) => {
                     customerId: customerId,
                     rating: rating,
                     comment: comment,
+                    tags: Array.isArray(tags) ? tags.join(',') : (tags || null),
+                    isAnonymous: !!isAnonymous
                 }
             });
 

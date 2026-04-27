@@ -3351,17 +3351,27 @@
             };
             
             window.currentReviewSort = 'newest';
-            
+            window.currentReviewFilterStar = null;
+
             const handleReadReviews = async () => {
+                document.getElementById('read-reviews-btn').classList.add('text-brand-red', 'border-brand-red');
+                document.getElementById('read-reviews-btn').classList.remove('text-zinc-500', 'border-transparent');
+                document.getElementById('write-review-btn').classList.add('text-zinc-500', 'border-transparent');
+                document.getElementById('write-review-btn').classList.remove('text-brand-red', 'border-brand-red');
+
                 const telegramId = tg.initDataUnsafe?.user?.id?.toString() || window.currentUser?.telegramUserId || '';
                 reviewContentContainer.innerHTML = `<div class="text-center text-zinc-400 py-4"><div class="animate-spin h-6 w-6 border-2 border-brand-red border-t-transparent rounded-full mx-auto mb-2"></div>กำลังโหลดรีวิว...</div>`;
                 
                 try {
-                    const response = await fetch(`/api/reviews/${activeProduct.id}?sort=${window.currentReviewSort}&telegramId=${telegramId}`);
+                    let url = `/api/reviews/${activeProduct.id}?sort=${window.currentReviewSort}&telegramId=${telegramId}`;
+                    if (window.currentReviewFilterStar) {
+                        url += `&star=${window.currentReviewFilterStar}`;
+                    }
+                    const response = await fetch(url);
                     const data = await response.json();
                     
                     if (data.success) {
-                        renderReviews(data.reviews);
+                        renderReviews(data.stats, data.reviews);
                     } else {
                         reviewContentContainer.innerHTML = `<div class="text-center text-red-400 py-4">${data.error}</div>`;
                     }
@@ -3413,10 +3423,53 @@
                 }
             };
 
-            const renderReviews = (reviews) => {
+            const renderReviews = (stats, reviews) => {
+                // Header Stats
                 let html = `
+                    <div class="bg-zinc-900/60 p-4 rounded-xl border border-zinc-800 mb-4">
+                        <div class="flex items-center gap-4">
+                            <div class="text-center flex-shrink-0 w-24">
+                                <div class="text-4xl font-bold text-white leading-none">${stats.averageRating}</div>
+                                <div class="flex text-yellow-400 text-[10px] my-1.5 justify-center">
+                                    ${[...Array(5)].map((_, i) => `<i class="${i < Math.round(stats.averageRating) ? 'ri-star-fill' : 'ri-star-line'}"></i>`).join('')}
+                                </div>
+                                <div class="text-[10px] text-zinc-500">${stats.totalReviews} ratings</div>
+                            </div>
+                            <div class="flex-1 space-y-1">
+                                ${[5,4,3,2,1].map(star => {
+                                    const count = stats.starCounts[star] || 0;
+                                    const pct = stats.totalReviews > 0 ? (count / stats.totalReviews) * 100 : 0;
+                                    return `
+                                    <div class="flex items-center text-[10px] text-zinc-400 gap-2">
+                                        <div class="w-2 text-right">${star}</div>
+                                        <div class="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                                            <div class="h-full bg-yellow-400 rounded-full" style="width: ${pct}%"></div>
+                                        </div>
+                                        <div class="w-4 text-left">${count}</div>
+                                    </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // Filters
+                html += `
+                    <div class="flex overflow-x-auto gap-2 pb-2 mb-3 no-scrollbar">
+                        <button onclick="window.currentReviewFilterStar = null; handleReadReviews();" class="px-3 py-1 rounded-full text-xs whitespace-nowrap transition border ${window.currentReviewFilterStar === null ? 'bg-brand-red text-white border-brand-red font-bold' : 'bg-zinc-800 text-zinc-300 border-zinc-700'}">ทั้งหมด</button>
+                        ${[5,4,3,2,1].map(star => `
+                            <button onclick="window.currentReviewFilterStar = ${star}; handleReadReviews();" class="flex items-center gap-1 px-3 py-1 rounded-full text-xs whitespace-nowrap transition border ${window.currentReviewFilterStar === star ? 'bg-brand-red text-white border-brand-red font-bold' : 'bg-zinc-800 text-zinc-300 border-zinc-700'}">
+                                ${star} <i class="ri-star-fill ${window.currentReviewFilterStar === star ? 'text-white' : 'text-yellow-400'} text-[10px]"></i>
+                            </button>
+                        `).join('')}
+                    </div>
+                `;
+
+                // Sort Dropdown
+                html += `
                     <div class="flex justify-end mb-3">
-                        <select id="review-sort-select" class="bg-zinc-800 text-white text-xs px-2 py-1 rounded border border-zinc-700 focus:outline-none" onchange="window.currentReviewSort = this.value; handleReadReviews();">
+                        <select id="review-sort-select" class="bg-zinc-800 text-zinc-300 text-xs px-2 py-1 rounded-lg border border-zinc-700 focus:outline-none focus:border-brand-red" onchange="window.currentReviewSort = this.value; handleReadReviews();">
                             <option value="newest" ${window.currentReviewSort === 'newest' ? 'selected' : ''}>ล่าสุด - เก่าสุด</option>
                             <option value="oldest" ${window.currentReviewSort === 'oldest' ? 'selected' : ''}>เก่าสุด - ล่าสุด</option>
                             <option value="most_likes" ${window.currentReviewSort === 'most_likes' ? 'selected' : ''}>ยอดไลค์ มาก - น้อย</option>
@@ -3426,32 +3479,42 @@
                 `;
 
                 if (reviews.length === 0) {
-                    html += `<div class="text-center text-zinc-500 text-sm py-4">ยังไม่มีรีวิวสำหรับสินค้านี้</div>`;
+                    html += `<div class="text-center text-zinc-500 text-sm py-8 bg-zinc-900/30 rounded-xl">ยังไม่มีรีวิวในหมวดหมู่นี้</div>`;
                     reviewContentContainer.innerHTML = html;
                     return;
                 }
 
                 html += `<div class="space-y-3">` + reviews.map(r => `
-                    <div class="bg-zinc-800/80 p-3 rounded-xl border border-zinc-700/50">
+                    <div class="bg-zinc-800/80 p-3.5 rounded-xl border border-zinc-700/50">
                         <div class="flex justify-between items-start mb-2">
-                            <div class="flex items-center gap-2">
-                                <div class="w-6 h-6 rounded-full bg-zinc-700 flex items-center justify-center text-xs font-bold text-zinc-300">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center text-sm font-bold text-zinc-300 shadow-inner">
                                     ${r.author.charAt(0).toUpperCase()}
                                 </div>
                                 <div>
-                                    <div class="text-sm font-semibold text-white">${r.author}</div>
-                                    <div class="text-[10px] text-zinc-400">${r.createdAt}</div>
+                                    <div class="text-sm font-semibold text-white flex items-center gap-1">
+                                        ${r.author} 
+                                        ${r.author.includes('*') ? '<i class="ri-user-unfollow-line text-[10px] text-zinc-500" title="Anonymous"></i>' : ''}
+                                    </div>
+                                    <div class="flex items-center gap-1.5 mt-0.5">
+                                        <div class="flex gap-0.5 text-[10px]">
+                                            ${[...Array(5)].map((_, i) => `<i class="${i < r.rating ? 'ri-star-fill text-yellow-400' : 'ri-star-fill text-zinc-600'}"></i>`).join('')}
+                                        </div>
+                                        <span class="text-[10px] text-zinc-500">• ${r.createdAt}</span>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="flex gap-0.5 text-xs">
-                                ${[...Array(5)].map((_, i) => `<i class="${i < r.rating ? 'ri-star-fill text-yellow-400' : 'ri-star-fill text-zinc-600'}"></i>`).join('')}
-                            </div>
                         </div>
-                        <p class="text-sm text-zinc-300 mb-2 whitespace-pre-wrap">${r.comment}</p>
-                        <div class="flex justify-end mt-2 pt-2 border-t border-zinc-700/50">
-                            <button onclick="window.toggleLikeReview(${r.id}, this)" class="flex items-center gap-1 text-xs text-zinc-400 hover:text-white transition">
-                                <i class="${r.isLikedByMe ? 'ri-thumb-up-fill text-brand-red' : 'ri-thumb-up-line'} text-sm"></i>
-                                <span class="like-count">${r.likesCount}</span> Like
+                        <p class="text-sm text-zinc-300 mb-2 whitespace-pre-wrap leading-relaxed">${r.comment}</p>
+                        ${r.tags && r.tags.length > 0 ? `
+                            <div class="flex flex-wrap gap-1.5 mb-3">
+                                ${r.tags.map(t => `<span class="bg-zinc-900 text-zinc-400 text-[10px] px-2 py-0.5 rounded-full border border-zinc-700/50">${t}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                        <div class="flex justify-end pt-2 border-t border-zinc-700/50">
+                            <button onclick="window.toggleLikeReview(${r.id}, this)" class="flex items-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-white transition px-2 py-1 rounded-lg hover:bg-zinc-700/50">
+                                <i class="${r.isLikedByMe ? 'ri-thumb-up-fill text-brand-red' : 'ri-thumb-up-line'} text-base"></i>
+                                <span class="like-count">${r.likesCount}</span> 
                             </button>
                         </div>
                     </div>
@@ -3460,31 +3523,88 @@
                 reviewContentContainer.innerHTML = html;
             };
 
-            const handleWriteReview = () => {
+            const handleWriteReview = async () => {
                 if (!currentUser) {
                     tg.showAlert('กรุณาเข้าสู่ระบบก่อนเขียนรีวิว');
                     return;
                 }
-                renderReviewForm();
+
+                document.getElementById('write-review-btn').classList.add('text-brand-red', 'border-brand-red');
+                document.getElementById('write-review-btn').classList.remove('text-zinc-500', 'border-transparent');
+                document.getElementById('read-reviews-btn').classList.add('text-zinc-500', 'border-transparent');
+                document.getElementById('read-reviews-btn').classList.remove('text-brand-red', 'border-brand-red');
+
+                reviewContentContainer.innerHTML = `<div class="text-center text-zinc-400 py-4"><div class="animate-spin h-6 w-6 border-2 border-brand-red border-t-transparent rounded-full mx-auto mb-2"></div>กำลังตรวจสอบสิทธิ์...</div>`;
+
+                try {
+                    const response = await fetch(`/api/reviews/check-eligibility/${activeProduct.id}?initData=${encodeURIComponent(tg.initData)}`);
+                    const result = await response.json();
+
+                    if (result.eligible) {
+                        renderReviewForm();
+                    } else {
+                        let msg = "คุณไม่สามารถรีวิวสินค้านี้ได้";
+                        if (result.reason === "ALREADY_REVIEWED") msg = "คุณเคยรีวิวสินค้านี้ไปแล้ว";
+                        if (result.reason === "NOT_PURCHASED") msg = "คุณต้องสั่งซื้อสินค้านี้ก่อนจึงจะสามารถรีวิวได้";
+                        
+                        reviewContentContainer.innerHTML = `
+                            <div class="text-center py-8">
+                                <i class="ri-error-warning-line text-4xl text-zinc-500 mb-2"></i>
+                                <p class="text-zinc-400 text-sm">${msg}</p>
+                                <button onclick="document.getElementById('read-reviews-btn').click()" class="mt-4 px-4 py-2 bg-zinc-800 text-white text-sm rounded-xl">กลับไปหน้ารีวิว</button>
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    reviewContentContainer.innerHTML = `<div class="text-center text-red-400 py-4">เกิดข้อผิดพลาดในการตรวจสอบสิทธิ์</div>`;
+                }
             };
 
             const renderReviewForm = () => {
+                const predefinedTags = ["ส่งไว", "สินค้าคุณภาพดี", "คุ้มค่า", "แพ็คเกจดี", "รสชาติเยี่ยม", "บริการดี"];
+                
                 reviewContentContainer.innerHTML = `
                     <div class="space-y-4 pt-2">
                         <div class="text-center font-semibold text-white">คุณรู้สึกอย่างไรกับสินค้านี้?</div>
-                        <div id="star-rating" class="flex justify-center gap-2 text-3xl cursor-pointer text-zinc-600">
+                        
+                        <div id="star-rating" class="flex justify-center gap-2 text-4xl cursor-pointer text-zinc-600">
                             ${[...Array(5)].map((_, i) => `<i class="ri-star-fill transition-colors" data-value="${i+1}"></i>`).join('')}
                         </div>
-                        <textarea id="review-comment" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:ring-1 focus:ring-brand-red focus:border-brand-red focus:outline-none placeholder-zinc-500" rows="4" placeholder="บอกเล่าประสบการณ์การใช้งานของคุณ..."></textarea>
-                        <button id="submit-review-btn" class="w-full py-3 bg-brand-red text-white hover:bg-red-600 rounded-xl font-bold text-sm transition-transform active:scale-95 shadow-lg shadow-red-500/20">
-                            ยืนยันการส่งรีวิว
-                        </button>
+                        
+                        <div id="review-extra-fields" class="hidden space-y-4 mt-4 animate-fade-in">
+                            <div>
+                                <p class="text-xs text-zinc-400 mb-2 px-1">จุดเด่นที่ชอบ (เลือกได้มากกว่า 1)</p>
+                                <div class="flex flex-wrap gap-2" id="review-tags-container">
+                                    ${predefinedTags.map(tag => `
+                                        <button class="review-tag-btn px-3 py-1.5 border border-zinc-600 text-zinc-400 hover:text-white hover:border-zinc-400 rounded-full text-xs transition" data-tag="${tag}">
+                                            ${tag}
+                                        </button>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                            <div>
+                                <textarea id="review-comment" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:ring-1 focus:ring-brand-red focus:border-brand-red focus:outline-none placeholder-zinc-500 resize-none" rows="3" placeholder="บอกเล่าประสบการณ์การใช้งานของคุณ..." maxlength="200" oninput="document.getElementById('char-count').innerText = this.value.length"></textarea>
+                                <div class="text-right text-[10px] text-zinc-500 mt-1"><span id="char-count">0</span>/200</div>
+                            </div>
+                            
+                            <div class="flex items-center gap-2 text-sm text-zinc-300 bg-zinc-900/50 p-3 rounded-xl border border-zinc-800">
+                                <input type="checkbox" id="review-anonymous" class="rounded w-4 h-4 bg-zinc-900 border-zinc-600 text-brand-red focus:ring-brand-red focus:ring-offset-zinc-800">
+                                <label for="review-anonymous" class="flex-1 cursor-pointer">ซ่อนชื่อบางส่วน (เช่น R****X)</label>
+                            </div>
+                            
+                            <button id="submit-review-btn" class="w-full py-3.5 bg-brand-red text-white hover:bg-red-600 rounded-xl font-bold text-sm transition-transform active:scale-95 shadow-lg shadow-red-500/20">
+                                ยืนยันการส่งรีวิว
+                            </button>
+                        </div>
                     </div>
                 `;
                 
                 let selectedRating = 0;
+                let selectedTags = new Set();
                 const starContainer = document.getElementById('star-rating');
                 const stars = starContainer.querySelectorAll('i');
+                const extraFields = document.getElementById('review-extra-fields');
 
                 starContainer.addEventListener('mouseover', e => {
                     if (e.target.tagName === 'I') {
@@ -3507,26 +3627,48 @@
                         stars.forEach(star => {
                            star.classList.toggle('text-yellow-400', parseInt(star.dataset.value) <= selectedRating);
                         });
+                        extraFields.classList.remove('hidden'); // Show fields after rating
                     }
                 });
 
-                document.getElementById('submit-review-btn').onclick = async function() {
-                    const comment = document.getElementById('review-comment').value;
-                    if (selectedRating === 0 || !comment.trim()) {
-                        tg.showAlert('กรุณาให้คะแนนดาวและพิมพ์ความคิดเห็น');
-                        return;
-                    }
-                    
-                    const btn = this;
-                    const originalText = btn.innerHTML;
-                    btn.innerHTML = '<div class="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full mx-auto"></div>';
-                    btn.disabled = true;
+                // Tag selection
+                document.querySelectorAll('.review-tag-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const tag = this.dataset.tag;
+                        if (selectedTags.has(tag)) {
+                            selectedTags.delete(tag);
+                            this.classList.remove('bg-brand-red/20', 'border-brand-red', 'text-brand-red');
+                            this.classList.add('border-zinc-600', 'text-zinc-400');
+                        } else {
+                            selectedTags.add(tag);
+                            this.classList.remove('border-zinc-600', 'text-zinc-400');
+                            this.classList.add('bg-brand-red/20', 'border-brand-red', 'text-brand-red');
+                        }
+                    });
+                });
 
-                    await handleSubmitReview(selectedRating, comment, btn, originalText);
-                };
+                const submitBtn = document.getElementById('submit-review-btn');
+                if(submitBtn){
+                    submitBtn.onclick = async function() {
+                        const comment = document.getElementById('review-comment').value;
+                        const isAnonymous = document.getElementById('review-anonymous').checked;
+
+                        if (selectedRating === 0 || !comment.trim()) {
+                            tg.showAlert('กรุณาให้คะแนนดาวและพิมพ์ความคิดเห็น');
+                            return;
+                        }
+                        
+                        const btn = this;
+                        const originalText = btn.innerHTML;
+                        btn.innerHTML = '<div class="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full mx-auto"></div>';
+                        btn.disabled = true;
+
+                        await handleSubmitReview(selectedRating, comment, Array.from(selectedTags), isAnonymous, btn, originalText);
+                    };
+                }
             };
             
-            const handleSubmitReview = async (rating, comment, btn, originalText) => {
+            const handleSubmitReview = async (rating, comment, tags, isAnonymous, btn, originalText) => {
                 try {
                     const response = await fetch('/api/reviews', {
                         method: 'POST',
@@ -3536,6 +3678,8 @@
                             customerId: currentUser.customerId,
                             rating: rating,
                             comment: comment,
+                            tags: tags,
+                            isAnonymous: isAnonymous,
                             initData: tg.initData
                         })
                     });
@@ -3553,7 +3697,7 @@
                         }
                         tg.showAlert(msg);
                         window.currentReviewSort = 'newest'; // Reset to newest after review
-                        handleReadReviews(); // Refresh review list
+                        document.getElementById('read-reviews-btn').click(); // Switch back to Read tab
                     } else {
                         tg.showAlert(result.error || 'Failed to submit review.');
                     }
@@ -4471,23 +4615,18 @@
                     <p id="modal-product-description" class="text-sm text-zinc-300"></p>
                 </div>
                 
-                <!-- Levels -->
-                <div id="modal-level-bars" class="space-y-2">
-                    <!-- Level bars will be injected here by JS -->
-                </div>
-
+                <!-- Restored containers for JS to inject image and rating -->
+                <div id="modal-level-bars" class="space-y-2 mt-3"></div>
+                <div id="modal-avg-rating" class="hidden"></div>
+                
                 <!-- Review Section -->
-                <div id="modal-review-section" class="space-y-3 pt-3">
-                    <div class="flex justify-between items-center">
-                        <h4 class="font-semibold">รีวิวสินค้า</h4>
-                        <div id="modal-avg-rating" class="flex items-center gap-1 text-sm"></div>
-                    </div>
-                    <div class="flex gap-2">
-                         <button id="read-reviews-btn" class="flex-1 py-2 bg-blue-600/80 hover:bg-blue-600 rounded-lg text-sm font-semibold">อ่านรีวิว</button>
-                         <button id="write-review-btn" class="flex-1 py-2 bg-zinc-600 hover:bg-zinc-500 rounded-lg text-sm font-semibold">เขียนรีวิว</button>
+                <div id="modal-review-section" class="mt-4 pt-4 border-t border-zinc-800">
+                    <div class="flex gap-4 border-b border-zinc-700/50 mb-4">
+                         <button id="read-reviews-btn" class="pb-2 text-brand-red border-b-2 border-brand-red font-bold text-sm transition flex-1 text-center">Review</button>
+                         <button id="write-review-btn" class="pb-2 text-zinc-500 border-b-2 border-transparent font-bold text-sm transition hover:text-zinc-300 flex-1 text-center">Rate this product</button>
                     </div>
                     <!-- Container for reviews or write form -->
-                    <div id="review-content-container" class="bg-zinc-900/50 p-3 rounded-lg min-h-[100px]">
+                    <div id="review-content-container" class="min-h-[200px]">
                         <!-- Content will be injected by JS -->
                     </div>
                 </div>

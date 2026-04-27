@@ -360,12 +360,14 @@ model SystemLog {
 }
 
 model ProductReview {
-  id         Int      @id @default(autoincrement())
-  rating     Int
-  comment    String   @db.Text
-  likesCount Int      @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id          Int      @id @default(autoincrement())
+  rating      Int
+  comment     String   @db.Text
+  tags        String?  // Comma-separated list of selected tags
+  isAnonymous Boolean  @default(false)
+  likesCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   productId Int
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
