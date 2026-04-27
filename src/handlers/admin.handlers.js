@@ -94,8 +94,8 @@ export async function handleAdminCommand(ctx) {
                             itemsDetails += '\n';
                         }
 
-                        const shipConfigRaw = await prisma.systemConfig.findUnique({ where: { key: 'shippingFee' } });
-                        const freeMinRaw = await prisma.systemConfig.findUnique({ where: { key: 'freeShippingMin' } });
+                        const shipConfigRaw = await prisma.systemConfig.findUnique({ where: { key: 'shipping_fee' } });
+                        const freeMinRaw = await prisma.systemConfig.findUnique({ where: { key: 'free_shipping_min' } });
                         const shipFeeBase = shipConfigRaw ? parseFloat(shipConfigRaw.value) : 60;
                         const freeMin = freeMinRaw ? parseFloat(freeMinRaw.value) : 500;
                         const itemsSubtotal = updatedOrder.items.reduce((sum, item) => sum + (item.quantity * parseFloat(item.priceAtPurchase)), 0);

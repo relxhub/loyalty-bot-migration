@@ -83,7 +83,7 @@ function verifyTelegramWebAppData(telegramInitData) {
 // ==================================================
 router.post('/auth', async (req, res) => {
     try {
-        const { initData } = req.body;
+        const { initData, referrerId } = req.body;
         if (!verifyTelegramWebAppData(initData)) {
             return res.status(401).json({ error: "Invalid Telegram Data" });
         }
@@ -97,18 +97,33 @@ router.post('/auth', async (req, res) => {
 
         let customer = await getCustomerByTelegramId(telegramId);
         let isNewCustomer = false;
-        
+
         if (!customer) {
             console.log(`[Auto-Signup] Creating new customer for Telegram ID: ${telegramId}`);
             customer = await createCustomer({
                 telegramId: telegramId,
                 firstName: userData.first_name || '',
                 lastName: userData.last_name || '',
-                username: userData.username || ''
+                username: userData.username || '',
+                referrerId: referrerId || null
             }, "AUTO_SIGNUP");
             isNewCustomer = true;
-        }
 
+            // Optional: Also explicitly create a pending referral record to be safe
+            if (referrerId) {
+                try {
+                    await referralService.createPendingReferral(referrerId, {
+                        telegramId: telegramId,
+                        firstName: userData.first_name || '',
+                        lastName: userData.last_name || null,
+                        username: userData.username || null,
+                        referrerId: referrerId
+                    });
+                } catch (e) {
+                    console.error("Failed to create pending referral during auto-signup:", e);
+                }
+            }
+        }
         const hasPhone = !!customer.phoneNumber;
 
         // Check if the user is also an admin to get their role
@@ -687,8 +702,8 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                 }
 
                 // Retrieve shipping fee context from config
-                const shipConfigRaw = await prisma.systemConfig.findUnique({ where: { key: 'shippingFee' } });
-                const freeMinRaw = await prisma.systemConfig.findUnique({ where: { key: 'freeShippingMin' } });
+                const shipConfigRaw = await prisma.systemConfig.findUnique({ where: { key: 'shipping_fee' } });
+                const freeMinRaw = await prisma.systemConfig.findUnique({ where: { key: 'free_shipping_min' } });
                 const shipFeeBase = shipConfigRaw ? parseFloat(shipConfigRaw.value) : 60;
                 const freeMin = freeMinRaw ? parseFloat(freeMinRaw.value) : 500;
                 
