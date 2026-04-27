@@ -976,6 +976,20 @@ router.post('/link', async (req, res) => {
 // ==================================================
 // 📦 PRODUCTS
 // ==================================================
+
+router.get('/loading-screens', async (req, res) => {
+    try {
+        const screens = await prisma.loadingScreen.findMany({
+            where: { isActive: true },
+            orderBy: { order: 'asc' }
+        });
+        res.json({ success: true, screens });
+    } catch (error) {
+        console.error("Loading Screens API Error:", error);
+        res.status(500).json({ error: "Could not fetch loading screens." });
+    }
+});
+
 router.get('/products', async (req, res) => {
     console.log('[API TRACE] Received request for /api/products');
     try {

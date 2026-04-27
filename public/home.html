@@ -64,6 +64,10 @@
 </head>
 <body class="min-h-screen flex flex-col items-center justify-center p-5 text-white relative">
 
+    <div id="dynamic-loading-screen" class="hidden fixed inset-0 z-[120] bg-[#050C0D] flex-col items-center justify-center">
+        <img id="dynamic-loading-img" src="" alt="Loading..." class="max-w-full max-h-full object-contain w-full h-full opacity-0 transition-opacity duration-500">
+    </div>
+
     <div id="loading-screen" class="fixed inset-0 z-[110] flex flex-col items-center justify-center bg-[#050C0D]">
         <div class="w-16 h-16 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mb-4"></div>
         <p class="text-gray-400 animate-pulse">กำลังตรวจสอบข้อมูล...</p>
@@ -563,6 +567,57 @@
             }
         }
 
+        const showMainContent = () => {
+            document.getElementById('dynamic-loading-screen').classList.add('hidden');
+            document.getElementById('main-content').classList.remove('hidden');
+            document.getElementById('main-content').classList.add('flex');
+            
+            if (tg.initDataUnsafe?.start_param && sessionStorage.getItem('isLinked') !== 'true') {
+                // Use a cache-buster to ensure the latest dashboard.html logic is loaded
+                window.location.replace(`dashboard.html?start_param=${tg.initDataUnsafe.start_param}&v=${Date.now()}`);
+            }
+        };
+
+        const playLoadingScreens = async () => {
+            try {
+                const res = await fetch('/api/loading-screens');
+                const data = await res.json();
+                
+                if (data.success && data.screens && data.screens.length > 0) {
+                    const dynamicScreen = document.getElementById('dynamic-loading-screen');
+                    const imgEl = document.getElementById('dynamic-loading-img');
+                    
+                    dynamicScreen.classList.remove('hidden');
+                    dynamicScreen.classList.add('flex');
+
+                    for (const screen of data.screens) {
+                        await new Promise((resolve) => {
+                            imgEl.src = screen.imageUrl;
+                            imgEl.onload = () => {
+                                imgEl.classList.remove('opacity-0');
+                                imgEl.classList.add('opacity-100');
+                                
+                                setTimeout(() => {
+                                    imgEl.classList.remove('opacity-100');
+                                    imgEl.classList.add('opacity-0');
+                                    setTimeout(resolve, 500); // Wait for fade out animation
+                                }, screen.durationSeconds * 1000);
+                            };
+                            imgEl.onerror = () => {
+                                resolve(); // Skip if error loading image
+                            };
+                        });
+                    }
+                    showMainContent();
+                } else {
+                    showMainContent();
+                }
+            } catch (err) {
+                console.error("Failed to load dynamic screens:", err);
+                showMainContent();
+            }
+        };
+
         document.addEventListener('DOMContentLoaded', async function() {
             if (tg.isVersionAtLeast('7.7')) {
                 tg.disableVerticalSwipes();
@@ -608,28 +663,15 @@
                         sessionStorage.removeItem('isLinked');
                     }
                     
-                    document.getElementById('main-content').classList.remove('hidden');
-                    document.getElementById('main-content').classList.add('flex');
+                    playLoadingScreens();
                 } else {
                     document.getElementById('loading-screen').classList.add('hidden');
-                    document.getElementById('main-content').classList.remove('hidden');
-                    document.getElementById('main-content').classList.add('flex');
+                    playLoadingScreens();
                 }
             } catch (e) {
                 console.log("[Home] Auth check failed:", e);
                 document.getElementById('loading-screen').classList.add('hidden');
-                document.getElementById('main-content').classList.remove('hidden');
-                document.getElementById('main-content').classList.add('flex');
-            }
-
-            if (tg.initDataUnsafe?.start_param) {
-                // If they have start_param but are already linked, don't redirect
-                if (sessionStorage.getItem('isLinked') === 'true') {
-                    console.log("[Home] User is cached as linked. Ignoring start_param redirect.");
-                    return;
-                }
-                // Use a cache-buster to ensure the latest dashboard.html logic is loaded
-                window.location.replace(`dashboard.html?start_param=${tg.initDataUnsafe.start_param}&v=${Date.now()}`);
+                playLoadingScreens();
             }
         });
     </script>
