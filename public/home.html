@@ -579,6 +579,11 @@
         };
 
         const playLoadingScreens = async () => {
+            if (sessionStorage.getItem('hasSeenLoadingScreen') === 'true') {
+                showMainContent();
+                return;
+            }
+
             try {
                 const res = await fetch('/api/loading-screens');
                 const data = await res.json();
@@ -608,12 +613,15 @@
                             };
                         });
                     }
+                    sessionStorage.setItem('hasSeenLoadingScreen', 'true');
                     showMainContent();
                 } else {
+                    sessionStorage.setItem('hasSeenLoadingScreen', 'true');
                     showMainContent();
                 }
             } catch (err) {
                 console.error("Failed to load dynamic screens:", err);
+                sessionStorage.setItem('hasSeenLoadingScreen', 'true');
                 showMainContent();
             }
         };
