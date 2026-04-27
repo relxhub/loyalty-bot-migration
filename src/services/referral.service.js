@@ -72,14 +72,28 @@ const createPendingReferral = async (referrerId, refereeData) => {
  */
 const completeReferral = async (refereeId, purchaseAmount) => {
   return prisma.$transaction(async (tx) => {
-    const referral = await tx.referral.findUnique({
+    let referral = await tx.referral.findUnique({
       where: { refereeId }
     });
 
     // 1. Validate referral status and existence
     if (!referral) {
-      return { success: false, message: "ไม่พบข้อมูลการแนะนำสำหรับลูกค้ารายนี้" };
+      // 1.1 Fallback: Check if the customer has a referrerId but the Referral record was never created (due to old migrations or bugs)
+      const refereeCustomer = await tx.customer.findUnique({ where: { customerId: refereeId } });
+      if (refereeCustomer && refereeCustomer.referrerId) {
+        // Create the missing Referral record as PENDING_PURCHASE
+        referral = await tx.referral.create({
+          data: {
+            referrerId: refereeCustomer.referrerId,
+            refereeId: refereeId,
+            status: 'PENDING_PURCHASE'
+          }
+        });
+      } else {
+        return { success: false, message: "ไม่พบข้อมูลการแนะนำสำหรับลูกค้ารายนี้" };
+      }
     }
+    
     if (referral.status !== 'PENDING_PURCHASE') {
       return { success: false, message: "การแนะนำนี้เสร็จสมบูรณ์แล้วหรือไม่ถูกต้อง" };
     }
@@ -91,7 +105,22 @@ const completeReferral = async (refereeId, purchaseAmount) => {
     const minPurchaseForReferral = parseInt(getConfig('minPurchaseForReferral')) || 500; // Use from config or default
 
     if (purchaseAmount < minPurchaseForReferral) {
-      return { success: false, message: `ยอดซื้อไม่ถึงเกณฑ์ขั้นต่ำ ${minPurchaseForReferral} บาท` };
+      // Mark referral as FAILED so subsequent purchases don't trigger the bonus
+      await tx.referral.update({
+        where: { refereeId },
+        data: {
+          status: 'FAILED_MIN_PURCHASE',
+          purchaseAmount: purchaseAmount,
+          bonusAwarded: 0,
+          completedAt: new Date()
+        }
+      });
+      // Fallback: Ensure referee's Customer record has referrerId set
+      await tx.customer.update({
+        where: { customerId: refereeId },
+        data: { referrerId: referral.referrerId }
+      });
+      return { success: false, message: `การสั่งซื้อครั้งแรกยอดไม่ถึงเกณฑ์ขั้นต่ำ ${minPurchaseForReferral} บาท (ยอดซื้อจริง: ${purchaseAmount} บาท) การแนะนำจึงไม่ได้รับแต้ม` };
     }
 
     // 3. Calculate Bonus Points

@@ -675,6 +675,17 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
             }
         });
 
+        // 5.5 Auto-Complete Referral if applicable
+        let referralMsg = '';
+        try {
+            const referralResult = await referralService.completeReferral(order.customerId, parseFloat(slipAmount));
+            if (referralResult && referralResult.success) {
+                referralMsg = `\n\n🎉 <b>[โบนัสแนะนำเพื่อน]</b>\n${referralResult.message}`;
+            }
+        } catch (refErr) {
+            console.error('Auto referral completion error:', refErr);
+        }
+
         // 6. Send Notification to Admin (Round-Robin & Detailed Summary)
         try {
             const token = getVerificationToken();
@@ -734,6 +745,10 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                 
                 message += `\n💰 <b>ยอดสุทธิ:</b> ฿${parseFloat(slipAmount).toLocaleString('th-TH')}\n` +
                            `<i>(ตรวจสอบสลิปผ่าน SlipOK สำเร็จ) ${BYPASS_SLIPOK ? '[โหมดทดสอบ: Bypass สลิป]' : ''}</i>`;
+
+                if (referralMsg) {
+                    message += referralMsg;
+                }
 
                 // Admin Round-Robin Selection
                 const dayOfWeek = new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok', weekday: 'short' });

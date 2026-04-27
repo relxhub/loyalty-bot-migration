@@ -1655,7 +1655,7 @@
 
             const botUsername = getConfig('orderBotUsername', 'YOUR_ORDER_BOT_USERNAME_HERE');
             const userId = window.currentUser?.customerId || "UNKNOWN";
-            const inviteLink = `https://t.me/${botUsername}/app?startapp=ref_${userId}`;
+            const inviteLink = `https://t.me/${botUsername}?start=ref_${userId}`;
             linkInput.value = inviteLink;
             console.log(`[Invite Modal] Generated link: ${inviteLink}`);
 

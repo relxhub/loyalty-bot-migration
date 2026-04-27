@@ -59,7 +59,7 @@ export async function handleCustomerCommand(ctx) {
             if (payload && payload.startsWith('ref_')) {
                 // This is a referral link click
                 const referrerId = payload.split('_')[1];
-                const webAppUrl = `${getConfig('publicUrl')}?referrerId=${referrerId}`;
+                const webAppUrl = `${getConfig('publicUrl')}?start_param=ref_${referrerId}`;
 
                 await createCustomerLog(userTgId, null, "REFERRAL_LINK_CLICK", 0, `Referrer: ${referrerId}`);
                 
