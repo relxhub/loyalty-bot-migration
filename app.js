@@ -21,7 +21,7 @@ import { loadConfig, getConfig } from './src/config/config.js';
 import { loadAdminCache } from './src/services/admin.service.js';
 
 // Import Handlers
-import { handleAdminCommand } from './src/handlers/admin.handlers.js';
+import { handleAdminCommand, handleAdminCallback } from './src/handlers/admin.handlers.js';
 import { handleCustomerCommand } from './src/handlers/customer.handlers.js';
 
 // Import API Routes

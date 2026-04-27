@@ -729,3 +729,184 @@ async function handleCouponRestore(ctx, commandParts, adminUser, chatId) {
         sendAdminReply(chatId, `❌ ${error.message}`);
     }
 }
+
+// ==================================================
+// 🖱️ CALLBACK QUERIES
+// ==================================================
+export async function handleAdminCallback(ctx) {
+    try {
+        const data = ctx.callbackQuery.data;
+        const userTgId = String(ctx.from.id);
+        const role = await getAdminRole(userTgId);
+        
+        if (!role) {
+            await ctx.answerCbQuery("⛔️ คุณไม่มีสิทธิ์ใช้งาน", { show_alert: true });
+            return;
+        }
+        
+        if (data && data.startsWith('addbill_')) {
+            const orderId = data.replace('addbill_', '');
+            const originalMessageId = ctx.callbackQuery.message?.message_id;
+            
+            await ctx.reply(`กรุณาตอบกลับข้อความนี้พร้อมแนบ "เลขพัสดุ/บิล" สำหรับออเดอร์: #${orderId}\n[RefMsgID:${originalMessageId}]`, {
+                reply_markup: { force_reply: true }
+            });
+            await ctx.answerCbQuery();
+            return;
+        }
+
+        if (role !== "SuperAdmin") {
+            await ctx.answerCbQuery("⛔️ เฉพาะ Super Admin เท่านั้นที่ทำรายการนี้ได้", { show_alert: true });
+            return;
+        }
+
+        // --- MANAGE ORDER FLOW ---
+        const chatId = ctx.chat.id;
+
+        if (data && data.startsWith('manage_order_')) {
+            const orderId = data.replace('manage_order_', '');
+            const order = await prisma.order.findUnique({
+                where: { id: orderId },
+                include: { items: { include: { product: true } } }
+            });
+            
+            if (!order || order.status === 'CANCELLED') {
+                return ctx.answerCbQuery("❌ ออเดอร์นี้ถูกยกเลิก หรือไม่พบออเดอร์", { show_alert: true });
+            }
+
+            const keyboard = [
+                [{ text: "✏️ จัดการสินค้ารายชิ้น", callback_data: `edit_items_${orderId}` }],
+                [{ text: "🗑 ยกเลิกออเดอร์ทั้งหมด", callback_data: `cancel_order_${orderId}` }]
+            ];
+
+            await ctx.editMessageReplyMarkup({ inline_keyboard: keyboard });
+            await ctx.answerCbQuery();
+        } 
+        else if (data && data.startsWith('cancel_order_')) {
+            const orderId = data.replace('cancel_order_', '');
+            
+            const order = await prisma.order.findUnique({
+                where: { id: orderId },
+                include: { items: true }
+            });
+            
+            if (!order || order.status === 'CANCELLED') return ctx.answerCbQuery("❌ ออเดอร์นี้ถูกยกเลิกไปแล้ว", { show_alert: true });
+
+            await prisma.$transaction(async (tx) => {
+                await tx.order.update({ where: { id: orderId }, data: { status: 'CANCELLED' } });
+                for (const item of order.items) {
+                    await tx.product.update({
+                        where: { id: item.productId },
+                        data: { stockQuantity: { increment: item.quantity } }
+                    });
+                }
+                if (order.appliedCouponId) {
+                    const custCoupon = await tx.customerCoupon.findFirst({
+                        where: { customerId: order.customerId, couponId: order.appliedCouponId }
+                    });
+                    if (custCoupon) {
+                        await tx.customerCoupon.update({
+                            where: { id: custCoupon.id },
+                            data: { status: 'AVAILABLE', usedAt: null }
+                        });
+                    }
+                }
+            });
+            
+            await ctx.editMessageReplyMarkup({ inline_keyboard: [] });
+            await ctx.telegram.sendMessage(chatId, `✅ ยกเลิกออเดอร์ #${orderId} และคืนสต๊อกทั้งหมดเรียบร้อยแล้ว`, { parse_mode: 'HTML' });
+            await ctx.answerCbQuery("ยกเลิกออเดอร์เรียบร้อย");
+        }
+        else if (data && data.startsWith('edit_items_')) {
+            const orderId = data.replace('edit_items_', '');
+            const order = await prisma.order.findUnique({
+                where: { id: orderId },
+                include: { items: { include: { product: true } } }
+            });
+            
+            if (!order || order.status === 'CANCELLED') return ctx.answerCbQuery("❌ ออเดอร์นี้ถูกยกเลิกแล้ว", { show_alert: true });
+            
+            const keyboard = order.items.filter(item => item.quantity > 0).map(item => {
+                return [{
+                    text: `${item.product.nameEn} (มี ${item.quantity}) ➖ ลบ 1 ชิ้น`,
+                    callback_data: `remove_item_${orderId}_${item.id}`
+                }];
+            });
+            
+            keyboard.push([{ text: "✅ ยืนยันการแก้ไข (สรุปยอดใหม่)", callback_data: `confirm_edit_${orderId}` }]);
+
+            await ctx.editMessageReplyMarkup({ inline_keyboard: keyboard });
+            await ctx.answerCbQuery();
+        }
+        else if (data && data.startsWith('remove_item_')) {
+            // data format: remove_item_ORD-123456-1234_5
+            const prefix = 'remove_item_';
+            const remaining = data.slice(prefix.length);
+            const lastUnderscore = remaining.lastIndexOf('_');
+            const orderId = remaining.slice(0, lastUnderscore);
+            const itemId = parseInt(remaining.slice(lastUnderscore + 1));
+            
+            await prisma.$transaction(async (tx) => {
+                const item = await tx.orderItem.findUnique({ where: { id: itemId } });
+                if (item && item.quantity > 0) {
+                    if (item.quantity === 1) {
+                         await tx.orderItem.delete({ where: { id: itemId } });
+                    } else {
+                         await tx.orderItem.update({
+                             where: { id: itemId },
+                             data: { quantity: { decrement: 1 } }
+                         });
+                    }
+                    
+                    await tx.product.update({
+                        where: { id: item.productId },
+                        data: { stockQuantity: { increment: 1 } }
+                    });
+                    
+                    const newTotal = parseFloat(item.priceAtPurchase);
+                    await tx.order.update({
+                        where: { id: orderId },
+                        data: { totalAmount: { decrement: newTotal } }
+                    });
+                }
+            });
+            
+            const order = await prisma.order.findUnique({
+                where: { id: orderId },
+                include: { items: { include: { product: true } } }
+            });
+            
+            const keyboard = order.items.filter(item => item.quantity > 0).map(item => {
+                return [{
+                    text: `${item.product.nameEn} (มี ${item.quantity}) ➖ ลบ 1 ชิ้น`,
+                    callback_data: `remove_item_${orderId}_${item.id}`
+                }];
+            });
+            
+            if (keyboard.length === 0) {
+                await tx.order.update({ where: { id: orderId }, data: { status: 'CANCELLED' } });
+                await ctx.editMessageReplyMarkup({ inline_keyboard: [] });
+                await ctx.telegram.sendMessage(chatId, `✅ สินค้าทั้งหมดถูกลบ ยกเลิกออเดอร์ #${orderId} อัตโนมัติ`, { parse_mode: 'HTML' });
+            } else {
+                keyboard.push([{ text: "✅ ยืนยันการแก้ไข (สรุปยอดใหม่)", callback_data: `confirm_edit_${orderId}` }]);
+                await ctx.editMessageReplyMarkup({ inline_keyboard: keyboard });
+            }
+            await ctx.answerCbQuery("ลดจำนวน 1 ชิ้นและคืนสต๊อกแล้ว");
+        }
+        else if (data && data.startsWith('confirm_edit_')) {
+            const orderId = data.replace('confirm_edit_', '');
+            
+            const order = await prisma.order.findUnique({
+                where: { id: orderId }
+            });
+            
+            await ctx.editMessageReplyMarkup({ inline_keyboard: [] });
+            await ctx.telegram.sendMessage(chatId, `✅ บันทึกการแก้ไขออเดอร์ #${orderId} เรียบร้อยแล้ว\n💰 <b>ยอดรวมใหม่: ฿${parseFloat(order.totalAmount).toLocaleString('th-TH')}</b>`, { parse_mode: 'HTML' });
+            await ctx.answerCbQuery();
+        }
+
+    } catch (error) {
+        console.error('Admin callback error:', error);
+        try { await ctx.answerCbQuery("เกิดข้อผิดพลาด"); } catch (e) {}
+    }
+}
