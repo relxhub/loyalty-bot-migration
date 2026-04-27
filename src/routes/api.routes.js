@@ -769,7 +769,11 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                             inline_keyboard: [[
                                 { text: "📝 แนบเลขบิล", callback_data: `addbill_${order.id}` }
                             ]]
-                        } : undefined;
+                        } : {
+                            inline_keyboard: [[
+                                { text: "⚙️ แก้ไข/ยกเลิกออเดอร์", callback_data: `manage_order_${order.id}` }
+                            ]]
+                        };
                         
                         if (photoUrl) {
                             res = await fetch(telegramUrl, {
