@@ -1771,8 +1771,9 @@ router.get('/images/:fileId', async (req, res) => {
         const contentType = imgRes.headers.get('content-type');
         if (contentType) res.setHeader('Content-Type', contentType);
         
-        // Pipe the image stream directly to the response
-        imgRes.body.pipe(res);
+        // Send the image buffer
+        const arrayBuffer = await imgRes.arrayBuffer();
+        res.send(Buffer.from(arrayBuffer));
 
     } catch (e) {
         console.error('Error proxying telegram image:', e);

@@ -186,14 +186,41 @@ export async function handleAdminCommand(ctx) {
 
                                 // Try to update the original group message to append the bill number!
                                 if (updatedOrder.groupMsgId) {
+                                    const groupKeyboard = [[{ text: "⚙️ แก้ไข/ยกเลิกออเดอร์", callback_data: `manage_order_${orderId}` }]];
                                     try {
-                                        await ctx.telegram.editMessageCaption(groupId, updatedOrder.groupMsgId, undefined, message, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } });
-                                    } catch (e) {
-                                        try {
-                                            await ctx.telegram.editMessageText(groupId, updatedOrder.groupMsgId, undefined, message, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } });
-                                        } catch(e2) {
-                                            console.error('Failed to edit group original message:', e2);
+                                        // Use fetch directly to bypass any telegraf signature issues
+                                        const editCaptionUrl = `https://api.telegram.org/bot${adminToken}/editMessageCaption`;
+                                        const resCaption = await fetch(editCaptionUrl, {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                                chat_id: groupId,
+                                                message_id: updatedOrder.groupMsgId,
+                                                caption: message,
+                                                parse_mode: 'HTML',
+                                                reply_markup: { inline_keyboard: groupKeyboard }
+                                            })
+                                        });
+                                        const captionData = await resCaption.json();
+                                        if (!captionData.ok) {
+                                            // Fallback to editMessageText if it was not a caption (bypassed slipok)
+                                            const editTextUrl = `https://api.telegram.org/bot${adminToken}/editMessageText`;
+                                            const resText = await fetch(editTextUrl, {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                    chat_id: groupId,
+                                                    message_id: updatedOrder.groupMsgId,
+                                                    text: message,
+                                                    parse_mode: 'HTML',
+                                                    reply_markup: { inline_keyboard: groupKeyboard }
+                                                })
+                                            });
+                                            const textData = await resText.json();
+                                            if (!textData.ok) console.error('Failed to edit group original message via text:', textData);
                                         }
+                                    } catch (e) {
+                                        console.error('Failed to execute fetch for editing group message:', e);
                                     }
                                 }
                             }
@@ -235,7 +262,16 @@ export async function handleAdminCommand(ctx) {
                                 keyboard.push([{ text: "🗑 ยกเลิกออเดอร์ทั้งหมด", callback_data: `cancel_confirm_${orderId}` }]);
                             }
                             try {
-                                await ctx.telegram.editMessageReplyMarkup(chatId, refMsgId, undefined, { inline_keyboard: keyboard });
+                                const adminToken = process.env.ADMIN_BOT_TOKEN;
+                                await fetch(`https://api.telegram.org/bot${adminToken}/editMessageReplyMarkup`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        chat_id: chatId,
+                                        message_id: refMsgId,
+                                        reply_markup: { inline_keyboard: keyboard }
+                                    })
+                                });
                             } catch (e) {}
                         } catch (e) {}
                     }
