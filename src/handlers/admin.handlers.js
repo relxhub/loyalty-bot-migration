@@ -278,6 +278,14 @@ export async function handleAdminCommand(ctx) {
 
                     const bkkTime = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
                     await sendAdminReply(chatId, `✅ บันทึกสลิปโอนเงินคืน สำหรับออเดอร์ <b>#${orderId}</b> สำเร็จแล้ว\nเวลา: ${bkkTime}`);
+                    
+                    if (currentOrder && currentOrder.customerId) {
+                        const cust = await prisma.customer.findUnique({ where: { customerId: currentOrder.customerId } });
+                        if (cust && cust.telegramUserId) {
+                            await sendNotificationToCustomer(cust.telegramUserId, `💸 <b>มีการโอนเงินคืน</b>\n\nทางร้านได้ทำการโอนเงินคืนสำหรับออเดอร์ <b>#${orderId}</b> เรียบร้อยแล้วครับ\n(สามารถดูรูปสลิปการโอนเงินคืนได้ในเมนู "ประวัติคำสั่งซื้อ")`);
+                        }
+                    }
+
                     return;
                 } else if (match && !ctx.message.photo) {
                     await sendAdminReply(chatId, `❌ กรุณาแนบรูปภาพสลิปโอนเงินคืนเท่านั้น`);
@@ -1017,6 +1025,10 @@ export async function handleAdminCallback(ctx) {
             await ctx.editMessageReplyMarkup({ inline_keyboard: keyboard });
             await ctx.telegram.sendMessage(chatId, `✅ ยกเลิกออเดอร์ #${orderId} และคืนสต๊อกทั้งหมดเรียบร้อยแล้ว`, { parse_mode: 'HTML' });
             await ctx.answerCbQuery("ยกเลิกออเดอร์เรียบร้อย");
+
+            if (order.customer && order.customer.telegramUserId) {
+                await sendNotificationToCustomer(order.customer.telegramUserId, `❌ <b>ออเดอร์ของคุณถูกยกเลิก</b>\n\nออเดอร์ <b>#${order.id}</b> ถูกยกเลิกโดยเจ้าหน้าที่\nหากมีข้อสงสัยกรุณาติดต่อแอดมินครับ`);
+            }
         }
         else if (data && data.startsWith('edit_items_')) {
             const orderId = data.replace('edit_items_', '');
@@ -1088,6 +1100,10 @@ export async function handleAdminCallback(ctx) {
                 const finalKeyboard = await getManageMenu(orderId);
                 await ctx.editMessageReplyMarkup({ inline_keyboard: finalKeyboard });
                 await ctx.telegram.sendMessage(chatId, `✅ สินค้าทั้งหมดถูกลบ ยกเลิกออเดอร์ #${orderId} อัตโนมัติ`, { parse_mode: 'HTML' });
+                
+                if (order.customer && order.customer.telegramUserId) {
+                    await sendNotificationToCustomer(order.customer.telegramUserId, `❌ <b>ออเดอร์ของคุณถูกยกเลิก</b>\n\nออเดอร์ <b>#${order.id}</b> ถูกยกเลิกโดยเจ้าหน้าที่เนื่องจากสินค้าหมด\nหากมีข้อสงสัยกรุณาติดต่อแอดมินครับ`);
+                }
             } else {
                 keyboard.push([{ text: "🔙 กลับ", callback_data: `manage_order_${orderId}` }]);
                 await ctx.editMessageReplyMarkup({ inline_keyboard: keyboard });
@@ -1098,12 +1114,19 @@ export async function handleAdminCallback(ctx) {
             const orderId = data.replace('confirm_edit_', '');
             
             const order = await prisma.order.findUnique({
-                where: { id: orderId }
+                where: { id: orderId },
+                include: { customer: true }
             });
             
             const finalKeyboard = await getManageMenu(orderId);
             await ctx.editMessageReplyMarkup({ inline_keyboard: finalKeyboard });
-            await ctx.answerCbQuery();
+            
+            if (order.customer && order.customer.telegramUserId) {
+                const newTotal = parseFloat(order.totalAmount).toLocaleString('th-TH');
+                await sendNotificationToCustomer(order.customer.telegramUserId, `⚠️ <b>มีการแก้ไขคำสั่งซื้อ</b>\n\nออเดอร์ <b>#${order.id}</b> มีการเปลี่ยนแปลงรายการสินค้าเนื่องจากสินค้าบางรายการหมด\n\nยอดรวมใหม่ของคุณคือ: <b>฿${newTotal}</b>\n(สามารถตรวจสอบรายการสินค้าที่อัปเดตและสลิปโอนเงินคืนได้ที่เมนูประวัติคำสั่งซื้อ)`);
+            }
+
+            await ctx.answerCbQuery("ยืนยันและแจ้งลูกค้าเรียบร้อยแล้ว");
         }
 
     } catch (error) {
