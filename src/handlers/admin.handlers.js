@@ -147,7 +147,7 @@ export async function handleAdminCommand(ctx) {
 
                     // Send confirmation to admin
                     const bkkTime = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
-                    await sendAdminReply(chatId, `✅ บันทึกเลขพัสดุ/บิล <b>${billNumber}</b>\nสำหรับออเดอร์ <b>#${orderId}</b> สำเร็จแล้ว\nเมื่อเวลา: ${bkkTime}`);
+                    await sendAdminReply(chatId, `✅ บันทึกเลขบิล <b>${billNumber}</b>\nสำหรับออเดอร์ <b>#${orderId}</b> สำเร็จแล้ว\nเมื่อเวลา: ${bkkTime}`);
 
                     // Get Admin Name from DB
                     let displayName = adminUser; // Fallback to telegram username
@@ -164,9 +164,9 @@ export async function handleAdminCommand(ctx) {
                     }
 
                     // Send alert to Super Admins & Group
-                    const alertMsg = `📦 <b>แอดมิน ${displayName} ได้แนบเลขพัสดุ/บิล</b>\n` +
+                    const alertMsg = `📦 <b>แอดมิน ${displayName} ได้แนบเลขบิล</b>\n` +
                                      `<b>ออเดอร์:</b> #${orderId}\n` +
-                                     `<b>เลขที่:</b> ${billNumber}\n` +
+                                     `<b>เลขบิล:</b> ${billNumber}\n` +
                                      `<b>เวลา:</b> ${bkkTime}`;
                     
                     const groupId = process.env.ADMIN_GROUP_ID || process.env.SUPER_ADMIN_TELEGRAM_ID;
@@ -183,6 +183,19 @@ export async function handleAdminCommand(ctx) {
                                         parse_mode: 'HTML'
                                     })
                                 });
+
+                                // Try to update the original group message to append the bill number!
+                                if (updatedOrder.groupMsgId) {
+                                    try {
+                                        await ctx.telegram.editMessageCaption(groupId, updatedOrder.groupMsgId, undefined, message, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } });
+                                    } catch (e) {
+                                        try {
+                                            await ctx.telegram.editMessageText(groupId, updatedOrder.groupMsgId, undefined, message, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } });
+                                        } catch(e2) {
+                                            console.error('Failed to edit group original message:', e2);
+                                        }
+                                    }
+                                }
                             }
                         } catch (e) {
                             console.error('Failed to alert group about bill:', e);
@@ -215,9 +228,12 @@ export async function handleAdminCommand(ctx) {
                     if (refMatch) {
                         try {
                             const refMsgId = parseInt(refMatch[1], 10);
-                            const keyboard = [
-                                [{ text: "🔙 กลับ", callback_data: `manage_order_${orderId}` }]
-                            ];
+                            const currentOrder = await prisma.order.findUnique({ where: { id: orderId } });
+                            const keyboard = [];
+                            if (currentOrder && currentOrder.status !== 'CANCELLED') {
+                                keyboard.push([{ text: "✏️ จัดการสินค้ารายชิ้น", callback_data: `edit_items_${orderId}` }]);
+                                keyboard.push([{ text: "🗑 ยกเลิกออเดอร์ทั้งหมด", callback_data: `cancel_confirm_${orderId}` }]);
+                            }
                             try {
                                 await ctx.telegram.editMessageReplyMarkup(chatId, refMsgId, undefined, { inline_keyboard: keyboard });
                             } catch (e) {}
@@ -876,7 +892,8 @@ export async function handleAdminCallback(ctx) {
 
         if (data && data.startsWith('addrefundslip_')) {
             const orderId = data.replace('addrefundslip_', '');
-            await ctx.reply(`กรุณาตอบกลับข้อความนี้พร้อมแนบ "สลิปโอนเงินคืน" (รูปภาพ) สำหรับออเดอร์: #${orderId}`, {
+            const originalMessageId = ctx.callbackQuery.message?.message_id;
+            await ctx.reply(`กรุณาตอบกลับข้อความนี้พร้อมแนบ "สลิปโอนเงินคืน" (รูปภาพ) สำหรับออเดอร์: #${orderId}\n[RefMsgID:${originalMessageId}]`, {
                 reply_markup: { force_reply: true }
             });
             await ctx.answerCbQuery();

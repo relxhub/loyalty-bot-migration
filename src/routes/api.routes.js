@@ -819,9 +819,12 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                         if (!res.ok) {
                             const errData = await res.json();
                             console.error(`Telegram API Error for chat ${chatId}:`, errData);
+                            return null;
                         }
+                        return await res.json();
                     } catch (e) {
                         console.error(`Fetch error sending to ${chatId}:`, e);
+                        return null;
                     }
                 };
 
@@ -833,7 +836,17 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                 // 2. ALWAYS send to Group Admin (or Super Admin fallback)
                 const groupId = process.env.ADMIN_GROUP_ID || process.env.SUPER_ADMIN_TELEGRAM_ID;
                 if (groupId && groupId !== activeAdminId) {
-                    await notifyTelegram(groupId, false);
+                    const groupRes = await notifyTelegram(groupId, false);
+                    if (groupRes && groupRes.result && groupRes.result.message_id) {
+                        try {
+                            await prisma.order.update({
+                                where: { id: order.id },
+                                data: { groupMsgId: groupRes.result.message_id }
+                            });
+                        } catch (dbErr) {
+                            console.error('Failed to save groupMsgId:', dbErr);
+                        }
+                    }
                 }
             }
         } catch (notifErr) {

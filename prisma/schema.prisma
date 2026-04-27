@@ -486,6 +486,7 @@ model Order {
   trackingNumber    String?     @db.Text
   billNumber        String?     @db.Text
   refundSlipUrl     String?     @db.Text
+  groupMsgId        Int?
 
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt

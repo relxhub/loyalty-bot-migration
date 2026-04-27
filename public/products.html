@@ -2741,7 +2741,7 @@
                         </div>
                         
                         ${reorderButtonHtml}
-                        ${order.refundSlipUrl ? `<button onclick="window.open('${order.refundSlipUrl}', '_blank')" class="mt-4 w-full py-3 bg-zinc-800 text-zinc-300 rounded-xl text-md font-bold active:scale-95 transition hover:bg-zinc-700 border border-zinc-700 shadow-lg flex justify-center items-center gap-2"><i class="ri-file-list-3-line text-lg"></i> ดูสลิปโอนเงินคืน</button>` : ''}
+                        ${order.refundSlipUrl ? `<button onclick="window.showRefundSlip('${order.refundSlipUrl}')" class="mt-4 w-full py-3 bg-zinc-800 text-zinc-300 rounded-xl text-md font-bold active:scale-95 transition hover:bg-zinc-700 border border-zinc-700 shadow-lg flex justify-center items-center gap-2"><i class="ri-file-list-3-line text-lg"></i> ดูสลิปโอนเงินคืน</button>` : ''}
                     </div>
                 `;
 
@@ -2759,6 +2759,24 @@
                     modal.classList.add('hidden');
                 }, 300);
             };
+
+            window.showRefundSlip = (url) => {
+                const modal = document.getElementById('refund-slip-modal');
+                const img = document.getElementById('refund-slip-img');
+                if (modal && img) {
+                    img.src = url;
+                    modal.classList.remove('hidden');
+                    setTimeout(() => modal.classList.add('show'), 10);
+                }
+            };
+            window.closeRefundSlip = () => {
+                const modal = document.getElementById('refund-slip-modal');
+                if (modal) {
+                    modal.classList.remove('show');
+                    setTimeout(() => modal.classList.add('hidden'), 300);
+                }
+            };
+
 
             document.getElementById('order-details-modal')?.addEventListener('click', (e) => {
                 if (e.target.id === 'order-details-modal') window.closeOrderDetailsModal();
@@ -4632,6 +4650,17 @@
             <div id="available-coupons-list" class="p-4 overflow-y-auto space-y-3">
                 <!-- Coupons will be injected here -->
             </div>
+        </div>
+    </div>
+
+
+    <!-- Refund Slip Modal -->
+    <div id="refund-slip-modal" class="hidden fixed inset-0 z-[90] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 opacity-0 transition-opacity duration-300">
+        <div class="relative w-full max-w-md flex flex-col items-center">
+            <button onclick="window.closeRefundSlip()" class="absolute -top-12 right-0 w-10 h-10 rounded-full bg-zinc-800/80 text-white flex items-center justify-center hover:bg-zinc-700 transition border border-zinc-600 shadow-xl">
+                <i class="ri-close-line text-2xl"></i>
+            </button>
+            <img id="refund-slip-img" src="" alt="Refund Slip" class="max-w-full max-h-[85vh] rounded-xl shadow-2xl object-contain">
         </div>
     </div>
 
