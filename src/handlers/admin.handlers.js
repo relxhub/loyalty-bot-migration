@@ -187,44 +187,17 @@ export async function handleAdminCommand(ctx) {
                                     })
                                 });
 
-                                // Try to update the original group message to append the bill number!
+                                // Update the original group message to append the bill number
                                 if (updatedOrder.groupMsgId) {
                                     const groupKeyboard = [[{ text: "⚙️ แก้ไข/ยกเลิกออเดอร์", callback_data: `manage_order_${orderId}` }]];
                                     try {
-                                        const fetchModule = await import('node-fetch');
-                                        const fetchFn = fetchModule.default;
-                                        
-                                        const editCaptionUrl = `https://api.telegram.org/bot${adminToken}/editMessageCaption`;
-                                        const resCaption = await fetchFn(editCaptionUrl, {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({
-                                                chat_id: groupId,
-                                                message_id: updatedOrder.groupMsgId,
-                                                caption: message,
-                                                parse_mode: 'HTML',
-                                                reply_markup: { inline_keyboard: groupKeyboard }
-                                            })
-                                        });
-                                        const captionData = await resCaption.json();
-                                        if (!captionData.ok) {
-                                            const editTextUrl = `https://api.telegram.org/bot${adminToken}/editMessageText`;
-                                            const resText = await fetchFn(editTextUrl, {
-                                                method: 'POST',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({
-                                                    chat_id: groupId,
-                                                    message_id: updatedOrder.groupMsgId,
-                                                    text: message,
-                                                    parse_mode: 'HTML',
-                                                    reply_markup: { inline_keyboard: groupKeyboard }
-                                                })
-                                            });
-                                            const textData = await resText.json();
-                                            if (!textData.ok) console.error('Failed to edit group original message via text:', textData);
-                                        }
+                                        await ctx.telegram.editMessageCaption(groupId, updatedOrder.groupMsgId, undefined, message, { parse_mode: 'HTML', reply_markup: { inline_keyboard: groupKeyboard } });
                                     } catch (e) {
-                                        console.error('Failed to execute fetch for editing group message:', e);
+                                        try {
+                                            await ctx.telegram.editMessageText(groupId, updatedOrder.groupMsgId, undefined, message, { parse_mode: 'HTML', reply_markup: { inline_keyboard: groupKeyboard } });
+                                        } catch (e2) {
+                                            console.error('Failed to edit group original message via telegram:', e2);
+                                        }
                                     }
                                 }
                             }

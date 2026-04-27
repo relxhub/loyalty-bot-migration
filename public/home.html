@@ -570,10 +570,21 @@
 
             // Always check auth on load to enforce phone verification
             try {
+                let startParam = tg.initDataUnsafe?.start_param;
+                if (!startParam) {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    startParam = urlParams.get('start_param');
+                }
+                
+                let referrerId = null;
+                if (startParam && startParam.startsWith('ref_')) {
+                    referrerId = startParam.split('_')[1];
+                }
+
                 const authRes = await fetch('/api/auth', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ initData: tg.initData })
+                    body: JSON.stringify({ initData: tg.initData, referrerId: referrerId })
                 });
                 
                 if (authRes.ok) {

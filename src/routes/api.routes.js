@@ -100,17 +100,9 @@ router.post('/auth', async (req, res) => {
 
         if (!customer) {
             console.log(`[Auto-Signup] Creating new customer for Telegram ID: ${telegramId}`);
-            customer = await createCustomer({
-                telegramId: telegramId,
-                firstName: userData.first_name || '',
-                lastName: userData.last_name || '',
-                username: userData.username || '',
-                referrerId: referrerId || null
-            }, "AUTO_SIGNUP");
-            isNewCustomer = true;
-
-            // Optional: Also explicitly create a pending referral record to be safe
+            
             if (referrerId) {
+                console.log(`[Auto-Signup] Processing referral from: ${referrerId}`);
                 try {
                     await referralService.createPendingReferral(referrerId, {
                         telegramId: telegramId,
@@ -119,10 +111,27 @@ router.post('/auth', async (req, res) => {
                         username: userData.username || null,
                         referrerId: referrerId
                     });
+                    customer = await getCustomerByTelegramId(telegramId);
                 } catch (e) {
                     console.error("Failed to create pending referral during auto-signup:", e);
+                    customer = await createCustomer({
+                        telegramId: telegramId,
+                        firstName: userData.first_name || '',
+                        lastName: userData.last_name || '',
+                        username: userData.username || '',
+                        referrerId: referrerId
+                    }, "AUTO_SIGNUP");
                 }
+            } else {
+                customer = await createCustomer({
+                    telegramId: telegramId,
+                    firstName: userData.first_name || '',
+                    lastName: userData.last_name || '',
+                    username: userData.username || '',
+                    referrerId: null
+                }, "AUTO_SIGNUP");
             }
+            isNewCustomer = true;
         }
         const hasPhone = !!customer.phoneNumber;
 
