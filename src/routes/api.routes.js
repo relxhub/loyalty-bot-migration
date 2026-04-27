@@ -523,60 +523,76 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
         if (order.status !== 'PENDING_PAYMENT') return res.status(400).json({ success: false, error: 'ออเดอร์นี้ชำระเงินไปแล้ว หรือถูกยกเลิก' });
 
         // 2. Call SlipOK API
-        const slipOkBranchId = process.env.SLIPOK_BRANCH_ID ? process.env.SLIPOK_BRANCH_ID.trim() : null;
-        const slipOkApiKey = process.env.SLIPOK_API_KEY ? process.env.SLIPOK_API_KEY.trim() : null;
-        
-        if (!slipOkBranchId || !slipOkApiKey) {
-             console.error("Missing SLIPOK_BRANCH_ID or SLIPOK_API_KEY in environment variables.");
-             return res.status(500).json({ success: false, error: 'ระบบตรวจสอบสลิปยังไม่พร้อมใช้งาน (Missing API Keys)' });
-        }
+        const BYPASS_SLIPOK = true; // ⚠️ ตั้งค่าเป็น true เพื่อปิดการตรวจสอบสลิปชั่วคราวตามคำขอ
 
-        if (isNaN(slipOkBranchId)) {
-             return res.status(500).json({ success: false, error: 'การตั้งค่า SLIPOK_BRANCH_ID ผิดพลาด (ต้องเป็นตัวเลขเท่านั้น)' });
-        }
+        let slipData = {};
+        let slipAmount = order.totalAmount;
+        let slipTransRef = 'BYPASS-' + Date.now();
 
-        const formData = new FormData();
-        const blob = new Blob([file.buffer], { type: file.mimetype || 'image/jpeg' });
-        formData.append('files', blob, file.originalname || 'slip.jpg');
+        if (BYPASS_SLIPOK) {
+            // Fake data for bypass mode
+            slipData = {
+                success: true,
+                data: {
+                    amount: slipAmount,
+                    transRef: slipTransRef,
+                    url: '' // Will let telegram use the uploaded file or none
+                }
+            };
+        } else {
+            const slipOkBranchId = process.env.SLIPOK_BRANCH_ID ? process.env.SLIPOK_BRANCH_ID.trim() : null;
+            const slipOkApiKey = process.env.SLIPOK_API_KEY ? process.env.SLIPOK_API_KEY.trim() : null;
+            
+            if (!slipOkBranchId || !slipOkApiKey) {
+                 console.error("Missing SLIPOK_BRANCH_ID or SLIPOK_API_KEY in environment variables.");
+                 return res.status(500).json({ success: false, error: 'ระบบตรวจสอบสลิปยังไม่พร้อมใช้งาน (Missing API Keys)' });
+            }
 
-        const slipOkRes = await fetch(`https://api.slipok.com/api/line/apikey/${slipOkBranchId}`, {
-            method: 'POST',
-            headers: {
-                'x-authorization': slipOkApiKey
-            },
-            body: formData
-        });
+            if (isNaN(slipOkBranchId)) {
+                 return res.status(500).json({ success: false, error: 'การตั้งค่า SLIPOK_BRANCH_ID ผิดพลาด (ต้องเป็นตัวเลขเท่านั้น)' });
+            }
 
-        const slipData = await slipOkRes.json();
+            const formData = new FormData();
+            const blob = new Blob([file.buffer], { type: file.mimetype || 'image/jpeg' });
+            formData.append('files', blob, file.originalname || 'slip.jpg');
 
-        if (!slipData.success) {
-            console.error("SlipOK Verification Failed:", slipData);
-            return res.status(400).json({ 
-                success: false, 
-                error: slipData.message || 'สลิปไม่ถูกต้อง หรือไม่สามารถตรวจสอบได้' 
+            const slipOkRes = await fetch(`https://api.slipok.com/api/line/apikey/${slipOkBranchId}`, {
+                method: 'POST',
+                headers: {
+                    'x-authorization': slipOkApiKey
+                },
+                body: formData
             });
-        }
 
-        const slipAmount = slipData.data.amount;
-        const slipTransRef = slipData.data.transRef;
+            slipData = await slipOkRes.json();
 
-        // 3. Validate Amount
-        if (parseFloat(slipAmount) !== parseFloat(order.totalAmount)) {
-            return res.status(400).json({ 
-                success: false, 
-                error: `ยอดเงินไม่ตรงกัน (ยอดที่ต้องชำระ: ${order.totalAmount} ฿, ยอดในสลิป: ${slipAmount} ฿)` 
+            if (!slipData.success) {
+                console.error("SlipOK Verification Failed:", slipData);
+                return res.status(400).json({ 
+                    success: false, 
+                    error: slipData.message || 'สลิปไม่ถูกต้อง หรือไม่สามารถตรวจสอบได้' 
+                });
+            }
+
+            slipAmount = slipData.data.amount;
+            slipTransRef = slipData.data.transRef;
+
+            // 3. Validate Amount
+            if (parseFloat(slipAmount) !== parseFloat(order.totalAmount)) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: `ยอดเงินไม่ตรงกัน (ยอดที่ต้องชำระ: ${order.totalAmount} ฿, ยอดในสลิป: ${slipAmount} ฿)` 
+                });
+            }
+            
+            // 4. Check for duplicate slip usage
+            const existingPayment = await prisma.payment.findFirst({
+                where: { slipOkTransactionId: slipTransRef }
             });
-        }
 
-        // Optional: Validate Receiver Account if needed (slipData.data.receiver)
-        
-        // 4. Check for duplicate slip usage
-        const existingPayment = await prisma.payment.findFirst({
-            where: { slipOkTransactionId: slipTransRef }
-        });
-
-        if (existingPayment) {
-             return res.status(400).json({ success: false, error: 'สลิปนี้ถูกใช้งานไปแล้ว' });
+            if (existingPayment) {
+                 return res.status(400).json({ success: false, error: 'สลิปนี้ถูกใช้งานไปแล้ว' });
+            }
         }
 
         // 5. Update Database in Transaction
@@ -685,7 +701,7 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                 }
                 
                 message += `\n💰 <b>ยอดสุทธิ:</b> ฿${parseFloat(slipAmount).toLocaleString('th-TH')}\n` +
-                           `<i>(ตรวจสอบสลิปผ่าน SlipOK สำเร็จ)</i>`;
+                           `<i>(ตรวจสอบสลิปผ่าน SlipOK สำเร็จ) ${BYPASS_SLIPOK ? '[โหมดทดสอบ: Bypass สลิป]' : ''}</i>`;
 
                 // Admin Round-Robin Selection
                 const dayOfWeek = new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok', weekday: 'short' });
