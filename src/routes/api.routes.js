@@ -1229,13 +1229,27 @@ router.get('/referrals/:telegramId', async (req, res) => {
 router.get('/reviews/:productId', async (req, res) => {
     try {
         const { productId } = req.params;
+        const { telegramId, sort = 'newest' } = req.query;
+
+        let orderBy = { createdAt: 'desc' };
+        if (sort === 'oldest') orderBy = { createdAt: 'asc' };
+        else if (sort === 'most_likes') orderBy = { likesCount: 'desc' };
+        else if (sort === 'least_likes') orderBy = { likesCount: 'asc' };
+
         const reviews = await prisma.productReview.findMany({
             where: { productId: parseInt(productId) },
-            orderBy: { createdAt: 'desc' },
+            orderBy: orderBy,
             include: {
                 customer: {
                     select: { firstName: true }
-                }
+                },
+                likes: telegramId ? {
+                    where: {
+                        customer: {
+                            telegramUserId: telegramId
+                        }
+                    }
+                } : false
             }
         });
 
@@ -1243,6 +1257,8 @@ router.get('/reviews/:productId', async (req, res) => {
             id: r.id,
             rating: r.rating,
             comment: r.comment,
+            likesCount: r.likesCount,
+            isLikedByMe: r.likes ? r.likes.length > 0 : false,
             createdAt: formatToBangkok(r.createdAt),
             author: r.customer.firstName || 'Anonymous'
         }));
@@ -1281,24 +1297,130 @@ router.post('/reviews', async (req, res) => {
             return res.status(400).json({ error: "Rating must be between 1 and 5." });
         }
 
-        // 3. Create review
-        const newReview = await prisma.productReview.create({
-            data: {
+        // 2.5 Check if user purchased the product
+        const hasPurchased = await prisma.orderItem.findFirst({
+            where: {
                 productId: parseInt(productId),
-                customerId: customerId,
-                rating: rating,
-                comment: comment,
+                order: {
+                    customerId: customerId,
+                    status: { in: ['PAID', 'PROCESSING', 'SHIPPED'] }
+                }
             }
         });
 
-        res.status(201).json({ success: true, review: newReview });
+        if (!hasPurchased) {
+            return res.status(403).json({ error: "คุณต้องสั่งซื้อสินค้านี้ก่อนจึงจะสามารถรีวิวได้" });
+        }
+
+        // 3. Create review & award points inside transaction
+        const reviewPoints = parseInt(getConfig('reviewPoints')) || 10; // แต้มที่ได้จากการรีวิว
+        
+        const result = await prisma.$transaction(async (tx) => {
+            const newReview = await tx.productReview.create({
+                data: {
+                    productId: parseInt(productId),
+                    customerId: customerId,
+                    rating: rating,
+                    comment: comment,
+                }
+            });
+
+            if (reviewPoints > 0) {
+                await tx.customer.update({
+                    where: { customerId: customerId },
+                    data: { points: { increment: reviewPoints } }
+                });
+
+                await tx.pointTransaction.create({
+                    data: {
+                        customerId: customerId,
+                        amount: reviewPoints,
+                        type: 'OTHER',
+                        detail: `ได้รับแต้มจากการรีวิวสินค้า`
+                    }
+                });
+            }
+
+            return newReview;
+        });
+
+        res.status(201).json({ success: true, review: result, pointsAwarded: reviewPoints });
 
     } catch (error) {
         if (error.code === 'P2002') { // Prisma unique constraint violation code
-            return res.status(409).json({ error: "You have already reviewed this product." });
+            return res.status(409).json({ error: "คุณเคยรีวิวสินค้านี้ไปแล้ว" });
         }
         console.error("Review Submission Error:", error);
         res.status(500).json({ error: "Failed to submit review." });
+    }
+});
+
+router.post('/reviews/:reviewId/like', async (req, res) => {
+    try {
+        const { reviewId } = req.params;
+        const { initData } = req.body;
+
+        if (!verifyTelegramWebAppData(initData)) {
+            return res.status(401).json({ error: "Invalid Telegram Data. Please reload the app." });
+        }
+        
+        const urlParams = new URLSearchParams(initData);
+        const userData = JSON.parse(urlParams.get('user'));
+        const telegramId = userData.id.toString();
+
+        const customer = await getCustomerByTelegramId(telegramId);
+        if (!customer) {
+            return res.status(403).json({ error: "User not found." });
+        }
+
+        const reviewIdInt = parseInt(reviewId);
+        
+        // Toggle Like Logic
+        const existingLike = await prisma.reviewLike.findUnique({
+            where: {
+                reviewId_customerId: {
+                    reviewId: reviewIdInt,
+                    customerId: customer.customerId
+                }
+            }
+        });
+
+        let isLiked = false;
+        
+        await prisma.$transaction(async (tx) => {
+            if (existingLike) {
+                // Unlike
+                await tx.reviewLike.delete({
+                    where: { id: existingLike.id }
+                });
+                await tx.productReview.update({
+                    where: { id: reviewIdInt },
+                    data: { likesCount: { decrement: 1 } }
+                });
+                isLiked = false;
+            } else {
+                // Like
+                await tx.reviewLike.create({
+                    data: {
+                        reviewId: reviewIdInt,
+                        customerId: customer.customerId
+                    }
+                });
+                await tx.productReview.update({
+                    where: { id: reviewIdInt },
+                    data: { likesCount: { increment: 1 } }
+                });
+                isLiked = true;
+            }
+        });
+
+        const updatedReview = await prisma.productReview.findUnique({ where: { id: reviewIdInt } });
+
+        res.json({ success: true, isLiked, likesCount: updatedReview.likesCount });
+
+    } catch (error) {
+        console.error("Review Like Error:", error);
+        res.status(500).json({ error: "Failed to toggle like." });
     }
 });
 

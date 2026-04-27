@@ -91,6 +91,7 @@ model Customer {
   referralsMade     Referral[]         @relation("ReferredBy") // People this customer has referred
   referredBy        Referral?          @relation("Referred") // The referral record for how this customer joined
   reviews           ProductReview[] // Relation to reviews
+  reviewLikes       ReviewLike[]    // Relation to review likes
   coupons           CustomerCoupon[] // Relation to coupons
   shippingAddresses ShippingAddress[] // Relation to shipping addresses
   cart              Cart? // Relation to Cart
@@ -359,11 +360,12 @@ model SystemLog {
 }
 
 model ProductReview {
-  id        Int      @id @default(autoincrement())
-  rating    Int
-  comment   String   @db.Text
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         Int      @id @default(autoincrement())
+  rating     Int
+  comment    String   @db.Text
+  likesCount Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   productId Int
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -371,8 +373,24 @@ model ProductReview {
   customerId String
   customer   Customer @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
 
+  likes ReviewLike[]
+
   @@unique([productId, customerId])
   @@index([productId])
+  @@index([customerId])
+}
+
+model ReviewLike {
+  id         Int      @id @default(autoincrement())
+  reviewId   Int
+  customerId String
+  createdAt  DateTime @default(now())
+
+  review     ProductReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  customer   Customer      @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
+
+  @@unique([reviewId, customerId])
+  @@index([reviewId])
   @@index([customerId])
 }
 
