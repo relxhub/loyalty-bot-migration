@@ -3306,25 +3306,9 @@
 
                 document.getElementById('modal-product-description').textContent = product.description || '';
                 
-                // --- Body Modification (Image vs Levels) ---
+                // Image and levels are intentionally hidden from review modal
                 const levelBarsContainer = document.getElementById('modal-level-bars');
-                const isDevice = category && category.type === 'DEVICE';
-
-                if (isDevice) {
-                    // 2. Device: Remove sweetness/coolness/clarity (Empty)
-                    levelBarsContainer.innerHTML = '';
-                } else {
-                    // 1. Pod/Disposable: Remove levels & Replace with Image
-                    if (product.imageUrl) {
-                        levelBarsContainer.innerHTML = `
-                            <div class="w-full rounded-xl overflow-hidden border border-zinc-700/50 bg-zinc-900/50 p-4 flex justify-center items-center mb-2">
-                                <img src="${product.imageUrl}" alt="${product.nameEn}" class="max-h-48 object-contain">
-                            </div>
-                        `;
-                    } else {
-                        levelBarsContainer.innerHTML = '';
-                    }
-                }
+                if (levelBarsContainer) levelBarsContainer.innerHTML = '';
 
                 const avgRatingEl = document.getElementById('modal-avg-rating');
                 if (product.reviewCount > 0) {
