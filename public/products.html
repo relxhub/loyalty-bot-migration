@@ -2741,6 +2741,7 @@
                         </div>
                         
                         ${reorderButtonHtml}
+                        ${order.refundSlipUrl ? `<button onclick="window.open('${order.refundSlipUrl}', '_blank')" class="mt-4 w-full py-3 bg-zinc-800 text-zinc-300 rounded-xl text-md font-bold active:scale-95 transition hover:bg-zinc-700 border border-zinc-700 shadow-lg flex justify-center items-center gap-2"><i class="ri-file-list-3-line text-lg"></i> ดูสลิปโอนเงินคืน</button>` : ''}
                     </div>
                 `;
 

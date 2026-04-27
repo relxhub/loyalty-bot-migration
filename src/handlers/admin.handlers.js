@@ -114,6 +114,31 @@ export async function handleAdminCommand(ctx) {
             }
         }
         
+        
+        if (ctx.message.reply_to_message && (ctx.message.text || ctx.message.caption)) {
+            const repliedText = ctx.message.reply_to_message.text || ctx.message.reply_to_message.caption || '';
+            if (repliedText.includes('กรุณาตอบกลับข้อความนี้พร้อมแนบ "สลิปโอนเงินคืน"')) {
+                const match = repliedText.match(/#ORD-[\d-]+/);
+                if (match && ctx.message.photo) {
+                    const orderId = match[0].replace('#', '');
+                    const photo = ctx.message.photo[ctx.message.photo.length - 1];
+                    const refundSlipUrl = `/api/images/${photo.file_id}`;
+                    
+                    await prisma.order.update({
+                        where: { id: orderId },
+                        data: { refundSlipUrl: refundSlipUrl }
+                    });
+
+                    const bkkTime = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
+                    await sendAdminReply(chatId, `✅ บันทึกสลิปโอนเงินคืน สำหรับออเดอร์ <b>#${orderId}</b> สำเร็จแล้ว\nเวลา: ${bkkTime}`);
+                    return;
+                } else if (match && !ctx.message.photo) {
+                    await sendAdminReply(chatId, `❌ กรุณาแนบรูปภาพสลิปโอนเงินคืนเท่านั้น`);
+                    return;
+                }
+            }
+        }
+
         if (["/add", "/addadmin", "/fixreferrals"].includes(command) && role !== "SuperAdmin") {
             return sendAdminReply(chatId, `⛔️ คุณไม่มีสิทธิ์ใช้งานคำสั่ง ${command}`);
         }
@@ -755,6 +780,15 @@ export async function handleAdminCallback(ctx) {
             return;
         }
 
+        if (data && data.startsWith('addrefundslip_')) {
+            const orderId = data.replace('addrefundslip_', '');
+            await ctx.reply(`กรุณาตอบกลับข้อความนี้พร้อมแนบ "สลิปโอนเงินคืน" (รูปภาพ) สำหรับออเดอร์: #${orderId}`, {
+                reply_markup: { force_reply: true }
+            });
+            await ctx.answerCbQuery();
+            return;
+        }
+
         if (role !== "SuperAdmin") {
             await ctx.answerCbQuery("⛔️ เฉพาะ Super Admin เท่านั้นที่ทำรายการนี้ได้", { show_alert: true });
             return;
@@ -776,7 +810,8 @@ export async function handleAdminCallback(ctx) {
 
             const keyboard = [
                 [{ text: "✏️ จัดการสินค้ารายชิ้น", callback_data: `edit_items_${orderId}` }],
-                [{ text: "🗑 ยกเลิกออเดอร์ทั้งหมด", callback_data: `cancel_order_${orderId}` }]
+                [{ text: "🗑 ยกเลิกออเดอร์ทั้งหมด", callback_data: `cancel_order_${orderId}` }],
+                [{ text: "💸 แนบสลิปโอนเงินคืน", callback_data: `addrefundslip_${orderId}` }]
             ];
 
             await ctx.editMessageReplyMarkup({ inline_keyboard: keyboard });

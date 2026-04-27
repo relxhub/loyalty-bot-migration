@@ -1714,4 +1714,41 @@ router.post('/favorites/sync', async (req, res) => {
     }
 });
 
+// ==================================================
+// 📸 TELEGRAM IMAGE PROXY
+// ==================================================
+router.get('/images/:fileId', async (req, res) => {
+    try {
+        const { fileId } = req.params;
+        const botToken = process.env.ADMIN_BOT_TOKEN;
+        if (!botToken) return res.status(500).send('Bot token missing');
+
+        // 1. Get file path from Telegram
+        const fileLinkRes = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`);
+        const fileLinkData = await fileLinkRes.json();
+        
+        if (!fileLinkData.ok) {
+             return res.status(404).send('Image not found on Telegram');
+        }
+        
+        const filePath = fileLinkData.result.file_path;
+        const fileUrl = `https://api.telegram.org/file/bot${botToken}/${filePath}`;
+        
+        // 2. Fetch the actual file and stream it to the client
+        const imgRes = await fetch(fileUrl);
+        if (!imgRes.ok) throw new Error(`Failed to fetch image: ${imgRes.statusText}`);
+        
+        // Forward content type
+        const contentType = imgRes.headers.get('content-type');
+        if (contentType) res.setHeader('Content-Type', contentType);
+        
+        // Pipe the image stream directly to the response
+        imgRes.body.pipe(res);
+
+    } catch (e) {
+        console.error('Error proxying telegram image:', e);
+        res.status(500).send('Error loading image');
+    }
+});
+
 export default router;
