@@ -138,7 +138,7 @@ export async function syncShippingFromGoogleSheet(sheetUrl) {
                     });
                     
                     // Construct tracking links for notification
-                    const trackers = Array.from(trackingSet);
+                    const trackers = Array.from(trackings);
                     let trackingLinksStr = trackers.map(t => {
                         const url = trackingUrlTemplate.replace('{{TRACK}}', t);
                         return `<a href="${url}">${t}</a>`;
