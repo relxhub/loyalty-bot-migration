@@ -272,15 +272,18 @@
         async function checkCouponNotifications() {
             console.log("[Badge] Checking notifications...");
             try {
+                // We need customer ID to keep track of seen state per user
+                const customerId = window.customerData?.customerId || 'guest';
+                
                 const res = await fetch('/api/coupons/count');
                 const data = await res.json();
                 
                 if (data.success) {
                     const currentCount = data.count;
-                    const lastSeenCount = parseInt(localStorage.getItem('lastSeenCouponCount') || '-1');
-                    const hasSeenOnce = localStorage.getItem('hasSeenCouponsOnce') === 'true';
+                    const lastSeenCount = parseInt(localStorage.getItem(`lastSeenCouponCount_${customerId}`) || '-1');
+                    const hasSeenOnce = localStorage.getItem(`hasSeenCouponsOnce_${customerId}`) === 'true';
 
-                    console.log(`[Badge] Current: ${currentCount}, LastSeen: ${lastSeenCount}, HasSeenOnce: ${hasSeenOnce}`);
+                    console.log(`[Badge] User: ${customerId}, Current: ${currentCount}, LastSeen: ${lastSeenCount}, HasSeenOnce: ${hasSeenOnce}`);
 
                     // Logic: 
                     // 1. If there are coupons (currentCount > 0) AND they never clicked the button (!hasSeenOnce)
@@ -303,9 +306,10 @@
         }
 
         function markCouponsAsSeen() {
-            localStorage.setItem('hasSeenCouponsOnce', 'true');
+            const customerId = window.customerData?.customerId || 'guest';
+            localStorage.setItem(`hasSeenCouponsOnce_${customerId}`, 'true');
             if (window.latestCouponCount !== undefined) {
-                localStorage.setItem('lastSeenCouponCount', window.latestCouponCount.toString());
+                localStorage.setItem(`lastSeenCouponCount_${customerId}`, window.latestCouponCount.toString());
             }
             document.getElementById('coupon-badge').classList.add('hidden');
             document.getElementById('redeem-badge').classList.add('hidden');
@@ -709,6 +713,7 @@
                     document.getElementById('loading-screen').classList.add('hidden');
                     
                     if (authData.isMember) {
+                        window.customerData = authData.customer; // Store for notification logic
                         if (!authData.hasPhone) {
                             document.getElementById('phone-screen').classList.remove('hidden');
                             return; // Stop execution until they provide contact
