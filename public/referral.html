@@ -174,6 +174,185 @@
             0% { background-position: 200% 0; }
             100% { background-position: -200% 0; }
         }
+
+        /* ===== Mission Card v2 ===== */
+        .mission-card {
+            position: relative;
+            background: linear-gradient(135deg, #1a1a1a 0%, #1f1a0a 100%);
+            border: 1px solid rgba(250, 204, 21, 0.25);
+            border-radius: 20px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+        .mission-card:active { transform: scale(0.98); }
+        .mission-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at 80% 0%, rgba(250, 204, 21, 0.12) 0%, transparent 50%),
+                radial-gradient(circle at 0% 100%, rgba(245, 158, 11, 0.08) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        .limited-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            background: linear-gradient(135deg, #f59e0b, #ea580c);
+            color: white;
+            box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 12px rgba(245, 158, 11, 0.4); }
+            50% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.7); }
+        }
+
+        .mission-title-gold {
+            background: linear-gradient(135deg, #fef3c7 0%, #fbbf24 50%, #d97706 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+
+        /* Progress bar */
+        .mission-progress-track {
+            position: relative;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 999px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .mission-progress-fill {
+            position: relative;
+            height: 100%;
+            background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 50%, #fde047 100%);
+            border-radius: 999px;
+            transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 0 8px rgba(251, 191, 36, 0.5);
+        }
+        .mission-progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 50%, transparent 100%);
+            animation: progress-shine 2.5s linear infinite;
+        }
+        @keyframes progress-shine {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(200%); }
+        }
+
+        .reward-chip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .reward-chip.bonus {
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(245, 158, 11, 0.08) 100%);
+            border-color: rgba(251, 191, 36, 0.3);
+        }
+
+        /* ===== Campaign Modal v2 ===== */
+        .campaign-hero {
+            position: relative;
+            padding: 32px 24px 28px;
+            background: linear-gradient(135deg, #422006 0%, #78350f 50%, #422006 100%);
+            overflow: hidden;
+        }
+        .campaign-hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(2px 2px at 20% 30%, rgba(253, 224, 71, 0.8), transparent),
+                radial-gradient(1px 1px at 60% 70%, rgba(253, 224, 71, 0.6), transparent),
+                radial-gradient(1.5px 1.5px at 80% 20%, rgba(253, 224, 71, 0.7), transparent),
+                radial-gradient(1px 1px at 30% 80%, rgba(253, 224, 71, 0.5), transparent),
+                radial-gradient(2px 2px at 90% 50%, rgba(253, 224, 71, 0.6), transparent);
+            animation: sparkle-drift 6s linear infinite;
+            opacity: 0.7;
+        }
+        @keyframes sparkle-drift {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-10px); }
+        }
+
+        .countdown-box {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(253, 224, 71, 0.3);
+            color: #fde047;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .countdown-box.urgent {
+            background: rgba(220, 38, 38, 0.25);
+            border-color: rgba(248, 113, 113, 0.5);
+            color: #fca5a5;
+            animation: pulse-urgent 1.2s ease-in-out infinite;
+        }
+        @keyframes pulse-urgent {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .step-card {
+            position: relative;
+            padding: 16px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .step-card.bonus {
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.12) 0%, rgba(245, 158, 11, 0.06) 100%);
+            border: 1px solid rgba(251, 191, 36, 0.35);
+            box-shadow: 0 8px 24px -8px rgba(251, 191, 36, 0.3);
+        }
+        .step-number {
+            position: absolute;
+            top: -10px;
+            left: 16px;
+            width: 22px;
+            height: 22px;
+            border-radius: 999px;
+            background: #18181b;
+            border: 1.5px solid rgba(255,255,255,0.2);
+            color: rgba(255,255,255,0.7);
+            font-size: 11px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .step-card.bonus .step-number {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            border-color: rgba(253, 224, 71, 0.5);
+            color: white;
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col p-5 select-none overflow-x-hidden">
@@ -253,44 +432,59 @@
             </div>
         </div>
 
-        <!-- Mission Box (Conditional) -->
-        <div id="mission-box" onclick="openCampaignModal()" class="glass-card p-5 hidden relative overflow-hidden border border-yellow-500/30 group transition active:scale-95 cursor-pointer">
-            <div class="flex justify-between items-start mb-3 relative z-10">
-                <div>
-                    <div class="font-bold text-sm text-yellow-500 flex items-center gap-2">
-                        <i class="ri-flashlight-fill"></i> <span id="mission-name">ภารกิจพิเศษ</span>
-                    </div>
-                    <div class="text-[10px] text-zinc-400 mt-0.5" id="mission-dates">...</div>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span id="mission-base-badge" class="text-[10px] bg-zinc-700 text-zinc-300 border border-zinc-600 px-2 py-1 rounded-lg">
-                        ชวนเพื่อน +50
+        <!-- Mission Box v2 (Conditional) -->
+        <div id="mission-box" onclick="openCampaignModal()" class="mission-card p-5 hidden">
+            <div class="relative z-10">
+                <!-- Top row: LIMITED pill + countdown -->
+                <div class="flex items-center justify-between mb-3">
+                    <span class="limited-pill">
+                        <i class="ri-flashlight-fill text-[10px]"></i>
+                        <span id="mission-pill-text">LIMITED TIME</span>
                     </span>
-                    <span id="mission-bonus-badge" class="relative text-[10px] bg-yellow-500/20 text-yellow-500 border border-yellow-500/30 px-2 py-1 rounded-lg overflow-hidden">
-                        <span class="relative z-10">โบนัส +50</span>
+                    <span id="mission-countdown" class="text-[10px] text-zinc-400 flex items-center gap-1">
+                        <i class="ri-time-line"></i> <span id="mission-countdown-text">—</span>
                     </span>
                 </div>
-            </div>
-            <div class="relative z-10 pt-2">
-                <div class="flex items-center justify-between mb-2">
-                    <div class="flex flex-col">
-                        <span class="text-[10px] text-zinc-400">จำนวนที่ทำได้</span>
-                        <span id="mission-current" class="text-3xl font-bold text-white leading-none">0</span>
+
+                <!-- Campaign name -->
+                <h3 id="mission-name" class="mission-title-gold text-xl mb-1">ภารกิจพิเศษ</h3>
+                <p id="mission-tagline" class="text-[11px] text-zinc-400 mb-4">ชวนเพื่อนสะสมแต้มกัน</p>
+
+                <!-- Progress bar -->
+                <div class="mb-4">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-[11px] text-zinc-300 font-semibold">
+                            <span id="mission-current">0</span> / <span id="mission-target">5</span> คน
+                        </span>
+                        <span id="mission-percent" class="text-[11px] text-yellow-400 font-bold">0%</span>
                     </div>
-                    <div class="h-8 w-[1px] bg-zinc-700"></div>
-                    <div class="flex flex-col items-end">
-                        <span class="text-[10px] text-zinc-400">เป้าหมายถัดไป</span>
-                        <span id="mission-target" class="text-3xl font-bold text-yellow-500 leading-none">5</span>
+                    <div class="mission-progress-track">
+                        <div id="mission-progress-fill" class="mission-progress-fill" style="width:0%"></div>
                     </div>
                 </div>
-                <div class="bg-zinc-900/50 rounded-lg p-2 flex items-center justify-between border border-zinc-700/50">
-                    <div class="flex items-center gap-2">
-                        <div class="w-6 h-6 rounded-full bg-zinc-800 text-zinc-300 flex items-center justify-center text-xs border border-zinc-700">
-                            <i class="ri-gift-line"></i>
+
+                <!-- Reward stack -->
+                <div class="space-y-2">
+                    <div class="reward-chip">
+                        <div class="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-300 flex-shrink-0">
+                            <i class="ri-user-add-line text-sm"></i>
                         </div>
-                        <span id="mission-desc" class="text-[10px] text-zinc-300">ชวนเพื่อนครบทุกๆ 5 คน รับโบนัส</span>
+                        <span class="text-[12px] text-zinc-300 flex-1">ทุก 1 เพื่อนที่สั่งซื้อสำเร็จ</span>
+                        <span class="text-sm font-bold text-white"><span id="mission-base-pts">+50</span> แต้ม</span>
                     </div>
-                    <span id="mission-status-text" class="text-[9px] text-yellow-500/80 font-mono">ON GOING</span>
+                    <div class="reward-chip bonus">
+                        <div class="w-7 h-7 rounded-full bg-yellow-500/20 flex items-center justify-center text-yellow-400 flex-shrink-0">
+                            <i class="ri-gift-fill text-sm"></i>
+                        </div>
+                        <span class="text-[12px] text-yellow-100 flex-1">โบนัสครบ <span id="mission-bonus-target">5</span> คน</span>
+                        <span class="text-sm font-bold text-yellow-300"><span id="mission-bonus-pts">+500</span> แต้ม</span>
+                    </div>
+                </div>
+
+                <!-- CTA hint -->
+                <div class="mt-4 pt-3 border-t border-white/5 flex items-center justify-between">
+                    <span class="text-[10px] text-zinc-500 uppercase tracking-wider">ดูรายละเอียด</span>
+                    <i class="ri-arrow-right-s-line text-zinc-400"></i>
                 </div>
             </div>
         </div>
@@ -363,52 +557,118 @@
         </div>
     </div>
 
-    <!-- Campaign Detail Modal -->
-    <div id="campaign-modal" class="hidden fixed inset-0 z-[65] flex items-center justify-center bg-black/90 backdrop-blur-md opacity-0 transition-opacity duration-300 p-6">
-        <div class="glass-card w-full max-w-md p-0 overflow-hidden transform scale-95 transition-transform duration-300 relative border border-yellow-500/30 shadow-[0_0_50px_rgba(234,179,8,0.2)]" id="campaign-content">
-            <button onclick="closeCampaignModal()" class="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-black/50 text-white/70 flex items-center justify-center hover:bg-white/10 transition">
-                <i class="ri-close-line"></i>
+    <!-- Campaign Detail Modal v2 -->
+    <div id="campaign-modal" class="hidden fixed inset-0 z-[65] flex items-end sm:items-center justify-center bg-black/90 backdrop-blur-md opacity-0 transition-opacity duration-300">
+        <div class="glass-card w-full max-w-md max-h-[92vh] overflow-y-auto custom-scrollbar p-0 transform translate-y-full sm:translate-y-0 sm:scale-95 transition-transform duration-300 relative border border-yellow-500/30 shadow-[0_0_60px_rgba(234,179,8,0.25)] rounded-t-3xl sm:rounded-2xl" id="campaign-content">
+
+            <!-- Close -->
+            <button onclick="closeCampaignModal()" class="absolute top-4 right-4 z-30 w-9 h-9 rounded-full bg-black/60 text-white/80 flex items-center justify-center hover:bg-white/10 transition backdrop-blur-md">
+                <i class="ri-close-line text-lg"></i>
             </button>
-            <div class="h-32 bg-gradient-to-br from-yellow-700 via-yellow-600 to-yellow-900 relative flex items-center justify-center overflow-hidden">
-                <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-30"></div>
-                <div class="w-20 h-20 rounded-full bg-yellow-400/20 backdrop-blur-md flex items-center justify-center text-4xl shadow-[0_0_20px_rgba(250,204,21,0.5)] border border-yellow-300/50 animate-bounce">
-                    ⚡️
+
+            <!-- Hero -->
+            <div class="campaign-hero text-center">
+                <div class="relative z-10">
+                    <span class="limited-pill mb-3">
+                        <i class="ri-flashlight-fill text-[10px]"></i> LIMITED TIME
+                    </span>
+
+                    <h2 id="modal-camp-name" class="mission-title-gold text-2xl mt-3 mb-2 leading-tight">Campaign Name</h2>
+
+                    <!-- Progress in hero -->
+                    <div class="max-w-[260px] mx-auto mb-3">
+                        <div class="mission-progress-track" style="background: rgba(0,0,0,0.4);">
+                            <div id="modal-camp-progress-fill" class="mission-progress-fill" style="width:0%"></div>
+                        </div>
+                        <div class="text-[11px] text-yellow-100 mt-1.5 font-semibold">
+                            <span id="modal-camp-current">0</span> / <span id="modal-camp-target-num">5</span> คน
+                            <span class="text-yellow-300/70"> · เหลืออีก <span id="modal-camp-remaining">5</span> คน</span>
+                        </div>
+                    </div>
+
+                    <!-- Countdown -->
+                    <div id="modal-camp-countdown-wrap" class="mt-3">
+                        <span id="modal-camp-countdown" class="countdown-box">
+                            <i class="ri-time-line"></i> <span id="modal-camp-countdown-text">เหลือเวลาจำกัด</span>
+                        </span>
+                    </div>
                 </div>
             </div>
-            <div class="p-6 pt-12 -mt-6 bg-[#18181b] rounded-t-3xl relative z-10">
-                <div class="text-center mb-6">
-                    <h3 class="text-2xl font-bold text-yellow-400 mb-1" id="modal-camp-name">Campaign Name</h3>
-                    <p class="text-xs text-gray-400 flex justify-center items-center gap-2">
-                        <i class="ri-calendar-event-line"></i> <span id="modal-camp-dates">... - ...</span>
-                    </p>
+
+            <!-- Body -->
+            <div class="p-6 pt-7 bg-[#18181b]">
+
+                <!-- Section header -->
+                <div class="flex items-center gap-2 mb-4">
+                    <i class="ri-gift-2-fill text-yellow-400"></i>
+                    <h4 class="text-sm font-bold text-white uppercase tracking-wider">รางวัลของคุณ</h4>
                 </div>
-                <div class="space-y-4">
-                    <div class="flex items-center gap-4 bg-white/5 p-4 rounded-xl border border-white/10">
-                        <div class="w-12 h-12 rounded-full bg-[#F22233]/20 text-[#F22233] flex items-center justify-center text-xl">
-                            <i class="ri-user-add-line"></i>
-                        </div>
-                        <div>
-                            <div class="text-sm font-bold text-gray-200">แนะนำเพื่อน 1 คน</div>
-                            <div class="text-xs text-gray-400">รับทันที <span class="text-[#F22233] font-bold text-sm" id="modal-camp-base">50</span> แต้ม</div>
+
+                <!-- Steps -->
+                <div class="space-y-4 mb-6">
+                    <div class="step-card">
+                        <div class="step-number">1</div>
+                        <div class="flex items-center gap-3 pt-1">
+                            <div class="w-11 h-11 rounded-xl bg-[#F22233]/15 text-[#F22233] flex items-center justify-center text-xl flex-shrink-0">
+                                <i class="ri-user-heart-fill"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-[11px] text-zinc-400 uppercase tracking-wider mb-0.5">ทุกคนที่ชวนได้</div>
+                                <div class="text-sm font-bold text-white">เพื่อนสั่งซื้อสำเร็จ 1 คน</div>
+                            </div>
+                            <div class="text-right flex-shrink-0">
+                                <div class="text-[10px] text-zinc-500">รับทันที</div>
+                                <div class="text-lg font-bold text-white">+<span id="modal-camp-base">50</span> <span class="text-xs text-zinc-400">แต้ม</span></div>
+                            </div>
                         </div>
                     </div>
-                    <div class="flex items-center gap-4 bg-gradient-to-r from-yellow-900/20 to-black p-4 rounded-xl border border-yellow-500/20 relative overflow-hidden">
-                        <div class="absolute right-0 top-0 bottom-0 w-1 bg-yellow-500"></div>
-                        <div class="w-12 h-12 rounded-full bg-yellow-500/20 text-yellow-400 flex items-center justify-center text-xl shadow-[0_0_15px_rgba(234,179,8,0.3)]">
-                            <i class="ri-gift-fill"></i>
-                        </div>
-                        <div>
-                            <div class="text-sm font-bold text-yellow-200" id="modal-camp-target-title">โบนัสพิเศษ!</div>
-                            <div class="text-xs text-yellow-200/70" id="modal-camp-bonus-desc">สะสมครบ 5 คน รับเพิ่ม 500 แต้ม</div>
+
+                    <div class="step-card bonus">
+                        <div class="step-number">2</div>
+                        <div class="flex items-center gap-3 pt-1">
+                            <div class="w-11 h-11 rounded-xl bg-yellow-500/20 text-yellow-400 flex items-center justify-center text-xl flex-shrink-0 shadow-[0_0_12px_rgba(234,179,8,0.3)]">
+                                <i class="ri-trophy-fill"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-[11px] text-yellow-300/80 uppercase tracking-wider mb-0.5">โบนัสมิลล์สโตน</div>
+                                <div class="text-sm font-bold text-yellow-100">ครบ <span id="modal-camp-target-title">5</span> คน รับเพิ่ม</div>
+                                <div class="text-[10px] text-yellow-200/60 mt-0.5">⟲ ทำซ้ำได้! ครบทุก <span id="modal-camp-target-rep">5</span> คน รับซ้ำอีก</div>
+                            </div>
+                            <div class="text-right flex-shrink-0">
+                                <div class="text-[10px] text-yellow-300/80">โบนัส</div>
+                                <div class="text-lg font-bold text-yellow-300">+<span id="modal-camp-bonus">500</span> <span class="text-xs text-yellow-400/80">แต้ม</span></div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="mt-8 text-center">
-                    <button onclick="closeCampaignModal();" class="w-full py-3 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black font-bold rounded-xl shadow-lg shadow-yellow-500/20 transition active:scale-95">
-                        ลุยภารกิจเลย!
-                    </button>
-                    <p class="text-[10px] text-gray-500 mt-3">*เงื่อนไขเป็นไปตามที่บริษัทกำหนด</p>
+
+                <!-- Why join -->
+                <div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 mb-6">
+                    <div class="flex items-center gap-2 mb-3">
+                        <i class="ri-lightbulb-flash-fill text-orange-400"></i>
+                        <h4 class="text-sm font-bold text-white">ทำไมต้องร่วมแคมเปญนี้?</h4>
+                    </div>
+                    <ul class="space-y-2 text-[12px] text-zinc-300">
+                        <li class="flex items-start gap-2">
+                            <i class="ri-checkbox-circle-fill text-green-400 mt-0.5 flex-shrink-0"></i>
+                            <span>แต้มเข้าบัญชี<span class="text-white font-semibold">ทันที</span>หลังเพื่อนสั่งซื้อสำเร็จ ไม่ต้องรอ</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <i class="ri-checkbox-circle-fill text-green-400 mt-0.5 flex-shrink-0"></i>
+                            <span>ยิ่งชวนเยอะ ยิ่งคุ้ม โบนัส<span class="text-yellow-300 font-semibold">ทบต่อเนื่อง</span> ไม่จำกัดจำนวนรอบ</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <i class="ri-checkbox-circle-fill text-green-400 mt-0.5 flex-shrink-0"></i>
+                            <span>แต้มสะสมเอาไปแลก<span class="text-white font-semibold">คูปองส่วนลด / ของรางวัล</span>ได้</span>
+                        </li>
+                    </ul>
                 </div>
+
+                <!-- CTA -->
+                <button onclick="closeCampaignModal(); setTimeout(universalShare, 320);" class="w-full py-4 bg-gradient-to-br from-yellow-400 via-amber-500 to-orange-500 text-black font-bold text-base rounded-2xl shadow-lg shadow-orange-500/30 transition active:scale-95 flex items-center justify-center gap-2">
+                    <i class="ri-share-forward-fill text-xl"></i> เริ่มชวนเพื่อนเลย
+                </button>
+                <p class="text-[10px] text-gray-500 mt-3 text-center">*เงื่อนไขเป็นไปตามที่บริษัทกำหนด คะแนนจะมีผลเมื่อเพื่อนชำระเงินสำเร็จ</p>
             </div>
         </div>
     </div>
@@ -508,7 +768,7 @@
             document.getElementById('referral-base-points').innerText = `+${basePts}`;
             document.getElementById('referral-list-count').innerText = `${totalRefs.toLocaleString()} คน`;
 
-            // 3. Mission Box
+            // 3. Mission Box (v2)
             const missionBox = document.getElementById('mission-box');
             const isCampaign = user.activeCampaignTag && user.activeCampaignTag !== 'Standard';
 
@@ -528,31 +788,61 @@
                 const current = user.campaignReferralCount || 0;
 
                 document.getElementById('mission-name').innerText = campaignName;
-                const bonusBadge = document.getElementById('mission-bonus-badge');
-                bonusBadge.querySelector('span.relative').innerText = isComingSoon ? 'เร็วๆ นี้' : `โบนัส +${bonus}`;
-                document.getElementById('mission-base-badge').innerText = `ชวนเพื่อน +${basePts}`;
+                document.getElementById('mission-base-pts').innerText = `+${basePts}`;
+                document.getElementById('mission-bonus-pts').innerText = `+${bonus}`;
+                document.getElementById('mission-bonus-target').innerText = target;
 
-                if (user.campaignStartAt && user.campaignEndAt) {
-                    const dStart = new Date(user.campaignStartAt);
-                    const dEnd = new Date(user.campaignEndAt);
-                    const fmt = { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' };
-                    document.getElementById('mission-dates').innerText = `${dStart.toLocaleDateString('th-TH', fmt)} - ${dEnd.toLocaleDateString('th-TH', fmt)}`;
-                } else {
-                    document.getElementById('mission-dates').innerText = 'ระยะเวลาจำกัด';
-                }
+                // Pill text + tagline
+                document.getElementById('mission-pill-text').innerText = isComingSoon ? 'COMING SOON' : 'LIMITED TIME';
+                document.getElementById('mission-tagline').innerText = isComingSoon
+                    ? 'เตรียมตัวให้พร้อม! ภารกิจกำลังจะเริ่ม'
+                    : 'ชวนเพื่อนยิ่งเยอะ ยิ่งคุ้ม โบนัสทบไม่จำกัด';
 
-                if (isComingSoon) {
-                    document.getElementById('mission-desc').innerText = 'เตรียมพบกับภารกิจพิเศษ';
-                    document.getElementById('mission-current').innerText = '-';
-                    document.getElementById('mission-target').innerText = '-';
-                } else {
-                    const effectiveTarget = (Math.floor(current / target) + 1) * target;
-                    document.getElementById('mission-current').innerText = current;
-                    document.getElementById('mission-target').innerText = effectiveTarget;
-                    document.getElementById('mission-desc').innerText = `ชวนเพื่อนครบทุกๆ ${target} คน รับโบนัส`;
-                }
+                // Progress
+                const effectiveTarget = isComingSoon ? target : (Math.floor(current / target) + 1) * target;
+                const progressInTier = isComingSoon ? 0 : (current % target);
+                const pct = isComingSoon ? 0 : Math.min(100, Math.round((progressInTier / target) * 100));
+                document.getElementById('mission-current').innerText = isComingSoon ? '0' : progressInTier;
+                document.getElementById('mission-target').innerText = target;
+                document.getElementById('mission-percent').innerText = pct + '%';
+                document.getElementById('mission-progress-fill').style.width = pct + '%';
+
+                // Countdown
+                renderCountdown('mission-countdown-text', user, isComingSoon);
+                if (window._missionCountdownTimer) clearInterval(window._missionCountdownTimer);
+                window._missionCountdownTimer = setInterval(() => {
+                    renderCountdown('mission-countdown-text', user, isComingSoon);
+                }, 60000);
             } else {
                 missionBox.classList.add('hidden');
+                if (window._missionCountdownTimer) {
+                    clearInterval(window._missionCountdownTimer);
+                    window._missionCountdownTimer = null;
+                }
+            }
+        }
+
+        // Format countdown to a target date — returns Thai-language compact form
+        function formatCountdown(targetDate, prefix = 'เหลือ') {
+            const diff = targetDate.getTime() - Date.now();
+            if (diff <= 0) return 'หมดเขตแล้ว';
+            const days = Math.floor(diff / 86400000);
+            const hours = Math.floor((diff % 86400000) / 3600000);
+            const minutes = Math.floor((diff % 3600000) / 60000);
+            if (days >= 1) return `${prefix} ${days} วัน ${hours} ชม.`;
+            if (hours >= 1) return `${prefix} ${hours} ชม. ${minutes} น.`;
+            return `${prefix} ${minutes} นาที`;
+        }
+
+        function renderCountdown(elId, user, isComingSoon) {
+            const el = document.getElementById(elId);
+            if (!el) return;
+            if (isComingSoon && user.campaignStartAt) {
+                el.innerText = formatCountdown(new Date(user.campaignStartAt), 'เริ่มอีก');
+            } else if (user.campaignEndAt) {
+                el.innerText = formatCountdown(new Date(user.campaignEndAt), 'เหลือ');
+            } else {
+                el.innerText = 'ระยะเวลาจำกัด';
             }
         }
 
@@ -769,7 +1059,7 @@
             setTimeout(() => modal.classList.add('hidden'), 300);
         }
 
-        // ---------- Campaign Modal ----------
+        // ---------- Campaign Modal v2 ----------
         function openCampaignModal() {
             const user = window.currentUser;
             if (!user) return;
@@ -780,24 +1070,48 @@
             const basePoints = user.referralBasePoints || 50;
             const target = user.referralTarget || 5;
             const bonus = user.milestoneBonus || 0;
+            const current = user.campaignReferralCount || 0;
+
+            // Coming soon detection
+            let isComingSoon = false;
+            if (user.campaignStartAt) {
+                const startTime = new Date(user.campaignStartAt).getTime();
+                const diffDays = (startTime - Date.now()) / (1000 * 60 * 60 * 24);
+                if (diffDays > 0 && diffDays <= 3) isComingSoon = true;
+            }
 
             document.getElementById('modal-camp-name').innerText = campaignName;
             document.getElementById('modal-camp-base').innerText = basePoints;
-            document.getElementById('modal-camp-target-title').innerText = `ภารกิจสะสมครบ ${target} คน`;
-            document.getElementById('modal-camp-bonus-desc').innerText = `รับโบนัสเพิ่มทันที ${bonus} แต้ม`;
+            document.getElementById('modal-camp-bonus').innerText = bonus;
+            document.getElementById('modal-camp-target-title').innerText = target;
+            document.getElementById('modal-camp-target-rep').innerText = target;
 
-            if (user.campaignStartAt && user.campaignEndAt) {
-                const dStart = new Date(user.campaignStartAt);
-                const dEnd = new Date(user.campaignEndAt);
-                const fmt = { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' };
-                document.getElementById('modal-camp-dates').innerText = `${dStart.toLocaleDateString('th-TH', fmt)} - ${dEnd.toLocaleDateString('th-TH', fmt)}`;
+            // Progress in hero
+            const progressInTier = isComingSoon ? 0 : (current % target);
+            const remaining = isComingSoon ? target : (target - progressInTier);
+            const pct = isComingSoon ? 0 : Math.min(100, Math.round((progressInTier / target) * 100));
+            document.getElementById('modal-camp-current').innerText = progressInTier;
+            document.getElementById('modal-camp-target-num').innerText = target;
+            document.getElementById('modal-camp-remaining').innerText = remaining;
+            document.getElementById('modal-camp-progress-fill').style.width = pct + '%';
+
+            // Countdown — urgent if < 24h
+            const cdEl = document.getElementById('modal-camp-countdown');
+            const cdTextEl = document.getElementById('modal-camp-countdown-text');
+            const targetDate = isComingSoon ? user.campaignStartAt : user.campaignEndAt;
+            if (targetDate) {
+                const diffMs = new Date(targetDate).getTime() - Date.now();
+                const isUrgent = !isComingSoon && diffMs > 0 && diffMs < 86400000;
+                cdEl.classList.toggle('urgent', isUrgent);
+                cdTextEl.innerText = formatCountdown(new Date(targetDate), isComingSoon ? 'เริ่มอีก' : 'ปิดรับใน');
             } else {
-                document.getElementById('modal-camp-dates').innerText = 'ระยะเวลาจำกัด';
+                cdTextEl.innerText = 'ระยะเวลาจำกัด';
             }
 
             modal.classList.remove('hidden');
             setTimeout(() => {
                 modal.classList.remove('opacity-0');
+                content.classList.remove('translate-y-full');
                 content.classList.remove('scale-95');
                 content.classList.add('scale-100');
             }, 10);
@@ -808,6 +1122,7 @@
             const content = document.getElementById('campaign-content');
             content.classList.remove('scale-100');
             content.classList.add('scale-95');
+            content.classList.add('translate-y-full');
             modal.classList.add('opacity-0');
             setTimeout(() => modal.classList.add('hidden'), 300);
         }
