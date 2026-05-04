@@ -297,15 +297,33 @@ router.post('/orders/checkout', async (req, res) => {
         // 1. Verify Stock & Generate Order ID inside a transaction
         const orderId = `ORD-${Date.now().toString().slice(-6)}-${Math.floor(1000 + Math.random() * 9000)}`;
         
+        // --- ADDED: Preliminary Stock Check to handle partial availability ---
+        const stockIssues = [];
+        for (const item of cart) {
+            const product = await prisma.product.findUnique({ where: { id: parseInt(item.id, 10) } });
+            if (!product) {
+                stockIssues.push({ id: item.id, name: item.nameEn, error: 'NOT_FOUND' });
+            } else if (product.status === 'OUT_OF_STOCK' || product.stockQuantity <= 0) {
+                stockIssues.push({ id: item.id, name: product.nameEn, error: 'OUT_OF_STOCK', available: 0 });
+            } else if (product.stockQuantity < item.quantity) {
+                stockIssues.push({ id: item.id, name: product.nameEn, error: 'INSUFFICIENT_STOCK', available: product.stockQuantity });
+            }
+        }
+
+        if (stockIssues.length > 0) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'สินค้าบางรายการมีการเปลี่ยนแปลงสต็อก', 
+                stockIssues 
+            });
+        }
+
         const result = await prisma.$transaction(async (tx) => {
-            // Verify stock for all items
+            // Re-verify stock inside transaction for safety
             for (const item of cart) {
                 const product = await tx.product.findUnique({ where: { id: parseInt(item.id, 10) } });
-                if (!product) {
-                    throw new Error(`ไม่พบสินค้า: ${item.nameEn}`);
-                }
-                if (product.stockQuantity < item.quantity) {
-                    throw new Error(`สินค้า ${product.nameEn} มีไม่พอ (เหลือ ${product.stockQuantity} ชิ้น)`);
+                if (!product || product.stockQuantity < item.quantity) {
+                    throw new Error(`สต็อกสินค้า ${item.nameEn} มีการเปลี่ยนแปลง กรุณาลองใหม่อีกครั้ง`);
                 }
             }
 

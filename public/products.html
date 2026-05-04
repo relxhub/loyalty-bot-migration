@@ -3198,6 +3198,30 @@
 
                         // Redirect to payment page
                         window.location.href = `payment.html?orderId=${data.orderId}&v=${Date.now()}`;
+                    } else if (data.stockIssues) {
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+
+                        // --- NEW: Handle automatic stock adjustment ---
+                        let adjustedMessage = '';
+                        data.stockIssues.forEach(issue => {
+                            const cartItem = window.cart.find(i => i.id == issue.id);
+                            if (cartItem) {
+                                if (issue.error === 'OUT_OF_STOCK' || issue.available <= 0) {
+                                    window.cart = window.cart.filter(i => i.id != issue.id);
+                                    showToast(`สินค้า ${issue.name} หมด ถูกตัดออกจากตะกร้าแล้ว`, 'error');
+                                } else if (issue.error === 'INSUFFICIENT_STOCK') {
+                                    cartItem.quantity = issue.available;
+                                    showToast(`สินค้า ${issue.name} เหลือเพียง ${issue.available} ชิ้น ระบบปรับยอดให้แล้ว`, 'warning');
+                                }
+                            }
+                        });
+
+                        // Refresh UI and save corrected cart
+                        saveCart();
+                        window.updateCartUI();
+                        
+                        tg.showAlert('สินค้าบางรายการมีการเปลี่ยนแปลงสต็อก ระบบได้ปรับปรุงตะกร้าของคุณให้แล้ว กรุณาตรวจสอบยอดเงินและทำรายการใหม่อีกครั้ง');
                     } else {
                         btn.innerHTML = originalText;
                         btn.disabled = false;
