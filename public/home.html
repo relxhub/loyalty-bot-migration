@@ -35,6 +35,22 @@
         #bottom-nav.hide {
             transform: translateY(150%); /* ซ่อนออกไปด้านล่าง */
         }
+        /* ดีไซน์ Badge ใหม่ */
+        .new-badge {
+            font-size: 8px;
+            font-weight: 900;
+            padding: 2px 5px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+            animation: pulse-glow 2s infinite;
+        }
+        @keyframes pulse-glow {
+            0% { transform: scale(1); opacity: 1; box-shadow: 0 0 5px rgba(239, 68, 68, 0.5); }
+            50% { transform: scale(1.05); opacity: 0.9; box-shadow: 0 0 15px rgba(239, 68, 68, 0.8); }
+            100% { transform: scale(1); opacity: 1; box-shadow: 0 0 5px rgba(239, 68, 68, 0.5); }
+        }
     </style>
     <!-- PostHog Tracking -->
     <script>
@@ -123,11 +139,10 @@
                 </div>
             </div>
             <i class="ri-arrow-right-s-line text-2xl opacity-50 text-white"></i>
-            <!-- Notification Badge -->
-            <span id="coupon-badge" class="hidden absolute -top-1 -right-1 flex h-4 w-4">
-                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-[#050C0D]"></span>
-            </span>
+            <!-- Premium NEW Badge for Regular Coupons -->
+            <div id="badge-regular" class="hidden absolute -top-2 -right-1">
+                <span class="new-badge bg-red-600 text-white shadow-red-500/50">NEW</span>
+            </div>
         </button>
 
         <!-- Points Redemption Button -->
@@ -142,11 +157,10 @@
                 </div>
             </div>
             <i class="ri-arrow-right-s-line text-2xl opacity-50 text-white"></i>
-            <!-- Notification Badge -->
-            <span id="redeem-badge" class="hidden absolute -top-1 -right-1 flex h-4 w-4">
-                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-[#050C0D]"></span>
-            </span>
+            <!-- Premium NEW Badge for Redeemable Coupons -->
+            <div id="badge-redeem" class="hidden absolute -top-2 -right-1">
+                <span class="new-badge bg-red-600 text-white shadow-red-500/50">NEW</span>
+            </div>
         </button>
         
     </div>
@@ -244,7 +258,7 @@
                 content.classList.remove('translate-y-full');
             }, 10);
             fetchCoupons();
-            markCouponsAsSeen(); // Hide badge when opened
+            markRegularAsSeen(); // Only hide regular badge
         }
 
         function closeCouponModal() {
@@ -266,53 +280,62 @@
                 content.classList.remove('translate-y-full');
             }, 10);
             fetchRedeemableCoupons();
-            markCouponsAsSeen(); // Hide badge when opened
+            markRedeemableAsSeen(); // Only hide redeem badge
         }
 
         async function checkCouponNotifications() {
             console.log("[Badge] Checking notifications...");
             try {
-                // We need customer ID to keep track of seen state per user
                 const customerId = window.customerData?.customerId || 'guest';
-                
                 const res = await fetch('/api/coupons/count');
                 const data = await res.json();
                 
                 if (data.success) {
-                    const currentCount = data.count;
-                    const lastSeenCount = parseInt(localStorage.getItem(`lastSeenCouponCount_${customerId}`) || '-1');
-                    const hasSeenOnce = localStorage.getItem(`hasSeenCouponsOnce_${customerId}`) === 'true';
-
-                    console.log(`[Badge] User: ${customerId}, Current: ${currentCount}, LastSeen: ${lastSeenCount}, HasSeenOnce: ${hasSeenOnce}`);
-
-                    // Logic: 
-                    // 1. If there are coupons (currentCount > 0) AND they never clicked the button (!hasSeenOnce)
-                    // 2. OR if currentCount is more than what they last saw
-                    if ((currentCount > 0 && !hasSeenOnce) || (currentCount > lastSeenCount && currentCount > 0)) {
-                        console.log("[Badge] Showing badges");
-                        document.getElementById('coupon-badge').classList.remove('hidden');
-                        document.getElementById('redeem-badge').classList.remove('hidden');
-                    } else {
-                        console.log("[Badge] Hiding badges");
-                        document.getElementById('coupon-badge').classList.add('hidden');
-                        document.getElementById('redeem-badge').classList.add('hidden');
-                    }
+                    // --- Handle Regular Coupons ---
+                    const regCount = data.regular;
+                    const lastRegCount = parseInt(localStorage.getItem(`lastSeenRegCount_${customerId}`) || '-1');
+                    const hasSeenReg = localStorage.getItem(`hasSeenRegOnce_${customerId}`) === 'true';
                     
-                    window.latestCouponCount = currentCount;
+                    if ((regCount > 0 && !hasSeenReg) || (regCount > lastRegCount && regCount > 0)) {
+                        document.getElementById('badge-regular').classList.remove('hidden');
+                    } else {
+                        document.getElementById('badge-regular').classList.add('hidden');
+                    }
+                    window.latestRegCount = regCount;
+
+                    // --- Handle Redeemable Coupons ---
+                    const redCount = data.redeemable;
+                    const lastRedCount = parseInt(localStorage.getItem(`lastSeenRedCount_${customerId}`) || '-1');
+                    const hasSeenRed = localStorage.getItem(`hasSeenRedOnce_${customerId}`) === 'true';
+                    
+                    if ((redCount > 0 && !hasSeenRed) || (redCount > lastRedCount && redCount > 0)) {
+                        document.getElementById('badge-redeem').classList.remove('hidden');
+                    } else {
+                        document.getElementById('badge-redeem').classList.add('hidden');
+                    }
+                    window.latestRedCount = redCount;
                 }
             } catch (err) {
                 console.error("[Badge] Failed to check notifications:", err);
             }
         }
 
-        function markCouponsAsSeen() {
+        function markRegularAsSeen() {
             const customerId = window.customerData?.customerId || 'guest';
-            localStorage.setItem(`hasSeenCouponsOnce_${customerId}`, 'true');
-            if (window.latestCouponCount !== undefined) {
-                localStorage.setItem(`lastSeenCouponCount_${customerId}`, window.latestCouponCount.toString());
+            localStorage.setItem(`hasSeenRegOnce_${customerId}`, 'true');
+            if (window.latestRegCount !== undefined) {
+                localStorage.setItem(`lastSeenRegCount_${customerId}`, window.latestRegCount.toString());
             }
-            document.getElementById('coupon-badge').classList.add('hidden');
-            document.getElementById('redeem-badge').classList.add('hidden');
+            document.getElementById('badge-regular').classList.add('hidden');
+        }
+
+        function markRedeemableAsSeen() {
+            const customerId = window.customerData?.customerId || 'guest';
+            localStorage.setItem(`hasSeenRedOnce_${customerId}`, 'true');
+            if (window.latestRedCount !== undefined) {
+                localStorage.setItem(`lastSeenRedCount_${customerId}`, window.latestRedCount.toString());
+            }
+            document.getElementById('badge-redeem').classList.add('hidden');
         }
 
         function closeRedeemModal() {

@@ -2061,18 +2061,27 @@ router.post('/favorites/sync', async (req, res) => {
 router.get('/coupons/count', async (req, res) => {
     try {
         const now = new Date();
-        // นับทั้งคูปองทั่วไปและคูปองแลกแต้มที่ยังใช้งานได้
-        const count = await prisma.coupon.count({
+        // แยกนับคูปองทั่วไป (pointsCost = null)
+        const regular = await prisma.coupon.count({
             where: {
                 isActive: true,
-                OR: [
-                    { validUntil: null },
-                    { validUntil: { gt: now } }
-                ]
+                pointsCost: null,
+                isAutoAssign: false,
+                OR: [{ validUntil: null }, { validUntil: { gt: now } }]
             }
         });
-        console.log(`[CouponCount] Found ${count} active coupons`);
-        res.json({ success: true, count });
+        // แยกนับคูปองแลกแต้ม (pointsCost > 0)
+        const redeemable = await prisma.coupon.count({
+            where: {
+                isActive: true,
+                pointsCost: { gt: 0 },
+                isAutoAssign: false,
+                OR: [{ validUntil: null }, { validUntil: { gt: now } }]
+            }
+        });
+
+        console.log(`[CouponCount] Regular: ${regular}, Redeemable: ${redeemable}`);
+        res.json({ success: true, regular, redeemable });
     } catch (error) {
         console.error('Error counting coupons:', error);
         res.status(500).json({ success: false, error: 'Internal Server Error' });
