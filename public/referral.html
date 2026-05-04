@@ -3,13 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>แนะนำเพื่อน</title>
+    <meta name="theme-color" content="#121212">
+    <title>ONEHUB · แนะนำเพื่อน</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="apple-touch-icon" href="logo.png">
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+
+    <!-- PostHog Tracking -->
+    <script>
+        !function(t,e){var o,n,p,r;e.__SV||(window.posthog&&window.posthog.__loaded)||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="Ai Ri init Vi Yi Rr zi Gi Zi capture calculateEventProperties en register register_once register_for_session unregister unregister_for_session sn getFeatureFlag getFeatureFlagPayload getFeatureFlagResult isFeatureEnabled reloadFeatureFlags updateFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey cancelPendingSurvey canRenderSurvey canRenderSurveyAsync an identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset setIdentity clearIdentity get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException addExceptionStep captureLog startExceptionAutocapture stopExceptionAutocapture loadToolbar get_property getSessionProperty rn Ki createPersonProfile setInternalOrTestUser nn $i hn opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing Xi debug Mr tn getPageViewId captureTraceFeedback captureTraceMetric Di".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+        posthog.init('phc_rFKCuairs66YWomK3c7tuTVLY8HLfMCZ7HDW3kwoRZaT', {
+            api_host: 'https://us.i.posthog.com',
+            person_profiles: 'always'
+        });
+    </script>
 
     <style>
         :root {
@@ -361,7 +373,7 @@
 
     <!-- Loading -->
     <div id="loading-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#050C0D]">
-        <div class="w-16 h-16 border-4 border-[#F22233] border-t-transparent rounded-full animate-spin mb-4"></div>
+        <div class="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4"></div>
         <p class="text-gray-400 animate-pulse">กำลังโหลดข้อมูล...</p>
     </div>
 
@@ -740,6 +752,14 @@
                     window.appConfig.orderBotUsername = data.customer.orderBotUsername;
                 }
 
+                if (window.posthog) {
+                    posthog.identify(data.customer.telegramUserId || tg.initDataUnsafe?.user?.id?.toString(), {
+                        customerId: data.customer.customerId,
+                        name: `${data.customer.firstName} ${data.customer.lastName || ''}`.trim()
+                    });
+                    posthog.capture('View Referral Page');
+                }
+
                 renderUser(data.customer);
                 document.getElementById('loading-screen').classList.add('hidden');
                 document.getElementById('app-content').classList.remove('hidden');
@@ -938,6 +958,7 @@
             linkInput.setSelectionRange(0, 99999);
             navigator.clipboard.writeText(linkInput.value).then(() => {
                 showToast('คัดลอกลิงก์แล้ว!', 'success');
+                if (window.posthog) posthog.capture('Copy Referral Link');
             }).catch(() => showToast('ไม่สามารถคัดลอกได้', 'error'));
         }
 
@@ -952,6 +973,7 @@
                 try {
                     await navigator.share(shareData);
                     showToast('แชร์สำเร็จ!', 'success');
+                    if (window.posthog) posthog.capture('Share Referral Link', { method: 'native' });
                 } catch(err) {
                     if (err.name !== 'AbortError') {
                         openShareModal();
@@ -984,16 +1006,19 @@
             const link = document.getElementById('invite-link').value;
             const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('มาเข้าร่วมโปรแกรมสะสมแต้มกับฉันสิ! กดลิงก์นี้เลย: ')}`;
             tg.openTelegramLink(shareUrl);
+            if (window.posthog) posthog.capture('Share Referral Link', { method: 'telegram' });
         }
         function shareOnLine() {
             const link = document.getElementById('invite-link').value;
             const text = encodeURIComponent(`มาเข้าร่วมโปรแกรมสะสมแต้มกับฉันสิ!\n${link}`);
             window.open(`https://line.me/R/msg/text/?${text}`, '_blank');
+            if (window.posthog) posthog.capture('Share Referral Link', { method: 'line' });
         }
         function shareOnWhatsApp() {
             const link = document.getElementById('invite-link').value;
             const text = encodeURIComponent(`มาเข้าร่วมโปรแกรมสะสมแต้มกับฉันสิ! ${link}`);
             window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+            if (window.posthog) posthog.capture('Share Referral Link', { method: 'whatsapp' });
         }
 
         // ---------- QR Modal ----------
@@ -1128,6 +1153,7 @@
                 content.classList.remove('scale-95');
                 content.classList.add('scale-100');
             }, 10);
+            if (window.posthog) posthog.capture('View Campaign Detail', { campaign: campaignName });
         }
 
         function closeCampaignModal() {

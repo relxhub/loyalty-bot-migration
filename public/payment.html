@@ -3,13 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Payment</title>
-    
+    <meta name="theme-color" content="#121212">
+    <title>ONEHUB · ชำระเงิน</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="apple-touch-icon" href="logo.png">
+
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/js/qr-code-styling.browser.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+
+    <!-- PostHog Tracking -->
+    <script>
+        !function(t,e){var o,n,p,r;e.__SV||(window.posthog&&window.posthog.__loaded)||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="Ai Ri init Vi Yi Rr zi Gi Zi capture calculateEventProperties en register register_once register_for_session unregister unregister_for_session sn getFeatureFlag getFeatureFlagPayload getFeatureFlagResult isFeatureEnabled reloadFeatureFlags updateFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey cancelPendingSurvey canRenderSurvey canRenderSurveyAsync an identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset setIdentity clearIdentity get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException addExceptionStep captureLog startExceptionAutocapture stopExceptionAutocapture loadToolbar get_property getSessionProperty rn Ki createPersonProfile setInternalOrTestUser nn $i hn opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing Xi debug Mr tn getPageViewId captureTraceFeedback captureTraceMetric Di".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+        posthog.init('phc_rFKCuairs66YWomK3c7tuTVLY8HLfMCZ7HDW3kwoRZaT', {
+            api_host: 'https://us.i.posthog.com',
+            person_profiles: 'always'
+        });
+    </script>
 
     <style>
         :root {
@@ -73,7 +85,7 @@
     <div id="toast-container"></div>
 
     <div id="loading-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#050C0D]">
-        <div class="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <div class="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4"></div>
         <p class="text-gray-400 animate-pulse">กำลังโหลดข้อมูลชำระเงิน...</p>
     </div>
 
@@ -171,8 +183,9 @@
 
         <!-- Upload Slip Area (Phase 3 Prep) -->
         <div id="upload-section" class="mt-6">
-            <div class="border-2 border-dashed border-zinc-600 rounded-2xl p-8 text-center bg-zinc-800/30 transition-all hover:bg-zinc-800/50" id="upload-area">
-                <input type="file" id="slip-input" accept="image/*" class="hidden">
+            <!-- Keep file input OUTSIDE uploadArea so JS innerHTML replacement doesn't destroy it -->
+            <input type="file" id="slip-input" accept="image/*" class="hidden">
+            <div class="border-2 border-dashed border-zinc-600 rounded-2xl p-8 text-center bg-zinc-800/30 transition-all hover:bg-zinc-800/50 cursor-pointer" id="upload-area">
                 <label for="slip-input" class="cursor-pointer flex flex-col items-center">
                     <div class="w-16 h-16 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center mb-4">
                         <i class="ri-upload-cloud-2-line text-3xl"></i>
@@ -181,7 +194,7 @@
                     <p class="text-sm text-gray-500 mt-1">รองรับไฟล์ JPG, PNG</p>
                 </label>
             </div>
-            
+
             <button id="submit-slip-btn" disabled class="w-full mt-4 py-4 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl font-bold text-lg text-white shadow-lg opacity-50 cursor-not-allowed flex items-center justify-center gap-2 transition-all">
                 <i class="ri-check-double-line"></i> ยืนยันการชำระเงิน
             </button>
@@ -283,6 +296,12 @@
                 if (data.success && data.order) {
                     const order = data.order;
                     const bankAccount = data.bankAccount;
+
+                    if (window.posthog) {
+                        const tgUid = tg.initDataUnsafe?.user?.id?.toString();
+                        if (tgUid) posthog.identify(tgUid, { customerId: order.customerId });
+                        posthog.capture('View Payment Page', { orderId: order.id, totalAmount: parseFloat(order.totalAmount) });
+                    }
 
                     document.getElementById('display-order-id').textContent = order.id;
                     document.getElementById('display-total').textContent = `${parseFloat(order.totalAmount).toLocaleString('th-TH')} ฿`;
@@ -415,14 +434,22 @@
             const uploadArea = document.getElementById('upload-area');
 
             if (slipInput && !window.isPaymentBlocked) {
+            // Whole uploadArea acts as a click target for the (hidden) file input —
+            // works both before and after the preview replaces innerHTML.
+            uploadArea.addEventListener('click', (e) => {
+                if (e.target.closest('#submit-slip-btn')) return;
+                slipInput.click();
+            });
+
             slipInput.addEventListener('change', function(e) {
                 if (this.files && this.files[0]) {
                     const file = this.files[0];
+                    const previewUrl = URL.createObjectURL(file);
                     uploadArea.innerHTML = `
                         <div class="flex flex-col items-center">
-                            <i class="ri-image-circle-line text-4xl text-green-400 mb-2"></i>
-                            <p class="text-white font-medium">${file.name}</p>
-                            <p class="text-xs text-gray-400 mt-1 cursor-pointer underline" onclick="document.getElementById('slip-input').click()">เปลี่ยนรูปภาพ</p>
+                            <img src="${previewUrl}" alt="slip preview" class="max-h-40 rounded-xl mb-3 object-contain border border-white/10">
+                            <p class="text-white font-medium text-sm truncate max-w-full">${file.name}</p>
+                            <p class="text-xs text-blue-400 mt-2 underline">แตะเพื่อเปลี่ยนรูปภาพ</p>
                         </div>
                     `;
                     submitBtn.disabled = false;
@@ -447,7 +474,11 @@
                             if (data.success) {
                                 // Clear cart on successful payment
                                 window.localStorage.removeItem('cart');
-                                
+
+                                if (window.posthog) {
+                                    posthog.capture('Submit Payment Slip', { orderId });
+                                }
+
                                 tg.showPopup({
                                     title: 'ชำระเงินสำเร็จ',
                                     message: 'ตรวจสอบสลิปและยืนยันคำสั่งซื้อเรียบร้อยแล้ว แอดมินจะทำการจัดส่งสินค้าโดยเร็วที่สุด',

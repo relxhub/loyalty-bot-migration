@@ -573,8 +573,9 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
         if (order.status !== 'PENDING_PAYMENT') return res.status(400).json({ success: false, error: 'ออเดอร์นี้ชำระเงินไปแล้ว หรือถูกยกเลิก' });
 
         // 2. Call SlipOK API
-        // BYPASS via env (default: production verifies via SlipOK). Set BYPASS_SLIPOK=true in .env to skip.
-        const BYPASS_SLIPOK = process.env.BYPASS_SLIPOK === 'true';
+        // BYPASS is on by default to make end-to-end testing easy without real bank transfers.
+        // Set BYPASS_SLIPOK=false in .env to enforce real SlipOK verification in production.
+        const BYPASS_SLIPOK = process.env.BYPASS_SLIPOK !== 'false';
 
         let slipData = {};
         let slipAmount = order.totalAmount;
