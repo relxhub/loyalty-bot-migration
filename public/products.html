@@ -1173,10 +1173,10 @@
             window.updateCartIcon();
             
             // 1. Optimistic UI Update: Instantly update the product card buttons or the full list
-            if (productId) {
-                updateProductCardCartControl(productId);
+            if (productId && typeof window.updateProductCardCartControl === 'function') {
+                window.updateProductCardCartControl(productId);
             } else {
-                renderProducts();
+                if (typeof renderProducts === 'function') renderProducts();
             }
 
             // ALWAYS update the cart modal display if it exists, to ensure cart items reflect instantly
@@ -1923,7 +1923,9 @@
                 }
 
                 // Surgical UI Update: Only update the specific product card controls
-                updateProductCardCartControl(data.productId);
+                if (typeof window.updateProductCardCartControl === 'function') {
+                    window.updateProductCardCartControl(data.productId);
+                }
                 
                 // If the product is in the cart modal, update it too
                 if (!cartModal.classList.contains('hidden')) {
@@ -3933,7 +3935,7 @@
                         <div class="card-content-wrapper">
                             ${podStatusBadge}
                             <div class="info-card-name-en">${p.nameEn || ''}</div>
-                            <div class="info-card-name-th">${category.name || ''} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
+                            <div class="info-card-name-th">${category ? category.name : ''} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
                         </div>
                         
                         <div class="card-bottom-row">
@@ -3983,7 +3985,7 @@
                     slide2Content = `
                         <div class="card-content-wrapper pt-[5cqi]">
                             <div class="info-card-name-en">${p.nameEn || ''}</div>
-                            <div class="info-card-name-th r-mb-2">${p.nameTh || category.name} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
+                            <div class="info-card-name-th r-mb-2">${p.nameTh || (category ? category.name : '')} ${p.nicotine !== null ? `(${p.nicotine}%)` : ''}</div>
                             
                             <div class="space-y-1">
                                 <div class="level-row">
