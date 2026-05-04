@@ -207,20 +207,24 @@
 
     
     <!-- Order History Modal -->
-    <div id="history-modal" class="hidden fixed inset-0 z-[70] flex items-end justify-center bg-black/60 backdrop-blur-sm">
-        <div id="history-modal-content" class="bg-zinc-800 w-full max-w-md flex flex-col h-[90dvh] rounded-t-3xl transform translate-y-full transition-transform duration-300">
+    <div id="history-modal" class="hidden fixed inset-0 z-[70] flex items-end justify-center bg-black/70 backdrop-blur-sm">
+        <div id="history-modal-content" class="bg-zinc-900 w-full max-w-md flex flex-col h-[92dvh] rounded-t-3xl transform translate-y-full transition-transform duration-300 border-t border-white/5 shadow-2xl">
+            <!-- Drag handle -->
+            <div class="flex justify-center pt-2.5 pb-1 flex-shrink-0">
+                <div class="w-10 h-1 rounded-full bg-zinc-600"></div>
+            </div>
             <!-- Header -->
-            <div class="flex-shrink-0 p-4 border-b border-zinc-700 flex flex-col">
+            <div class="flex-shrink-0 px-4 pt-2 pb-3 flex flex-col">
                 <div class="flex justify-between items-center mb-3">
                     <div class="flex items-center gap-2">
-                        <button onclick="window.closeHistoryModal()" class="w-8 h-8 rounded-full bg-zinc-700/50 flex items-center justify-center hover:bg-zinc-600 transition text-white mr-1">
-                            <i class="ri-arrow-left-s-line text-lg"></i>
+                        <button onclick="window.closeHistoryModal()" class="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition text-white border border-white/5">
+                            <i class="ri-arrow-left-line text-lg"></i>
                         </button>
-                        <h3 class="text-lg font-bold">ประวัติคำสั่งซื้อ</h3>
+                        <h3 class="text-lg font-bold tracking-tight">ประวัติคำสั่งซื้อ</h3>
                     </div>
                 </div>
                 <!-- Filter Tabs -->
-                <div class="flex overflow-x-auto no-scrollbar gap-5 border-b border-zinc-700/50 px-2" id="history-filter-tabs">
+                <div class="flex overflow-x-auto no-scrollbar gap-5 border-b border-zinc-700/50 px-1" id="history-filter-tabs">
                     <button onclick="window.filterHistory('ALL')" class="history-tab active text-brand-red border-b-2 border-brand-red pb-2 text-sm font-bold whitespace-nowrap transition">ทั้งหมด</button>
                     <button onclick="window.filterHistory('PENDING_PAYMENT')" class="history-tab text-zinc-500 hover:text-zinc-300 pb-2 text-sm font-bold whitespace-nowrap transition border-b-2 border-transparent">รอชำระเงิน</button>
                     <button onclick="window.filterHistory('PAID')" class="history-tab text-zinc-500 hover:text-zinc-300 pb-2 text-sm font-bold whitespace-nowrap transition border-b-2 border-transparent">ชำระเงินแล้ว</button>
@@ -230,31 +234,36 @@
                 </div>
             </div>
             <!-- Body -->
-            <div id="history-items-container" class="flex-grow overflow-y-auto p-4 bg-zinc-900/50">
-                <div id="history-list-wrapper" class="space-y-4">
-                    <!-- History items injected by JS -->
-                    <div class="text-center py-8"><div class="animate-spin h-6 w-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto"></div></div>
+            <div id="history-items-container" class="flex-grow overflow-y-auto px-4 py-4 bg-gradient-to-b from-zinc-900 to-[#0a0a0b]">
+                <div id="history-list-wrapper" class="space-y-3">
+                    <div class="text-center py-12"><div class="animate-spin h-7 w-7 border-2 border-orange-500 border-t-transparent rounded-full mx-auto"></div></div>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Order Details Modal -->
-    <div id="order-details-modal" class="hidden fixed inset-0 z-[80] flex items-end justify-center bg-black/60 backdrop-blur-sm">
-        <div id="order-details-modal-content" class="bg-zinc-800 w-full max-w-md flex flex-col h-[90dvh] rounded-t-3xl transform translate-y-full transition-transform duration-300">
+    <div id="order-details-modal" class="hidden fixed inset-0 z-[80] flex items-end justify-center bg-black/70 backdrop-blur-sm">
+        <div id="order-details-modal-content" class="bg-zinc-900 w-full max-w-md flex flex-col h-[92dvh] rounded-t-3xl transform translate-y-full transition-transform duration-300 border-t border-white/5 shadow-2xl">
+            <!-- Drag handle -->
+            <div class="flex justify-center pt-2.5 pb-1 flex-shrink-0">
+                <div class="w-10 h-1 rounded-full bg-zinc-600"></div>
+            </div>
             <!-- Header -->
-            <div class="flex-shrink-0 p-4 border-b border-zinc-700 flex justify-between items-center relative">
+            <div class="flex-shrink-0 px-4 pt-2 pb-3 flex justify-between items-center">
                 <div class="flex items-center gap-2">
-                    <button onclick="window.closeOrderDetailsModal()" class="w-8 h-8 rounded-full bg-zinc-700/50 flex items-center justify-center hover:bg-zinc-600 transition text-white">
-                        <i class="ri-arrow-left-s-line text-lg"></i>
+                    <button onclick="window.closeOrderDetailsModal()" class="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition text-white border border-white/5">
+                        <i class="ri-arrow-left-line text-lg"></i>
                     </button>
-                    <h3 class="text-lg font-bold">รายละเอียดคำสั่งซื้อ</h3>
+                    <h3 class="text-lg font-bold tracking-tight">รายละเอียดคำสั่งซื้อ</h3>
                 </div>
             </div>
             <!-- Body -->
-            <div class="flex-grow overflow-y-auto p-4 bg-zinc-900/50" id="order-details-body">
+            <div class="flex-grow overflow-y-auto px-4 pb-6 bg-gradient-to-b from-zinc-900 to-[#0a0a0b]" id="order-details-body">
                 <!-- Content injected by JS -->
             </div>
+            <!-- Sticky footer for CTAs (filled by JS) -->
+            <div id="order-details-footer" class="flex-shrink-0 px-4 py-3 border-t border-white/5 bg-zinc-900/95 backdrop-blur-md hidden"></div>
         </div>
     </div>
 

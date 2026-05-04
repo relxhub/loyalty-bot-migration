@@ -1536,6 +1536,33 @@
                 if (e.target.id === 'history-modal') closeHistoryModal();
             });
 
+            // ============= Helpers for redesigned history/details =============
+            const STATUS_META = {
+                PENDING_PAYMENT: { key: 'pending', label: 'รอชำระเงิน', icon: 'ri-time-line', step: 0 },
+                PAID:            { key: 'paid', label: 'ชำระเงินแล้ว', icon: 'ri-checkbox-circle-fill', step: 1 },
+                PROCESSING:      { key: 'processing', label: 'กำลังแพ็คสินค้า', icon: 'ri-archive-2-line', step: 2 },
+                SHIPPED:         { key: 'shipped', label: 'จัดส่งแล้ว', icon: 'ri-truck-fill', step: 3 },
+                CANCELLED:       { key: 'cancelled', label: 'ยกเลิกแล้ว', icon: 'ri-close-circle-fill', step: -1 },
+            };
+            const formatRelativeDate = (iso) => {
+                const d = new Date(iso);
+                const now = new Date();
+                const diffMs = now - d;
+                const oneDay = 86400000;
+                const sameDay = d.toDateString() === now.toDateString();
+                const yesterdayDate = new Date(now.getTime() - oneDay);
+                const isYesterday = d.toDateString() === yesterdayDate.toDateString();
+                const time = d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+                if (sameDay) return `วันนี้ ${time}`;
+                if (isYesterday) return `เมื่อวาน ${time}`;
+                if (diffMs < 7 * oneDay) {
+                    const days = Math.floor(diffMs / oneDay);
+                    return `${days} วันก่อน · ${time}`;
+                }
+                return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }) + ' · ' + time;
+            };
+            const escapeAttr = (s) => String(s == null ? '' : s).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
             window.showOrderDetails = (orderId) => {
                 window.currentOpenOrderId = orderId;
                 const order = window.currentOrders?.find(o => o.id === orderId);
@@ -1543,13 +1570,38 @@
 
                 const modal = document.getElementById('order-details-modal');
                 const body = document.getElementById('order-details-body');
+                const footer = document.getElementById('order-details-footer');
                 if (!modal || !body) return;
 
-                const date = new Date(order.createdAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                
+                const meta = STATUS_META[order.status] || STATUS_META.CANCELLED;
+                const dateFull = new Date(order.createdAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+                // ----- Hero with timeline -----
+                const isCancelled = order.status === 'CANCELLED';
+                const steps = [
+                    { label: 'สั่งซื้อ', icon: 'ri-shopping-bag-line' },
+                    { label: 'ชำระเงิน', icon: 'ri-bank-card-line' },
+                    { label: 'แพ็คสินค้า', icon: 'ri-archive-2-line' },
+                    { label: 'จัดส่ง', icon: 'ri-truck-line' },
+                ];
+                const currentStep = isCancelled ? -1 : (meta.step ?? 0);
+                const stepHtml = steps.map((s, idx) => {
+                    let cls = '';
+                    if (isCancelled) cls = idx === 0 ? 'done' : 'cancelled';
+                    else if (idx < currentStep) cls = 'done';
+                    else if (idx === currentStep) cls = 'current';
+                    const stepIcon = (idx < currentStep || (isCancelled && idx === 0)) ? '<i class="ri-check-line"></i>' : (idx === currentStep && !isCancelled) ? `<i class="${s.icon}"></i>` : (idx + 1);
+                    return `
+                        <div class="od-step ${cls}">
+                            <div class="od-step-dot">${stepIcon}</div>
+                            <div class="od-step-label">${s.label}</div>
+                        </div>
+                    `;
+                }).join('');
+                const fillPct = isCancelled ? 0 : Math.max(0, Math.min(100, (currentStep / (steps.length - 1)) * 100));
+
+                // ----- Items grouped by category -----
                 let subtotal = 0;
-                
-                // Group items by category
                 const itemsByCategory = order.items.reduce((acc, item) => {
                     const category = window.allCategories?.find(c => c.id === item.product.categoryId);
                     const categoryName = category ? category.name : 'อื่นๆ';
@@ -1557,129 +1609,164 @@
                     acc[categoryName].push(item);
                     return acc;
                 }, {});
+                const totalUnits = order.items.reduce((s, i) => s + i.quantity, 0);
 
                 let itemsHtml = '';
-                for (const [categoryName, items] of Object.entries(itemsByCategory)) {
-                    itemsHtml += `<div class="text-xs font-bold text-zinc-500 uppercase mt-3 mb-1 first:mt-0">${categoryName}</div>`;
+                Object.entries(itemsByCategory).forEach(([catName, items], idx) => {
+                    if (idx > 0) itemsHtml += '<div class="border-t border-white/5 my-2"></div>';
+                    itemsHtml += `<div class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">${catName}</div>`;
                     items.forEach(item => {
                         const price = parseFloat(item.priceAtPurchase);
                         const itemTotal = price * item.quantity;
                         subtotal += itemTotal;
-                        
+                        const nic = item.product.nicotine !== null ? `<span class="text-[10px] text-zinc-500 ml-1">(${item.product.nicotine}%)</span>` : '';
                         itemsHtml += `
-                            <div class="flex justify-between items-center text-sm text-zinc-300 py-1 pl-2 border-l-2 border-zinc-700/50 mb-1">
-                                <span class="truncate pr-2">${item.product.nameEn} ${item.product.nicotine !== null ? '('+item.product.nicotine+'%)' : ''} x${item.quantity}</span>
-                                <span class="whitespace-nowrap">${itemTotal.toLocaleString('th-TH')} ฿</span>
+                            <div class="flex justify-between items-center py-1.5">
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <span class="text-[11px] text-zinc-500 font-mono w-7 flex-shrink-0">×${item.quantity}</span>
+                                    <span class="text-sm text-zinc-200 truncate">${item.product.nameEn}${nic}</span>
+                                </div>
+                                <span class="text-sm text-zinc-300 font-medium whitespace-nowrap ml-2">฿${itemTotal.toLocaleString('th-TH')}</span>
                             </div>
                         `;
                     });
-                }
+                });
 
                 const discount = parseFloat(order.discountAmount || 0);
                 const total = parseFloat(order.totalAmount);
                 let shipping = total - subtotal + discount;
                 shipping = Math.max(0, Math.round(shipping));
 
-                let discountHtml = '';
-                if (discount > 0) {
-                    discountHtml = `
-                        <div class="flex justify-between text-green-400 py-1">
-                            <span>ส่วนลดคูปอง <span class="text-xs">(${order.appliedCouponId || ''})</span></span>
-                            <span>- ${discount.toLocaleString('th-TH')} ฿</span>
-                        </div>
-                    `;
-                }
-
+                // ----- Shipping address -----
                 let shippingAddressHtml = '';
                 if (order.shippingAddress) {
                     const addr = order.shippingAddress;
                     shippingAddressHtml = `
-                        <div>
-                            <div class="text-xs text-zinc-400 font-bold uppercase tracking-wider mb-2">ข้อมูลจัดส่ง</div>
-                            <div class="bg-zinc-800/80 rounded-xl p-3 border border-zinc-700/50 text-sm text-zinc-300">
-                                <div class="font-bold text-white mb-1">${addr.receiverName} <span class="font-normal text-zinc-400 text-xs ml-2">${addr.phone}</span></div>
-                                <div class="leading-tight">${addr.address} ${addr.subdistrict} ${addr.district} ${addr.province} ${addr.zipcode}</div>
+                        <div class="od-section-title"><i class="ri-map-pin-2-fill text-blue-400"></i> ที่อยู่จัดส่ง</div>
+                        <div class="od-card flex gap-3 mb-4">
+                            <div class="w-10 h-10 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center flex-shrink-0">
+                                <i class="ri-home-4-fill"></i>
                             </div>
-                        </div>
-                    `;
-                }
-                
-                let reorderButtonHtml = '';
-                if (order.status === 'PAID' || order.status === 'PROCESSING' || order.status === 'SHIPPED' || order.status === 'CANCELLED') {
-                    reorderButtonHtml = `<button onclick="window.closeOrderDetailsModal(); window.reorder('${order.id}')" class="mt-4 w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-xl text-md font-bold active:scale-95 transition hover:opacity-90 shadow-lg flex justify-center items-center gap-2"><i class="ri-restart-line text-lg"></i> สั่งซื้ออีกครั้ง</button>`;
-                } else if (order.status === 'PENDING_PAYMENT') {
-                    reorderButtonHtml = `
-                        <div class="flex gap-2 w-full mt-4">
-                            <button onclick="window.closeOrderDetailsModal(); window.cancelOrder('${order.id}')" class="w-1/3 py-3 bg-zinc-700 text-white rounded-xl text-md font-bold active:scale-95 transition">ยกเลิก</button>
-                            <button onclick="window.location.href='payment.html?orderId=${order.id}'" class="w-2/3 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-xl text-md font-bold active:scale-95 transition shadow-lg shadow-orange-500/20">ชำระเงิน</button>
+                            <div class="min-w-0 flex-1">
+                                <div class="font-semibold text-white text-sm">${addr.receiverName}</div>
+                                <div class="text-xs text-zinc-400 mb-1">${addr.phone}</div>
+                                <div class="text-xs text-zinc-300 leading-relaxed">${addr.address} ${addr.subdistrict} ${addr.district} ${addr.province} ${addr.zipcode}</div>
+                            </div>
                         </div>
                     `;
                 }
 
+                // ----- Tracking -----
+                let trackingHtml = '';
+                if (order.trackingNumber) {
+                    const trackers = order.trackingNumber.split(',').map(t => t.trim()).filter(Boolean);
+                    const links = trackers.map(t => {
+                        let url = (window.currentTrackingTemplate || '').replace('{{TRACK}}', t);
+                        url = url.startsWith('http') ? url : 'https://' + url;
+                        return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border border-blue-500/25 rounded-lg text-xs font-mono font-bold active:scale-95 transition"><i class="ri-truck-line"></i> ${t}</a>`;
+                    }).join('');
+                    trackingHtml = `
+                        <div class="od-section-title"><i class="ri-route-line text-blue-400"></i> ตามรอยพัสดุ</div>
+                        <div class="od-card mb-4">
+                            <div class="text-[11px] text-zinc-400 mb-2">แตะเลขพัสดุเพื่อติดตามสถานะ</div>
+                            <div class="flex flex-wrap gap-2">${links}</div>
+                        </div>
+                    `;
+                }
+
+                // ----- Summary -----
+                const summaryHtml = `
+                    <div class="od-section-title"><i class="ri-bill-line text-yellow-400"></i> สรุปยอดเงิน</div>
+                    <div class="od-card summary mb-4">
+                        <div class="flex justify-between text-sm py-1 text-zinc-300">
+                            <span>ค่าสินค้า (${totalUnits} ชิ้น)</span>
+                            <span>฿${subtotal.toLocaleString('th-TH')}</span>
+                        </div>
+                        ${discount > 0 ? `
+                        <div class="flex justify-between text-sm py-1 text-green-400">
+                            <span class="flex items-center gap-1"><i class="ri-coupon-line"></i> ส่วนลดคูปอง</span>
+                            <span>- ฿${discount.toLocaleString('th-TH')}</span>
+                        </div>` : ''}
+                        <div class="flex justify-between text-sm py-1 text-zinc-300">
+                            <span>ค่าจัดส่ง</span>
+                            <span class="${shipping === 0 ? 'text-green-400 font-bold' : ''}">${shipping === 0 ? 'ฟรี' : '฿' + shipping.toLocaleString('th-TH')}</span>
+                        </div>
+                        <div class="border-t border-white/10 mt-2 pt-2 flex justify-between items-baseline">
+                            <span class="font-bold text-white text-sm">ยอดสุทธิ</span>
+                            <span class="total-amount-gold text-2xl">฿${total.toLocaleString('th-TH')}</span>
+                        </div>
+                    </div>
+                `;
+
+                // ----- Refund slip (if any) -----
+                const refundHtml = order.refundSlipUrl ? `
+                    <button onclick="window.showRefundSlip('${escapeAttr(order.refundSlipUrl)}')" class="w-full py-3 bg-white/5 hover:bg-white/10 text-zinc-200 rounded-xl text-sm font-bold active:scale-95 transition border border-white/10 flex justify-center items-center gap-2 mb-4">
+                        <i class="ri-file-list-3-line text-lg"></i> ดูสลิปคืนเงิน
+                    </button>
+                ` : '';
+
+                // ----- Body assembly -----
                 body.innerHTML = `
-                    <div class="space-y-4 pb-6">
-                        <div class="flex justify-between items-center border-b border-zinc-700/50 pb-3">
-                            <div>
-                                <div class="text-xs text-zinc-400">รหัสคำสั่งซื้อ</div>
-                                <div class="font-mono text-sm font-bold text-white">${order.id}</div>
-                            </div>
-                            <div class="text-right">
-                                <div class="text-xs text-zinc-400">วันที่สั่งซื้อ</div>
-                                <div class="text-sm text-white">${date}</div>
+                    <div class="space-y-4 pt-2">
+                        <!-- Hero -->
+                        <div class="od-hero status-${meta.key}">
+                            <div class="relative z-10 text-center">
+                                <div class="od-status-icon"><i class="${meta.icon}"></i></div>
+                                <div class="text-base font-bold text-white">${meta.label}</div>
+                                <div class="font-mono text-[11px] text-zinc-400 mt-1">${order.id}</div>
+                                <div class="text-[11px] text-zinc-500 mt-0.5">${dateFull}</div>
+
+                                <!-- Timeline -->
+                                <div class="od-timeline">
+                                    <div class="od-timeline-line"></div>
+                                    <div class="od-timeline-line-fill" style="width: calc(${fillPct}% * 0.84);"></div>
+                                    ${stepHtml}
+                                </div>
                             </div>
                         </div>
 
                         ${shippingAddressHtml}
+                        ${trackingHtml}
 
-                        <div>
-                            
-                        ${order.trackingNumber ? `
-                        <div>
-                            <div class="text-xs text-zinc-400 font-bold uppercase tracking-wider mb-2">เลขพัสดุ</div>
-                            <div class="bg-zinc-800/80 rounded-xl p-3 border border-zinc-700/50 flex flex-wrap gap-2">
-                                ${order.trackingNumber.split(',').map(t => {
-                                    const rawT = t.trim();
-                                    if(!rawT) return '';
-                                    let url = window.currentTrackingTemplate.replace('{{TRACK}}', rawT);
-                                    url = url.startsWith('http') ? url : 'https://' + url;
-                                    const encodedUrl = encodeURIComponent(url);
-                                    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg text-xs font-mono font-bold active:scale-95 transition hover:bg-blue-500/20"><i class="ri-truck-line text-sm"></i> ${rawT}</a>`;
-                                }).join('')}
-                            </div>
-                        </div>` : ''}
-                        
-                        <div class="text-xs text-zinc-400 font-bold uppercase tracking-wider mb-2">รายการสินค้า</div>
-                            <div class="bg-zinc-800/80 rounded-xl p-3 border border-zinc-700/50">
-                                ${itemsHtml}
-                            </div>
+                        <div class="od-section-title"><i class="ri-shopping-bag-3-fill text-orange-400"></i> รายการสินค้า · ${totalUnits} ชิ้น</div>
+                        <div class="od-card mb-4">
+                            ${itemsHtml}
                         </div>
 
-                        <div>
-                            <div class="text-xs text-zinc-400 font-bold uppercase tracking-wider mb-2">สรุปยอดเงิน</div>
-                            <div class="bg-zinc-800/80 rounded-xl p-3 border border-zinc-700/50 text-sm">
-                                <div class="flex justify-between py-1 text-zinc-300">
-                                    <span>ค่าสินค้า</span>
-                                    <span>${subtotal.toLocaleString('th-TH')} ฿</span>
-                                </div>
-                                ${discountHtml}
-                                <div class="flex justify-between py-1 text-zinc-300">
-                                    <span>ค่าจัดส่ง</span>
-                                    <span>${shipping === 0 ? 'ฟรี' : shipping.toLocaleString('th-TH') + ' ฿'}</span>
-                                </div>
-                                <div class="border-t border-zinc-700/50 mt-2 pt-2 flex justify-between items-center">
-                                    <span class="font-bold text-white">ยอดสุทธิ</span>
-                                    <span class="font-bold text-brand-red text-lg">${total.toLocaleString('th-TH')} ฿</span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        ${reorderButtonHtml}
-                        ${order.refundSlipUrl ? `<button onclick="window.showRefundSlip('${order.refundSlipUrl}')" class="mt-4 w-full py-3 bg-zinc-800 text-zinc-300 rounded-xl text-md font-bold active:scale-95 transition hover:bg-zinc-700 border border-zinc-700 shadow-lg flex justify-center items-center gap-2"><i class="ri-file-list-3-line text-lg"></i> ดูสลิปโอนเงินคืน</button>` : ''}
+                        ${summaryHtml}
+                        ${refundHtml}
                     </div>
                 `;
 
+                // ----- Sticky footer CTAs -----
+                let footerHtml = '';
+                if (order.status === 'PENDING_PAYMENT') {
+                    footerHtml = `
+                        <div class="flex gap-2">
+                            <button onclick="window.closeOrderDetailsModal(); window.cancelOrder('${order.id}')" class="w-1/3 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-sm font-bold active:scale-95 transition border border-zinc-700">ยกเลิก</button>
+                            <button onclick="window.location.href='payment.html?orderId=${order.id}'" class="w-2/3 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-xl text-sm font-bold active:scale-95 transition shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2">
+                                <i class="ri-bank-card-line"></i> ชำระเงิน
+                            </button>
+                        </div>
+                    `;
+                } else if (order.status === 'PAID' || order.status === 'PROCESSING' || order.status === 'SHIPPED' || order.status === 'CANCELLED') {
+                    footerHtml = `
+                        <button onclick="window.closeOrderDetailsModal(); window.reorder('${order.id}')" class="w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-xl text-sm font-bold active:scale-95 transition shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2">
+                            <i class="ri-restart-line text-lg"></i> สั่งซื้ออีกครั้ง
+                        </button>
+                    `;
+                }
+                if (footer) {
+                    if (footerHtml) {
+                        footer.innerHTML = footerHtml;
+                        footer.classList.remove('hidden');
+                    } else {
+                        footer.classList.add('hidden');
+                        footer.innerHTML = '';
+                    }
+                }
+
                 modal.classList.remove('hidden');
-                // document.body.classList.add('modal-open'); // Already open from history
                 setTimeout(() => modal.classList.add('show'), 10);
             };
 
@@ -1795,72 +1882,71 @@
             };
 
             const renderHistory = (orders, expiryMinutes = 30, trackingUrlTemplate = '') => {
-                window.currentOrders = orders; // Store for details view
-                window.currentTrackingTemplate = trackingUrlTemplate; // Store for details view
+                window.currentOrders = orders;
+                window.currentTrackingTemplate = trackingUrlTemplate;
                 const wrapper = document.getElementById('history-list-wrapper');
                 if (!orders || orders.length === 0) {
-                    wrapper.innerHTML = '<div class="text-center py-8 text-zinc-500 flex flex-col items-center gap-2"><i class="ri-receipt-line text-4xl text-zinc-600"></i><p>ยังไม่มีประวัติการสั่งซื้อ</p></div>';
+                    wrapper.innerHTML = `
+                        <div class="flex flex-col items-center justify-center py-16 text-zinc-500 gap-3">
+                            <div class="w-16 h-16 rounded-full bg-zinc-800/60 flex items-center justify-center">
+                                <i class="ri-receipt-line text-3xl text-zinc-600"></i>
+                            </div>
+                            <p class="text-sm">ยังไม่มีประวัติการสั่งซื้อ</p>
+                            <button onclick="window.closeHistoryModal()" class="mt-2 px-5 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-xs font-bold transition active:scale-95">เริ่มช้อปปิ้ง</button>
+                        </div>`;
                     return;
                 }
 
-                let html = '';
-                const now = new Date().getTime();
-                
-                // Clear any existing intervals
                 if (window.historyIntervals) {
                     window.historyIntervals.forEach(clearInterval);
                 }
                 window.historyIntervals = [];
 
+                const now = Date.now();
+                let html = '';
+
                 orders.forEach(order => {
-                    const date = new Date(order.createdAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                    
-                    let statusBadge = '';
-                    let actionButton = '';
+                    const meta = STATUS_META[order.status] || STATUS_META.CANCELLED;
+                    const dateRel = formatRelativeDate(order.createdAt);
+                    const totalUnits = (order.items || []).reduce((s, i) => s + i.quantity, 0);
+
+                    // Item preview chips (max 3 + "+N more")
+                    const items = order.items || [];
+                    const previewItems = items.slice(0, 3).map(i => {
+                        const nic = i.product.nicotine !== null ? ` ${i.product.nicotine}%` : '';
+                        return `<span class="item-chip">${i.product.nameEn}${nic} ×${i.quantity}</span>`;
+                    }).join('');
+                    const moreItems = items.length > 3 ? `<span class="item-chip">+${items.length - 3} รายการ</span>` : '';
+
+                    // Pending expiry & status
+                    let pillLabel = meta.label;
+                    let pillClass = meta.key;
                     let expiryHtml = '';
-                    let trackingHtml = '';
-                    
-                    if (order.trackingNumber) {
-                        // Split by comma in case of multiple tracking numbers
-                        const trackers = order.trackingNumber.split(',').map(t => t.trim()).filter(Boolean);
-                        const links = trackers.map(t => {
-                            let url = trackingUrlTemplate.replace('{{TRACK}}', t);
-                            url = url.startsWith('http') ? url : `https://${url}`;
-                            const encodedUrl = encodeURIComponent(url);
-                            return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg text-xs font-mono font-bold active:scale-95 transition hover:bg-blue-500/20"><i class="ri-truck-line text-sm"></i> ${t}</a>`;
-                        }).join(' ');
-                        trackingHtml = `<div class="w-full flex flex-wrap gap-2 mt-3">${links}</div>`;
-                    }
+                    let actionsHtml = '';
 
                     if (order.status === 'PENDING_PAYMENT') {
-                        const createdAtMs = new Date(order.createdAt).getTime();
-                        const expiryMs = createdAtMs + (expiryMinutes * 60 * 1000);
+                        const expiryMs = new Date(order.createdAt).getTime() + (expiryMinutes * 60 * 1000);
                         const remainingMs = expiryMs - now;
-
                         if (remainingMs > 0) {
-                            statusBadge = '<span class="px-2 py-0.5 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-full text-xs font-bold">รอชำระเงิน</span>';
-                            expiryHtml = `<div class="text-xs text-orange-400 mt-1 font-mono flex items-center gap-1"><i class="ri-timer-line"></i> หมดเวลาใน <span id="countdown-${order.id}">--:--</span></div>`;
-                            actionButton = `
-                                <div class="flex gap-2 w-full mt-3">
-                                    <button onclick="window.cancelOrder('${order.id}')" class="w-1/3 py-2 bg-zinc-700 text-white rounded-lg text-sm font-bold active:scale-95 transition">ยกเลิก</button>
-                                    <button onclick="window.location.href='payment.html?orderId=${order.id}'" class="w-2/3 py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-lg text-sm font-bold active:scale-95 transition">ชำระเงิน</button>
-                                </div>
-                            `;
-                            
-                            // Setup interval for this order
+                            expiryHtml = `<div class="text-[11px] text-orange-400 mt-1.5 font-mono flex items-center gap-1"><i class="ri-timer-flash-line"></i> หมดเวลาใน <span id="countdown-${order.id}">--:--</span></div>`;
+                            actionsHtml = `
+                                <div class="flex gap-2 mt-3 pt-3 border-t border-white/5">
+                                    <button onclick="event.stopPropagation(); window.cancelOrder('${order.id}')" class="flex-1 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-xs font-bold active:scale-95 transition border border-zinc-700">ยกเลิก</button>
+                                    <button onclick="event.stopPropagation(); window.location.href='payment.html?orderId=${order.id}'" class="flex-1 py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-lg text-xs font-bold active:scale-95 transition shadow-md shadow-orange-500/20 flex items-center justify-center gap-1">
+                                        <i class="ri-bank-card-line"></i> ชำระเงิน
+                                    </button>
+                                </div>`;
+
                             setTimeout(() => {
                                 const el = document.getElementById(`countdown-${order.id}`);
-                                if(!el) return;
-                                
+                                if (!el) return;
                                 const updateTimer = () => {
-                                    const r = expiryMs - new Date().getTime();
+                                    const r = expiryMs - Date.now();
                                     if (r <= 0) {
                                         el.textContent = "00:00";
-                                        // Auto refresh if looking at it
-                                        if (!document.getElementById('history-modal').classList.contains('hidden')) {
-                                            fetchHistory();
-                                        }
-                                        return false; // stop
+                                        const hm = document.getElementById('history-modal');
+                                        if (hm && !hm.classList.contains('hidden')) fetchHistory();
+                                        return false;
                                     }
                                     const m = Math.floor(r / 60000);
                                     const s = Math.floor((r % 60000) / 1000);
@@ -1868,62 +1954,54 @@
                                     return true;
                                 };
                                 updateTimer();
-                                const intv = setInterval(() => { if(!updateTimer()) clearInterval(intv); }, 1000);
+                                const intv = setInterval(() => { if (!updateTimer()) clearInterval(intv); }, 1000);
                                 window.historyIntervals.push(intv);
                             }, 0);
-
                         } else {
-                            // Should be cancelled by cron soon, show as expired
-                            statusBadge = '<span class="px-2 py-0.5 bg-zinc-500/20 text-zinc-400 border border-zinc-500/30 rounded-full text-xs font-bold">หมดเวลาชำระเงิน</span>';
-                            order.status = 'CANCELLED'; // Force local state
+                            pillLabel = 'หมดเวลาชำระเงิน';
+                            pillClass = 'cancelled';
                         }
-                    } 
-                    
-                    if (order.status === 'PAID') {
-                        statusBadge = '<span class="px-2 py-0.5 bg-green-500/20 text-green-400 border border-green-500/30 rounded-full text-xs font-bold">ชำระเงินแล้ว</span>';
-                        actionButton = `<button onclick="window.reorder('${order.id}')" class="mt-3 w-full py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-lg text-sm font-bold active:scale-95 transition hover:opacity-90 flex justify-center items-center gap-1"><i class="ri-restart-line"></i> สั่งซื้ออีกครั้ง</button>`;
-                    } else if (order.status === 'PROCESSING') {
-                        statusBadge = '<span class="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-full text-xs font-bold">กำลังแพ็คสินค้า</span>';
-                        actionButton = `<button onclick="window.reorder('${order.id}')" class="mt-3 w-full py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-lg text-sm font-bold active:scale-95 transition hover:opacity-90 flex justify-center items-center gap-1"><i class="ri-restart-line"></i> สั่งซื้ออีกครั้ง</button>`;
-                    } else if (order.status === 'SHIPPED') {
-                        statusBadge = '<span class="px-2 py-0.5 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-full text-xs font-bold">จัดส่งแล้ว</span>';
-                        actionButton = `<button onclick="window.reorder('${order.id}')" class="mt-3 w-full py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-lg text-sm font-bold active:scale-95 transition hover:opacity-90 flex justify-center items-center gap-1"><i class="ri-restart-line"></i> สั่งซื้ออีกครั้ง</button>`;
-                    } else if (order.status === 'CANCELLED') {
-                        if (!statusBadge) statusBadge = '<span class="px-2 py-0.5 bg-zinc-500/20 text-zinc-400 border border-zinc-500/30 rounded-full text-xs font-bold">ยกเลิก</span>';
-                        actionButton = `<button onclick="window.reorder('${order.id}')" class="mt-3 w-full py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-lg text-sm font-bold active:scale-95 transition hover:opacity-90 flex justify-center items-center gap-1 relative z-10 shadow-lg shadow-orange-500/20"><i class="ri-restart-line"></i> สั่งซื้ออีกครั้ง</button>`;
+                    } else if (order.trackingNumber && order.status === 'SHIPPED') {
+                        const trackers = order.trackingNumber.split(',').map(t => t.trim()).filter(Boolean).slice(0, 2);
+                        const links = trackers.map(t => {
+                            let url = trackingUrlTemplate.replace('{{TRACK}}', t);
+                            url = url.startsWith('http') ? url : 'https://' + url;
+                            return `<a href="${url}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border border-blue-500/25 rounded-md text-[11px] font-mono font-bold transition"><i class="ri-truck-line"></i> ${t}</a>`;
+                        }).join('');
+                        const more = order.trackingNumber.split(',').length > 2 ? '<span class="text-[10px] text-zinc-500">+อีก</span>' : '';
+                        actionsHtml = `<div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-white/5">${links}${more}</div>`;
                     }
 
                     html += `
-                        <div class="bg-zinc-800/80 border border-zinc-700/50 rounded-xl p-4 flex flex-col relative overflow-hidden">
-                            <!-- Clickable Card Body -->
-                            <div onclick="window.showOrderDetails('${order.id}')" class="cursor-pointer group">
-                                <div class="flex justify-between items-start mb-2">
-                                    <div>
-                                        <div class="text-xs text-zinc-400 mb-0.5">${date}</div>
-                                        <div class="font-mono text-sm text-zinc-200 tracking-wider">${order.id}</div>
+                        <div class="order-card status-${pillClass} p-4 cursor-pointer" onclick="window.showOrderDetails('${order.id}')">
+                            <div class="pl-2">
+                                <!-- Top: status + date + arrow -->
+                                <div class="flex items-start justify-between gap-2 mb-2.5">
+                                    <div class="min-w-0">
+                                        <span class="status-pill ${pillClass}"><i class="${meta.icon} text-[11px]"></i> ${pillLabel}</span>
+                                        <div class="text-[11px] text-zinc-500 mt-1.5">${dateRel}</div>
                                         ${expiryHtml}
                                     </div>
-                                    <div class="flex flex-col items-end gap-2">
-                                        ${statusBadge}
-                                        <div class="w-6 h-6 rounded-full bg-zinc-700/50 flex items-center justify-center text-zinc-400 group-hover:bg-blue-500/20 group-hover:text-blue-400 transition mt-1">
-                                            <i class="ri-arrow-right-s-line"></i>
-                                        </div>
-                                    </div>
+                                    <i class="ri-arrow-right-s-line text-zinc-500 text-xl flex-shrink-0"></i>
                                 </div>
-                                
-                                <div class="flex justify-between items-end mt-2 pt-3 border-t border-zinc-700/50">
-                                    <div></div>
+
+                                <!-- Order ID + items -->
+                                <div class="flex flex-wrap items-center gap-1.5 mb-3">
+                                    <span class="font-mono text-[10px] text-zinc-500">${order.id}</span>
+                                    <span class="text-zinc-700">·</span>
+                                    ${previewItems}${moreItems}
+                                </div>
+
+                                <!-- Bottom: total -->
+                                <div class="flex items-end justify-between pt-2 border-t border-white/5">
+                                    <div class="text-[11px] text-zinc-500">${totalUnits} ชิ้น</div>
                                     <div class="text-right">
-                                        <span class="text-xs text-zinc-400">ยอดรวม </span>
-                                        <span class="font-bold text-brand-red text-base">฿${parseFloat(order.totalAmount).toLocaleString('th-TH')}</span>
+                                        <div class="text-[10px] text-zinc-500 leading-none mb-0.5">ยอดรวม</div>
+                                        <div class="total-amount-gold text-lg leading-none">฿${parseFloat(order.totalAmount).toLocaleString('th-TH')}</div>
                                     </div>
                                 </div>
-                            </div>
-                            
-                            <!-- Action Buttons & Tracking -->
-                            <div class="flex flex-col w-full relative z-10">
-                                ${trackingHtml}
-                                ${actionButton}
+
+                                ${actionsHtml}
                             </div>
                         </div>
                     `;

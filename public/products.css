@@ -276,6 +276,207 @@
             .animate-scroll { animation: none !important; }
         }
 
+        /* ===== Order History card (redesigned) ===== */
+        .order-card {
+            position: relative;
+            background: linear-gradient(135deg, rgba(39, 39, 42, 0.6) 0%, rgba(24, 24, 27, 0.8) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: transform 0.15s ease, border-color 0.2s ease;
+        }
+        .order-card:active { transform: scale(0.99); }
+        .order-card::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 3px;
+            background: var(--accent-bar, #71717a);
+        }
+        .order-card.status-pending { --accent-bar: linear-gradient(to bottom, #f97316, #ea580c); }
+        .order-card.status-paid { --accent-bar: linear-gradient(to bottom, #10b981, #059669); }
+        .order-card.status-processing { --accent-bar: linear-gradient(to bottom, #facc15, #eab308); }
+        .order-card.status-shipped { --accent-bar: linear-gradient(to bottom, #3b82f6, #2563eb); }
+        .order-card.status-cancelled { --accent-bar: linear-gradient(to bottom, #71717a, #52525b); }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            border: 1px solid;
+        }
+        .status-pill.pending { background: rgba(249, 115, 22, 0.12); color: #fb923c; border-color: rgba(251, 146, 60, 0.3); }
+        .status-pill.paid { background: rgba(16, 185, 129, 0.12); color: #34d399; border-color: rgba(52, 211, 153, 0.3); }
+        .status-pill.processing { background: rgba(250, 204, 21, 0.12); color: #fde047; border-color: rgba(253, 224, 71, 0.3); }
+        .status-pill.shipped { background: rgba(59, 130, 246, 0.12); color: #60a5fa; border-color: rgba(96, 165, 250, 0.3); }
+        .status-pill.cancelled { background: rgba(113, 113, 122, 0.12); color: #a1a1aa; border-color: rgba(161, 161, 170, 0.3); }
+
+        .item-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 6px;
+            font-size: 11px;
+            color: #d4d4d8;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .total-amount-gold {
+            background: linear-gradient(135deg, #fef3c7 0%, #fbbf24 50%, #f59e0b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 800;
+        }
+
+        /* ===== Order Details (redesigned) ===== */
+        .od-hero {
+            position: relative;
+            padding: 24px 20px 20px;
+            border-radius: 20px;
+            overflow: hidden;
+            background: linear-gradient(135deg, rgba(63, 63, 70, 0.4) 0%, rgba(24, 24, 27, 0.8) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .od-hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: var(--hero-glow, transparent);
+            opacity: 0.4;
+            pointer-events: none;
+        }
+        .od-hero.status-pending { --hero-glow: radial-gradient(circle at 50% 0%, rgba(249, 115, 22, 0.25) 0%, transparent 60%); }
+        .od-hero.status-paid { --hero-glow: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.25) 0%, transparent 60%); }
+        .od-hero.status-processing { --hero-glow: radial-gradient(circle at 50% 0%, rgba(250, 204, 21, 0.2) 0%, transparent 60%); }
+        .od-hero.status-shipped { --hero-glow: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.25) 0%, transparent 60%); }
+        .od-hero.status-cancelled { --hero-glow: radial-gradient(circle at 50% 0%, rgba(113, 113, 122, 0.2) 0%, transparent 60%); }
+
+        .od-status-icon {
+            width: 56px; height: 56px;
+            border-radius: 999px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 26px;
+            margin: 0 auto 12px;
+            box-shadow: 0 4px 20px var(--icon-shadow, rgba(255,255,255,0.1));
+        }
+        .od-hero.status-pending .od-status-icon { background: linear-gradient(135deg, #fb923c, #ea580c); color: white; --icon-shadow: rgba(251, 146, 60, 0.4); }
+        .od-hero.status-paid .od-status-icon { background: linear-gradient(135deg, #34d399, #059669); color: white; --icon-shadow: rgba(52, 211, 153, 0.4); }
+        .od-hero.status-processing .od-status-icon { background: linear-gradient(135deg, #fde047, #eab308); color: #422006; --icon-shadow: rgba(253, 224, 71, 0.4); }
+        .od-hero.status-shipped .od-status-icon { background: linear-gradient(135deg, #60a5fa, #2563eb); color: white; --icon-shadow: rgba(96, 165, 250, 0.4); }
+        .od-hero.status-cancelled .od-status-icon { background: linear-gradient(135deg, #a1a1aa, #52525b); color: white; }
+
+        /* Status timeline */
+        .od-timeline {
+            position: relative;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin: 18px 0 4px;
+            padding: 0 4px;
+        }
+        .od-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            position: relative;
+            z-index: 1;
+        }
+        .od-step-dot {
+            width: 22px; height: 22px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.08);
+            border: 2px solid rgba(255,255,255,0.15);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px;
+            color: rgba(255,255,255,0.4);
+            transition: all 0.3s ease;
+        }
+        .od-step.done .od-step-dot {
+            background: linear-gradient(135deg, #34d399, #059669);
+            border-color: #10b981;
+            color: white;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+        }
+        .od-step.current .od-step-dot {
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            border-color: #fde047;
+            color: #422006;
+            box-shadow: 0 0 12px rgba(251, 191, 36, 0.6);
+            animation: pulse-step 1.5s ease-in-out infinite;
+        }
+        .od-step.cancelled .od-step-dot {
+            background: rgba(220, 38, 38, 0.3);
+            border-color: #f87171;
+            color: #fca5a5;
+        }
+        @keyframes pulse-step {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .od-step-label {
+            font-size: 9px;
+            color: rgba(255,255,255,0.5);
+            margin-top: 6px;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .od-step.done .od-step-label, .od-step.current .od-step-label {
+            color: white;
+            font-weight: 600;
+        }
+        .od-timeline-line {
+            position: absolute;
+            top: 11px;
+            left: 8%; right: 8%;
+            height: 2px;
+            background: rgba(255,255,255,0.08);
+            z-index: 0;
+        }
+        .od-timeline-line-fill {
+            position: absolute;
+            top: 11px;
+            left: 8%;
+            height: 2px;
+            background: linear-gradient(to right, #34d399, #10b981);
+            z-index: 0;
+            transition: width 0.6s ease;
+        }
+
+        .od-section-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #a1a1aa;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+            padding-left: 2px;
+        }
+        .od-card {
+            background: rgba(39, 39, 42, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 14px;
+            padding: 14px;
+        }
+        .od-card.summary {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.06) 0%, rgba(24, 24, 27, 0.6) 100%);
+            border-color: rgba(251, 191, 36, 0.15);
+        }
+
         /* Free shipping progress bar */
         .ship-progress-track {
             height: 6px;
