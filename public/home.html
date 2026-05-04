@@ -112,7 +112,7 @@
     <div class="w-full max-w-sm px-4 mb-24 space-y-4">
         
         <!-- Coupon Center Button -->
-        <button onclick="openCouponCenter()" class="w-full bg-gradient-to-r from-yellow-500 to-orange-600 p-4 rounded-2xl flex items-center justify-between shadow-lg shadow-orange-900/20 active:scale-95 transition-transform group">
+        <button onclick="openCouponCenter()" class="relative w-full bg-gradient-to-r from-yellow-500 to-orange-600 p-4 rounded-2xl flex items-center justify-between shadow-lg shadow-orange-900/20 active:scale-95 transition-transform group">
             <div class="flex items-center gap-3">
                 <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl group-hover:rotate-12 transition-transform">
                     <i class="ri-ticket-2-fill text-white"></i>
@@ -123,10 +123,15 @@
                 </div>
             </div>
             <i class="ri-arrow-right-s-line text-2xl opacity-50 text-white"></i>
+            <!-- Notification Badge -->
+            <span id="coupon-badge" class="hidden absolute -top-1 -right-1 flex h-4 w-4">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-[#050C0D]"></span>
+            </span>
         </button>
 
         <!-- Points Redemption Button -->
-        <button onclick="openRedeemCenter()" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 p-4 rounded-2xl flex items-center justify-between shadow-lg shadow-blue-900/20 active:scale-95 transition-transform group">
+        <button onclick="openRedeemCenter()" class="relative w-full bg-gradient-to-r from-blue-600 to-indigo-600 p-4 rounded-2xl flex items-center justify-between shadow-lg shadow-blue-900/20 active:scale-95 transition-transform group">
             <div class="flex items-center gap-3">
                 <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
                     <i class="ri-gift-2-fill text-white"></i>
@@ -137,6 +142,11 @@
                 </div>
             </div>
             <i class="ri-arrow-right-s-line text-2xl opacity-50 text-white"></i>
+            <!-- Notification Badge -->
+            <span id="redeem-badge" class="hidden absolute -top-1 -right-1 flex h-4 w-4">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-[#050C0D]"></span>
+            </span>
         </button>
         
     </div>
@@ -234,6 +244,7 @@
                 content.classList.remove('translate-y-full');
             }, 10);
             fetchCoupons();
+            markCouponsAsSeen(); // Hide badge when opened
         }
 
         function closeCouponModal() {
@@ -255,6 +266,44 @@
                 content.classList.remove('translate-y-full');
             }, 10);
             fetchRedeemableCoupons();
+            markCouponsAsSeen(); // Hide badge when opened
+        }
+
+        async function checkCouponNotifications() {
+            try {
+                const res = await fetch('/api/coupons/count');
+                const data = await res.json();
+                
+                if (data.success) {
+                    const currentCount = data.count;
+                    const lastSeenCount = parseInt(localStorage.getItem('lastSeenCouponCount') || '-1');
+                    const hasSeenOnce = localStorage.getItem('hasSeenCouponsOnce') === 'true';
+
+                    // Rule 1: First time ever (never clicked any coupon button)
+                    // Rule 2: New coupons added (currentCount > lastSeenCount)
+                    if (!hasSeenOnce || currentCount > lastSeenCount) {
+                        document.getElementById('coupon-badge').classList.remove('hidden');
+                        document.getElementById('redeem-badge').classList.remove('hidden');
+                    } else {
+                        document.getElementById('coupon-badge').classList.add('hidden');
+                        document.getElementById('redeem-badge').classList.add('hidden');
+                    }
+                    
+                    // Store current count for next comparison, but don't mark as "seen" yet
+                    window.latestCouponCount = currentCount;
+                }
+            } catch (err) {
+                console.error("Failed to check coupon notifications:", err);
+            }
+        }
+
+        function markCouponsAsSeen() {
+            localStorage.setItem('hasSeenCouponsOnce', 'true');
+            if (window.latestCouponCount !== undefined) {
+                localStorage.setItem('lastSeenCouponCount', window.latestCouponCount.toString());
+            }
+            document.getElementById('coupon-badge').classList.add('hidden');
+            document.getElementById('redeem-badge').classList.add('hidden');
         }
 
         function closeRedeemModal() {
@@ -676,6 +725,10 @@
                     document.getElementById('loading-screen').classList.add('hidden');
                     playLoadingScreens();
                 }
+                
+                // --- NEW: Check Coupon Notifications ---
+                checkCouponNotifications();
+                
             } catch (e) {
                 console.log("[Home] Auth check failed:", e);
                 document.getElementById('loading-screen').classList.add('hidden');

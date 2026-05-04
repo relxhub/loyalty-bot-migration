@@ -2055,6 +2055,29 @@ router.post('/favorites/sync', async (req, res) => {
     }
 });
 
+// ==========================================
+// 🎟️ COUPON NOTIFICATION API
+// ==========================================
+router.get('/coupons/count', async (req, res) => {
+    try {
+        const now = new Date();
+        const count = await prisma.coupon.count({
+            where: {
+                isActive: true,
+                status: 'ACTIVE',
+                OR: [
+                    { validUntil: null },
+                    { validUntil: { gt: now } }
+                ]
+            }
+        });
+        res.json({ success: true, count });
+    } catch (error) {
+        console.error('Error counting coupons:', error);
+        res.status(500).json({ success: false, error: 'Internal Server Error' });
+    }
+});
+
 // ==================================================
 // 📸 TELEGRAM IMAGE PROXY
 // ==================================================
