@@ -190,12 +190,8 @@
     <div id="app-content" class="hidden w-full max-w-md mx-auto space-y-4 pb-32 fade-in">
 
         <!-- Header -->
-        <div class="flex justify-between items-center pt-2 -mx-1">
-            <button onclick="goBack()" class="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-white/10 transition active:scale-95">
-                <i class="ri-arrow-left-line text-xl"></i>
-            </button>
+        <div class="flex justify-center items-center pt-2">
             <h1 class="text-lg font-bold text-white">แนะนำเพื่อน</h1>
-            <div class="w-10 h-10"></div>
         </div>
 
         <!-- Mode Tabs (Affiliate placeholder) -->
@@ -216,7 +212,7 @@
                     <i class="ri-link-m text-xl"></i>
                     <span class="text-sm font-semibold opacity-90">ลิงก์แนะนำของคุณ</span>
                 </div>
-                <p class="text-xs opacity-80 mb-4">แชร์ลิงก์นี้ให้เพื่อน — เมื่อสมัครสำเร็จ คุณรับแต้มทันที</p>
+                <p class="text-xs opacity-80 mb-4">แชร์ลิงก์นี้ให้เพื่อน — เมื่อเพื่อนสั่งซื้อสำเร็จ คุณรับแต้มทันที</p>
 
                 <!-- Link Box -->
                 <div class="bg-black/30 rounded-xl p-3 flex items-center gap-2 backdrop-blur-sm border border-white/20">
@@ -449,11 +445,6 @@
                 toast.classList.remove('show');
                 setTimeout(() => toast.remove(), 400);
             }, 4000);
-        }
-
-        function goBack() {
-            try { tg.hapticFeedback.impactOccurred('light'); } catch(e){}
-            window.location.href = 'dashboard.html';
         }
 
         // ---------- Auth & Init ----------
@@ -845,13 +836,13 @@
             <i class="ri-shopping-cart-line text-xl"></i>
             <span>เมนูสินค้า</span>
         </a>
-        <a href="dashboard.html?v=2" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/4 py-1.5 rounded-xl transition active:scale-95">
-            <i class="ri-wallet-3-line text-xl"></i>
-            <span>บัตรสมาชิก</span>
-        </a>
         <a href="referral.html" class="flex flex-col items-center text-xs font-medium text-white w-1/4 py-1.5 rounded-xl transition active:scale-95">
             <i class="ri-team-fill text-xl"></i>
             <span>แนะนำเพื่อน</span>
+        </a>
+        <a href="dashboard.html?v=2" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/4 py-1.5 rounded-xl transition active:scale-95">
+            <i class="ri-wallet-3-line text-xl"></i>
+            <span>บัตรสมาชิก</span>
         </a>
     </div>
 </body>
