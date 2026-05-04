@@ -164,13 +164,6 @@
             }
         }
 
-        .tier2-list {
-            max-height: 0;
-            opacity: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
-        }
-
         .item-hover-effect:hover {
             border-color: rgba(96, 165, 250, 0.5);
             box-shadow: 0 0 15px rgba(96, 165, 250, 0.1);
@@ -182,45 +175,6 @@
         }
         #bottom-nav.hide {
             transform: translateY(150%); /* ซ่อนออกไปด้านล่าง */
-        }
-
-        /* Styling for QR Code */
-        #qr-code-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin-top: 20px;
-            margin-bottom: 20px;
-            background: transparent; /* QR Code จะถูก render ลง canvas/div */
-            padding: 10px;
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 0 20px rgba(255, 255, 255, 0.05);
-        }
-        #qr-code-container canvas {
-            border-radius: 12px; /* ทำให้ QR Code มีขอบมน */
-        }
-
-        .download-qr-btn {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 12px;
-            padding: 12px 20px;
-            color: white;
-            font-weight: 500;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-        }
-        .download-qr-btn:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-        .download-qr-btn:active {
-            transform: scale(0.98);
         }
 
     </style>
@@ -356,90 +310,20 @@
                 </button>
             </div>
         </div>
-        <!-- [START] Mission/Campaign Box (Conditional) -->
-        <div id="mission-box" onclick="openCampaignModal()" class="glass-card p-5 hidden relative overflow-hidden border border-yellow-500/30 group transition active:scale-95 cursor-pointer">
-            <div class="flex justify-between items-start mb-3 relative z-10">
-                <div>
-                    <div class="font-bold text-sm text-yellow-500 flex items-center gap-2">
-                        <i class="ri-flashlight-fill"></i> <span id="mission-name">ภารกิจพิเศษ</span>
-                    </div>
-                    <div class="text-[10px] text-zinc-400 mt-0.5" id="mission-dates">...</div>
-                </div>
-
-                <div class="flex items-center gap-2">
-                    <span id="mission-base-badge" class="text-[10px] bg-zinc-700 text-zinc-300 border border-zinc-600 px-2 py-1 rounded-lg shadow-sm">
-                        ชวนเพื่อน +50
-                    </span>
-
-                    <span id="mission-bonus-badge" class="relative text-[10px] bg-yellow-500/20 text-yellow-500 border border-yellow-500/30 px-2 py-1 rounded-lg overflow-hidden">
-                        <span class="relative z-10">โบนัส +50</span>
-                    </span>
+        <!-- [START] Referral Entry Card (Compact) -->
+        <a href="referral.html" class="glass-card p-4 hover:bg-white/10 transition active:scale-95 flex items-center gap-4 group" onclick="try { Telegram.WebApp.hapticFeedback.impactOccurred('medium'); } catch(e){}">
+            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-[#f6971f] to-[#e32622] flex items-center justify-center text-white group-hover:scale-110 transition flex-shrink-0 shadow-lg shadow-[#F22233]/20">
+                <i class="ri-team-fill text-2xl"></i>
+            </div>
+            <div class="flex-1">
+                <div class="font-bold text-base text-white">แนะนำเพื่อน</div>
+                <div class="text-xs text-gray-400">
+                    <span id="dash-ref-summary">ชวนเพื่อนรับแต้มพิเศษ</span>
                 </div>
             </div>
-            
-            <div class="relative z-10 pt-2">
-                <div class="flex items-center justify-between mb-2">
-                    <div class="flex flex-col">
-                        <span class="text-[10px] text-zinc-400">จำนวนที่ทำได้</span>
-                        <span id="mission-current" class="text-3xl font-bold text-white leading-none">0</span>
-                    </div>
-
-                    <div class="h-8 w-[1px] bg-zinc-700"></div>
-
-                    <div class="flex flex-col items-end">
-                        <span class="text-[10px] text-zinc-400">เป้าหมายถัดไป</span>
-                        <span id="mission-target" class="text-3xl font-bold text-yellow-500 leading-none">5</span>
-                    </div>
-                </div>
-
-                <div class="bg-zinc-900/50 rounded-lg p-2 flex items-center justify-between border border-zinc-700/50">
-                    <div class="flex items-center gap-2">
-                        <div class="w-6 h-6 rounded-full bg-zinc-800 text-zinc-300 flex items-center justify-center text-xs border border-zinc-700">
-                            <i class="ri-gift-line"></i>
-                        </div>
-                        <span id="mission-desc" class="text-[10px] text-zinc-300">ชวนเพื่อนครบทุกๆ 5 คน รับโบนัส</span>
-                    </div>
-                    <span id="mission-status-text" class="text-[9px] text-yellow-500/80 font-mono">ON GOING</span>
-                </div>
-            </div>
-        </div>
-        <!-- [END] Mission Box -->
-
-        <!-- [START] Friends You Referred Box (Always Visible) -->
-        <div class="glass-card p-5 group cursor-pointer transition active:scale-95" onclick="openReferralModal(); try { Telegram.WebApp.hapticFeedback.impactOccurred('medium'); } catch(e){}">
-            <div class="mb-4 font-semibold text-sm flex items-center gap-2 text-blue-100">
-                <i class="ri-team-fill text-[#F22233]"></i> เพื่อนที่คุณแนะนำ
-            </div>
-            <div class="grid grid-cols-2 gap-4 relative">
-                <!-- Vertical Divider -->
-                <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[1px] h-8 bg-white/10"></div>
-
-                <div class="text-center group">
-                    <div class="text-[10px] text-gray-400 mb-1 group-hover:text-blue-300 transition">ทั้งหมด</div>
-                    <div class="text-2xl font-bold text-white tracking-wide" id="referral-total-all">0</div>
-                </div>
-
-                <div class="text-center group">
-                    <div class="text-[10px] text-gray-400 mb-1 group-hover:text-green-300 transition">ในเดือนนี้</div>
-                    <div class="text-2xl font-bold text-green-400 tracking-wide" id="referral-total-month">0</div>
-                </div>
-            </div>
-        </div>
-        <!-- [END] Friends Box -->
-
-        <!-- [START] Invite Box -->
-        <div class="grid grid-cols-1 gap-4">
-            <button onclick="openInviteModal()" class="glass-card p-4 hover:bg-white/10 transition active:scale-95 text-left flex items-center gap-4 group">
-                <div class="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 group-hover:scale-110 transition flex-shrink-0">
-                    <i class="ri-user-add-line text-2xl"></i>
-                </div>
-                <div>
-                    <div class="font-bold text-lg text-white">เชิญเพื่อน</div>
-                    <div class="text-sm text-gray-400">รับแต้มพิเศษเมื่อเพื่อนสมัครสมาชิก</div>
-                </div>
-            </button>
-        </div>
-        <!-- [END] Invite Box -->
+            <i class="ri-arrow-right-s-line text-2xl text-gray-500"></i>
+        </a>
+        <!-- [END] Referral Entry Card -->
 
 
     </div>
@@ -466,55 +350,6 @@
             <div class="flex space-x-3 mt-8">
                 <button onclick="closeLinkModal()" class="flex-1 py-3 rounded-xl bg-gray-700 hover:bg-gray-600 transition text-sm">ไว้ทีหลัง</button>
                 <button onclick="submitLinkAccount()" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#F22233] to-[#F24E29] hover:from-blue-500 hover:to-blue-400 font-bold transition shadow-lg shadow-[#F22233]/30">ยืนยัน</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Invite Modal -->
-    <div id="invite-modal" class="hidden fixed inset-0 z-[60] flex items-end justify-center bg-black/90 backdrop-blur-md opacity-0 transition-opacity duration-300">
-        <div class="glass-card w-full max-w-md p-6 rounded-t-3xl sm:rounded-2xl flex flex-col transform translate-y-full transition-transform duration-300" id="invite-content">
-            
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xl font-bold text-white flex items-center gap-2">
-                    <i class="ri-user-add-line text-[#F22233]"></i> ชวนเพื่อน
-                </h3>
-                <button onclick="closeInviteModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition text-white">
-                    <i class="ri-close-line"></i>
-                </button>
-            </div>
-
-            <div class="space-y-4">
-                <div class="bg-white/5 p-4 rounded-xl border border-white/10 text-center">
-                    <p class="text-sm text-gray-400 mb-2">ลิงก์แนะนำของคุณ</p>
-                    <div class="flex items-center gap-2 bg-black/30 p-2 rounded-lg">
-                        <input type="text" id="invite-link" readonly class="bg-transparent w-full text-sm text-green-400 font-mono outline-none text-center">
-                        <button onclick="copyInviteLink()" class="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition text-white">
-                            <i class="ri-file-copy-line"></i>
-                        </button>
-                    </div>
-
-                    <!-- QR Code Display -->
-                    <div id="qr-code-container" class="mt-4"></div>
-                    <button id="download-qr-btn" class="download-qr-btn w-full mt-3"><i class="ri-download-line"></i> ดาวน์โหลด QR Code</button>
-                </div>
-
-                <button onclick="universalShare()" id="universal-share-btn" class="w-full py-3 bg-gradient-to-r from-[#F22233] to-[#F24E29] hover:from-blue-500 hover:to-blue-400 rounded-xl font-bold text-white shadow-lg shadow-[#F22233]/30 transition active:scale-95 flex items-center justify-center gap-2">
-                    <i class="ri-share-forward-fill text-xl"></i> แชร์ลิงก์ให้เพื่อน
-                </button>
-
-                <div id="fallback-share-container" class="hidden space-y-3">
-                    <button onclick="shareOnTelegram()" class="w-full py-3 bg-[#2AABEE] hover:bg-[#279cda] rounded-xl font-bold text-white transition active:scale-95 flex items-center justify-center gap-2">
-                        <i class="ri-telegram-fill text-xl"></i> แชร์ไป Telegram
-                    </button>
-                    <div class="grid grid-cols-2 gap-3">
-                        <button onclick="shareOnLine()" class="w-full py-3 bg-[#06C755] hover:bg-[#05b34c] rounded-xl font-bold text-white transition active:scale-95 flex items-center justify-center gap-2">
-                            <i class="ri-line-fill text-xl"></i> LINE
-                        </button>
-                        <button onclick="shareOnWhatsApp()" class="w-full py-3 bg-[#25D366] hover:bg-[#22bf5b] rounded-xl font-bold text-white transition active:scale-95 flex items-center justify-center gap-2">
-                            <i class="ri-whatsapp-fill text-xl"></i> WhatsApp
-                        </button>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -571,96 +406,6 @@
 
             <div id="history-list" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
                 <div class="text-center text-gray-500 mt-10 animate-pulse">กำลังโหลด...</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Campaign Detail Modal -->
-    <div id="campaign-modal" class="hidden fixed inset-0 z-[65] flex items-center justify-center bg-black/90 backdrop-blur-md opacity-0 transition-opacity duration-300 p-6">
-        <div class="glass-card w-full max-w-md p-0 overflow-hidden transform scale-95 transition-transform duration-300 relative border border-yellow-500/30 shadow-[0_0_50px_rgba(234,179,8,0.2)]" id="campaign-content">
-
-            <!-- Close Button -->
-            <button onclick="closeCampaignModal()" class="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-black/50 text-white/70 flex items-center justify-center hover:bg-white/10 transition">
-                <i class="ri-close-line"></i>
-            </button>
-
-            <!-- Header Image/Gradient -->
-            <div class="h-32 bg-gradient-to-br from-yellow-700 via-yellow-600 to-yellow-900 relative flex items-center justify-center overflow-hidden">
-                <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-30"></div>
-                <div class="w-20 h-20 rounded-full bg-yellow-400/20 backdrop-blur-md flex items-center justify-center text-4xl shadow-[0_0_20px_rgba(250,204,21,0.5)] border border-yellow-300/50 animate-bounce">
-                    ⚡️
-                </div>
-            </div>
-
-            <!-- Body -->
-            <div class="p-6 pt-12 -mt-6 bg-[#18181b] rounded-t-3xl relative z-10">
-                <div class="text-center mb-6">
-                    <h3 class="text-2xl font-bold text-yellow-400 mb-1" id="modal-camp-name">Campaign Name</h3>
-                    <p class="text-xs text-gray-400 flex justify-center items-center gap-2">
-                        <i class="ri-calendar-event-line"></i> <span id="modal-camp-dates">... - ...</span>
-                    </p>
-                </div>
-
-                <div class="space-y-4">
-                    <!-- Rule 1: Per Person -->
-                    <div class="flex items-center gap-4 bg-white/5 p-4 rounded-xl border border-white/10">
-                        <div class="w-12 h-12 rounded-full bg-[#F22233]/20 text-[#F22233] flex items-center justify-center text-xl">
-                            <i class="ri-user-add-line"></i>
-                        </div>
-                        <div>
-                            <div class="text-sm font-bold text-gray-200">แนะนำเพื่อน 1 คน</div>
-                            <div class="text-xs text-gray-400">รับทันที <span class="text-[#F22233] font-bold text-sm" id="modal-camp-base">50</span> แต้ม</div>
-                        </div>
-                    </div>
-
-                    <!-- Rule 2: Milestone -->
-                    <div class="flex items-center gap-4 bg-gradient-to-r from-yellow-900/20 to-black p-4 rounded-xl border border-yellow-500/20 relative overflow-hidden">
-                        <div class="absolute right-0 top-0 bottom-0 w-1 bg-yellow-500"></div>
-                        <div class="w-12 h-12 rounded-full bg-yellow-500/20 text-yellow-400 flex items-center justify-center text-xl shadow-[0_0_15px_rgba(234,179,8,0.3)]">
-                            <i class="ri-gift-fill"></i>
-                        </div>
-                        <div>
-                            <div class="text-sm font-bold text-yellow-200" id="modal-camp-target-title">โบนัสพิเศษ!</div>
-                            <div class="text-xs text-yellow-200/70" id="modal-camp-bonus-desc">สะสมครบ 5 คน รับเพิ่ม 500 แต้ม</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="mt-8 text-center">
-                    <button onclick="closeCampaignModal(); handleAction('invite');" class="w-full py-3 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black font-bold rounded-xl shadow-lg shadow-yellow-500/20 transition active:scale-95">
-                        ลุยภารกิจเลย!
-                    </button>
-                    <p class="text-[10px] text-gray-500 mt-3">*เงื่อนไขเป็นไปตามที่บริษัทกำหนด</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="referral-modal" class="hidden fixed inset-0 z-[60] flex items-end justify-center bg-black/90 backdrop-blur-md opacity-0 transition-opacity duration-300">
-        <div class="glass-card w-full max-w-md h-full flex flex-col transform translate-y-full transition-transform duration-300" id="referral-content">
-            
-            <div class="p-6 border-b border-gray-700 flex justify-between items-center bg-black/20">
-                <h3 class="text-xl font-bold flex items-center gap-2 text-white">
-                    <i class="ri-team-line text-zinc-300"></i> ผู้ที่ถูกคุณแนะนำ
-                </h3>
-                <button onclick="closeReferralModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition text-white">
-                    <i class="ri-close-line"></i>
-                </button>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3 p-4">
-                <div class="bg-white/5 rounded-xl p-3 text-center border border-white/10">
-                    <div class="text-xs text-gray-400">สมาชิกที่คุณแนะนำ</div>
-                    <div class="text-2xl font-bold text-white tracking-wide" id="ref-total-count">0</div>
-                </div>
-                <div class="bg-white/5 rounded-xl p-3 text-center border border-white/10">
-                    <div class="text-xs text-gray-400">โบนัสที่ได้รับ (จากคนเหล่านี้)</div>
-                    <div class="text-2xl font-bold text-green-400 tracking-wide" id="ref-total-earned">0</div>
-                </div>
-            </div>
-
-            <div id="referral-list" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-                <div class="text-center text-gray-500 mt-10 animate-pulse">กำลังวิเคราะห์ข้อมูลการแนะนำ...</div>
             </div>
         </div>
     </div>
@@ -1130,7 +875,7 @@
         }
 
         function showLoginScreen() {
-            ['loading-screen', 'app-content', 'success-modal', 'link-modal', 'invite-modal', 'rewards-modal', 'campaign-modal', 'referral-modal'].forEach(id => {
+            ['loading-screen', 'app-content', 'success-modal', 'link-modal'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.add('hidden');
             });
@@ -1203,86 +948,18 @@
             }
 
             // -----------------------------------------------------
-            // 🚀 [ส่วนที่ 2] Logic ใหม่ V2: แยกกล่องภารกิจกับกล่องเพื่อน
+            // 🚀 อัปเดตข้อความสรุปบน Referral Entry Card
             // -----------------------------------------------------
-
-            // 1. อัปเดตกล่อง "เพื่อนที่คุณแนะนำ" (แสดงตลอดเวลา)
             const totalRefs = (user.totalReferrals !== undefined) ? user.totalReferrals : (user.referralCount || 0);
-            const monthRefs = user.referralCountMonth || 0; // ต้องส่งมาจาก API
-
-            const elTotalAll = document.getElementById('referral-total-all');
-            if(elTotalAll) elTotalAll.innerText = totalRefs.toLocaleString();
-
-            const elTotalMonth = document.getElementById('referral-total-month');
-            if(elTotalMonth) elTotalMonth.innerText = monthRefs.toLocaleString();
-
-            // 2. อัปเดตกล่อง "ภารกิจแนะนำเพื่อน" (Mission Box)
-            const missionBox = document.getElementById('mission-box');
             const isCampaign = user.activeCampaignTag && user.activeCampaignTag !== 'Standard';
-
-            // เช็คว่าใกล้จะเริ่มหรือยัง (Pre-active 3 days)
-            let isComingSoon = false;
-            let startTime = null;
-            if (user.campaignStartAt) {
-                startTime = new Date(user.campaignStartAt).getTime();
-                const now = new Date().getTime();
-                const diffDays = (startTime - now) / (1000 * 60 * 60 * 24);
-                if (diffDays > 0 && diffDays <= 3) isComingSoon = true;
-            }
-            
-            // แสดงกล่องถ้า: เป็น Campaign Active หรือ ใกล้จะเริ่ม (Coming Soon)
-            if (missionBox) {
-                if ((isCampaign && user.referralTarget > 0) || isComingSoon) {
-                    missionBox.classList.remove('hidden');
-
-                    const campaignName = user.activeCampaignTag || 'Upcoming Event';
-                    const target = user.referralTarget || 5;
-                    const bonus = user.milestoneBonus || 0;
-                    const basePoints = user.referralBasePoints || 50;
-                    const current = user.campaignReferralCount || 0;
-
-                    // Set Texts
-                    document.getElementById('mission-name').innerText = campaignName;
-                    // Note: bonus badge has internal structure now, better to update textContent carefully or innerHTML if simple
-                    // But here we have <span class="relative z-10">...</span> inside.
-                    const bonusBadge = document.getElementById('mission-bonus-badge');
-                    if (isComingSoon) {
-                        bonusBadge.querySelector('span.relative').innerText = 'เร็วๆ นี้';
-                    } else {
-                        bonusBadge.querySelector('span.relative').innerText = `โบนัส +${bonus}`;
-                    }
-
-                    document.getElementById('mission-base-badge').innerText = `ชวนเพื่อน +${basePoints}`;
-
-                    // Set Dates
-                    if (user.campaignStartAt && user.campaignEndAt) {
-                         const dStart = new Date(user.campaignStartAt);
-                         const dEnd = new Date(user.campaignEndAt);
-                         const fmt = { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' };
-                         document.getElementById('mission-dates').innerText = `${dStart.toLocaleDateString('th-TH', fmt)} - ${dEnd.toLocaleDateString('th-TH', fmt)}`;
-                    } else {
-                         document.getElementById('mission-dates').innerText = 'ระยะเวลาจำกัด';
-                    }
-
-                    if (isComingSoon) {
-                         document.getElementById('mission-desc').innerText = 'เตรียมพบกับภารกิจพิเศษ';
-                         document.getElementById('mission-current').innerText = '-';
-                         document.getElementById('mission-target').innerText = '-';
-                    } else {
-                         // Logic Recurring:
-                         // Current = Campaign Specific Count (e.g. 7)
-                         // Target Base = 5
-                         // Effective Target = 10 (Next Milestone)
-
-                         const effectiveTarget = (Math.floor(current / target) + 1) * target;
-
-                         document.getElementById('mission-current').innerText = current;
-                         document.getElementById('mission-target').innerText = effectiveTarget;
-                         document.getElementById('mission-desc').innerText = `ชวนเพื่อนครบทุกๆ ${target} คน รับโบนัส`;
-                    }
-
+            const summaryEl = document.getElementById('dash-ref-summary');
+            if (summaryEl) {
+                if (isCampaign && user.referralTarget > 0) {
+                    summaryEl.innerHTML = `<span class="text-yellow-500">⚡ ภารกิจกำลังเปิด</span> · ชวนแล้ว ${totalRefs.toLocaleString()} คน`;
+                } else if (totalRefs > 0) {
+                    summaryEl.innerText = `ชวนแล้ว ${totalRefs.toLocaleString()} คน · ดูรายละเอียด`;
                 } else {
-                    missionBox.classList.add('hidden');
+                    summaryEl.innerText = 'ชวนเพื่อนรับแต้มพิเศษ';
                 }
             }
             // -----------------------------------------------------
@@ -1596,7 +1273,7 @@
                         const colorClass = item.isPositive ? 'text-green-400' : 'text-red-400';
                         const icon = item.isPositive ? 'ri-arrow-up-circle-fill' : 'ri-arrow-down-circle-fill';
                         html += `
-                        <div class="bg-white/5 p-3 rounded-xl flex items-center justify-between border border-white/10 group cursor-pointer transition item-hover-effect list-item-animate" style="animation-delay: ${index * 60}ms" onclick="toggleTier2('${item.id}')">
+                        <div class="bg-white/5 p-3 rounded-xl flex items-center justify-between border border-white/10 group transition item-hover-effect list-item-animate" style="animation-delay: ${index * 60}ms">
                             <div class="flex items-center gap-3">
                                 <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center ${colorClass} text-xl">
                                     <i class="${icon}"></i>
@@ -1634,359 +1311,6 @@
             modal.classList.add('opacity-0');
             setTimeout(() => modal.classList.add('hidden'), 300);
         }
-
-        async function openInviteModal() {
-            console.log("[Invite Modal] Opening...");
-
-            if (!window.currentUser || !window.currentUser.customerId) {
-                console.error("[Invite Modal] Failed: currentUser or customerId not found.", window.currentUser);
-                try { Telegram.WebApp.hapticFeedback.notificationOccurred('error'); } catch(e) {}
-                Telegram.WebApp.showAlert("กำลังโหลดข้อมูลผู้ใช้ โปรดรอสักครู่แล้วลองอีกครั้ง");
-                return;
-            }
-            console.log("[Invite Modal] currentUser is available:", window.currentUser);
-
-            hideBottomNav();
-            const modal = document.getElementById('invite-modal');
-            const content = document.getElementById('invite-content');
-            const linkInput = document.getElementById('invite-link');
-            const qrCodeContainer = document.getElementById('qr-code-container');
-            const downloadQrBtn = document.getElementById('download-qr-btn');
-
-            const botUsername = getConfig('orderBotUsername', 'YOUR_ORDER_BOT_USERNAME_HERE');
-            const userId = window.currentUser?.customerId || "UNKNOWN";
-            const inviteLink = `https://t.me/${botUsername}?start=ref_${userId}`;
-            linkInput.value = inviteLink;
-            console.log(`[Invite Modal] Generated link: ${inviteLink}`);
-
-            qrCodeContainer.innerHTML = ''; // Clear previous QR code
-            
-            // --- New API-based QR Code Generation ---
-            try {
-                const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(inviteLink)}&size=200x200&bgcolor=050C0D&color=ffffff&qzone=1`;
-                console.log(`[Invite Modal] QR API URL: ${qrApiUrl}`);
-
-                const img = document.createElement('img');
-                img.src = qrApiUrl;
-                img.classList.add('w-full', 'h-full', 'rounded-lg');
-                img.onload = () => {
-                    console.log("[Invite Modal] QR Code image loaded successfully.");
-                };
-                img.onerror = () => {
-                     console.error("[Invite Modal] Failed to load QR Code image from API.");
-                     qrCodeContainer.innerHTML = '<p class="text-red-500 text-xs">ไม่สามารถโหลดรูป QR Code ได้</p>';
-                };
-                qrCodeContainer.appendChild(img);
-
-                downloadQrBtn.onclick = async () => {
-                    try {
-                        const response = await fetch(qrApiUrl);
-                        if (!response.ok) throw new Error('Network response was not ok.');
-                        const blob = await response.blob();
-                        const file = new File([blob], `qr-invite-${userId}.png`, { type: blob.type });
-
-                        // Use Web Share API if available
-                        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                            await navigator.share({
-                                files: [file],
-                                title: 'QR Code เชิญเพื่อน',
-                                text: 'สแกน QR Code นี้เพื่อเข้าร่วม',
-                            });
-                            showToast('แชร์สำเร็จ!', 'success');
-                        } else {
-                            // Fallback for browsers that don't support sharing files
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `qr-invite-${userId}.png`;
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            URL.revokeObjectURL(url);
-                        }
-                    } catch (err) {
-                        console.error('Share/Download failed:', err);
-                        // Final fallback: open the image in a new tab
-                        window.open(qrApiUrl, '_blank');
-                        showToast('เปิด QR Code ในแท็บใหม่', 'info');
-                    }
-                };
-                downloadQrBtn.classList.remove('hidden');
-
-            } catch (error) {
-                console.error("[Invite Modal] Error during QR code generation:", error);
-                qrCodeContainer.innerHTML = '<p class="text-red-500 text-xs">เกิดข้อผิดพลาดในการสร้าง QR Code</p>';
-                downloadQrBtn.classList.add('hidden');
-            }
-
-
-            const universalBtn = document.getElementById('universal-share-btn');
-            const fallbackContainer = document.getElementById('fallback-share-container');
-
-            if (navigator.share) {
-                universalBtn.classList.remove('hidden');
-                fallbackContainer.classList.add('hidden');
-            } else {
-                universalBtn.classList.add('hidden');
-                fallbackContainer.classList.remove('hidden');
-            }
-
-            document.body.classList.add('no-scroll');
-            modal.classList.remove('hidden');
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                content.classList.remove('translate-y-full');
-            }, 10);
-             console.log("[Invite Modal] Modal is now visible.");
-        }
-
-        function closeInviteModal() {
-            showBottomNav(); // Show nav bar when modal closes
-            const modal = document.getElementById('invite-modal');
-            const content = document.getElementById('invite-content');
-
-            document.body.classList.remove('no-scroll');
-            content.classList.add('translate-y-full');
-            modal.classList.add('opacity-0');
-            setTimeout(() => modal.classList.add('hidden'), 300);
-        }
-
-        function copyInviteLink() {
-            const linkInput = document.getElementById('invite-link');
-            linkInput.select();
-            linkInput.setSelectionRange(0, 99999); // Mobile
-
-            navigator.clipboard.writeText(linkInput.value).then(() => {
-                showToast("คัดลอกลิงก์แล้ว!", "success");
-            }).catch(() => {
-                showToast("ไม่สามารถคัดลอกได้", "error");
-            });
-        }
-        
-        async function universalShare() {
-            const linkInput = document.getElementById('invite-link');
-            const shareData = {
-                title: 'มาสะสมแต้มกัน!',
-                text: 'มาเข้าร่วมโปรแกรมสะสมแต้มกับฉันสิ! กดลิงก์นี้เลย: ',
-                url: linkInput.value
-            };
-            try {
-                await navigator.share(shareData);
-                showToast('แชร์สำเร็จ!', 'success');
-            } catch(err) {
-                console.error("Share failed:", err);
-                showToast('การแชร์ล้มเหลว', 'error');
-            }
-        }
-
-        function shareOnTelegram() {
-            const linkInput = document.getElementById('invite-link');
-            const referralLink = linkInput.value;
-            const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent('มาเข้าร่วมโปรแกรมสะสมแต้มกับฉันสิ! กดลิงก์นี้เลย: ')}`;
-            window.Telegram.WebApp.openTelegramLink(shareUrl);
-        }
-
-        function shareOnLine() {
-            const linkInput = document.getElementById('invite-link');
-            const text = encodeURIComponent(`มาเข้าร่วมโปรแกรมสะสมแต้มกับฉันสิ!\n${linkInput.value}`);
-            const shareUrl = `https://line.me/R/msg/text/?${text}`;
-            window.open(shareUrl, '_blank');
-        }
-
-        function shareOnWhatsApp() {
-            const linkInput = document.getElementById('invite-link');
-            const text = encodeURIComponent(`มาเข้าร่วมโปรแกรมสะสมแต้มกับฉันสิ! ${linkInput.value}`);
-            const shareUrl = `https://api.whatsapp.com/send?text=${text}`;
-            window.open(shareUrl, '_blank');
-        }
-        // --- [END] Invite Logic ---
-
-        // --- [START] Referral Logic ---
-
-        async function openReferralModal() {
-            hideBottomNav(); // Hide nav bar when modal opens
-            const modal = document.getElementById('referral-modal');
-            const content = document.getElementById('referral-content');
-            const list = document.getElementById('referral-list');
-
-            // ล็อกหน้าหลัง และเปิด Modal
-            document.body.classList.add('no-scroll');
-            modal.classList.remove('hidden');
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                content.classList.remove('translate-y-full');
-            }, 10);
-
-            // Initial loading state
-            list.innerHTML = '<div class="text-center text-gray-500 mt-10 animate-pulse">กำลังวิเคราะห์ข้อมูลการแนะนำ...</div>';
-
-            try {
-                // Use cached user ID if available (fixes browser testing issues)
-                const telegramId = window.currentUser?.telegramUserId || tg.initDataUnsafe?.user?.id;
-
-                if (!telegramId) {
-                    throw new Error("User ID not found");
-                }
-
-                const res = await fetch(`/api/referrals/${telegramId}`);
-                const result = await res.json();
-
-                if (result.success && result.data.length > 0) {
-                    document.getElementById('ref-total-count').innerText = result.count;
-                    const totalEarned = result.data.reduce((sum, item) => sum + item.earned, 0);
-                    document.getElementById('ref-total-earned').innerText = totalEarned.toLocaleString();
-
-                    let html = '';
-                    result.data.forEach((item, index) => {
-                        const hasTier2 = item.tier2Referrals && item.tier2Referrals.length > 0;
-
-                        const campaignBadge = item.campaign.includes('Standard')
-                            ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-700/50 text-gray-400 text-[9px] border border-gray-600/30"><i class="ri-flag-line"></i> ${item.campaign}</span>`
-                            : `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 text-[9px] border border-purple-500/30"><i class="ri-flashlight-fill"></i> ${item.campaign}</span>`;
-
-                        html += `
-                        <div class="bg-white/5 p-3 rounded-xl border border-white/10 space-y-2 transition item-hover-effect list-item-animate ${hasTier2 ? 'cursor-pointer' : ''}" style="animation-delay: ${index * 60}ms" ${hasTier2 ? `onclick="toggleTier2('${item.id}')"` : ''}>
-                            <div class="flex justify-between items-start">
-                                <div class="flex items-center gap-2">
-                                    <i id="ref-icon-${item.id}" class="ri-arrow-right-s-line text-gray-500 transition-transform ${hasTier2 ? '' : 'invisible'}"></i>
-                                    <span class="font-mono font-bold ${item.status === 'COMPLETED' ? 'text-gray-200' : 'text-[#F22233]'} text-sm">${item.id}</span>
-                                </div>
-                                <span class="font-bold text-lg text-yellow-400 flex items-center gap-1.5">
-                                    <i class="ri-copper-coin-line"></i> +${item.earned}
-                                </span>
-                            </div>
-                            <div class="flex justify-between items-center text-xs text-gray-400 pt-1 border-t border-white/5">
-                                ${campaignBadge}
-                                <span class="flex items-center gap-1.5">
-                                    <i class="ri-calendar-check-line"></i>
-                                    <span>${item.joinedAt}</span>
-                                </span>
-                            </div>`;
-                        
-                        if (hasTier2) {
-                            html += `<div id="tier2-list-${item.id}" class="tier2-list pt-2 mt-2 border-t border-white/20 space-y-1 pl-5">`;
-                            item.tier2Referrals.forEach(t2 => {
-                                html += `
-                                <div class="flex justify-between items-center text-xs">
-                                    <span class="font-mono text-gray-400">${t2.id}</span>
-                                    <span class="text-gray-500">${t2.joinDate}</span>
-                                </div>`;
-                            });
-                            html += `</div>`;
-                        }
-
-                        html += `</div>`;
-                    });
-                    list.innerHTML = html;
-                } else {
-                    document.getElementById('ref-total-count').innerText = "0";
-                    document.getElementById('ref-total-earned').innerText = "0";
-                    list.innerHTML = `
-                    <div class="flex flex-col items-center justify-center h-full text-gray-500 opacity-60">
-                        <i class="ri-team-line text-6xl mb-4"></i>
-                        <p>ยังไม่มีผู้ถูกแนะนำ</p>
-                        <button onclick="handleAction('invite')" class="mt-4 px-4 py-2 bg-[#F22233] rounded-lg text-white text-sm">
-                            เริ่มแนะนำเพื่อนเลย!
-                        </button>
-                    </div>`;
-                }
-                } catch (e) {
-                    console.error("Error in openReferralModal:", e);
-                    list.innerHTML = '<div class="text-center text-red-400 mt-10">เกิดข้อผิดพลาดในการโหลด (v3)</div>';
-                }        }
-
-        function closeReferralModal() {
-            showBottomNav(); // Show nav bar when modal closes
-            const modal = document.getElementById('referral-modal');
-            const content = document.getElementById('referral-content');
-            
-            document.body.classList.remove('no-scroll');
-            content.classList.add('translate-y-full');
-            modal.classList.add('opacity-0');
-            setTimeout(() => modal.classList.add('hidden'), 300);
-        }
-
-        function toggleTier2(itemId) {
-            const tier2List = document.getElementById(`tier2-list-${itemId}`);
-            const icon = document.getElementById(`ref-icon-${itemId}`);
-            if (tier2List && icon) {
-                // Animate the list expand/collapse
-                if (tier2List.style.maxHeight && tier2List.style.maxHeight !== "0px") {
-                    tier2List.style.maxHeight = "0px";
-                    tier2List.style.opacity = 0;
-                } else {
-                    tier2List.style.maxHeight = tier2List.scrollHeight + "px";
-                    tier2List.style.opacity = 1;
-                }
-                
-                // Rotate the icon
-                icon.classList.toggle('rotate-90');
-            }
-        }
-
-        // ปิดเมื่อกดพื้นหลัง
-        document.getElementById('referral-modal').addEventListener('click', function(e) {
-            if (e.target === this) closeReferralModal();
-        });
-        document.getElementById('campaign-modal').addEventListener('click', function(e) {
-            if (e.target === this) closeCampaignModal();
-        });
-        document.getElementById('invite-modal').addEventListener('click', function(e) {
-            if (e.target === this) closeInviteModal();
-        });
-
-        // --- Campaign Detail Modal Logic ---
-        function openCampaignModal() {
-            hideBottomNav(); // Hide nav bar when modal opens
-            const user = window.currentUser;
-            if (!user) return;
-
-            const modal = document.getElementById('campaign-modal');
-            const content = document.getElementById('campaign-content');
-
-            // Populate Data
-            const campaignName = user.activeCampaignTag || 'Special Campaign';
-            const basePoints = user.referralBasePoints || 50;
-            const target = user.referralTarget || 5;
-            const bonus = user.milestoneBonus || 0;
-
-            document.getElementById('modal-camp-name').innerText = campaignName;
-            document.getElementById('modal-camp-base').innerText = basePoints;
-            document.getElementById('modal-camp-target-title').innerText = `ภารกิจสะสมครบ ${target} คน`;
-            document.getElementById('modal-camp-bonus-desc').innerText = `รับโบนัสเพิ่มทันที ${bonus} แต้ม`;
-
-            if (user.campaignStartAt && user.campaignEndAt) {
-                 const dStart = new Date(user.campaignStartAt);
-                 const dEnd = new Date(user.campaignEndAt);
-                 const fmt = { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' };
-                 document.getElementById('mission-dates').innerText = `${dStart.toLocaleDateString('th-TH', fmt)} - ${dEnd.toLocaleDateString('th-TH', fmt)}`;
-            } else {
-                 document.getElementById('mission-dates').innerText = 'ระยะเวลาจำกัด';
-            }
-
-            // Show
-            modal.classList.remove('hidden');
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                content.classList.remove('scale-95');
-                content.classList.add('scale-100');
-            }, 10);
-        }
-
-        function closeCampaignModal() {
-            showBottomNav(); // Show nav bar when modal closes
-            const modal = document.getElementById('campaign-modal');
-            const content = document.getElementById('campaign-content');
-
-            content.classList.remove('scale-100');
-            content.classList.add('scale-95');
-            modal.classList.add('opacity-0');
-            setTimeout(() => {
-                modal.classList.add('hidden');
-            }, 300);
-        }
-
-        // --- [END] Referral Logic ---
 
         // --- [START] ระบบ Real-time (Auto Polling) ---
 
@@ -2054,17 +1378,21 @@
 
     <!-- Bottom Navigation Bar -->
     <div id="bottom-nav" class="fixed bottom-4 left-0 right-0 z-[70] mx-auto w-[calc(100%-2.5rem)] max-w-md bg-[var(--secondary-bg)] shadow-xl rounded-full p-2 flex justify-around items-center">
-        <a href="home.html" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/3 py-1.5 rounded-xl transition active:scale-95">
+        <a href="home.html" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/4 py-1.5 rounded-xl transition active:scale-95">
             <i class="ri-home-4-line text-xl"></i>
             <span>หน้าหลัก</span>
         </a>
-        <a href="products.html?v=2" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/3 py-1.5 rounded-xl transition active:scale-95">
+        <a href="products.html?v=2" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/4 py-1.5 rounded-xl transition active:scale-95">
             <i class="ri-shopping-cart-line text-xl"></i>
             <span>เมนูสินค้า</span>
         </a>
-        <a href="dashboard.html?v=2" class="flex flex-col items-center text-xs font-medium text-white w-1/3 py-1.5 rounded-xl transition active:scale-95">
+        <a href="dashboard.html?v=2" class="flex flex-col items-center text-xs font-medium text-white w-1/4 py-1.5 rounded-xl transition active:scale-95">
             <i class="ri-wallet-3-line text-xl"></i>
             <span>บัตรสมาชิก</span>
+        </a>
+        <a href="referral.html" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/4 py-1.5 rounded-xl transition active:scale-95">
+            <i class="ri-team-line text-xl"></i>
+            <span>แนะนำเพื่อน</span>
         </a>
     </div>
 </body>
