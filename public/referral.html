@@ -127,7 +127,7 @@
         #bottom-nav {
             transition: transform 0.3s ease-in-out;
         }
-        #bottom-nav.hide { transform: translateY(150%); }
+        #bottom-nav.hide { transform: translateY(200%); opacity: 0; pointer-events: none; }
 
         /* QR */
         #qr-code-container {
@@ -558,7 +558,8 @@
     </div>
 
     <!-- Campaign Detail Modal v2 -->
-    <div id="campaign-modal" class="hidden fixed inset-0 z-[65] flex items-end sm:items-center justify-center bg-black/90 backdrop-blur-md opacity-0 transition-opacity duration-300">
+    <!-- z-[80] keeps the modal above bottom-nav (z-[70]) so its CTA stays tappable -->
+    <div id="campaign-modal" class="hidden fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/90 backdrop-blur-md opacity-0 transition-opacity duration-300">
         <div class="glass-card w-full max-w-md max-h-[92vh] overflow-y-auto custom-scrollbar p-0 transform translate-y-full sm:translate-y-0 sm:scale-95 transition-transform duration-300 relative border border-yellow-500/30 shadow-[0_0_60px_rgba(234,179,8,0.25)] rounded-t-3xl sm:rounded-2xl" id="campaign-content">
 
             <!-- Close -->
@@ -1059,6 +1060,16 @@
             setTimeout(() => modal.classList.add('hidden'), 300);
         }
 
+        // ---------- Bottom nav helpers ----------
+        function hideBottomNav() {
+            const nav = document.getElementById('bottom-nav');
+            if (nav) nav.classList.add('hide');
+        }
+        function showBottomNav() {
+            const nav = document.getElementById('bottom-nav');
+            if (nav) nav.classList.remove('hide');
+        }
+
         // ---------- Campaign Modal v2 ----------
         function openCampaignModal() {
             const user = window.currentUser;
@@ -1108,6 +1119,8 @@
                 cdTextEl.innerText = 'ระยะเวลาจำกัด';
             }
 
+            hideBottomNav();
+            document.body.classList.add('no-scroll');
             modal.classList.remove('hidden');
             setTimeout(() => {
                 modal.classList.remove('opacity-0');
@@ -1124,6 +1137,8 @@
             content.classList.add('scale-95');
             content.classList.add('translate-y-full');
             modal.classList.add('opacity-0');
+            document.body.classList.remove('no-scroll');
+            showBottomNav();
             setTimeout(() => modal.classList.add('hidden'), 300);
         }
 

@@ -573,7 +573,8 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
         if (order.status !== 'PENDING_PAYMENT') return res.status(400).json({ success: false, error: 'ออเดอร์นี้ชำระเงินไปแล้ว หรือถูกยกเลิก' });
 
         // 2. Call SlipOK API
-        const BYPASS_SLIPOK = true; // ⚠️ ตั้งค่าเป็น true เพื่อปิดการตรวจสอบสลิปชั่วคราวตามคำขอ
+        // BYPASS via env (default: production verifies via SlipOK). Set BYPASS_SLIPOK=true in .env to skip.
+        const BYPASS_SLIPOK = process.env.BYPASS_SLIPOK === 'true';
 
         let slipData = {};
         let slipAmount = order.totalAmount;
@@ -708,67 +709,114 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
         try {
             const token = getVerificationToken();
             if (token) {
-                // Prepare highly detailed message
+                // Helpers
+                const fmtMoney = (n) => {
+                    const num = parseFloat(n) || 0;
+                    const hasDecimals = num % 1 !== 0;
+                    return num.toLocaleString('th-TH', hasDecimals ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : {});
+                };
+                const escapeHtml = (s) => String(s == null ? '' : s)
+                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+                // Time strings
                 const bkkOpts = { timeZone: 'Asia/Bangkok', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
                 const orderTimeStr = new Date(order.createdAt).toLocaleDateString('th-TH', bkkOpts);
-                
+                const paidTimeStr = new Date().toLocaleDateString('th-TH', bkkOpts);
+                const sameTime = orderTimeStr === paidTimeStr;
+
+                // Customer info (name + telegram + current points)
+                const cust = order.customer || await prisma.customer.findUnique({ where: { customerId: order.customerId } });
+                const custName = [cust?.firstName, cust?.lastName].filter(Boolean).join(' ').trim() || '-';
+                const custUsername = cust?.username ? `@${cust.username}` : '';
+                const custPoints = (cust?.points ?? 0).toLocaleString('th-TH');
+                const custTgId = cust?.telegramUserId || '';
+
                 let shippingInfo = 'ไม่ระบุที่อยู่จัดส่ง';
                 if (order.shippingAddressId) {
                     const addr = await prisma.shippingAddress.findUnique({ where: { id: order.shippingAddressId } });
                     if (addr) {
-                        shippingInfo = `ชื่อ: ${addr.receiverName}\nโทร: ${addr.phone}\nที่อยู่: ${addr.address} ${addr.subdistrict} ${addr.district} ${addr.province} ${addr.zipcode}`;
+                        shippingInfo = `ชื่อ: ${escapeHtml(addr.receiverName)}\nโทร: ${escapeHtml(addr.phone)}\nที่อยู่: ${escapeHtml(addr.address)} ${escapeHtml(addr.subdistrict)} ${escapeHtml(addr.district)} ${escapeHtml(addr.province)} ${escapeHtml(addr.zipcode)}`;
                     }
                 }
 
-                let itemsDetails = '';
+                // Group items by category, count totals
                 const itemsByCategory = {};
+                let totalUnits = 0;
                 for (const item of order.items) {
+                    totalUnits += item.quantity;
                     const categoryName = item.product.category?.name || 'ไม่ระบุหมวดหมู่';
-                    const categoryPrice = item.product.category?.price ? ` (฿${parseFloat(item.product.category.price).toLocaleString('th-TH')})` : '';
+                    const categoryPrice = item.product.category?.price ? ` (฿${fmtMoney(item.product.category.price)})` : '';
                     const catKey = `${categoryName}${categoryPrice}`;
                     if (!itemsByCategory[catKey]) itemsByCategory[catKey] = [];
                     itemsByCategory[catKey].push(item);
                 }
-                
-                for (const [catName, catItems] of Object.entries(itemsByCategory)) {
-                    itemsDetails += `<b>${catName}</b>\n`;
+                const totalLines = order.items.length;
+
+                let itemsDetails = '';
+                const catEntries = Object.entries(itemsByCategory);
+                catEntries.forEach(([catName, catItems], idx) => {
+                    itemsDetails += `<b>${escapeHtml(catName)}</b>\n`;
                     for (const item of catItems) {
                         const nicStr = item.product.nicotine !== null ? ` (${item.product.nicotine}%)` : '';
-                        itemsDetails += `${item.product.nameEn}${nicStr} x${item.quantity}\n`;
+                        itemsDetails += `• ${escapeHtml(item.product.nameEn)}${nicStr} x${item.quantity}\n`;
                     }
-                    itemsDetails += '\n';
-                }
+                    if (idx < catEntries.length - 1) itemsDetails += '\n';
+                });
 
-                // Retrieve shipping fee context from config
+                // Shipping fee context
                 const shipConfigRaw = await prisma.systemConfig.findUnique({ where: { key: 'shipping_fee' } });
                 const freeMinRaw = await prisma.systemConfig.findUnique({ where: { key: 'free_shipping_min' } });
                 const shipFeeBase = shipConfigRaw ? parseFloat(shipConfigRaw.value) : 60;
                 const freeMin = freeMinRaw ? parseFloat(freeMinRaw.value) : 500;
-                
+
                 const itemsSubtotal = order.items.reduce((sum, item) => sum + (item.quantity * parseFloat(item.priceAtPurchase)), 0);
                 const actualShipFee = itemsSubtotal >= freeMin ? 0 : shipFeeBase;
 
-                let message = `✅ <b>ได้รับการชำระเงินใหม่</b>\n\n` +
-                              `<b>วันที่:</b> ${orderTimeStr}\n` +
-                              `<b>ออเดอร์:</b> #${order.id}\n` +
-                              `<b>รหัสลูกค้า:</b> ${order.customerId}\n\n` +
-                              `📦 <b>[ข้อมูลจัดส่ง]</b>\n${shippingInfo}\n\n` +
-                              `🛍️ <b>[รายการสินค้า]</b>\n${itemsDetails}\n` +
-                              `<b>รวมค่าสินค้า:</b> ฿${itemsSubtotal.toLocaleString('th-TH')}\n` +
-                              `<b>ค่าจัดส่ง:</b> ${actualShipFee === 0 ? 'ฟรี' : '฿' + actualShipFee.toLocaleString('th-TH')}\n`;
+                // Build message
+                let message = '';
+                if (BYPASS_SLIPOK) {
+                    message += `⚠️ <b>โหมดทดสอบ — ไม่ได้ตรวจสลิปผ่าน SlipOK</b>\n\n`;
+                }
+                message += `✅ <b>ได้รับการชำระเงินใหม่</b>\n\n`;
+
+                message += `<b>ออเดอร์:</b> #${order.id}\n`;
+                if (sameTime) {
+                    message += `<b>วันที่:</b> ${orderTimeStr}\n\n`;
+                } else {
+                    message += `<b>สั่งซื้อ:</b> ${orderTimeStr}\n`;
+                    message += `<b>ชำระเงิน:</b> ${paidTimeStr}\n\n`;
+                }
+
+                message += `👤 <b>[ข้อมูลลูกค้า]</b>\n`;
+                message += `${escapeHtml(custName)}${custUsername ? ' · ' + escapeHtml(custUsername) : ''}\n`;
+                message += `รหัส: <code>${order.customerId}</code> · แต้มสะสม: ${custPoints}\n\n`;
+
+                message += `📦 <b>[ข้อมูลจัดส่ง]</b>\n${shippingInfo}\n\n`;
+
+                message += `🛍️ <b>[รายการสินค้า]</b> · รวม ${totalUnits} ชิ้น (${totalLines} รายการ)\n${itemsDetails}\n`;
+
+                message += `<b>รวมค่าสินค้า:</b> ฿${fmtMoney(itemsSubtotal)}\n`;
+                if (actualShipFee === 0) {
+                    message += `<b>ค่าจัดส่ง:</b> ฟรี <i>(ซื้อครบ ฿${fmtMoney(freeMin)})</i>\n`;
+                } else {
+                    message += `<b>ค่าจัดส่ง:</b> ฿${fmtMoney(actualShipFee)}\n`;
+                }
 
                 if (parseFloat(order.discountAmount) > 0) {
-                    message += `<b>ส่วนลดคูปอง:</b> -฿${parseFloat(order.discountAmount).toLocaleString('th-TH')} (${order.appliedCouponId || ''})\n`;
+                    let couponLine = `<b>ส่วนลดคูปอง:</b> -฿${fmtMoney(order.discountAmount)}`;
                     if (order.appliedCouponId) {
                         const appliedCoupon = await prisma.coupon.findUnique({ where: { id: order.appliedCouponId } });
-                        if (appliedCoupon && appliedCoupon.description) {
-                            message += `   🎁 <i>รายละเอียด: ${appliedCoupon.description}</i>\n`;
+                        if (appliedCoupon && appliedCoupon.name) {
+                            couponLine += ` · ${escapeHtml(appliedCoupon.name)}`;
                         }
                     }
+                    message += couponLine + '\n';
                 }
-                
-                message += `\n💰 <b>ยอดสุทธิ:</b> ฿${parseFloat(slipAmount).toLocaleString('th-TH')}\n` +
-                           `<i>(ตรวจสอบสลิปผ่าน SlipOK สำเร็จ) ${BYPASS_SLIPOK ? '[โหมดทดสอบ: Bypass สลิป]' : ''}</i>`;
+
+                message += `\n💰 <b>ยอดสุทธิ:</b> ฿${fmtMoney(slipAmount)}`;
+                if (!BYPASS_SLIPOK) {
+                    message += `\n<i>✓ ตรวจสอบสลิปผ่าน SlipOK สำเร็จ</i>`;
+                }
 
                 if (referralMsg) {
                     message += referralMsg;
@@ -852,14 +900,23 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                         let telegramUrl = `https://api.telegram.org/bot${adminToken}/sendPhoto`;
                         let res;
                         
+                        // Build "Contact customer" button — Telegram-only, hidden if no telegramUserId
+                        const contactBtn = custTgId
+                            ? (cust?.username
+                                ? { text: "💬 ติดต่อลูกค้า", url: `https://t.me/${cust.username}` }
+                                : { text: "💬 ติดต่อลูกค้า", url: `tg://user?id=${custTgId}` })
+                            : null;
+
                         const replyMarkup = isPersonalAdmin ? {
-                            inline_keyboard: [[
-                                { text: "📝 แนบเลขบิล", callback_data: `addbill_${order.id}` }
-                            ]]
+                            inline_keyboard: [
+                                [{ text: "📝 แนบเลขบิล", callback_data: `addbill_${order.id}` }],
+                                ...(contactBtn ? [[contactBtn]] : [])
+                            ]
                         } : {
-                            inline_keyboard: [[
-                                { text: "⚙️ แก้ไข/ยกเลิกออเดอร์", callback_data: `manage_order_${order.id}` }
-                            ]]
+                            inline_keyboard: [
+                                [{ text: `⚙️ จัดการ #${order.id}`, callback_data: `manage_order_${order.id}` }],
+                                ...(contactBtn ? [[contactBtn]] : [])
+                            ]
                         };
                         
                         if (photoUrl) {
