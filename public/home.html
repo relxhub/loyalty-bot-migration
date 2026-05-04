@@ -270,6 +270,7 @@
         }
 
         async function checkCouponNotifications() {
+            console.log("[Badge] Checking notifications...");
             try {
                 const res = await fetch('/api/coupons/count');
                 const data = await res.json();
@@ -279,21 +280,25 @@
                     const lastSeenCount = parseInt(localStorage.getItem('lastSeenCouponCount') || '-1');
                     const hasSeenOnce = localStorage.getItem('hasSeenCouponsOnce') === 'true';
 
-                    // Rule 1: First time ever (never clicked any coupon button)
-                    // Rule 2: New coupons added (currentCount > lastSeenCount)
-                    if (!hasSeenOnce || currentCount > lastSeenCount) {
+                    console.log(`[Badge] Current: ${currentCount}, LastSeen: ${lastSeenCount}, HasSeenOnce: ${hasSeenOnce}`);
+
+                    // Logic: 
+                    // 1. If there are coupons (currentCount > 0) AND they never clicked the button (!hasSeenOnce)
+                    // 2. OR if currentCount is more than what they last saw
+                    if ((currentCount > 0 && !hasSeenOnce) || (currentCount > lastSeenCount && currentCount > 0)) {
+                        console.log("[Badge] Showing badges");
                         document.getElementById('coupon-badge').classList.remove('hidden');
                         document.getElementById('redeem-badge').classList.remove('hidden');
                     } else {
+                        console.log("[Badge] Hiding badges");
                         document.getElementById('coupon-badge').classList.add('hidden');
                         document.getElementById('redeem-badge').classList.add('hidden');
                     }
                     
-                    // Store current count for next comparison, but don't mark as "seen" yet
                     window.latestCouponCount = currentCount;
                 }
             } catch (err) {
-                console.error("Failed to check coupon notifications:", err);
+                console.error("[Badge] Failed to check notifications:", err);
             }
         }
 

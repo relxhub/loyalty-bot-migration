@@ -2061,6 +2061,7 @@ router.post('/favorites/sync', async (req, res) => {
 router.get('/coupons/count', async (req, res) => {
     try {
         const now = new Date();
+        // นับทั้งคูปองทั่วไปและคูปองแลกแต้มที่ยังใช้งานได้
         const count = await prisma.coupon.count({
             where: {
                 isActive: true,
@@ -2071,6 +2072,7 @@ router.get('/coupons/count', async (req, res) => {
                 ]
             }
         });
+        console.log(`[CouponCount] Found ${count} active coupons`);
         res.json({ success: true, count });
     } catch (error) {
         console.error('Error counting coupons:', error);
