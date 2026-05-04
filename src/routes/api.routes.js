@@ -901,22 +901,13 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                         let telegramUrl = `https://api.telegram.org/bot${adminToken}/sendPhoto`;
                         let res;
                         
-                        // Build "Contact customer" button — Telegram-only, hidden if no telegramUserId
-                        const contactBtn = custTgId
-                            ? (cust?.username
-                                ? { text: "💬 ติดต่อลูกค้า", url: `https://t.me/${cust.username}` }
-                                : { text: "💬 ติดต่อลูกค้า", url: `tg://user?id=${custTgId}` })
-                            : null;
-
                         const replyMarkup = isPersonalAdmin ? {
                             inline_keyboard: [
-                                [{ text: "📝 แนบเลขบิล", callback_data: `addbill_${order.id}` }],
-                                ...(contactBtn ? [[contactBtn]] : [])
+                                [{ text: "📝 แนบเลขบิล", callback_data: `addbill_${order.id}` }]
                             ]
                         } : {
                             inline_keyboard: [
-                                [{ text: `⚙️ จัดการ #${order.id}`, callback_data: `manage_order_${order.id}` }],
-                                ...(contactBtn ? [[contactBtn]] : [])
+                                [{ text: `⚙️ จัดการ #${order.id}`, callback_data: `manage_order_${order.id}` }]
                             ]
                         };
                         

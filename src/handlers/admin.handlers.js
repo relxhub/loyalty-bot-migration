@@ -67,32 +67,61 @@ export async function handleAdminCommand(ctx) {
                     });
 
                     if (updatedOrder) {
+                        // Helpers (mirror api.routes verify-slip format)
+                        const fmtMoney = (n) => {
+                            const num = parseFloat(n) || 0;
+                            const hasDecimals = num % 1 !== 0;
+                            return num.toLocaleString('th-TH', hasDecimals ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : {});
+                        };
+                        const escapeHtml = (s) => String(s == null ? '' : s)
+                            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+                        const BYPASS_SLIPOK = process.env.BYPASS_SLIPOK !== 'false';
+
+                        const bkkOpts = { timeZone: 'Asia/Bangkok', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+                        const orderTimeStr = new Date(updatedOrder.createdAt).toLocaleDateString('th-TH', bkkOpts);
+                        const paidTimeStr = updatedOrder.payment?.verifiedAt
+                            ? new Date(updatedOrder.payment.verifiedAt).toLocaleDateString('th-TH', bkkOpts)
+                            : new Date().toLocaleDateString('th-TH', bkkOpts);
+                        const sameTime = orderTimeStr === paidTimeStr;
+
+                        // Customer info
+                        const cust = updatedOrder.customer || await prisma.customer.findUnique({ where: { customerId: updatedOrder.customerId } });
+                        const custName = [cust?.firstName, cust?.lastName].filter(Boolean).join(' ').trim() || '-';
+                        const custUsername = cust?.username ? `@${cust.username}` : '';
+                        const custPoints = (cust?.points ?? 0).toLocaleString('th-TH');
+
                         let shippingInfo = 'ไม่ระบุที่อยู่จัดส่ง';
                         if (updatedOrder.shippingAddressId) {
                             const addr = await prisma.shippingAddress.findUnique({ where: { id: updatedOrder.shippingAddressId } });
                             if (addr) {
-                                shippingInfo = `ชื่อ: ${addr.receiverName}\nโทร: ${addr.phone}\nที่อยู่: ${addr.address} ${addr.subdistrict} ${addr.district} ${addr.province} ${addr.zipcode}`;
+                                shippingInfo = `ชื่อ: ${escapeHtml(addr.receiverName)}\nโทร: ${escapeHtml(addr.phone)}\nที่อยู่: ${escapeHtml(addr.address)} ${escapeHtml(addr.subdistrict)} ${escapeHtml(addr.district)} ${escapeHtml(addr.province)} ${escapeHtml(addr.zipcode)}`;
                             }
                         }
 
-                        let itemsDetails = '';
+                        // Items grouped by category, with totals
                         const itemsByCategory = {};
+                        let totalUnits = 0;
                         for (const item of updatedOrder.items) {
+                            totalUnits += item.quantity;
                             const categoryName = item.product.category?.name || 'ไม่ระบุหมวดหมู่';
-                            const categoryPrice = item.product.category?.price ? ` (฿${parseFloat(item.product.category.price).toLocaleString('th-TH')})` : '';
+                            const categoryPrice = item.product.category?.price ? ` (฿${fmtMoney(item.product.category.price)})` : '';
                             const catKey = `${categoryName}${categoryPrice}`;
                             if (!itemsByCategory[catKey]) itemsByCategory[catKey] = [];
                             itemsByCategory[catKey].push(item);
                         }
-                        
-                        for (const [catName, catItems] of Object.entries(itemsByCategory)) {
-                            itemsDetails += `<b>${catName}</b>\n`;
+                        const totalLines = updatedOrder.items.length;
+
+                        let itemsDetails = '';
+                        const catEntries = Object.entries(itemsByCategory);
+                        catEntries.forEach(([catName, catItems], idx) => {
+                            itemsDetails += `<b>${escapeHtml(catName)}</b>\n`;
                             for (const item of catItems) {
                                 const nicStr = item.product.nicotine !== null ? ` (${item.product.nicotine}%)` : '';
-                                itemsDetails += `${item.product.nameEn}${nicStr} x${item.quantity}\n`;
+                                itemsDetails += `• ${escapeHtml(item.product.nameEn)}${nicStr} x${item.quantity}\n`;
                             }
-                            itemsDetails += '\n';
-                        }
+                            if (idx < catEntries.length - 1) itemsDetails += '\n';
+                        });
 
                         const shipConfigRaw = await prisma.systemConfig.findUnique({ where: { key: 'shipping_fee' } });
                         const freeMinRaw = await prisma.systemConfig.findUnique({ where: { key: 'free_shipping_min' } });
@@ -100,31 +129,46 @@ export async function handleAdminCommand(ctx) {
                         const freeMin = freeMinRaw ? parseFloat(freeMinRaw.value) : 500;
                         const itemsSubtotal = updatedOrder.items.reduce((sum, item) => sum + (item.quantity * parseFloat(item.priceAtPurchase)), 0);
                         const actualShipFee = itemsSubtotal >= freeMin ? 0 : shipFeeBase;
+                        const slipAmount = updatedOrder.payment ? updatedOrder.payment.amount : updatedOrder.totalAmount;
 
-                        const bkkOpts = { timeZone: 'Asia/Bangkok', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false };
-                        const orderTimeStr = new Date(updatedOrder.createdAt).toLocaleDateString('th-TH', bkkOpts);
-                        
-                        message = `✅ <b>ได้รับการชำระเงินใหม่</b>\n\n` +
-                                      `<b>วันที่:</b> ${orderTimeStr}\n` +
-                                      `<b>ออเดอร์:</b> #${updatedOrder.id}\n` +
-                                      `<b>รหัสลูกค้า:</b> ${updatedOrder.customerId}\n\n` +
-                                      `📦 <b>[ข้อมูลจัดส่ง]</b>\n${shippingInfo}\n\n` +
-                                      `🛍️ <b>[รายการสินค้า]</b>\n${itemsDetails}` +
-                                      `<b>รวมค่าสินค้า:</b> ฿${itemsSubtotal.toLocaleString('th-TH')}\n` +
-                                      `<b>ค่าจัดส่ง:</b> ${actualShipFee === 0 ? 'ฟรี' : '฿' + actualShipFee.toLocaleString('th-TH')}\n`;
-
+                        // Build message
+                        message = '';
+                        if (BYPASS_SLIPOK) {
+                            message += `⚠️ <b>โหมดทดสอบ — ไม่ได้ตรวจสลิปผ่าน SlipOK</b>\n\n`;
+                        }
+                        message += `✅ <b>ได้รับการชำระเงินใหม่</b>\n\n`;
+                        message += `<b>ออเดอร์:</b> #${updatedOrder.id}\n`;
+                        if (sameTime) {
+                            message += `<b>วันที่:</b> ${orderTimeStr}\n\n`;
+                        } else {
+                            message += `<b>สั่งซื้อ:</b> ${orderTimeStr}\n`;
+                            message += `<b>ชำระเงิน:</b> ${paidTimeStr}\n\n`;
+                        }
+                        message += `👤 <b>[ข้อมูลลูกค้า]</b>\n`;
+                        message += `${escapeHtml(custName)}${custUsername ? ' · ' + escapeHtml(custUsername) : ''}\n`;
+                        message += `รหัส: <code>${updatedOrder.customerId}</code> · แต้มสะสม: ${custPoints}\n\n`;
+                        message += `📦 <b>[ข้อมูลจัดส่ง]</b>\n${shippingInfo}\n\n`;
+                        message += `🛍️ <b>[รายการสินค้า]</b> · รวม ${totalUnits} ชิ้น (${totalLines} รายการ)\n${itemsDetails}\n`;
+                        message += `<b>รวมค่าสินค้า:</b> ฿${fmtMoney(itemsSubtotal)}\n`;
+                        if (actualShipFee === 0) {
+                            message += `<b>ค่าจัดส่ง:</b> ฟรี <i>(ซื้อครบ ฿${fmtMoney(freeMin)})</i>\n`;
+                        } else {
+                            message += `<b>ค่าจัดส่ง:</b> ฿${fmtMoney(actualShipFee)}\n`;
+                        }
                         if (parseFloat(updatedOrder.discountAmount) > 0) {
-                            message += `<b>ส่วนลดคูปอง:</b> -฿${parseFloat(updatedOrder.discountAmount).toLocaleString('th-TH')} (${updatedOrder.appliedCouponId || ''})\n`;
+                            let couponLine = `<b>ส่วนลดคูปอง:</b> -฿${fmtMoney(updatedOrder.discountAmount)}`;
                             if (updatedOrder.appliedCouponId) {
                                 const appliedCoupon = await prisma.coupon.findUnique({ where: { id: updatedOrder.appliedCouponId } });
-                                if (appliedCoupon && appliedCoupon.description) {
-                                    message += `   🎁 <i>รายละเอียด: ${appliedCoupon.description}</i>\n`;
+                                if (appliedCoupon && appliedCoupon.name) {
+                                    couponLine += ` · ${escapeHtml(appliedCoupon.name)}`;
                                 }
                             }
+                            message += couponLine + '\n';
                         }
-                        const slipAmount = updatedOrder.payment ? updatedOrder.payment.amount : updatedOrder.totalAmount;
-                        message += `\n💰 <b>ยอดสุทธิ:</b> ฿${parseFloat(slipAmount).toLocaleString('th-TH')}\n` +
-                                   `<i>(ตรวจสอบสลิปผ่าน SlipOK สำเร็จ)</i>`;
+                        message += `\n💰 <b>ยอดสุทธิ:</b> ฿${fmtMoney(slipAmount)}`;
+                        if (!BYPASS_SLIPOK) {
+                            message += `\n<i>✓ ตรวจสอบสลิปผ่าน SlipOK สำเร็จ</i>`;
+                        }
 
                         const storeSetting = await prisma.storeSetting.findUnique({ where: { id: 1 } });
                         const lastId = storeSetting?.lastAssignedAdminId;
@@ -134,7 +178,7 @@ export async function handleAdminCommand(ctx) {
                             if (adminRec && adminRec.name) activeAdminName = adminRec.name;
                         }
                         message += `\n👨‍💼 <b>แอดมินผู้รับผิดชอบ:</b> ${activeAdminName}`;
-                        message += `\n\n📝 <b>เลขบิล:</b> ${billNumber}`;
+                        message += `\n\n📝 <b>เลขบิล:</b> ${escapeHtml(billNumber)}`;
 
                         if (refMatch) {
                             try {
@@ -195,7 +239,7 @@ export async function handleAdminCommand(ctx) {
 
                                 // Update the original group message to append the bill number
                                 if (updatedOrder.groupMsgId) {
-                                    const groupKeyboard = [[{ text: "⚙️ แก้ไข/ยกเลิกออเดอร์", callback_data: `manage_order_${orderId}` }]];
+                                    const groupKeyboard = [[{ text: `⚙️ จัดการ #${orderId}`, callback_data: `manage_order_${orderId}` }]];
                                     try {
                                         await ctx.telegram.editMessageCaption(groupId, updatedOrder.groupMsgId, undefined, message, { parse_mode: 'HTML', reply_markup: { inline_keyboard: groupKeyboard } });
                                     } catch (e) {
