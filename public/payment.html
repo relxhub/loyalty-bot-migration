@@ -183,16 +183,16 @@
 
         <!-- Upload Slip Area (Phase 3 Prep) -->
         <div id="upload-section" class="mt-6">
-            <!-- Keep file input OUTSIDE uploadArea so JS innerHTML replacement doesn't destroy it -->
+            <!-- File input lives OUTSIDE uploadArea so innerHTML replace can't destroy it -->
             <input type="file" id="slip-input" accept="image/*" class="hidden">
             <div class="border-2 border-dashed border-zinc-600 rounded-2xl p-8 text-center bg-zinc-800/30 transition-all hover:bg-zinc-800/50 cursor-pointer" id="upload-area">
-                <label for="slip-input" class="cursor-pointer flex flex-col items-center">
+                <div class="flex flex-col items-center pointer-events-none">
                     <div class="w-16 h-16 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center mb-4">
                         <i class="ri-upload-cloud-2-line text-3xl"></i>
                     </div>
                     <p class="font-bold text-lg">อัปโหลดสลิปโอนเงิน</p>
                     <p class="text-sm text-gray-500 mt-1">รองรับไฟล์ JPG, PNG</p>
-                </label>
+                </div>
             </div>
 
             <button id="submit-slip-btn" disabled class="w-full mt-4 py-4 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl font-bold text-lg text-white shadow-lg opacity-50 cursor-not-allowed flex items-center justify-center gap-2 transition-all">
