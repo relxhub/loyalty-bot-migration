@@ -1168,28 +1168,36 @@
         };
 
         // --- GLOBAL FUNCTIONS ---
-        window.updateCartUI = async (productId = null) => {
+        window.updateCartUI = (productId = null) => {
             saveCart();
             window.updateCartIcon();
             
-            // If no coupon is applied yet, try to auto-apply best one
-            if (!window.appliedCoupon) {
-                await window.autoApplyBestCoupon();
-            } else {
-                // Re-verify if manual coupon is still valid
-                await reVerifyManualCoupon();
-            }
-
-            // ALWAYS update the cart modal display if it exists, to ensure summaries (subtotal, shipping, discount) are real-time
-            if (typeof window.updateCartModalDisplay === 'function') {
-                window.updateCartModalDisplay();
-            }
-
+            // 1. Optimistic UI Update: Instantly update the product card buttons or the full list
             if (productId) {
                 updateProductCardCartControl(productId);
             } else {
                 renderProducts();
             }
+
+            // ALWAYS update the cart modal display if it exists, to ensure cart items reflect instantly
+            if (typeof window.updateCartModalDisplay === 'function') {
+                window.updateCartModalDisplay();
+            }
+
+            // 2. Background Task: Check coupons and refresh modal totals asynchronously
+            const checkCouponsInBackground = async () => {
+                if (!window.appliedCoupon) {
+                    await window.autoApplyBestCoupon();
+                } else {
+                    await reVerifyManualCoupon();
+                }
+                // Refresh modal display again to show updated discount/shipping if changed
+                if (typeof window.updateCartModalDisplay === 'function') {
+                    window.updateCartModalDisplay();
+                }
+            };
+
+            checkCouponsInBackground();
         };
 
         const reVerifyManualCoupon = async () => {
