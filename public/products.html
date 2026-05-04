@@ -2042,7 +2042,7 @@
                     fetch('/api/favorites/sync', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ telegramId, favorites })
+                        body: JSON.stringify({ telegramId, favorites, initData: tg.initData })
                     }).catch(err => console.error("Failed to sync favorites:", err));
                 }
             };
