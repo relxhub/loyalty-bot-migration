@@ -2065,7 +2065,6 @@ router.get('/coupons/count', async (req, res) => {
         const count = await prisma.coupon.count({
             where: {
                 isActive: true,
-                status: 'ACTIVE',
                 OR: [
                     { validUntil: null },
                     { validUntil: { gt: now } }

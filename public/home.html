@@ -737,7 +737,10 @@
                 }
                 
                 // --- NEW: Check Coupon Notifications ---
-                checkCouponNotifications();
+                setTimeout(() => {
+                    console.log("[Home] Triggering coupon notification check. customerData:", window.customerData?.customerId);
+                    checkCouponNotifications();
+                }, 500);
                 
             } catch (e) {
                 console.log("[Home] Auth check failed:", e);
