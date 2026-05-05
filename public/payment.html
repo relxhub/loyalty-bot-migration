@@ -204,7 +204,9 @@
 
     <script>
         const tg = window.Telegram.WebApp;
-        
+        // i18n shim
+        const tt = (k, f) => (window.t ? window.t(k, f) : f);
+
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -236,9 +238,9 @@
 
         function copyBankAccount(accNumber) {
             navigator.clipboard.writeText(accNumber).then(() => {
-                showToast('คัดลอกเลขบัญชีแล้ว', 'success');
+                showToast(tt('msg.account_copied', 'คัดลอกเลขบัญชีแล้ว'), 'success');
             }).catch(() => {
-                showToast('ไม่สามารถคัดลอกได้', 'error');
+                showToast(tt('msg.copy_unsupported', 'ไม่สามารถคัดลอกได้'), 'error');
             });
         }
 
@@ -285,7 +287,7 @@
 
             if (!orderId) {
                 document.getElementById('loading-screen').classList.add('hidden');
-                showToast('ไม่พบรหัสออเดอร์', 'error');
+                showToast(tt('msg.no_order_id', 'ไม่พบรหัสออเดอร์'), 'error');
                 return;
             }
 
@@ -436,7 +438,7 @@
             } catch (err) {
                 console.error("Payment Init Error:", err);
                 document.getElementById('loading-screen').classList.add('hidden');
-                showToast(err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error');
+                showToast(err.message || tt('common.connection_error', 'เกิดข้อผิดพลาดในการเชื่อมต่อ'), 'error');
             }
 
             // Render lock UI immediately if we detected mismatch/over-paid during initial fetch
@@ -502,9 +504,9 @@
                                     lockPaymentUI(data.overPaidInfo, 'over');
                                 } else {
                                     tg.showPopup({
-                                        title: 'ชำระเงินสำเร็จ',
-                                        message: 'ตรวจสอบสลิปและยืนยันคำสั่งซื้อเรียบร้อยแล้ว แอดมินจะทำการจัดส่งสินค้าโดยเร็วที่สุด',
-                                        buttons: [{ id: 'ok', type: 'default', text: 'ตกลง' }]
+                                        title: tt('payment.success_title', 'ชำระเงินสำเร็จ'),
+                                        message: tt('payment.success_msg', 'ตรวจสอบสลิปและยืนยันคำสั่งซื้อเรียบร้อยแล้ว แอดมินจะทำการจัดส่งสินค้าโดยเร็วที่สุด'),
+                                        buttons: [{ id: 'ok', type: 'default', text: tt('common.ok', 'ตกลง') }]
                                     }, () => {
                                         window.location.href = 'products.html';
                                     });
@@ -532,14 +534,14 @@
                                 }
 
                                 tg.showPopup({
-                                    title: 'ระบบตรวจสลิปขัดข้อง',
-                                    message:
+                                    title: tt('payment.servicedown_title', 'ระบบตรวจสลิปขัดข้อง'),
+                                    message: tt('payment.servicedown_msg',
                                         'ระบบตรวจสลิปอัตโนมัติ\nขัดข้องชั่วคราว\n\n' +
                                         'แอดมินได้รับสลิปของคุณแล้ว\nและจะตรวจสอบให้ภายใน 15 นาที\n\n' +
-                                        'กรุณาทักเข้ามาในแชทบอท\nเพื่อแจ้งหมายเลขออเดอร์',
+                                        'กรุณาทักเข้ามาในแชทบอท\nเพื่อแจ้งหมายเลขออเดอร์'),
                                     buttons: [
-                                        { id: 'contact', type: 'default', text: 'ปิดและทักแอดมิน' },
-                                        { id: 'close', type: 'cancel', text: 'ปิด' },
+                                        { id: 'contact', type: 'default', text: tt('btn.close_and_chat', 'ปิดและทักแอดมิน') },
+                                        { id: 'close', type: 'cancel', text: tt('common.close', 'ปิด') },
                                     ],
                                 }, (id) => {
                                     if (id === 'contact') {
@@ -552,7 +554,7 @@
 
                                 const errMsg = data.error || 'ตรวจสอบสลิปไม่สำเร็จ';
                                 if (errMsg.length > 200) {
-                                    showToast('ข้อผิดพลาดจากเซิร์ฟเวอร์', 'error');
+                                    showToast(tt('msg.server_error', 'ข้อผิดพลาดจากเซิร์ฟเวอร์'), 'error');
                                 } else {
                                     tg.showAlert(errMsg);
                                 }
@@ -561,7 +563,7 @@
                             console.error('Verify Slip Error:', err);
                             submitBtn.innerHTML = originalText;
                             submitBtn.disabled = false;
-                            showToast('เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่', 'error');
+                            showToast(tt('common.connection_error_retry', 'เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่'), 'error');
                         }
                     };
                 }
@@ -594,9 +596,9 @@
                                 window.isPaymentBlocked = true;
                                 window.localStorage.removeItem('cart');
                                 tg.showPopup({
-                                    title: 'ชำระเงินสำเร็จ',
-                                    message: 'แอดมินยืนยันการชำระเงินครบเรียบร้อยแล้ว',
-                                    buttons: [{ id: 'ok', type: 'default', text: 'ตกลง' }],
+                                    title: tt('payment.success_title', 'ชำระเงินสำเร็จ'),
+                                    message: tt('payment.admin_confirmed', 'แอดมินยืนยันการชำระเงินครบเรียบร้อยแล้ว'),
+                                    buttons: [{ id: 'ok', type: 'default', text: tt('common.ok', 'ตกลง') }],
                                 }, () => { window.location.href = 'products.html'; });
                                 return;
                             }
@@ -604,9 +606,9 @@
                             if (pollData.order.status === 'CANCELLED') {
                                 window.isPaymentBlocked = true;
                                 tg.showPopup({
-                                    title: 'ออเดอร์ถูกยกเลิก',
-                                    message: 'ออเดอร์ถูกยกเลิก หากมีการโอนเงินมาแล้ว สามารถทักเข้ามาในแชทบอทเพื่อขอคืนเงินได้',
-                                    buttons: [{ id: 'ok', type: 'default', text: 'ตกลง' }],
+                                    title: tt('payment.cancelled_title', 'ออเดอร์ถูกยกเลิก'),
+                                    message: tt('payment.cancelled_msg', 'ออเดอร์ถูกยกเลิก หากมีการโอนเงินมาแล้ว สามารถทักเข้ามาในแชทบอทเพื่อขอคืนเงินได้'),
+                                    buttons: [{ id: 'ok', type: 'default', text: tt('common.ok', 'ตกลง') }],
                                 }, () => { window.location.href = 'products.html'; });
                                 return;
                             }
@@ -694,37 +696,37 @@
                     panelBg: 'bg-cyan-500/10 border-cyan-500/30',
                     icon: 'ri-refund-2-line',
                     iconColor: 'text-cyan-300',
-                    title: 'ออเดอร์รอแอดมินคืนเงิน',
+                    title: tt('lock.over_title', 'ออเดอร์รอแอดมินคืนเงิน'),
                     titleColor: 'text-cyan-200',
-                    desc: 'คุณโอนเงินมามากกว่ายอดที่ต้อง — กรุณาทักแอดมินเพื่อขอคืนเงินส่วนเกินในแชทบอท',
-                    diffLabel: 'เกินมา',
+                    desc: tt('lock.over_desc', 'คุณโอนเงินมามากกว่ายอดที่ต้อง — กรุณาทักแอดมินเพื่อขอคืนเงินส่วนเกินในแชทบอท'),
+                    diffLabel: tt('lock.over_label', 'เกินมา'),
                     diffBg: 'bg-cyan-500/15 border border-cyan-500/40',
                     diffText: 'text-cyan-200',
                     btnColor: 'from-cyan-500 to-sky-500 shadow-cyan-500/20',
-                    copyLabel: 'คัดลอกข้อความขอคืนเงิน',
+                    copyLabel: tt('lock.over_copy', 'คัดลอกข้อความขอคืนเงิน'),
                 }
                 : {
                     panelBg: 'bg-orange-500/10 border-orange-500/30',
                     icon: 'ri-lock-line',
                     iconColor: 'text-orange-400',
-                    title: 'ออเดอร์รอแอดมินยืนยัน',
+                    title: tt('lock.under_title', 'ออเดอร์รอแอดมินยืนยัน'),
                     titleColor: 'text-orange-300',
-                    desc: 'ยอดที่โอนยังไม่ครบ — กรุณาทักแอดมินเพื่อโอนเพิ่มในแชทบอท',
-                    diffLabel: 'ขาดอีก',
+                    desc: tt('lock.under_desc', 'ยอดที่โอนยังไม่ครบ — กรุณาทักแอดมินเพื่อโอนเพิ่มในแชทบอท'),
+                    diffLabel: tt('lock.under_label', 'ขาดอีก'),
                     diffBg: 'bg-orange-500/15 border border-orange-500/40',
                     diffText: 'text-orange-300',
                     btnColor: 'from-orange-500 to-amber-500 shadow-orange-500/20',
-                    copyLabel: 'คัดลอกข้อความแจ้งแอดมิน',
+                    copyLabel: tt('lock.under_copy', 'คัดลอกข้อความแจ้งแอดมิน'),
                 };
 
             const statsHtml = info ? `
                 <div class="grid grid-cols-3 gap-2 mt-4 mb-4 text-xs">
                     <div class="bg-zinc-800/60 rounded-lg p-2">
-                        <div class="text-zinc-500">ต้องโอน</div>
+                        <div class="text-zinc-500">${tt('lock.to_pay', 'ต้องโอน')}</div>
                         <div class="text-white font-bold mt-0.5">฿${fmt(expected)}</div>
                     </div>
                     <div class="bg-zinc-800/60 rounded-lg p-2">
-                        <div class="text-zinc-500">โอนแล้ว</div>
+                        <div class="text-zinc-500">${tt('lock.paid', 'โอนแล้ว')}</div>
                         <div class="text-white font-bold mt-0.5">฿${fmt(actual)}</div>
                     </div>
                     <div class="${cfg.diffBg} rounded-lg p-2">
@@ -743,7 +745,7 @@
                 ${statsHtml}
                 <div class="space-y-2 mt-4">
                     ${copyMsg ? `<button id="lock-copy-btn" class="w-full py-3 bg-gradient-to-r ${cfg.btnColor} rounded-xl font-bold text-white active:scale-95 transition shadow-lg flex items-center justify-center gap-2"><i class="ri-clipboard-line"></i> ${cfg.copyLabel}</button>` : ''}
-                    <button id="lock-close-btn" class="w-full py-3 bg-zinc-800 border border-zinc-700 rounded-xl font-medium text-zinc-200 active:scale-95 transition flex items-center justify-center gap-2"><i class="ri-chat-3-line"></i> ปิดและทักแอดมิน</button>
+                    <button id="lock-close-btn" class="w-full py-3 bg-zinc-800 border border-zinc-700 rounded-xl font-medium text-zinc-200 active:scale-95 transition flex items-center justify-center gap-2"><i class="ri-chat-3-line"></i> ${tt('btn.close_and_chat', 'ปิดและทักแอดมิน')}</button>
                 </div>`;
             const uploadArea = document.getElementById('upload-area');
             const submitBtn = document.getElementById('submit-slip-btn');
@@ -758,12 +760,12 @@
                 copyBtn.onclick = async () => {
                     try {
                         await copyToClipboard(copyMsg);
-                        showToast('คัดลอกข้อความแล้ว — paste ในแชทแอดมินได้เลย', 'success');
+                        showToast(tt('msg.copy_success', 'คัดลอกข้อความแล้ว — paste ในแชทแอดมินได้เลย'), 'success');
                     } catch (e) {
                         tg.showPopup({
-                            title: 'คัดลอกไม่สำเร็จ',
-                            message: copyMsg + '\n\n(โปรดเลือก-คัดลอกด้วยตนเอง)',
-                            buttons: [{ id: 'ok', type: 'default', text: 'ตกลง' }],
+                            title: tt('msg.copy_failed_title', 'คัดลอกไม่สำเร็จ'),
+                            message: copyMsg + '\n\n' + tt('msg.copy_manual_hint', '(โปรดเลือก-คัดลอกด้วยตนเอง)'),
+                            buttons: [{ id: 'ok', type: 'default', text: tt('common.ok', 'ตกลง') }],
                         });
                     }
                 };

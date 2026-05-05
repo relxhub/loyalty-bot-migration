@@ -64,6 +64,9 @@
             document.addEventListener('touchmove', onScroll, { passive: true });
         })();
 
+        // --- i18n helper shim (resolves to window.t at call-time, falls back to TH default) ---
+        const tt = (k, f) => (window.t ? window.t(k, f) : f);
+
         // --- CORE GLOBAL STATE ---
         if (typeof window.cart === 'undefined') window.cart = [];
         if (typeof window.appliedCoupon === 'undefined') window.appliedCoupon = null;
@@ -87,7 +90,7 @@
             }
 
             if (!user || !user.customerId) {
-                showToast('กำลังโหลดข้อมูลสมาชิก กรุณารอสักครู่...', 'warning');
+                showToast(tt('msg.loading_member', 'กำลังโหลดข้อมูลสมาชิก กรุณารอสักครู่...'), 'warning');
                 return false;
             }
             return true;
@@ -229,7 +232,7 @@
                 
                 const data = await res.json();
                 if (!res.ok || !data.success) {
-                    showToast('เงื่อนไขไม่ครบ คูปองถูกยกเลิกอัตโนมัติ', 'info');
+                    showToast(tt('msg.coupon_unmet', 'เงื่อนไขไม่ครบ คูปองถูกยกเลิกอัตโนมัติ'), 'info');
                     window.appliedCoupon = null;
                     selectedGift = null;
                     await window.autoApplyBestCoupon();
@@ -566,7 +569,7 @@
             };
 
             if (!addressData.name || !addressData.receiverName || !addressData.phone || !addressData.zipcode) {
-                showToast('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน', 'error');
+                showToast(tt('msg.fill_required', 'กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน'), 'error');
                 return;
             }
 
@@ -579,12 +582,12 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    showToast('บันทึกที่อยู่เรียบร้อย', 'success');
+                    showToast(tt('msg.address_saved', 'บันทึกที่อยู่เรียบร้อย'), 'success');
                     window.hideAddressForm();
                     await fetchAddresses();
                 }
             } catch (err) {
-                showToast('บันทึกไม่สำเร็จ', 'error');
+                showToast(tt('msg.save_failed', 'บันทึกไม่สำเร็จ'), 'error');
             }
         };
 
@@ -595,11 +598,11 @@
                 const res = await fetch(`/api/shipping-addresses/${telegramId}/${id}`, { method: 'DELETE' });
                 const data = await res.json();
                 if (data.success) {
-                    showToast('ลบที่อยู่เรียบร้อย', 'info');
+                    showToast(tt('msg.address_deleted', 'ลบที่อยู่เรียบร้อย'), 'info');
                     await fetchAddresses();
                 }
             } catch (err) {
-                showToast('ลบไม่สำเร็จ', 'error');
+                showToast(tt('msg.delete_failed', 'ลบไม่สำเร็จ'), 'error');
             }
         };
 
@@ -759,7 +762,7 @@
                 if (window.appliedCoupon && window.appliedCoupon.coupon.id === couponId && !window.appliedCoupon.isAuto) {
                     window.appliedCoupon = null;
                     selectedGift = null;
-                    showToast('ยกเลิกการใช้คูปองแล้ว', 'info');
+                    showToast(tt('msg.coupon_removed', 'ยกเลิกการใช้คูปองแล้ว'), 'info');
                     renderCouponList();
                     if (typeof window.updateCartModalDisplay === 'function') window.updateCartModalDisplay();
                     return;
@@ -811,7 +814,7 @@
             } catch (err) {
                 console.error("Apply Coupon Error:", err);
                 closeCouponSelection();
-                tg.showAlert('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
+                tg.showAlert(tt('common.error_retry', 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง'));
             }
         };
         const closeCouponSelection = () => {
@@ -1414,7 +1417,7 @@
                     // CRITICAL: Refresh the product listing to show "Add" buttons again
                     if (typeof renderProducts === 'function') renderProducts();
                     
-                    showToast('ล้างตะกร้าเรียบร้อย', 'info');
+                    showToast(tt('msg.cart_cleared', 'ล้างตะกร้าเรียบร้อย'), 'info');
                 }
             };            
             const addToCart = (productId) => {
@@ -1916,7 +1919,7 @@
             window.copyOverPaidMessage = async (orderId) => {
                 const text = (window._overPaidCopyCache || {})[orderId] || '';
                 if (!text) {
-                    showToast('ไม่พบข้อความ กรุณาลองเปิดออเดอร์ใหม่', 'error');
+                    showToast(tt('msg.copy_not_found', 'ไม่พบข้อความ กรุณาลองเปิดออเดอร์ใหม่'), 'error');
                     return;
                 }
                 try {
@@ -1932,9 +1935,9 @@
                         document.execCommand('copy');
                         document.body.removeChild(ta);
                     }
-                    showToast('คัดลอกข้อความแล้ว — paste ในแชทแอดมินได้เลย', 'success');
+                    showToast(tt('msg.copy_success', 'คัดลอกข้อความแล้ว — paste ในแชทแอดมินได้เลย'), 'success');
                 } catch (e) {
-                    showToast('คัดลอกไม่สำเร็จ กรุณาคัดลอกด้วยตนเอง', 'error');
+                    showToast(tt('msg.copy_failed', 'คัดลอกไม่สำเร็จ กรุณาคัดลอกด้วยตนเอง'), 'error');
                 }
             };
             window.closeRefundSlip = () => {
@@ -2175,13 +2178,13 @@
                             });
                             const data = await res.json();
                             if (data.success) {
-                                showToast('ยกเลิกคำสั่งซื้อเรียบร้อย', 'success');
+                                showToast(tt('msg.order_cancelled', 'ยกเลิกคำสั่งซื้อเรียบร้อย'), 'success');
                                 fetchHistory(); // Refresh list
                             } else {
                                 showToast(data.error || 'ยกเลิกไม่สำเร็จ', 'error');
                             }
                         } catch (err) {
-                            showToast('เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error');
+                            showToast(tt('common.connection_error', 'เกิดข้อผิดพลาดในการเชื่อมต่อ'), 'error');
                         }
                     }
                 });
@@ -2244,9 +2247,9 @@
                             closeHistoryModal();
                             setTimeout(() => {
                                 if (oosCount > 0) {
-                                    showToast('สินค้าบางรายการหมด หรือจำนวนไม่พอ', 'warning');
+                                    showToast(tt('msg.partial_oos', 'สินค้าบางรายการหมด หรือจำนวนไม่พอ'), 'warning');
                                 } else {
-                                    showToast('เพิ่มรายการลงตะกร้าเรียบร้อย', 'success');
+                                    showToast(tt('msg.added_to_cart', 'เพิ่มรายการลงตะกร้าเรียบร้อย'), 'success');
                                 }
                                 openCartModal();
                             }, 300);
@@ -2254,7 +2257,7 @@
                     }
                 } catch (err) {
                     console.error("Reorder Error:", err);
-                    showToast('เกิดข้อผิดพลาดในการดึงข้อมูลสินค้า', 'error');
+                    showToast(tt('msg.fetch_product_error', 'เกิดข้อผิดพลาดในการดึงข้อมูลสินค้า'), 'error');
                 } finally {
                     // Restore html in background in case they come back
                     if (document.getElementById('history-modal').classList.contains('hidden')) {
@@ -2268,7 +2271,7 @@
                 if (cart.length === 0) return;
 
                 if (!selectedAddressId) {
-                    tg.showAlert('กรุณาเลือกที่อยู่จัดส่งก่อนชำระเงิน');
+                    tg.showAlert(tt('msg.select_address', 'กรุณาเลือกที่อยู่จัดส่งก่อนชำระเงิน'));
                     return;
                 }
 
@@ -2298,7 +2301,7 @@
                 if (availableItems.length < cart.length) {
                     // Some items were removed, wait a tiny bit so error toasts are seen first
                     setTimeout(() => {
-                        showToast('ตัดรายการสินค้าที่หมดออกให้แล้ว', 'info');
+                        showToast(tt('msg.removed_oos', 'ตัดรายการสินค้าที่หมดออกให้แล้ว'), 'info');
                         // Update cart in state to remove out of stock items before proceeding
                         window.cart = availableItems;
                         window.updateCartUI();
@@ -2381,7 +2384,7 @@
                         saveCart();
                         window.updateCartUI();
                         
-                        tg.showAlert('สินค้าบางรายการมีการเปลี่ยนแปลงสต็อก ระบบได้ปรับปรุงตะกร้าของคุณให้แล้ว กรุณาตรวจสอบยอดเงินและทำรายการใหม่อีกครั้ง');
+                        tg.showAlert(tt('msg.stock_changed', 'สินค้าบางรายการมีการเปลี่ยนแปลงสต็อก ระบบได้ปรับปรุงตะกร้าของคุณให้แล้ว กรุณาตรวจสอบยอดเงินและทำรายการใหม่อีกครั้ง'));
                     } else {
                         btn.innerHTML = originalText;
                         btn.disabled = false;
@@ -2389,7 +2392,7 @@
                         // Prevent WebAppPopupParamInvalid by truncating or using toast
                         const errMsg = data.error || 'เกิดข้อผิดพลาดในการสั่งซื้อ';
                         if (errMsg.length > 200) {
-                            showToast('เกิดข้อผิดพลาดจากเซิร์ฟเวอร์', 'error');
+                            showToast(tt('msg.server_error', 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์'), 'error');
                             console.error("Backend Error:", errMsg);
                         } else {
                             tg.showAlert(errMsg);
@@ -2560,7 +2563,7 @@
             window.toggleLikeReview = async (reviewId, btnElement) => {
                 const telegramId = tg.initDataUnsafe?.user?.id?.toString() || window.currentUser?.telegramUserId || '';
                 if (!telegramId) {
-                    tg.showAlert('กรุณาเข้าสู่ระบบก่อนกด Like');
+                    tg.showAlert(tt('msg.login_to_like', 'กรุณาเข้าสู่ระบบก่อนกด Like'));
                     return;
                 }
 
@@ -2702,7 +2705,7 @@
 
             const handleWriteReview = async () => {
                 if (!currentUser) {
-                    tg.showAlert('กรุณาเข้าสู่ระบบก่อนเขียนรีวิว');
+                    tg.showAlert(tt('msg.login_to_review', 'กรุณาเข้าสู่ระบบก่อนเขียนรีวิว'));
                     return;
                 }
 
@@ -2831,7 +2834,7 @@
                         const isAnonymous = document.getElementById('review-anonymous').checked;
 
                         if (selectedRating === 0 || !comment.trim()) {
-                            tg.showAlert('กรุณาให้คะแนนดาวและพิมพ์ความคิดเห็น');
+                            tg.showAlert(tt('msg.review_required', 'กรุณาให้คะแนนดาวและพิมพ์ความคิดเห็น'));
                             return;
                         }
                         
@@ -2883,7 +2886,7 @@
                         btn.innerHTML = originalText;
                         btn.disabled = false;
                     }
-                    tg.showAlert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+                    tg.showAlert(tt('common.connection_error', 'เกิดข้อผิดพลาดในการเชื่อมต่อ'));
                 }
             };
 
@@ -3370,18 +3373,18 @@
                         filterOutStockBtn.classList.add('hidden');
 
                         if (isDevice) {
-                            filterHotBtn.innerHTML = '<i class="ri-fire-fill mr-1"></i>สียอดนิยม';
-                            filterNewBtn.innerHTML = '<i class="ri-sparkling-fill mr-1"></i>สีใหม่';
+                            filterHotBtn.innerHTML = '<i class="ri-fire-fill mr-1"></i>HOT';
+                            filterNewBtn.innerHTML = '<i class="ri-sparkling-fill mr-1"></i>NEW';
                             filterCoolBtn.classList.add('hidden');
-                            
+
                             if (currentFilter.specials.has('cool')) {
                                 currentFilter.specials.delete('cool');
                                 filterCoolBtn.classList.remove('active');
                                 renderProducts();
                             }
                         } else {
-                            filterHotBtn.innerHTML = '<i class="ri-fire-fill mr-1"></i>กลิ่นยอดนิยม';
-                            filterNewBtn.innerHTML = '<i class="ri-sparkling-fill mr-1"></i>กลิ่นใหม่';
+                            filterHotBtn.innerHTML = '<i class="ri-fire-fill mr-1"></i>HOT';
+                            filterNewBtn.innerHTML = '<i class="ri-sparkling-fill mr-1"></i>NEW';
                             filterCoolBtn.classList.remove('hidden');
                         }
                     }
@@ -3475,7 +3478,7 @@
                     const productId = parseInt(addToCartBtn.dataset.productId);
                     const product = allProducts.find(p => p.id === productId);
                     if (product.status === 'OUT_OF_STOCK') {
-                        showToast('สินค้าหมด', 'error');
+                        showToast(tt('msg.out_of_stock', 'สินค้าหมด'), 'error');
                     } else {
                         addToCart(productId);
                     }
