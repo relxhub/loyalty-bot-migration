@@ -1,0 +1,19 @@
+{
+    "lang.current": "TH",
+
+    "nav.home": "หน้าหลัก",
+    "nav.products": "เมนูสินค้า",
+    "nav.referral": "แนะนำเพื่อน",
+    "nav.dashboard": "บัตรสมาชิก",
+
+    "common.loading": "กำลังโหลด...",
+    "common.confirm": "ยืนยัน",
+    "common.cancel": "ยกเลิก",
+    "common.close": "ปิด",
+    "common.back": "กลับ",
+    "common.save": "บันทึก",
+    "common.edit": "แก้ไข",
+    "common.delete": "ลบ",
+    "common.ok": "ตกลง",
+    "common.error": "เกิดข้อผิดพลาด"
+}

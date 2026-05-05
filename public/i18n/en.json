@@ -1,0 +1,19 @@
+{
+    "lang.current": "EN",
+
+    "nav.home": "Home",
+    "nav.products": "Shop",
+    "nav.referral": "Refer",
+    "nav.dashboard": "Card",
+
+    "common.loading": "Loading...",
+    "common.confirm": "Confirm",
+    "common.cancel": "Cancel",
+    "common.close": "Close",
+    "common.back": "Back",
+    "common.save": "Save",
+    "common.edit": "Edit",
+    "common.delete": "Delete",
+    "common.ok": "OK",
+    "common.error": "An error occurred"
+}
