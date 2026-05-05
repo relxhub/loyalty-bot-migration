@@ -381,12 +381,19 @@
     <!-- Main Content -->
     <div id="app-content" class="hidden w-full max-w-md mx-auto space-y-4 pb-32 fade-in">
 
-        <!-- Header -->
-        <div class="relative flex justify-center items-center pt-2">
-            <h1 class="text-lg font-bold text-white" data-i18n="page.referral.title">แนะนำเพื่อน</h1>
-            <button onclick="toggleLang()" class="absolute right-0 text-white active:scale-95 transition inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full border border-white/20 bg-white/5" aria-label="Toggle language">
-                <i class="ri-global-line text-base"></i><span data-i18n="lang.current">TH</span>
-            </button>
+        <!-- Header (top-bar pattern matching products + dashboard) -->
+        <div id="top-bar" class="pb-2 relative z-20">
+            <div class="flex justify-between items-center pt-2">
+                <div class="w-1/4 flex items-center">
+                    <button onclick="toggleLang()" class="text-white active:scale-95 transition inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full border border-white/20 bg-white/5" aria-label="Toggle language">
+                        <i class="ri-global-line text-base"></i><span data-i18n="lang.current">TH</span>
+                    </button>
+                </div>
+                <div class="w-1/2 flex justify-center">
+                    <img src="logo.png" alt="Company Logo" class="w-40">
+                </div>
+                <div class="w-1/4"></div>
+            </div>
         </div>
 
         <!-- Mode Tabs (Affiliate placeholder) -->
