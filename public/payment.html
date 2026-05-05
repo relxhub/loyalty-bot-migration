@@ -13,6 +13,7 @@
     <script src="/js/qr-code-styling.browser.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <script src="i18n.js?v=2"></script>
 
     <!-- PostHog Tracking -->
     <script>
@@ -86,7 +87,7 @@
 
     <div id="loading-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#050C0D]">
         <div class="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p class="text-gray-400 animate-pulse">กำลังโหลดข้อมูลชำระเงิน...</p>
+        <p class="text-gray-400 animate-pulse" data-i18n="payment.loading">กำลังโหลดข้อมูลชำระเงิน...</p>
     </div>
 
     <!-- Header -->
@@ -94,7 +95,7 @@
         <button onclick="window.history.back()" class="w-10 h-10 rounded-full bg-zinc-800/50 flex items-center justify-center border border-zinc-700/50 active:scale-95 transition">
             <i class="ri-arrow-left-s-line text-xl text-white"></i>
         </button>
-        <h1 class="text-xl font-bold">ชำระเงิน</h1>
+        <h1 class="text-xl font-bold" data-i18n="payment.title">ชำระเงิน</h1>
         <div class="w-10 h-10"></div> <!-- Spacer -->
     </div>
 
@@ -103,14 +104,14 @@
         <div class="glass-card p-5">
             <div class="flex justify-between items-start mb-3">
                 <div>
-                    <p class="text-sm text-gray-400">รหัสออเดอร์</p>
+                    <p class="text-sm text-gray-400" data-i18n="payment.order_id">รหัสออเดอร์</p>
                     <p id="display-order-id" class="font-bold tracking-wider">ORD-XXXXXX</p>
                 </div>
-                <div class="bg-orange-500/20 text-orange-400 px-3 py-1 rounded-full text-xs font-bold border border-orange-500/30">
+                <div class="bg-orange-500/20 text-orange-400 px-3 py-1 rounded-full text-xs font-bold border border-orange-500/30" data-i18n="payment.status_pending">
                     รอชำระเงิน
                 </div>
             </div>
-            
+
             <div class="border-t border-white/10 my-4"></div>
 
             <div id="order-items-list" class="space-y-2 mb-4 text-sm text-zinc-300">
@@ -118,26 +119,26 @@
             </div>
 
             <div class="border-t border-white/10 my-4"></div>
-            
+
             <div class="space-y-1 mb-4 text-sm">
                 <div class="flex justify-between">
-                    <span class="text-zinc-400">ค่าสินค้า</span>
+                    <span class="text-zinc-400" data-i18n="payment.subtotal">ค่าสินค้า</span>
                     <span id="display-subtotal">0 ฿</span>
                 </div>
                 <div id="discount-row" class="flex justify-between text-green-400 hidden">
-                    <span>ส่วนลดคูปอง <span id="display-coupon-id" class="text-xs"></span></span>
+                    <span><span data-i18n="payment.discount">ส่วนลดคูปอง</span> <span id="display-coupon-id" class="text-xs"></span></span>
                     <span id="display-discount">-0 ฿</span>
                 </div>
                 <div class="flex justify-between">
-                    <span class="text-zinc-400">ค่าจัดส่ง</span>
+                    <span class="text-zinc-400" data-i18n="payment.shipping">ค่าจัดส่ง</span>
                     <span id="display-shipping">0 ฿</span>
                 </div>
             </div>
 
             <div class="border-t border-white/10 my-4"></div>
-            
+
             <div class="flex justify-between items-center">
-                <p class="text-gray-400">ยอดที่ต้องชำระ</p>
+                <p class="text-gray-400" data-i18n="payment.total_due">ยอดที่ต้องชำระ</p>
                 <p id="display-total" class="text-2xl font-bold text-brand-red">0 ฿</p>
             </div>
         </div>
@@ -145,9 +146,9 @@
         <!-- Bank Details -->
         <div id="bank-details-container" class="glass-card p-5 overflow-hidden relative">
             <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none"></div>
-            
+
             <h2 class="font-bold text-lg mb-4 flex items-center gap-2">
-                <i class="ri-bank-card-line text-blue-400"></i> โอนเงินเข้าบัญชี
+                <i class="ri-bank-card-line text-blue-400"></i> <span data-i18n="payment.transfer_to">โอนเงินเข้าบัญชี</span>
             </h2>
 
             <div class="flex items-center gap-4 mb-4 bg-zinc-900/50 p-4 rounded-xl border border-zinc-700/50">
@@ -155,8 +156,8 @@
                     <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/Kasikornbank_logo.svg/1200px-Kasikornbank_logo.svg.png" alt="Bank" class="w-8 h-8 object-contain">
                 </div>
                 <div class="flex-grow min-w-0">
-                    <p id="display-bank-name" class="text-xs text-gray-400">กำลังโหลด...</p>
-                    <p id="display-account-name" class="font-bold text-sm truncate">กำลังโหลด...</p>
+                    <p id="display-bank-name" class="text-xs text-gray-400" data-i18n="common.loading">กำลังโหลด...</p>
+                    <p id="display-account-name" class="font-bold text-sm truncate" data-i18n="common.loading">กำลังโหลด...</p>
                     <div class="flex items-center gap-2 mt-1">
                         <p id="display-account-number" class="font-mono text-lg text-blue-400 tracking-wider">---</p>
                     </div>
@@ -168,12 +169,12 @@
 
             <!-- QR Code Area -->
             <div class="mt-4 flex flex-col items-center">
-                <p class="text-xs text-gray-400 mb-2">หรือสแกน QR Code (บันทึกรูปภาพเพื่อสแกน)</p>
+                <p class="text-xs text-gray-400 mb-2" data-i18n="payment.qr_hint">หรือสแกน QR Code (บันทึกรูปภาพเพื่อสแกน)</p>
                 <div class="bg-white p-3 rounded-2xl w-48 h-48 flex items-center justify-center relative">
                     <!-- Placeholder before QR is generated -->
                     <div id="qr-placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-black/60 font-bold bg-white/80 rounded-xl backdrop-blur-sm border border-dashed border-gray-400 m-3">
                         <i class="ri-qr-code-line text-3xl mb-1"></i>
-                        <span>กำลังสร้าง QR...</span>
+                        <span data-i18n="payment.qr_generating">กำลังสร้าง QR...</span>
                     </div>
                     <!-- The actual canvas where QRCode will render -->
                     <div id="qr-canvas" class="hidden"></div>
@@ -190,13 +191,13 @@
                     <div class="w-16 h-16 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center mb-4">
                         <i class="ri-upload-cloud-2-line text-3xl"></i>
                     </div>
-                    <p class="font-bold text-lg">อัปโหลดสลิปโอนเงิน</p>
-                    <p class="text-sm text-gray-500 mt-1">รองรับไฟล์ JPG, PNG</p>
+                    <p class="font-bold text-lg" data-i18n="payment.upload_slip">อัปโหลดสลิปโอนเงิน</p>
+                    <p class="text-sm text-gray-500 mt-1" data-i18n="payment.upload_hint">รองรับไฟล์ JPG, PNG</p>
                 </div>
             </div>
 
             <button id="submit-slip-btn" disabled class="w-full mt-4 py-4 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl font-bold text-lg text-white shadow-lg opacity-50 cursor-not-allowed flex items-center justify-center gap-2 transition-all">
-                <i class="ri-check-double-line"></i> ยืนยันการชำระเงิน
+                <i class="ri-check-double-line"></i> <span data-i18n="payment.confirm_payment">ยืนยันการชำระเงิน</span>
             </button>
         </div>
     </div>

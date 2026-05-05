@@ -10,7 +10,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <script src="i18n.js?v=1"></script>
+    <script src="i18n.js?v=2"></script>
     <style>
         html, body {
             overscroll-behavior-y: none; /* Prevent rubber-banding */
@@ -90,7 +90,7 @@
 
     <div id="loading-screen" class="fixed inset-0 z-[110] flex flex-col items-center justify-center bg-[#050C0D]">
         <div class="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p class="text-gray-400 animate-pulse">กำลังตรวจสอบข้อมูล...</p>
+        <p class="text-gray-400 animate-pulse" data-i18n="home.checking">กำลังตรวจสอบข้อมูล...</p>
     </div>
 
     <div id="phone-screen" class="hidden fixed inset-0 z-[100] bg-[#050C0D] flex flex-col items-center justify-center p-6">
@@ -101,21 +101,21 @@
                 <i class="ri-smartphone-line"></i>
             </div>
             
-            <h2 class="text-2xl font-bold mb-2 text-white relative z-10">ยืนยันเบอร์โทรศัพท์</h2>
-            <p class="text-gray-400 text-sm mb-8 relative z-10">กรุณากรอกเบอร์โทรศัพท์ที่ติดต่อได้<br>เพื่อรับสิทธิพิเศษและเริ่มช้อปปิ้ง</p>
-            
+            <h2 class="text-2xl font-bold mb-2 text-white relative z-10" data-i18n="home.phone.title">ยืนยันเบอร์โทรศัพท์</h2>
+            <p class="text-gray-400 text-sm mb-8 relative z-10" data-i18n-html="home.phone.desc">กรุณากรอกเบอร์โทรศัพท์ที่ติดต่อได้<br>เพื่อรับสิทธิพิเศษและเริ่มช้อปปิ้ง</p>
+
             <div class="space-y-4 text-left relative z-10">
                 <div>
-                    <label class="text-xs text-gray-500 ml-1">เบอร์โทรศัพท์ (10 หลัก)</label>
-                    <input type="tel" id="phone-input" placeholder="เช่น 0891234567" maxlength="10" class="w-full bg-black/30 border border-gray-600 rounded-xl p-4 text-white text-center tracking-widest text-lg placeholder-gray-600 mt-1 focus:outline-none focus:border-blue-500">
+                    <label class="text-xs text-gray-500 ml-1" data-i18n="home.phone.label">เบอร์โทรศัพท์ (10 หลัก)</label>
+                    <input type="tel" id="phone-input" data-i18n-placeholder="home.phone.placeholder" placeholder="เช่น 0891234567" maxlength="10" class="w-full bg-black/30 border border-gray-600 rounded-xl p-4 text-white text-center tracking-widest text-lg placeholder-gray-600 mt-1 focus:outline-none focus:border-blue-500">
                 </div>
             </div>
-            
+
             <button onclick="submitPhone()" id="submit-phone-btn" class="w-full mt-8 py-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 rounded-xl font-bold text-lg text-white shadow-lg shadow-blue-500/30 transition active:scale-95 relative z-10 flex items-center justify-center gap-2">
-                <i class="ri-check-line"></i> ยืนยันเบอร์โทรศัพท์
+                <i class="ri-check-line"></i> <span data-i18n="home.phone.confirm">ยืนยันเบอร์โทรศัพท์</span>
             </button>
-            
-            <p class="text-[10px] text-gray-500 mt-6 relative z-10">
+
+            <p class="text-[10px] text-gray-500 mt-6 relative z-10" data-i18n="home.phone.privacy">
                 *ข้อมูลของท่านจะถูกเก็บเป็นความลับตามนโยบายความเป็นส่วนตัว
             </p>
         </div>
@@ -128,8 +128,8 @@
     <div id="main-content" class="w-full max-w-sm hidden flex-col items-center justify-center">
         <div class="text-center mb-12">
             <img src="logo.png" alt="ONEHUB" class="w-64 mx-auto mb-8">
-            <h1 class="text-3xl font-bold mb-2">ยินดีต้อนรับ</h1>
-            <p class="text-gray-400">เลือกเมนูด้านล่างเพื่อเริ่มต้นใช้งาน</p>
+            <h1 class="text-3xl font-bold mb-2" data-i18n="home.welcome">ยินดีต้อนรับ</h1>
+            <p class="text-gray-400" data-i18n="home.welcome_desc">เลือกเมนูด้านล่างเพื่อเริ่มต้นใช้งาน</p>
         </div>
 
     <!-- Buttons Container -->
@@ -142,8 +142,8 @@
                     <i class="ri-ticket-2-fill text-white"></i>
                 </div>
                 <div class="text-left">
-                    <div class="font-bold text-lg leading-none text-white">ศูนย์คูปอง</div>
-                    <div class="text-xs text-orange-100 opacity-80 mt-1">เก็บคูปองส่วนลด & ของแถมฟรี</div>
+                    <div class="font-bold text-lg leading-none text-white" data-i18n="home.coupon_center">ศูนย์คูปอง</div>
+                    <div class="text-xs text-orange-100 opacity-80 mt-1" data-i18n="home.coupon_center_desc">เก็บคูปองส่วนลด & ของแถมฟรี</div>
                 </div>
             </div>
             <i class="ri-arrow-right-s-line text-2xl opacity-50 text-white"></i>
@@ -160,8 +160,8 @@
                     <i class="ri-gift-2-fill text-white"></i>
                 </div>
                 <div class="text-left">
-                    <div class="font-bold text-lg leading-none text-white">แต้มแลกคูปอง</div>
-                    <div class="text-xs text-blue-100 opacity-80 mt-1">ใช้แต้มสะสม แลกรับสิทธิพิเศษ</div>
+                    <div class="font-bold text-lg leading-none text-white" data-i18n="home.redeem">แต้มแลกคูปอง</div>
+                    <div class="text-xs text-blue-100 opacity-80 mt-1" data-i18n="home.redeem_desc">ใช้แต้มสะสม แลกรับสิทธิพิเศษ</div>
                 </div>
             </div>
             <i class="ri-arrow-right-s-line text-2xl opacity-50 text-white"></i>
@@ -179,7 +179,7 @@
 
             <div class="flex-shrink-0 p-6 border-b border-gray-700 flex justify-between items-center bg-black/20">
                 <h3 class="text-xl font-bold flex items-center gap-2">
-                    <i class="ri-ticket-2-line text-yellow-500"></i> ศูนย์คูปอง
+                    <i class="ri-ticket-2-line text-yellow-500"></i> <span data-i18n="home.coupon_center">ศูนย์คูปอง</span>
                 </h3>
                 <button onclick="closeCouponModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition text-white">
                     <i class="ri-close-line"></i>
@@ -196,7 +196,7 @@
 
             <div id="no-coupons" class="hidden text-center py-12">
                 <div class="text-4xl mb-2">🏷️</div>
-                <div class="text-gray-400">ยังไม่มีคูปองให้เก็บในขณะนี้</div>
+                <div class="text-gray-400" data-i18n="home.no_coupons">ยังไม่มีคูปองให้เก็บในขณะนี้</div>
             </div>
         </div>
     </div>
@@ -207,7 +207,7 @@
 
             <div class="flex-shrink-0 p-6 border-b border-gray-700 flex justify-between items-center bg-black/20">
                 <h3 class="text-xl font-bold flex items-center gap-2">
-                    <i class="ri-gift-2-fill text-blue-500"></i> แต้มแลกคูปอง
+                    <i class="ri-gift-2-fill text-blue-500"></i> <span data-i18n="home.redeem">แต้มแลกคูปอง</span>
                 </h3>
                 <button onclick="closeRedeemModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition text-white">
                     <i class="ri-close-line"></i>
@@ -216,7 +216,7 @@
             
             <div class="flex-shrink-0 p-4 bg-black/10 border-b border-gray-700">
                 <div class="text-sm text-gray-400 flex justify-between items-center">
-                    <span>แต้มของคุณ:</span>
+                    <span data-i18n="home.your_points">แต้มของคุณ:</span>
                     <span class="text-xl font-bold text-yellow-500" id="user-current-points">...</span>
                 </div>
             </div>
@@ -229,7 +229,7 @@
 
             <div id="no-redeem-coupons" class="hidden text-center py-12">
                 <div class="text-4xl mb-2">🎁</div>
-                <div class="text-gray-400">ยังไม่มีรายการให้แลกในขณะนี้</div>
+                <div class="text-gray-400" data-i18n="home.no_redeem">ยังไม่มีรายการให้แลกในขณะนี้</div>
             </div>
         </div>
     </div>

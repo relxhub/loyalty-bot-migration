@@ -13,7 +13,7 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <script src="i18n.js?v=1"></script>
+    <script src="i18n.js?v=2"></script>
 
     <!-- PostHog Tracking -->
     <script>
@@ -375,7 +375,7 @@
     <!-- Loading -->
     <div id="loading-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#050C0D]">
         <div class="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p class="text-gray-400 animate-pulse">กำลังโหลดข้อมูล...</p>
+        <p class="text-gray-400 animate-pulse" data-i18n="common.loading_data">กำลังโหลดข้อมูล...</p>
     </div>
 
     <!-- Main Content -->
@@ -392,7 +392,7 @@
         <!-- Mode Tabs (Affiliate placeholder) -->
         <div class="flex gap-2 bg-white/5 p-1 rounded-2xl border border-white/10">
             <button class="tab-btn active flex-1 py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
-                <i class="ri-team-fill"></i> แนะนำเพื่อน
+                <i class="ri-team-fill"></i> <span data-i18n="referral.tab_main">แนะนำเพื่อน</span>
             </button>
             <button class="tab-btn disabled flex-1 py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 text-gray-400" onclick="showToast('Affiliate Program กำลังจะมาเร็วๆ นี้', 'info')">
                 <i class="ri-rocket-2-line"></i> Affiliate
@@ -405,9 +405,9 @@
             <div class="relative z-10">
                 <div class="flex items-center gap-2 mb-1">
                     <i class="ri-link-m text-xl"></i>
-                    <span class="text-sm font-semibold opacity-90">ลิงก์แนะนำของคุณ</span>
+                    <span class="text-sm font-semibold opacity-90" data-i18n="referral.your_link">ลิงก์แนะนำของคุณ</span>
                 </div>
-                <p class="text-xs opacity-80 mb-4">แชร์ลิงก์นี้ให้เพื่อน — เมื่อเพื่อนสั่งซื้อสำเร็จ คุณรับแต้มทันที</p>
+                <p class="text-xs opacity-80 mb-4" data-i18n="referral.link_desc">แชร์ลิงก์นี้ให้เพื่อน — เมื่อเพื่อนสั่งซื้อสำเร็จ คุณรับแต้มทันที</p>
 
                 <!-- Link Box -->
                 <div class="bg-black/30 rounded-xl p-3 flex items-center gap-2 backdrop-blur-sm border border-white/20">
@@ -420,7 +420,7 @@
                 <!-- Action Buttons -->
                 <div class="grid grid-cols-2 gap-2 mt-3">
                     <button onclick="universalShare()" class="py-3 bg-white text-[#F22233] font-bold rounded-xl flex items-center justify-center gap-2 active:scale-95 transition shadow-lg">
-                        <i class="ri-share-forward-fill"></i> แชร์ลิงก์
+                        <i class="ri-share-forward-fill"></i> <span data-i18n="referral.share_link">แชร์ลิงก์</span>
                     </button>
                     <button onclick="openQrModal()" class="py-3 bg-black/30 hover:bg-black/40 backdrop-blur-sm border border-white/20 text-white font-bold rounded-xl flex items-center justify-center gap-2 active:scale-95 transition">
                         <i class="ri-qr-code-line"></i> QR Code

@@ -15,7 +15,7 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <script src="i18n.js?v=1"></script>
+    <script src="i18n.js?v=2"></script>
 
     <style>
         /* ตั้งค่าสีตาม Theme ของ Telegram อัตโนมัติ */
@@ -288,13 +288,13 @@
                 </div>
 
                 <div class="flex flex-col items-end">
-                    <p class="text-[10px] text-zinc-400 mb-0.5">คะแนนสะสม</p>
+                    <p class="text-[10px] text-zinc-400 mb-0.5" data-i18n="dashboard.points_label">คะแนนสะสม</p>
                     <div class="flex items-baseline space-x-1">
                         <h1 id="user-points" class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 leading-none">0</h1>
                         <span class="text-xs text-yellow-500 font-bold">Pts</span>
                     </div>
                     <div class="text-[10px] text-zinc-500 mt-1">
-                        หมดอายุ: <span id="expiry-date" class="text-zinc-300">...</span>
+                        <span data-i18n="dashboard.expiry">หมดอายุ:</span> <span id="expiry-date" class="text-zinc-300">...</span>
                     </div>
                 </div>
             </div>
@@ -304,7 +304,7 @@
                     onclick="openMyCouponsModal(); try { Telegram.WebApp.hapticFeedback.impactOccurred('medium'); } catch(e){}" 
                     class="relative bg-gradient-to-br from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 border border-orange-400/50 py-3 rounded-xl flex items-center justify-center gap-2 transition group active:scale-95 w-full shadow-lg shadow-orange-500/20">
                     <i class="ri-ticket-2-line text-white text-lg drop-shadow-md"></i>
-                    <span class="text-sm font-bold text-white drop-shadow-md">คูปองของฉัน</span>
+                    <span class="text-sm font-bold text-white drop-shadow-md" data-i18n="dashboard.my_coupons">คูปองของฉัน</span>
                     <!-- Coupon Badge -->
                     <span id="coupon-badge" class="hidden absolute -top-2 -right-2 bg-red-600 text-white text-[10px] rounded-full h-[22px] w-[22px] flex items-center justify-center font-bold border-2 border-zinc-800 z-20">0</span>
                 </button>
@@ -312,7 +312,7 @@
                     onclick="openHistoryModal(); try { Telegram.WebApp.hapticFeedback.impactOccurred('medium'); } catch(e){}" 
                     class="bg-zinc-700/50 hover:bg-zinc-700 border border-zinc-600/50 py-3 rounded-xl flex items-center justify-center gap-2 transition group active:scale-95 w-full">
                     <i class="ri-history-line text-zinc-300 text-lg"></i>
-                    <span class="text-sm font-bold text-white">ประวัติคะแนน</span>
+                    <span class="text-sm font-bold text-white" data-i18n="dashboard.points_history">ประวัติคะแนน</span>
                 </button>
             </div>
         </div>
@@ -322,9 +322,9 @@
                 <i class="ri-team-fill text-2xl"></i>
             </div>
             <div class="flex-1">
-                <div class="font-bold text-base text-white">แนะนำเพื่อน</div>
+                <div class="font-bold text-base text-white" data-i18n="dashboard.refer_friends">แนะนำเพื่อน</div>
                 <div class="text-xs text-gray-400">
-                    <span id="dash-ref-summary">ชวนเพื่อนรับแต้มพิเศษ</span>
+                    <span id="dash-ref-summary" data-i18n="dashboard.refer_default">ชวนเพื่อนรับแต้มพิเศษ</span>
                 </div>
             </div>
             <i class="ri-arrow-right-s-line text-2xl text-gray-500"></i>
@@ -384,7 +384,7 @@
             
             <div class="p-5 border-b border-gray-700 flex justify-between items-center bg-black/20">
                 <h3 class="text-lg font-bold flex items-center gap-2">
-                    <i class="ri-ticket-2-line text-yellow-500"></i> คูปองของฉัน
+                    <i class="ri-ticket-2-line text-yellow-500"></i> <span data-i18n="dashboard.my_coupons">คูปองของฉัน</span>
                 </h3>
                 <button onclick="closeMyCouponsModal()" class="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center hover:bg-gray-700 transition">
                     <i class="ri-close-line"></i>
@@ -403,7 +403,7 @@
             
             <div class="p-5 border-b border-gray-700 flex justify-between items-center bg-black/20">
                 <h3 class="text-lg font-bold flex items-center gap-2">
-                    <i class="ri-history-line text-blue-400"></i> ประวัติคะแนน
+                    <i class="ri-history-line text-blue-400"></i> <span data-i18n="dashboard.points_history">ประวัติคะแนน</span>
                 </h3>
                 <button onclick="closeHistoryModal()" class="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center hover:bg-gray-700 transition">
                     <i class="ri-close-line"></i>

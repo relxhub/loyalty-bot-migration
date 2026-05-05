@@ -15,7 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 
     <link rel="stylesheet" href="products.css">
-    <script src="i18n.js?v=1"></script>
+    <script src="i18n.js?v=2"></script>
     <!-- PostHog Tracking -->
     <script>
         !function(t,e){var o,n,p,r;e.__SV||(window.posthog&&window.posthog.__loaded)||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="Ai Ri init Vi Yi Rr zi Gi Zi capture calculateEventProperties en register register_once register_for_session unregister unregister_for_session sn getFeatureFlag getFeatureFlagPayload getFeatureFlagResult isFeatureEnabled reloadFeatureFlags updateFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey cancelPendingSurvey canRenderSurvey canRenderSurveyAsync an identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset setIdentity clearIdentity get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException addExceptionStep captureLog startExceptionAutocapture stopExceptionAutocapture loadToolbar get_property getSessionProperty rn Ki createPersonProfile setInternalOrTestUser nn $i hn opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing Xi debug Mr tn getPageViewId captureTraceFeedback captureTraceMetric Di".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
@@ -98,16 +98,16 @@
                     <!-- Special Filters (Hot, New, Cool) -->
                     <div id="special-filter-container" class="px-5 mt-2 flex gap-2 overflow-x-auto scrollbar-hide">
                         <button class="special-filter-btn filter-hot" data-filter="hot">
-                            <i class="ri-fire-fill mr-1"></i>กลิ่นยอดนิยม
+                            <i class="ri-fire-fill mr-1"></i><span data-i18n="filter.popular">กลิ่นยอดนิยม</span>
                         </button>
                         <button class="special-filter-btn filter-new" data-filter="new">
-                            <i class="ri-sparkling-fill mr-1"></i>กลิ่นใหม่
+                            <i class="ri-sparkling-fill mr-1"></i><span data-i18n="filter.new">กลิ่นใหม่</span>
                         </button>
                         <button class="special-filter-btn filter-cool" data-filter="cool">
-                            <i class="ri-snowy-line mr-1"></i>เย็นเต็มแม็กส์
+                            <i class="ri-snowy-line mr-1"></i><span data-i18n="filter.cool">เย็นเต็มแม็กส์</span>
                         </button>
                         <button class="special-filter-btn filter-outstock" data-filter="outstock">
-                            <i class="ri-close-circle-fill mr-1"></i>สินค้าหมด
+                            <i class="ri-close-circle-fill mr-1"></i><span data-i18n="filter.outstock">สินค้าหมด</span>
                         </button>
                     </div>
                 </div>
@@ -188,7 +188,7 @@
             <div class="flex-shrink-0 p-4 border-b border-zinc-700 flex justify-between items-center">
                 <div class="flex items-center gap-2">
                     <i class="ri-heart-3-fill text-red-500 text-xl"></i>
-                    <h3 class="text-lg font-bold">รายการที่ชอบ</h3>
+                    <h3 class="text-lg font-bold" data-i18n="modal.favorites">รายการที่ชอบ</h3>
                 </div>
                 <div class="flex gap-2">
                     <button id="fav-to-cart-btn" class="relative w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center hover:bg-zinc-600 transition text-white" onclick="closeFavModal(); openCartModal();">
@@ -224,17 +224,17 @@
                         <button onclick="window.closeHistoryModal()" class="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition text-white border border-white/5">
                             <i class="ri-arrow-left-line text-lg"></i>
                         </button>
-                        <h3 class="text-lg font-bold tracking-tight">ประวัติคำสั่งซื้อ</h3>
+                        <h3 class="text-lg font-bold tracking-tight" data-i18n="modal.history_title">ประวัติคำสั่งซื้อ</h3>
                     </div>
                 </div>
                 <!-- Filter Tabs -->
                 <div class="flex overflow-x-auto no-scrollbar gap-5 border-b border-zinc-700/50 px-1" id="history-filter-tabs">
-                    <button onclick="window.filterHistory('ALL')" class="history-tab active text-brand-red border-b-2 border-brand-red pb-2 text-sm font-bold whitespace-nowrap transition">ทั้งหมด</button>
-                    <button onclick="window.filterHistory('PENDING_PAYMENT')" class="history-tab text-zinc-500 hover:text-zinc-300 pb-2 text-sm font-bold whitespace-nowrap transition border-b-2 border-transparent">รอชำระเงิน</button>
-                    <button onclick="window.filterHistory('PAID')" class="history-tab text-zinc-500 hover:text-zinc-300 pb-2 text-sm font-bold whitespace-nowrap transition border-b-2 border-transparent">ชำระเงินแล้ว</button>
-                    <button onclick="window.filterHistory('PROCESSING')" class="history-tab text-zinc-500 hover:text-zinc-300 pb-2 text-sm font-bold whitespace-nowrap transition border-b-2 border-transparent">กำลังแพ็คสินค้า</button>
-                    <button onclick="window.filterHistory('SHIPPED')" class="history-tab text-zinc-500 hover:text-zinc-300 pb-2 text-sm font-bold whitespace-nowrap transition border-b-2 border-transparent">จัดส่งแล้ว</button>
-                    <button onclick="window.filterHistory('CANCELLED')" class="history-tab text-zinc-500 hover:text-zinc-300 pb-2 text-sm font-bold whitespace-nowrap transition border-b-2 border-transparent">ยกเลิก</button>
+                    <button onclick="window.filterHistory('ALL')" class="history-tab active text-brand-red border-b-2 border-brand-red pb-2 text-sm font-bold whitespace-nowrap transition" data-i18n="status.all">ทั้งหมด</button>
+                    <button onclick="window.filterHistory('PENDING_PAYMENT')" class="history-tab text-zinc-500 hover:text-zinc-300 pb-2 text-sm font-bold whitespace-nowrap transition border-b-2 border-transparent" data-i18n="status.pending_payment">รอชำระเงิน</button>
+                    <button onclick="window.filterHistory('PAID')" class="history-tab text-zinc-500 hover:text-zinc-300 pb-2 text-sm font-bold whitespace-nowrap transition border-b-2 border-transparent" data-i18n="status.paid">ชำระเงินแล้ว</button>
+                    <button onclick="window.filterHistory('PROCESSING')" class="history-tab text-zinc-500 hover:text-zinc-300 pb-2 text-sm font-bold whitespace-nowrap transition border-b-2 border-transparent" data-i18n="status.processing">กำลังแพ็คสินค้า</button>
+                    <button onclick="window.filterHistory('SHIPPED')" class="history-tab text-zinc-500 hover:text-zinc-300 pb-2 text-sm font-bold whitespace-nowrap transition border-b-2 border-transparent" data-i18n="status.shipped">จัดส่งแล้ว</button>
+                    <button onclick="window.filterHistory('CANCELLED')" class="history-tab text-zinc-500 hover:text-zinc-300 pb-2 text-sm font-bold whitespace-nowrap transition border-b-2 border-transparent" data-i18n="status.cancelled">ยกเลิก</button>
                 </div>
             </div>
             <!-- Body -->
@@ -259,7 +259,7 @@
                     <button onclick="window.closeOrderDetailsModal()" class="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition text-white border border-white/5">
                         <i class="ri-arrow-left-line text-lg"></i>
                     </button>
-                    <h3 class="text-lg font-bold tracking-tight">รายละเอียดคำสั่งซื้อ</h3>
+                    <h3 class="text-lg font-bold tracking-tight" data-i18n="modal.order_details">รายละเอียดคำสั่งซื้อ</h3>
                 </div>
             </div>
             <!-- Body -->
@@ -278,7 +278,7 @@
             <div class="flex-shrink-0 p-4 border-b border-zinc-700 flex justify-between items-center">
                 <div class="flex items-center gap-2">
                     <i class="ri-shopping-cart-2-line text-xl text-brand-red"></i>
-                    <h3 class="text-lg font-bold">ตะกร้าสินค้า</h3>
+                    <h3 class="text-lg font-bold" data-i18n="modal.cart_title">ตะกร้าสินค้า</h3>
                 </div>
                 <button id="close-cart-modal-btn" class="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center hover:bg-zinc-600 transition">
                     <i class="ri-close-line"></i>
@@ -294,7 +294,7 @@
                             <i class="ri-home-4-fill text-brand-red text-xl"></i>
                         </div>
                         <div class="flex-grow overflow-hidden pr-2">
-                            <div class="text-white font-bold text-sm">จัดส่งที่</div>
+                            <div class="text-white font-bold text-sm" data-i18n="cart.deliver_to">จัดส่งที่</div>
                             <div id="selected-address-display" class="text-xs text-zinc-400 mt-0.5 truncate">
                                 คลิกเพื่อเลือกหรือเพิ่มที่อยู่จัดส่ง
                             </div>
@@ -307,7 +307,7 @@
                 <div id="cart-items-container" class="px-4 pb-4 space-y-3">
                     <h4 class="font-bold text-lg mb-2 text-white">รายการในตะกร้า</h4>                    <div id="cart-list-wrapper">
                         <!-- Cart items will be injected here by JS -->
-                        <p class="text-zinc-400 text-center py-4">ตะกร้าของคุณว่างเปล่า</p>
+                        <p class="text-zinc-400 text-center py-4" data-i18n="cart.empty">ตะกร้าของคุณว่างเปล่า</p>
                     </div>
                 </div>
 
