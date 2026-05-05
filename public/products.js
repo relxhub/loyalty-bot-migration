@@ -2083,7 +2083,9 @@
                             
                             saveCart();
                             window.updateCartIcon();
-                            
+                            // Refresh product card buttons so Add → −/qty/+ reflects the new cart
+                            if (typeof renderProducts === 'function') renderProducts();
+
                             closeHistoryModal();
                             setTimeout(() => {
                                 if (oosCount > 0) {
