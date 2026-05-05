@@ -15,7 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 
     <link rel="stylesheet" href="products.css">
-    <script src="i18n.js?v=3"></script>
+    <script src="i18n.js?v=4"></script>
     <!-- PostHog Tracking -->
     <script>
         !function(t,e){var o,n,p,r;e.__SV||(window.posthog&&window.posthog.__loaded)||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="Ai Ri init Vi Yi Rr zi Gi Zi capture calculateEventProperties en register register_once register_for_session unregister unregister_for_session sn getFeatureFlag getFeatureFlagPayload getFeatureFlagResult isFeatureEnabled reloadFeatureFlags updateFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey cancelPendingSurvey canRenderSurvey canRenderSurveyAsync an identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset setIdentity clearIdentity get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException addExceptionStep captureLog startExceptionAutocapture stopExceptionAutocapture loadToolbar get_property getSessionProperty rn Ki createPersonProfile setInternalOrTestUser nn $i hn opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing Xi debug Mr tn getPageViewId captureTraceFeedback captureTraceMetric Di".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
@@ -296,7 +296,7 @@
                         <div class="flex-grow overflow-hidden pr-2">
                             <div class="text-white font-bold text-sm" data-i18n="cart.deliver_to">จัดส่งที่</div>
                             <div id="selected-address-display" class="text-xs text-zinc-400 mt-0.5 truncate">
-                                คลิกเพื่อเลือกหรือเพิ่มที่อยู่จัดส่ง
+                                <span data-i18n="cart.address_hint">คลิกเพื่อเลือกหรือเพิ่มที่อยู่จัดส่ง</span>
                             </div>
                         </div>
                     </div>
@@ -305,7 +305,7 @@
 
                 <!-- Body (Cart Items) -->
                 <div id="cart-items-container" class="px-4 pb-4 space-y-3">
-                    <h4 class="font-bold text-lg mb-2 text-white">รายการในตะกร้า</h4>                    <div id="cart-list-wrapper">
+                    <h4 class="font-bold text-lg mb-2 text-white" data-i18n="cart.items_title">รายการในตะกร้า</h4>                    <div id="cart-list-wrapper">
                         <!-- Cart items will be injected here by JS -->
                         <p class="text-zinc-400 text-center py-4" data-i18n="cart.empty">ตะกร้าของคุณว่างเปล่า</p>
                     </div>
@@ -331,14 +331,14 @@
                                 <i class="ri-ticket-2-fill text-yellow-500"></i>
                                 <div>
                                     <div id="cart-coupon-name" class="font-bold text-yellow-500 text-sm"></div>
-                                    <div id="cart-coupon-desc" class="text-[10px] text-gray-400">คูปองนี้ถูกเลือกอัตโนมัติ</div>
+                                    <div id="cart-coupon-desc" class="text-[10px] text-gray-400" data-i18n="cart.coupon_auto">คูปองนี้ถูกเลือกอัตโนมัติ</div>
                                 </div>
                             </div>
-                            <button onclick="openCouponSelection()" class="text-[10px] bg-yellow-500 text-black px-2 py-1 rounded-lg font-bold active:scale-95 transition">เปลี่ยนคูปอง</button>
+                            <button onclick="openCouponSelection()" class="text-[10px] bg-yellow-500 text-black px-2 py-1 rounded-lg font-bold active:scale-95 transition" data-i18n="cart.change_coupon">เปลี่ยนคูปอง</button>
                         </div>
                         <!-- Gift Selection Section -->
                         <div id="gift-selection-area" class="mt-3 pt-3 border-t border-white/5 hidden">
-                            <p class="text-[10px] text-zinc-400 mb-2 uppercase font-bold tracking-wider">กรุณาเลือกของแถม:</p>
+                            <p class="text-[10px] text-zinc-400 mb-2 uppercase font-bold tracking-wider" data-i18n="cart.choose_gift">กรุณาเลือกของแถม:</p>
                             <div id="gift-list" class="grid grid-cols-3 gap-2">
                                 <!-- Gift options will be injected here -->
                             </div>
@@ -347,17 +347,17 @@
 
                     <div class="space-y-1.5 text-sm">
                         <div class="flex justify-between text-zinc-400">
-                            <span>ยอดรวมสินค้า</span>
+                            <span data-i18n="cart.subtotal">ยอดรวมสินค้า</span>
                             <span id="summary-subtotal">฿0</span>
                         </div>
                         <div class="flex justify-between items-center text-zinc-400">
                             <div class="flex items-center gap-2">
-                                <span id="shipping-label">ค่าจัดส่ง</span>
+                                <span id="shipping-label" data-i18n="cart.shipping">ค่าจัดส่ง</span>
                             </div>
                             <span id="summary-shipping">฿0</span>
                         </div>
                         <div id="summary-discount-row" class="flex justify-between text-yellow-500 hidden">
-                            <span>ส่วนลดคูปอง</span>
+                            <span data-i18n="cart.coupon_discount">ส่วนลดคูปอง</span>
                             <span id="summary-discount">-฿0</span>
                         </div>
                     </div>
@@ -368,14 +368,14 @@
             <div class="flex-shrink-0 p-5 border-t border-zinc-700/50 bg-zinc-900">
                 <div class="flex justify-between items-center">
                     <div class="flex flex-col">
-                        <span class="text-xs text-zinc-400">ยอดสุทธิ</span>
+                        <span class="text-xs text-zinc-400" data-i18n="cart.total">ยอดสุทธิ</span>
                         <span id="cart-total-price" class="text-2xl font-bold text-white">฿0</span>
                     </div>
                     <div class="flex gap-2 w-2/3">
                         <button id="clear-cart-btn" class="w-1/4 py-3.5 bg-zinc-800 text-red-500 rounded-2xl font-bold transition active:scale-95 flex items-center justify-center border border-zinc-700">
                             <i class="ri-delete-bin-line"></i>
                         </button>
-                        <button id="copy-cart-btn" class="w-3/4 py-3.5 bg-gradient-to-br from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 rounded-2xl font-bold text-lg text-white transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/20">
+                        <button id="copy-cart-btn" class="w-3/4 py-3.5 bg-gradient-to-br from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 rounded-2xl font-bold text-lg text-white transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/20" data-i18n="cart.checkout">
                             ชำระเงิน
                         </button>
                     </div>
@@ -389,7 +389,7 @@
             <div class="flex-shrink-0 p-4 border-b border-zinc-700 flex justify-between items-center">
                 <div class="flex items-center gap-2">
                     <i class="ri-map-pin-2-fill text-xl text-brand-red"></i>
-                    <h3 class="text-lg font-bold">สมุดที่อยู่จัดส่ง</h3>
+                    <h3 class="text-lg font-bold" data-i18n="address.book_title">สมุดที่อยู่จัดส่ง</h3>
                 </div>
                 <button onclick="window.closeAddressModal()" class="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center hover:bg-zinc-600 transition">
                     <i class="ri-close-line"></i>
@@ -405,40 +405,40 @@
 
                 <!-- Add New Address Button -->
                 <button id="add-new-addr-btn" onclick="window.showAddressForm()" class="w-full py-3 bg-zinc-700/50 border border-zinc-600 border-dashed rounded-2xl text-zinc-300 font-medium flex items-center justify-center gap-2 active:scale-95 transition">
-                    <i class="ri-add-line text-lg"></i> เพิ่มที่อยู่ใหม่
+                    <i class="ri-add-line text-lg"></i> <span data-i18n="address.add_new">เพิ่มที่อยู่ใหม่</span>
                 </button>
 
                 <!-- Address Form (Initially Hidden) -->
                 <div id="address-form-container" class="hidden space-y-3 pt-2 border-t border-zinc-700">
-                    <h4 class="font-bold text-white flex items-center gap-2"><i class="ri-edit-box-line"></i> กรอกรายละเอียดที่อยู่</h4>
+                    <h4 class="font-bold text-white flex items-center gap-2"><i class="ri-edit-box-line"></i> <span data-i18n="address.form_title">กรอกรายละเอียดที่อยู่</span></h4>
                     
                     <div class="space-y-2">
                         <input type="hidden" id="addr-id">
-                        <input type="text" id="addr-name" placeholder="ชื่อสถานที่ (เช่น บ้าน, ที่ทำงาน)" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:border-brand-red focus:outline-none">
-                        <input type="text" id="addr-receiver" placeholder="ชื่อผู้รับ" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:border-brand-red focus:outline-none">
-                        <input type="tel" id="addr-phone" placeholder="เบอร์โทรศัพท์" maxlength="10" oninput="this.value = this.value.replace(/[^0-9]/g, '')" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:border-brand-red focus:outline-none">
-                        <textarea id="addr-detail" placeholder="ที่อยู่ (บ้านเลขที่, ถนน, ซอย)" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:border-brand-red focus:outline-none" rows="2"></textarea>
+                        <input type="text" id="addr-name" data-i18n-placeholder="address.label_placeholder" placeholder="ชื่อสถานที่ (เช่น บ้าน, ที่ทำงาน)" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:border-brand-red focus:outline-none">
+                        <input type="text" id="addr-receiver" data-i18n-placeholder="address.receiver_placeholder" placeholder="ชื่อผู้รับ" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:border-brand-red focus:outline-none">
+                        <input type="tel" id="addr-phone" data-i18n-placeholder="address.phone_placeholder" placeholder="เบอร์โทรศัพท์" maxlength="10" oninput="this.value = this.value.replace(/[^0-9]/g, '')" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:border-brand-red focus:outline-none">
+                        <textarea id="addr-detail" data-i18n-placeholder="address.detail_placeholder" placeholder="ที่อยู่ (บ้านเลขที่, ถนน, ซอย)" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:border-brand-red focus:outline-none" rows="2"></textarea>
                         
                         <div class="relative">
-                            <input type="text" id="addr-zipcode" placeholder="รหัสไปรษณีย์ (พิมพ์เพื่อค้นหาอัตโนมัติ)" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:border-brand-red focus:outline-none" autocomplete="off">
+                            <input type="text" id="addr-zipcode" data-i18n-placeholder="address.zipcode_placeholder" placeholder="รหัสไปรษณีย์ (พิมพ์เพื่อค้นหาอัตโนมัติ)" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:border-brand-red focus:outline-none" autocomplete="off">
                             <div id="zipcode-suggestions" class="absolute z-50 left-0 right-0 top-full mt-1 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl max-h-48 overflow-y-auto hidden"></div>
                         </div>
 
                         <div class="grid grid-cols-2 gap-2">
-                            <input type="text" id="addr-subdistrict" placeholder="แขวง / ตำบล" class="bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:border-brand-red focus:outline-none">
-                            <input type="text" id="addr-district" placeholder="เขต / อำเภอ" class="bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:border-brand-red focus:outline-none">
+                            <input type="text" id="addr-subdistrict" data-i18n-placeholder="address.subdistrict" placeholder="แขวง / ตำบล" class="bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:border-brand-red focus:outline-none">
+                            <input type="text" id="addr-district" data-i18n-placeholder="address.district" placeholder="เขต / อำเภอ" class="bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:border-brand-red focus:outline-none">
                         </div>
-                        <input type="text" id="addr-province" placeholder="จังหวัด" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:border-brand-red focus:outline-none">
+                        <input type="text" id="addr-province" data-i18n-placeholder="address.province" placeholder="จังหวัด" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-white focus:border-brand-red focus:outline-none">
                         
                         <label class="flex items-center gap-2 p-2 cursor-pointer">
                             <input type="checkbox" id="addr-default" class="w-4 h-4 accent-brand-red">
-                            <span class="text-sm text-zinc-400">ตั้งเป็นที่อยู่หลัก</span>
+                            <span class="text-sm text-zinc-400" data-i18n="address.set_default">ตั้งเป็นที่อยู่หลัก</span>
                         </label>
                     </div>
 
                     <div class="flex gap-2">
-                        <button onclick="window.hideAddressForm()" class="flex-1 py-3 bg-zinc-700 text-white rounded-xl font-bold">ยกเลิก</button>
-                        <button onclick="window.saveAddress()" class="flex-[2] py-3 bg-yellow-500 text-black rounded-xl font-bold active:scale-95 transition">บันทึกที่อยู่</button>
+                        <button onclick="window.hideAddressForm()" class="flex-1 py-3 bg-zinc-700 text-white rounded-xl font-bold" data-i18n="common.cancel">ยกเลิก</button>
+                        <button onclick="window.saveAddress()" class="flex-[2] py-3 bg-yellow-500 text-black rounded-xl font-bold active:scale-95 transition" data-i18n="address.save">บันทึกที่อยู่</button>
                     </div>
                 </div>
             </div>
@@ -449,7 +449,7 @@
     <div id="coupon-select-modal" class="hidden fixed inset-0 z-[80] flex items-end justify-center bg-black/60 backdrop-blur-sm">
         <div id="coupon-select-content" class="bg-zinc-800 w-full max-w-md rounded-t-3xl flex flex-col max-h-[70vh] transform translate-y-full transition-transform duration-300">
             <div class="p-4 border-b border-zinc-700 flex justify-between items-center">
-                <h3 class="font-bold">เลือกคูปองที่ต้องการ</h3>
+                <h3 class="font-bold" data-i18n="cart.choose_coupon">เลือกคูปองที่ต้องการ</h3>
                 <button onclick="closeCouponSelection()" class="text-zinc-400"><i class="ri-close-line text-xl"></i></button>
             </div>
             <div id="available-coupons-list" class="p-4 overflow-y-auto space-y-3">
