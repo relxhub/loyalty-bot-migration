@@ -608,29 +608,138 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
             const blob = new Blob([file.buffer], { type: file.mimetype || 'image/jpeg' });
             formData.append('files', blob, file.originalname || 'slip.jpg');
 
-            const slipOkRes = await fetch(`https://api.slipok.com/api/line/apikey/${slipOkBranchId}`, {
-                method: 'POST',
-                headers: {
-                    'x-authorization': slipOkApiKey
-                },
-                body: formData
-            });
+            // L1.1 — 15s timeout via AbortController
+            // L1.2 — classify errors: 'ok' / 'reject' (slip bad) / 'down' (service or bank unavailable)
+            let slipOkOutcome = 'ok';
+            let slipOkErrorReason = '';
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 15000);
+                let slipOkRes;
+                try {
+                    slipOkRes = await fetch(`https://api.slipok.com/api/line/apikey/${slipOkBranchId}`, {
+                        method: 'POST',
+                        headers: { 'x-authorization': slipOkApiKey },
+                        body: formData,
+                        signal: controller.signal,
+                    });
+                } finally {
+                    clearTimeout(timeoutId);
+                }
 
-            slipData = await slipOkRes.json();
+                if (slipOkRes.status >= 500) {
+                    slipOkOutcome = 'down';
+                    slipOkErrorReason = `SlipOK HTTP ${slipOkRes.status}`;
+                } else {
+                    slipData = await slipOkRes.json();
+                    if (slipData?.success === false) {
+                        // Heuristic: bank-side / service-side issues that should fall back to manual review
+                        const bankDownPattern = /(ปรับปรุง|ปิดปรับปรุง|maintenance|unavailable|ไม่พร้อมให้บริการ|service|ธนาคาร|bank.*down|timeout|อยู่ระหว่าง|ขัดข้อง)/i;
+                        const errMsg = String(slipData?.message || slipData?.error || '');
+                        if (bankDownPattern.test(errMsg)) {
+                            slipOkOutcome = 'down';
+                            slipOkErrorReason = errMsg;
+                        } else {
+                            slipOkOutcome = 'reject';
+                            slipOkErrorReason = errMsg || 'สลิปไม่ถูกต้อง';
+                        }
+                    } else if (!slipData?.data) {
+                        slipOkOutcome = 'down';
+                        slipOkErrorReason = 'SlipOK returned malformed response';
+                    }
+                }
+            } catch (err) {
+                slipOkOutcome = 'down';
+                slipOkErrorReason = err?.name === 'AbortError' ? 'TIMEOUT_15S' : (err?.message || 'NETWORK_ERROR');
+            }
 
-            if (!slipData.success) {
-                console.error("SlipOK Verification Failed:", slipData);
-                return res.status(400).json({ 
-                    success: false, 
-                    error: slipData.message || 'สลิปไม่ถูกต้อง หรือไม่สามารถตรวจสอบได้' 
+            // L1.2 — Manual-review fallback when SlipOK service / bank is unavailable
+            if (slipOkOutcome === 'down') {
+                console.error('[SLIPOK] Service unavailable:', slipOkErrorReason);
+
+                // Audit log
+                try {
+                    await prisma.systemLog.create({
+                        data: {
+                            level: 'WARN',
+                            source: 'PAYMENT',
+                            action: 'SLIPOK_DOWN',
+                            customerId: order.customerId,
+                            message: JSON.stringify({
+                                orderId: order.id,
+                                reason: slipOkErrorReason,
+                                fileName: file.originalname || null,
+                                fileSize: file.size,
+                            }),
+                        },
+                    });
+                } catch (logErr) {
+                    console.error('SystemLog SLIPOK_DOWN failed:', logErr.message);
+                }
+
+                // Notify admin with the customer's uploaded slip via multipart sendPhoto
+                (async () => {
+                    try {
+                        const adminToken = process.env.ADMIN_BOT_TOKEN;
+                        const groupId = process.env.ADMIN_GROUP_ID || process.env.SUPER_ADMIN_TELEGRAM_ID;
+                        if (!adminToken || !groupId) return;
+
+                        const cust = order.customer || await prisma.customer.findUnique({ where: { customerId: order.customerId } });
+                        const custName = [cust?.firstName, cust?.lastName].filter(Boolean).join(' ').trim() || '-';
+                        const custUsername = cust?.username ? `@${cust.username}` : '';
+
+                        const fmtTh = (n) => Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                        let caption = `🟠 <b>ระบบตรวจสลิปอัตโนมัติขัดข้อง — ต้องตรวจด้วยมือ</b>\n\n`;
+                        caption += `<b>ออเดอร์:</b> #${order.id}\n`;
+                        caption += `<b>ยอดที่ต้องชำระ:</b> ฿${fmtTh(order.totalAmount)}\n\n`;
+                        caption += `👤 <b>[ลูกค้า]</b>\n`;
+                        caption += `${custName}${custUsername ? ' · ' + custUsername : ''}\n`;
+                        caption += `รหัส: <code>${order.customerId}</code>\n\n`;
+                        caption += `⚙️ <b>เหตุผล:</b> ${slipOkErrorReason}\n\n`;
+                        caption += `ℹ️ ออเดอร์ยังเป็น <code>PENDING_PAYMENT</code> — ยังไม่ตัดสต็อก/คูปอง\n`;
+                        caption += `กรุณารอลูกค้าทักเข้ามาในแชทบอท`;
+
+                        const fd = new FormData();
+                        fd.append('chat_id', String(groupId));
+                        fd.append('caption', caption);
+                        fd.append('parse_mode', 'HTML');
+                        const photoBlob = new Blob([file.buffer], { type: file.mimetype || 'image/jpeg' });
+                        fd.append('photo', photoBlob, file.originalname || 'slip.jpg');
+
+                        const r = await fetch(`https://api.telegram.org/bot${adminToken}/sendPhoto`, {
+                            method: 'POST',
+                            body: fd,
+                        });
+                        if (!r.ok) console.error('SLIPOK_DOWN admin notif Telegram error:', await r.json().catch(() => ({})));
+                    } catch (e) {
+                        console.error('SLIPOK_DOWN admin notif error:', e.message);
+                    }
+                })();
+
+                return res.status(503).json({
+                    success: false,
+                    serviceDown: true,
+                    manualReview: true,
+                    reason: slipOkErrorReason,
+                    error: 'ระบบตรวจสลิปอัตโนมัติขัดข้องชั่วคราว',
+                    message: 'ระบบตรวจสลิปขัดข้องชั่วคราว แอดมินจะตรวจสอบให้ภายใน 15 นาที กรุณาทักเข้ามาในแชทบอทเพื่อแจ้งหมายเลขออเดอร์',
+                });
+            }
+
+            if (slipOkOutcome === 'reject') {
+                console.error("SlipOK Verification Rejected:", slipOkErrorReason);
+                return res.status(400).json({
+                    success: false,
+                    error: slipOkErrorReason || 'สลิปไม่ถูกต้อง หรือไม่สามารถตรวจสอบได้',
                 });
             }
 
             slipAmount = slipData.data.amount;
             slipTransRef = slipData.data.transRef;
 
-            // 3. Validate Amount
-            if (parseFloat(slipAmount) !== parseFloat(order.totalAmount)) {
+            // 3. Validate Amount — L1.4: epsilon comparison to avoid float precision false-mismatch
+            if (Math.abs(parseFloat(slipAmount) - parseFloat(order.totalAmount)) >= 0.01) {
                 const expected = parseFloat(order.totalAmount);
                 const actual = parseFloat(slipAmount);
                 const diff = Math.round((actual - expected) * 100) / 100;
@@ -683,15 +792,7 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                         msg += `ในสลิป: ฿${fmtTh(actual)}\n`;
                         msg += `ส่วนต่าง: <b>${diff >= 0 ? '+' : '−'}฿${diffAbs}</b> (${overUnder})\n\n`;
                         msg += `ℹ️ ออเดอร์ยังเป็น <code>PENDING_PAYMENT</code> — ยังไม่ตัดสต็อก/คูปอง\n`;
-                        msg += `กรุณาติดต่อลูกค้าใน Telegram เพื่อดำเนินการต่อ`;
-
-                        const customerLink = cust?.username
-                            ? `https://t.me/${cust.username}`
-                            : null;
-
-                        const replyMarkup = customerLink
-                            ? { inline_keyboard: [[{ text: '💬 เปิดแชทกับลูกค้า', url: customerLink }]] }
-                            : undefined;
+                        msg += `กรุณารอลูกค้าทักเข้ามาในแชทบอท`;
 
                         const photoUrl = slipData?.data?.url || null;
                         const sendOne = async (chatId) => {
@@ -701,8 +802,8 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                                     ? `https://api.telegram.org/bot${adminToken}/sendPhoto`
                                     : `https://api.telegram.org/bot${adminToken}/sendMessage`;
                                 const body = photoUrl
-                                    ? { chat_id: chatId, photo: photoUrl, caption: msg, parse_mode: 'HTML', ...(replyMarkup && { reply_markup: replyMarkup }) }
-                                    : { chat_id: chatId, text: msg, parse_mode: 'HTML', ...(replyMarkup && { reply_markup: replyMarkup }) };
+                                    ? { chat_id: chatId, photo: photoUrl, caption: msg, parse_mode: 'HTML' }
+                                    : { chat_id: chatId, text: msg, parse_mode: 'HTML' };
                                 const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
                                 if (!r.ok) console.error(`Mismatch notif Telegram error for ${chatId}:`, await r.json().catch(() => ({})));
                             } catch (e) {
@@ -725,7 +826,7 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                     diff,
                     contactAdmin: true,
                     error: `ยอดเงินไม่ตรงกัน (ต้องชำระ: ฿${fmtTh(expected)}, ในสลิป: ฿${fmtTh(actual)})`,
-                    message: `ยอดเงินไม่ตรงกัน — ${diff > 0 ? `โอนเกิน` : `โอนน้อยกว่าที่ต้องชำระ`} ฿${fmtTh(Math.abs(diff))} กรุณาทักแอดมินใน Telegram เพื่อดำเนินการต่อ`,
+                    message: `ยอดเงินไม่ตรงกัน — ${diff > 0 ? `โอนเกิน` : `โอนน้อยกว่าที่ต้องชำระ`} ฿${fmtTh(Math.abs(diff))} กรุณาทักเข้ามาในแชทบอทเพื่อแจ้งหมายเลขออเดอร์กับแอดมิน`,
                 });
             }
             

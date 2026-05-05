@@ -46,9 +46,18 @@ const io = new Server(server, {
 });
 setSocketInstance(io);
 
-// --- Immediately load configuration --- 
+// --- Immediately load configuration ---
 // This must be called at the very beginning to ensure configs are available.
 await loadConfig();
+
+// --- Production safety: warn loudly if BYPASS_SLIPOK is on while running on Railway ---
+const __bypassOn = process.env.BYPASS_SLIPOK !== 'false';
+const __isRailway = !!(process.env.RAILWAY_PROJECT_ID || process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_SERVICE_ID);
+if (__bypassOn && __isRailway) {
+    console.error('\n🚨🚨🚨 [SECURITY] BYPASS_SLIPOK is ENABLED on PRODUCTION (Railway)');
+    console.error('   ลูกค้าสามารถส่งสลิปปลอมแล้วระบบจะ accept ทุกครั้ง');
+    console.error('   👉 กรุณาตั้ง BYPASS_SLIPOK=false ใน Railway env vars\n');
+}
 
 // =========================================
 // 🤖 BOT INSTANTIATION (Top Level)
@@ -64,9 +73,18 @@ if (!orderBotToken) throw new Error("ORDER_BOT_TOKEN is missing from .env");
 export const customerBot = new Telegraf(orderBotToken); // Exported for use in other services
 
 // Inject bot instances into notification service
-import { setAdminBotInstance, setOrderBotInstance } from './src/services/notification.service.js';
+import { setAdminBotInstance, setOrderBotInstance, sendAlertToSuperAdmin } from './src/services/notification.service.js';
 setAdminBotInstance(adminBot);
 setOrderBotInstance(customerBot);
+
+// Best-effort Telegram alert if BYPASS is on in prod
+if (__bypassOn && __isRailway) {
+    sendAlertToSuperAdmin(
+        '🚨 <b>[SECURITY]</b> BYPASS_SLIPOK is <b>ENABLED on PRODUCTION</b>\n\n' +
+        'ลูกค้าสามารถส่งสลิปปลอมแล้วระบบจะ accept ทุกครั้ง\n' +
+        '👉 กรุณาตั้ง <code>BYPASS_SLIPOK=false</code> ใน Railway env vars'
+    ).catch((e) => console.error('Failed to alert super admin about BYPASS:', e.message));
+}
 
 // =========================================
 // 🚀 SERVER STARTUP

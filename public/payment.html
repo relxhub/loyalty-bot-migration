@@ -497,7 +497,7 @@
                                     `ต้องชำระ: ฿${fmt(data.expectedAmount)}\n` +
                                     `ในสลิป: ฿${fmt(data.slipAmount)}\n` +
                                     `${overUnder}: ฿${fmt(Math.abs(data.diff))}\n\n` +
-                                    `กรุณาทักแอดมินใน Telegram\nเพื่อดำเนินการต่อ`;
+                                    `กรุณาทักเข้ามาในแชทบอท\nเพื่อแจ้งแอดมิน`;
 
                                 if (window.posthog) {
                                     posthog.capture('Slip Amount Mismatch', { orderId, diff: data.diff });
@@ -506,6 +506,29 @@
                                 tg.showPopup({
                                     title: 'ยอดเงินไม่ตรง',
                                     message: popupMsg,
+                                    buttons: [
+                                        { id: 'contact', type: 'default', text: 'ปิดและทักแอดมิน' },
+                                        { id: 'close', type: 'cancel', text: 'ปิด' },
+                                    ],
+                                }, (id) => {
+                                    if (id === 'contact') {
+                                        try { tg.close(); } catch (e) { window.close(); }
+                                    }
+                                });
+                            } else if (data.serviceDown || data.manualReview) {
+                                submitBtn.innerHTML = originalText;
+                                submitBtn.disabled = false;
+
+                                if (window.posthog) {
+                                    posthog.capture('Slip Service Down', { orderId, reason: data.reason });
+                                }
+
+                                tg.showPopup({
+                                    title: 'ระบบตรวจสลิปขัดข้อง',
+                                    message:
+                                        'ระบบตรวจสลิปอัตโนมัติ\nขัดข้องชั่วคราว\n\n' +
+                                        'แอดมินได้รับสลิปของคุณแล้ว\nและจะตรวจสอบให้ภายใน 15 นาที\n\n' +
+                                        'กรุณาทักเข้ามาในแชทบอท\nเพื่อแจ้งหมายเลขออเดอร์',
                                     buttons: [
                                         { id: 'contact', type: 'default', text: 'ปิดและทักแอดมิน' },
                                         { id: 'close', type: 'cancel', text: 'ปิด' },
