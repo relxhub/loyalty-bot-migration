@@ -11,6 +11,7 @@ import { createCustomer, giveReferralBonus } from '../services/customer.service.
 import * as referralService from '../services/referral.service.js'; // Import the new referral service
 import * as couponService from '../services/coupon.service.js';
 import * as shippingService from '../services/shipping.service.js';
+import { sendOrderPaidAdminNotification } from '../services/order-notification.service.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -1240,8 +1241,14 @@ export async function handleAdminCallback(ctx) {
                     });
                 });
 
-                // Try to complete referral (best-effort)
-                try { await referralService.completeReferral(order.customerId, slipAmount); } catch (e) {}
+                // Try to complete referral (best-effort) + capture message
+                let referralMsg = '';
+                try {
+                    const refResult = await referralService.completeReferral(order.customerId, slipAmount);
+                    if (refResult?.success) {
+                        referralMsg = `\n\n🎉 <b>[โบนัสแนะนำเพื่อน]</b>\n${refResult.message}`;
+                    }
+                } catch (e) {}
 
                 // Notify customer (bot push, not direct chat)
                 if (order.customer?.telegramUserId) {
@@ -1249,6 +1256,27 @@ export async function handleAdminCallback(ctx) {
                         order.customer.telegramUserId,
                         `✅ <b>ยืนยันคำสั่งซื้อแล้ว</b>\n\nออเดอร์ <b>#${order.id}</b> ของคุณได้รับการยืนยัน\nแอดมินจะดำเนินการจัดส่งให้โดยเร็วที่สุด`
                     );
+                }
+
+                // Trigger the same rich admin payment notification (active admin + group)
+                try {
+                    const expected = Number(order.totalAmount);
+                    const diff = Math.round((slipAmount - expected) * 100) / 100;
+                    const overUnder = diff > 0 ? 'โอนเกิน' : 'โอนน้อยกว่า';
+                    const fmtAbs = Math.abs(diff).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    const sign = diff >= 0 ? '+' : '−';
+                    const mismatchNote =
+                        `⚠️ <b>ยอมรับยอดต่างจากออเดอร์</b> ${sign}฿${fmtAbs} (${overUnder})\n` +
+                        `ยอมรับโดย admin <code>${userTgId}</code>\n\n`;
+                    await sendOrderPaidAdminNotification(order.id, {
+                        slipAmount,
+                        slipPhotoUrl: slipUrl,
+                        referralMsg,
+                        bypassMode: false,
+                        mismatchNote,
+                    });
+                } catch (notifErr) {
+                    console.error('Failed to send paid notif after mm_paid_yes:', notifErr);
                 }
 
                 // Strip buttons + add admin marker to caption (best-effort)
