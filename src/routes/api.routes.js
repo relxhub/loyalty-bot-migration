@@ -458,7 +458,9 @@ router.get('/orders/:orderId', async (req, res) => {
             }
         }
 
-        // Surface mismatch info if order is locked, so payment.html can render the locked-state UI
+        const fmt = (n) => Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        // Surface mismatch info if order is locked (under-paid waiting top-up)
         let mismatchInfo = null;
         if (order.mismatchLocked) {
             const lastLog = await prisma.systemLog.findFirst({
@@ -469,7 +471,6 @@ router.get('/orders/:orderId', async (req, res) => {
                 try {
                     const parsed = JSON.parse(lastLog.message);
                     if (parsed.orderId === order.id) {
-                        const fmt = (n) => Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         const expected = Number(parsed.expected || order.totalAmount);
                         const actual = Number(parsed.actual || 0);
                         const diff = Number(parsed.diff || 0);
@@ -486,7 +487,26 @@ router.get('/orders/:orderId', async (req, res) => {
             }
         }
 
-        res.json({ success: true, order, bankAccount, mismatchInfo });
+        // Surface over-paid info — order is PAID but customer transferred more than total
+        let overPaidInfo = null;
+        if (order.status === 'PAID') {
+            const payment = await prisma.payment.findUnique({ where: { orderId: order.id } });
+            if (payment && Number(payment.amount) > Number(order.totalAmount) + 0.005) {
+                const expected = Number(order.totalAmount);
+                const actual = Number(payment.amount);
+                const diff = Math.round((actual - expected) * 100) / 100;
+                const copyMessage =
+                    `📌 แจ้งขอคืนเงินส่วนเกิน\n\n` +
+                    `ออเดอร์: #${order.id}\n` +
+                    `ยอดที่ต้องโอน: ฿${fmt(expected)}\n` +
+                    `ยอดที่โอนแล้ว: ฿${fmt(actual)}\n` +
+                    `เกินมา: ฿${fmt(diff)}\n\n` +
+                    `ลูกค้า: ${order.customerId}`;
+                overPaidInfo = { expected, actual, diff, copyMessage };
+            }
+        }
+
+        res.json({ success: true, order, bankAccount, mismatchInfo, overPaidInfo });
     } catch (error) {
         console.error("Get Order Error:", error);
         res.status(500).json({ error: "เกิดข้อผิดพลาดในการดึงข้อมูลสั่งซื้อ" });
@@ -1016,13 +1036,35 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
             // Non-fatal — order is already PAID
         }
 
+        // Build over-paid info for frontend lock UI (refund-pending state)
+        let overPaidInfoResp = null;
+        if (overPaidDiff >= 0.01) {
+            const fmtTh2 = (n) => Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const expectedAmt = parseFloat(order.totalAmount);
+            const actualAmt = parseFloat(slipAmount);
+            overPaidInfoResp = {
+                expected: expectedAmt,
+                actual: actualAmt,
+                diff: overPaidDiff,
+                copyMessage:
+                    `📌 แจ้งขอคืนเงินส่วนเกิน\n\n` +
+                    `ออเดอร์: #${order.id}\n` +
+                    `ยอดที่ต้องโอน: ฿${fmtTh2(expectedAmt)}\n` +
+                    `ยอดที่โอนแล้ว: ฿${fmtTh2(actualAmt)}\n` +
+                    `เกินมา: ฿${fmtTh2(overPaidDiff)}\n\n` +
+                    `ลูกค้า: ${order.customerId}`,
+            };
+        }
+
         res.json({
             success: true,
             message: overPaidDiff >= 0.01
-                ? `ตรวจสอบสลิปและยืนยันการสั่งซื้อสำเร็จ — คุณโอนเกิน ฿${overPaidDiff.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} สามารถทักแอดมินเพื่อขอคืนเงินส่วนต่างได้`
+                ? `ชำระเงินสำเร็จ — คุณโอนเกิน ฿${overPaidDiff.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} สามารถทักแอดมินเพื่อขอคืนเงินส่วนต่างได้`
                 : 'ตรวจสอบสลิปและยืนยันการสั่งซื้อสำเร็จ',
             overPaid: overPaidDiff >= 0.01,
             overPaidDiff,
+            overPaidInfo: overPaidInfoResp,
+            lockUpload: overPaidDiff >= 0.01, // for over-paid: also lock the page (refund-pending UI)
             slipUrl: slipData.data.url,
         });
 

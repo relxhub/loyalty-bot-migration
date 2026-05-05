@@ -297,6 +297,16 @@
                     const order = data.order;
                     const bankAccount = data.bankAccount;
 
+                    // Lock UI on initial load if mismatch (under) or over-paid is in flight.
+                    // This prevents customer from re-uploading via order-history → payment.html re-entry.
+                    if (data.mismatchInfo || order.mismatchLocked) {
+                        // We still need page chrome rendered; fall through to render order details
+                        // then call lockPaymentUI at the end of init.
+                        window._pendingLock = { mode: 'under', info: data.mismatchInfo };
+                    } else if (data.overPaidInfo) {
+                        window._pendingLock = { mode: 'over', info: data.overPaidInfo };
+                    }
+
                     if (window.posthog) {
                         const tgUid = tg.initDataUnsafe?.user?.id?.toString();
                         if (tgUid) posthog.identify(tgUid, { customerId: order.customerId });
@@ -428,6 +438,13 @@
                 showToast(err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error');
             }
 
+            // Render lock UI immediately if we detected mismatch/over-paid during initial fetch
+            if (window._pendingLock) {
+                const { mode, info } = window._pendingLock;
+                window._pendingLock = null;
+                lockPaymentUI(info, mode);
+            }
+
             // Dummy Slip Upload Logic for Phase 2 UI
             const slipInput = document.getElementById('slip-input');
             const submitBtn = document.getElementById('submit-slip-btn');
@@ -479,17 +496,18 @@
                                     posthog.capture('Submit Payment Slip', { orderId, overPaid: !!data.overPaid });
                                 }
 
-                                const fmt = (n) => Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                                const successMsg = data.overPaid
-                                    ? `ชำระเงินสำเร็จ\n\nคุณโอนเกินมา ฿${fmt(data.overPaidDiff)}\nสามารถทักแอดมินเพื่อขอคืนเงินส่วนต่างได้`
-                                    : 'ตรวจสอบสลิปและยืนยันคำสั่งซื้อเรียบร้อยแล้ว แอดมินจะทำการจัดส่งสินค้าโดยเร็วที่สุด';
-                                tg.showPopup({
-                                    title: 'ชำระเงินสำเร็จ',
-                                    message: successMsg,
-                                    buttons: [{ id: 'ok', type: 'default', text: 'ตกลง' }]
-                                }, () => {
-                                    window.location.href = 'products.html';
-                                });
+                                if (data.overPaid && data.overPaidInfo) {
+                                    // Over-paid → show in-page lock UI (refund pending) instead of redirect
+                                    lockPaymentUI(data.overPaidInfo, 'over');
+                                } else {
+                                    tg.showPopup({
+                                        title: 'ชำระเงินสำเร็จ',
+                                        message: 'ตรวจสอบสลิปและยืนยันคำสั่งซื้อเรียบร้อยแล้ว แอดมินจะทำการจัดส่งสินค้าโดยเร็วที่สุด',
+                                        buttons: [{ id: 'ok', type: 'default', text: 'ตกลง' }]
+                                    }, () => {
+                                        window.location.href = 'products.html';
+                                    });
+                                }
                             } else if (data.mismatch && data.lockUpload) {
                                 // Under-paid → lock the page (no re-upload allowed). Render locked UI.
                                 if (window.posthog) {
@@ -500,10 +518,10 @@
                                     actual: data.slipAmount,
                                     diff: data.diff,
                                     copyMessage: data.copyMessage,
-                                });
+                                }, 'under');
                             } else if (data.lockUpload) {
-                                // Order is already locked (re-upload guard hit)
-                                lockPaymentUI(null);
+                                // Order is already locked (re-upload guard hit) — re-fetch order to get info
+                                lockPaymentUI(null, 'under');
                             } else if (data.serviceDown || data.manualReview) {
                                 submitBtn.innerHTML = originalText;
                                 submitBtn.disabled = false;
@@ -557,13 +575,20 @@
                         const pollRes = await fetch(`/api/orders/${orderId}?v=${Date.now()}`, { cache: 'no-cache', headers: { 'x-silent-poll': 'true' } });
                         const pollData = await pollRes.json();
                         if (pollData.success && pollData.order && pollData.order.items) {
-                            // Mismatch lock detected via polling (page reload after lock, or admin not yet acted)
+                            // Mismatch lock (under-paid) detected via polling
                             if (pollData.order.mismatchLocked) {
                                 window.isPaymentBlocked = true;
-                                lockPaymentUI(pollData.mismatchInfo);
+                                lockPaymentUI(pollData.mismatchInfo, 'under');
                                 return;
                             }
-                            // Order moved to PAID by admin top-up flow → redirect to success
+                            // Over-paid (PAID with overage) — show refund-pending lock UI
+                            if (pollData.order.status === 'PAID' && pollData.overPaidInfo) {
+                                window.isPaymentBlocked = true;
+                                window.localStorage.removeItem('cart');
+                                lockPaymentUI(pollData.overPaidInfo, 'over');
+                                return;
+                            }
+                            // Normal PAID (admin verified top-up, or perfect amount via slow path) → redirect
                             if (pollData.order.status === 'PAID') {
                                 window.isPaymentBlocked = true;
                                 window.localStorage.removeItem('cart');
@@ -647,7 +672,7 @@
             });
         }
 
-        function lockPaymentUI(info) {
+        function lockPaymentUI(info, mode = 'under') {
             window.isPaymentBlocked = true;
             const uploadSection = document.getElementById('upload-section');
             const bankDetailsContainer = document.getElementById('bank-details-container');
@@ -656,11 +681,40 @@
             // Avoid double-render
             if (document.getElementById('payment-locked-panel')) return;
 
+            const isOver = mode === 'over';
             const fmt = (n) => Number(n || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             const expected = info?.expected ?? 0;
             const actual = info?.actual ?? 0;
             const diff = info?.diff ?? 0;
             const copyMsg = info?.copyMessage || '';
+
+            const cfg = isOver
+                ? {
+                    panelBg: 'bg-cyan-500/10 border-cyan-500/30',
+                    icon: 'ri-refund-2-line',
+                    iconColor: 'text-cyan-300',
+                    title: 'ออเดอร์รอแอดมินคืนเงิน',
+                    titleColor: 'text-cyan-200',
+                    desc: 'คุณโอนเงินมามากกว่ายอดที่ต้อง — กรุณาทักแอดมินเพื่อขอคืนเงินส่วนเกินในแชทบอท',
+                    diffLabel: 'เกินมา',
+                    diffBg: 'bg-cyan-500/15 border border-cyan-500/40',
+                    diffText: 'text-cyan-200',
+                    btnColor: 'from-cyan-500 to-sky-500 shadow-cyan-500/20',
+                    copyLabel: 'คัดลอกข้อความขอคืนเงิน',
+                }
+                : {
+                    panelBg: 'bg-orange-500/10 border-orange-500/30',
+                    icon: 'ri-lock-line',
+                    iconColor: 'text-orange-400',
+                    title: 'ออเดอร์รอแอดมินยืนยัน',
+                    titleColor: 'text-orange-300',
+                    desc: 'ยอดที่โอนยังไม่ครบ — กรุณาทักแอดมินเพื่อโอนเพิ่มในแชทบอท',
+                    diffLabel: 'ขาดอีก',
+                    diffBg: 'bg-orange-500/15 border border-orange-500/40',
+                    diffText: 'text-orange-300',
+                    btnColor: 'from-orange-500 to-amber-500 shadow-orange-500/20',
+                    copyLabel: 'คัดลอกข้อความแจ้งแอดมิน',
+                };
 
             const statsHtml = info ? `
                 <div class="grid grid-cols-3 gap-2 mt-4 mb-4 text-xs">
@@ -672,22 +726,22 @@
                         <div class="text-zinc-500">โอนแล้ว</div>
                         <div class="text-white font-bold mt-0.5">฿${fmt(actual)}</div>
                     </div>
-                    <div class="bg-orange-500/15 border border-orange-500/40 rounded-lg p-2">
-                        <div class="text-orange-300">ขาดอีก</div>
-                        <div class="text-orange-300 font-bold mt-0.5">฿${fmt(Math.abs(diff))}</div>
+                    <div class="${cfg.diffBg} rounded-lg p-2">
+                        <div class="${cfg.diffText}">${cfg.diffLabel}</div>
+                        <div class="${cfg.diffText} font-bold mt-0.5">฿${fmt(Math.abs(diff))}</div>
                     </div>
                 </div>` : '';
 
             const panel = document.createElement('div');
             panel.id = 'payment-locked-panel';
-            panel.className = 'bg-orange-500/10 border border-orange-500/30 rounded-2xl p-5 text-center mt-4 mb-4';
+            panel.className = `${cfg.panelBg} border rounded-2xl p-5 text-center mt-4 mb-4`;
             panel.innerHTML = `
-                <i class="ri-lock-line text-orange-400 text-3xl mb-2"></i>
-                <div class="text-orange-300 font-bold text-base mb-1">ออเดอร์รอแอดมินยืนยัน</div>
-                <div class="text-xs text-zinc-400 leading-relaxed">ยอดที่โอนยังไม่ครบ — กรุณาทักแอดมินเพื่อโอนเพิ่มในแชทบอท</div>
+                <i class="${cfg.icon} ${cfg.iconColor} text-3xl mb-2"></i>
+                <div class="${cfg.titleColor} font-bold text-base mb-1">${cfg.title}</div>
+                <div class="text-xs text-zinc-400 leading-relaxed">${cfg.desc}</div>
                 ${statsHtml}
                 <div class="space-y-2 mt-4">
-                    ${copyMsg ? `<button id="lock-copy-btn" class="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl font-bold text-white active:scale-95 transition shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2"><i class="ri-clipboard-line"></i> คัดลอกข้อความแจ้งแอดมิน</button>` : ''}
+                    ${copyMsg ? `<button id="lock-copy-btn" class="w-full py-3 bg-gradient-to-r ${cfg.btnColor} rounded-xl font-bold text-white active:scale-95 transition shadow-lg flex items-center justify-center gap-2"><i class="ri-clipboard-line"></i> ${cfg.copyLabel}</button>` : ''}
                     <button id="lock-close-btn" class="w-full py-3 bg-zinc-800 border border-zinc-700 rounded-xl font-medium text-zinc-200 active:scale-95 transition flex items-center justify-center gap-2"><i class="ri-chat-3-line"></i> ปิดและทักแอดมิน</button>
                 </div>`;
             const uploadArea = document.getElementById('upload-area');
@@ -705,7 +759,6 @@
                         await copyToClipboard(copyMsg);
                         showToast('คัดลอกข้อความแล้ว — paste ในแชทแอดมินได้เลย', 'success');
                     } catch (e) {
-                        // Surface message in popup so user can manual-copy
                         tg.showPopup({
                             title: 'คัดลอกไม่สำเร็จ',
                             message: copyMsg + '\n\n(โปรดเลือก-คัดลอกด้วยตนเอง)',
