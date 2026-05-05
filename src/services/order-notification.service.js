@@ -25,6 +25,7 @@ const escapeHtml = (s) => String(s == null ? '' : s)
  * @param {string} [options.referralMsg]   Appended message about referral bonus (already-formatted HTML)
  * @param {boolean} [options.bypassMode]   true → prepend "test mode" banner
  * @param {string} [options.mismatchNote]  Optional banner for mismatch-accepted orders (e.g. "⚠️ ยอมรับยอดต่างจากออเดอร์ -฿2.00")
+ * @param {boolean} [options.overPaidRefund]  When true, append "💸 ยืนยันคืนเงินส่วนเกินแล้ว" inline button
  * @returns {Promise<{ groupMsgId: number|null, activeAdminId: string|null }>}
  */
 export async function sendOrderPaidAdminNotification(orderId, options = {}) {
@@ -52,6 +53,7 @@ export async function sendOrderPaidAdminNotification(orderId, options = {}) {
         referralMsg = '',
         bypassMode = false,
         mismatchNote = '',
+        overPaidRefund = false,
     } = options;
 
     // ---- Build message text (mirrors original verify-slip success-path format) ----
@@ -205,9 +207,13 @@ export async function sendOrderPaidAdminNotification(orderId, options = {}) {
     const sendOne = async (chatId, isPersonalAdmin) => {
         if (!chatId) return null;
         try {
-            const replyMarkup = isPersonalAdmin
-                ? { inline_keyboard: [[{ text: '📝 แนบเลขบิล', callback_data: `addbill_${order.id}` }]] }
-                : { inline_keyboard: [[{ text: `⚙️ จัดการ #${order.id}`, callback_data: `manage_order_${order.id}` }]] };
+            const inlineKb = isPersonalAdmin
+                ? [[{ text: '📝 แนบเลขบิล', callback_data: `addbill_${order.id}` }]]
+                : [[{ text: `⚙️ จัดการ #${order.id}`, callback_data: `manage_order_${order.id}` }]];
+            if (overPaidRefund) {
+                inlineKb.push([{ text: '💸 ยืนยันคืนเงินส่วนเกินแล้ว', callback_data: `op_refund_${order.id}` }]);
+            }
+            const replyMarkup = { inline_keyboard: inlineKb };
 
             const url = slipPhotoUrl
                 ? `https://api.telegram.org/bot${adminToken}/sendPhoto`

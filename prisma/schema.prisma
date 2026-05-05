@@ -521,6 +521,9 @@ model Order {
   // Mismatch lock — ตอนเจอยอดสลิปไม่ตรง (ขาด): ตั้ง true → ตัดสต็อก/คูปองทันที, ห้าม re-upload, ไม่ให้ expiry-job ยกเลิก
   mismatchLocked    Boolean     @default(false)
 
+  // Over-paid refund tracking — ตั้งเวลาเมื่อ admin กดยืนยันคืนเงินส่วนเกินแล้ว (null = ยังไม่ได้คืน)
+  overPaidRefundedAt DateTime?
+
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 

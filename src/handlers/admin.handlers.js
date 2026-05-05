@@ -972,11 +972,13 @@ export async function handleAdminCallback(ctx) {
         }
 
         if (role !== "SuperAdmin") {
-            // Exception: mismatch (under-paid) action buttons are allowed for any Admin too
+            // Exception: mismatch (under-paid) + over-paid refund action buttons are allowed for any Admin too
             const isMismatchAction = data && (
                 data.startsWith('mm_paid_') ||
                 data.startsWith('mm_reject_') ||
-                data.startsWith('mm_back_')
+                data.startsWith('mm_back_') ||
+                data.startsWith('op_refund_') ||
+                data.startsWith('op_back_')
             );
             if (!isMismatchAction) {
                 await ctx.answerCbQuery("⛔️ เฉพาะ Super Admin เท่านั้นที่ทำรายการนี้ได้", { show_alert: true });
@@ -1380,6 +1382,97 @@ export async function handleAdminCallback(ctx) {
                 inline_keyboard: [
                     [{ text: '⚠️ ยืนยัน: ปฏิเสธ + ยกเลิกออเดอร์', callback_data: `mm_reject_yes_${orderId}` }],
                     [{ text: '🔙 กลับ', callback_data: `mm_back_${orderId}` }],
+                ],
+            });
+            await ctx.answerCbQuery();
+        }
+        // ============================================================
+        // OVER-PAID REFUND CONFIRMATION FLOW
+        // op_refund_<id>     → confirm step
+        // op_refund_yes_<id> → mark Order.overPaidRefundedAt = now()
+        // op_back_<id>       → restore the original buttons
+        // ============================================================
+        else if (data && data.startsWith('op_back_')) {
+            const orderId = data.replace('op_back_', '');
+            // Restore original keyboard — depends on which message this was sent on (active admin vs group)
+            // We rebuild based on chat: if private chat with admin → personal admin layout, else group layout
+            const isPrivate = ctx.callbackQuery.message?.chat?.type === 'private';
+            const inlineKb = isPrivate
+                ? [[{ text: '📝 แนบเลขบิล', callback_data: `addbill_${orderId}` }]]
+                : [[{ text: `⚙️ จัดการ #${orderId}`, callback_data: `manage_order_${orderId}` }]];
+            inlineKb.push([{ text: '💸 ยืนยันคืนเงินส่วนเกินแล้ว', callback_data: `op_refund_${orderId}` }]);
+            await ctx.editMessageReplyMarkup({ inline_keyboard: inlineKb });
+            await ctx.answerCbQuery();
+        }
+        else if (data && data.startsWith('op_refund_yes_')) {
+            const orderId = data.replace('op_refund_yes_', '');
+
+            const order = await prisma.order.findUnique({
+                where: { id: orderId },
+                include: { customer: true, payment: true },
+            });
+            if (!order) return ctx.answerCbQuery('❌ ไม่พบออเดอร์', { show_alert: true });
+            if (order.overPaidRefundedAt) {
+                return ctx.answerCbQuery('⚠️ ออเดอร์นี้ถูกยืนยันคืนเงินไปแล้ว', { show_alert: true });
+            }
+
+            const expected = Number(order.totalAmount);
+            const actual = order.payment ? Number(order.payment.amount) : 0;
+            const diff = Math.round((actual - expected) * 100) / 100;
+
+            try {
+                await prisma.$transaction(async (tx) => {
+                    await tx.order.update({
+                        where: { id: orderId },
+                        data: { overPaidRefundedAt: new Date() },
+                    });
+                    await tx.adminAuditLog.create({
+                        data: {
+                            adminName: userTgId,
+                            action: 'OVERPAID_REFUND',
+                            targetId: order.customerId,
+                            details: JSON.stringify({ orderId, expected, actual, diff }),
+                        },
+                    });
+                });
+
+                if (order.customer?.telegramUserId && diff > 0) {
+                    const fmtAmt = diff.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    await sendNotificationToCustomer(
+                        order.customer.telegramUserId,
+                        `💸 <b>คืนเงินส่วนเกินเรียบร้อย</b>\n\nออเดอร์ <b>#${order.id}</b>\nคืนเงิน: ฿${fmtAmt}\n\nขอบคุณที่อุดหนุนค่ะ`
+                    );
+                }
+
+                // Strip the refund button only — keep other buttons (addbill / manage) intact
+                try {
+                    const orig = ctx.callbackQuery.message;
+                    const isPrivate = orig?.chat?.type === 'private';
+                    const inlineKb = isPrivate
+                        ? [[{ text: '📝 แนบเลขบิล', callback_data: `addbill_${orderId}` }]]
+                        : [[{ text: `⚙️ จัดการ #${orderId}`, callback_data: `manage_order_${orderId}` }]];
+
+                    const baseText = orig.caption ?? orig.text ?? '';
+                    const newText = `${baseText}\n\n✅ <b>ยืนยันคืนเงินโดย admin <code>${userTgId}</code></b>`;
+                    if (orig.caption != null) {
+                        await ctx.editMessageCaption(newText, { parse_mode: 'HTML', reply_markup: { inline_keyboard: inlineKb } });
+                    } else {
+                        await ctx.editMessageText(newText, { parse_mode: 'HTML', reply_markup: { inline_keyboard: inlineKb } });
+                    }
+                } catch (e) {}
+
+                await ctx.answerCbQuery('💸 ยืนยันคืนเงินเรียบร้อย');
+            } catch (e) {
+                console.error('op_refund_yes error:', e);
+                await ctx.answerCbQuery('❌ เกิดข้อผิดพลาด ลองใหม่', { show_alert: true });
+            }
+        }
+        else if (data && data.startsWith('op_refund_')) {
+            const orderId = data.replace('op_refund_', '');
+            await ctx.editMessageReplyMarkup({
+                inline_keyboard: [
+                    [{ text: '⚠️ ยืนยัน: คืนเงินส่วนเกินแล้ว', callback_data: `op_refund_yes_${orderId}` }],
+                    [{ text: '🔙 กลับ', callback_data: `op_back_${orderId}` }],
                 ],
             });
             await ctx.answerCbQuery();

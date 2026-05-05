@@ -488,8 +488,9 @@ router.get('/orders/:orderId', async (req, res) => {
         }
 
         // Surface over-paid info — order is PAID but customer transferred more than total
+        // Skip if admin already confirmed refund (overPaidRefundedAt set)
         let overPaidInfo = null;
-        if (order.status === 'PAID') {
+        if (order.status === 'PAID' && !order.overPaidRefundedAt) {
             const payment = await prisma.payment.findUnique({ where: { orderId: order.id } });
             if (payment && Number(payment.amount) > Number(order.totalAmount) + 0.005) {
                 const expected = Number(order.totalAmount);
@@ -533,11 +534,13 @@ router.get('/orders/history/:telegramId', async (req, res) => {
             include: {
                 items: {
                     include: { product: true }
-                }
+                },
+                payment: true
             }
         });
 
-        // Manually fetch shipping address for each order if needed
+        // Manually fetch shipping address for each order if needed + derive overPaidInfo
+        const fmtTh = (n) => Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         orders = await Promise.all(orders.map(async (order) => {
             let shippingAddress = null;
             if (order.shippingAddressId) {
@@ -545,7 +548,28 @@ router.get('/orders/history/:telegramId', async (req, res) => {
                     where: { id: order.shippingAddressId }
                 });
             }
-            return { ...order, shippingAddress };
+            // Derive overPaidInfo for orders that are PAID + over-paid + not yet refunded
+            let overPaidInfo = null;
+            if (order.status === 'PAID' && !order.overPaidRefundedAt && order.payment) {
+                const expected = Number(order.totalAmount);
+                const actual = Number(order.payment.amount);
+                if (actual > expected + 0.005) {
+                    const diff = Math.round((actual - expected) * 100) / 100;
+                    overPaidInfo = {
+                        expected,
+                        actual,
+                        diff,
+                        copyMessage:
+                            `📌 แจ้งขอคืนเงินส่วนเกิน\n\n` +
+                            `ออเดอร์: #${order.id}\n` +
+                            `ยอดที่ต้องโอน: ฿${fmtTh(expected)}\n` +
+                            `ยอดที่โอนแล้ว: ฿${fmtTh(actual)}\n` +
+                            `เกินมา: ฿${fmtTh(diff)}\n\n` +
+                            `ลูกค้า: ${order.customerId}`,
+                    };
+                }
+            }
+            return { ...order, shippingAddress, overPaidInfo };
         }));
 
         const storeSetting = await prisma.storeSetting.findUnique({ where: { id: 1 } });
@@ -1030,6 +1054,7 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                 referralMsg,
                 bypassMode: BYPASS_SLIPOK,
                 mismatchNote: overPaidNote,
+                overPaidRefund: overPaidDiff >= 0.01,
             });
         } catch (notifErr) {
             console.error('Failed to send admin notification:', notifErr);

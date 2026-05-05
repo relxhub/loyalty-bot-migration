@@ -1770,6 +1770,42 @@
                     </button>
                 ` : '';
 
+                // ----- Over-paid refund-pending box -----
+                let overPaidBoxHtml = '';
+                if (order.overPaidInfo) {
+                    const op = order.overPaidInfo;
+                    const fmtOp = (n) => Number(n || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    overPaidBoxHtml = `
+                        <div class="bg-cyan-500/10 border border-cyan-500/30 rounded-2xl p-5 text-center mt-2 mb-4">
+                            <i class="ri-refund-2-line text-cyan-300 text-3xl mb-2"></i>
+                            <div class="text-cyan-200 font-bold text-base mb-1">ออเดอร์รอแอดมินคืนเงิน</div>
+                            <div class="text-xs text-zinc-400 leading-relaxed">คุณโอนเงินมามากกว่ายอดที่ต้อง — กรุณาทักแอดมินเพื่อขอคืนเงินส่วนเกินในแชทบอท</div>
+                            <div class="grid grid-cols-3 gap-2 mt-4 mb-4 text-xs">
+                                <div class="bg-zinc-800/60 rounded-lg p-2">
+                                    <div class="text-zinc-500">ต้องโอน</div>
+                                    <div class="text-white font-bold mt-0.5">฿${fmtOp(op.expected)}</div>
+                                </div>
+                                <div class="bg-zinc-800/60 rounded-lg p-2">
+                                    <div class="text-zinc-500">โอนแล้ว</div>
+                                    <div class="text-white font-bold mt-0.5">฿${fmtOp(op.actual)}</div>
+                                </div>
+                                <div class="bg-cyan-500/15 border border-cyan-500/40 rounded-lg p-2">
+                                    <div class="text-cyan-200">เกินมา</div>
+                                    <div class="text-cyan-200 font-bold mt-0.5">฿${fmtOp(op.diff)}</div>
+                                </div>
+                            </div>
+                            <div class="space-y-2 mt-4">
+                                <button onclick="window.copyOverPaidMessage('${order.id}')" class="w-full py-3 bg-gradient-to-r from-cyan-500 to-sky-500 rounded-xl font-bold text-white active:scale-95 transition shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2">
+                                    <i class="ri-clipboard-line"></i> คัดลอกข้อความขอคืนเงิน
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    // Stash for the copy handler
+                    window._overPaidCopyCache = window._overPaidCopyCache || {};
+                    window._overPaidCopyCache[order.id] = op.copyMessage || '';
+                }
+
                 // ----- Body assembly -----
                 body.innerHTML = `
                     <div class="space-y-4 pt-2">
@@ -1799,6 +1835,7 @@
                         </div>
 
                         ${summaryHtml}
+                        ${overPaidBoxHtml}
                         ${refundHtml}
                     </div>
                 `;
@@ -1815,11 +1852,14 @@
                         </div>
                     `;
                 } else if (order.status === 'PAID' || order.status === 'PROCESSING' || order.status === 'SHIPPED' || order.status === 'CANCELLED') {
-                    footerHtml = `
-                        <button onclick="window.closeOrderDetailsModal(); window.reorder('${order.id}')" class="w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-xl text-sm font-bold active:scale-95 transition shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2">
-                            <i class="ri-restart-line text-lg"></i> สั่งซื้ออีกครั้ง
-                        </button>
-                    `;
+                    // Hide reorder button while waiting for over-paid refund (per policy)
+                    if (!order.overPaidInfo) {
+                        footerHtml = `
+                            <button onclick="window.closeOrderDetailsModal(); window.reorder('${order.id}')" class="w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-xl text-sm font-bold active:scale-95 transition shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2">
+                                <i class="ri-restart-line text-lg"></i> สั่งซื้ออีกครั้ง
+                            </button>
+                        `;
+                    }
                 }
                 if (footer) {
                     if (footerHtml) {
@@ -1852,6 +1892,32 @@
                     img.src = url;
                     modal.classList.remove('hidden');
                     setTimeout(() => modal.classList.add('show'), 10);
+                }
+            };
+
+            // Copy over-paid refund-request message to clipboard (used by order-detail modal)
+            window.copyOverPaidMessage = async (orderId) => {
+                const text = (window._overPaidCopyCache || {})[orderId] || '';
+                if (!text) {
+                    showToast('ไม่พบข้อความ กรุณาลองเปิดออเดอร์ใหม่', 'error');
+                    return;
+                }
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(text);
+                    } else {
+                        const ta = document.createElement('textarea');
+                        ta.value = text;
+                        ta.style.position = 'fixed';
+                        ta.style.left = '-9999px';
+                        document.body.appendChild(ta);
+                        ta.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(ta);
+                    }
+                    showToast('คัดลอกข้อความแล้ว — paste ในแชทแอดมินได้เลย', 'success');
+                } catch (e) {
+                    showToast('คัดลอกไม่สำเร็จ กรุณาคัดลอกด้วยตนเอง', 'error');
                 }
             };
             window.closeRefundSlip = () => {
