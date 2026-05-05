@@ -15,7 +15,7 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <script src="i18n.js?v=2"></script>
+    <script src="i18n.js?v=3"></script>
 
     <style>
         /* ตั้งค่าสีตาม Theme ของ Telegram อัตโนมัติ */
@@ -1190,7 +1190,7 @@
                             <div class="flex justify-between items-start mb-2">
                                 <div>
                                     ${item.coupon.validFrom && new Date(item.coupon.validFrom) > new Date() ? `<div class="text-[10px] bg-yellow-500/20 text-yellow-500 px-2 py-0.5 rounded-md font-bold mb-1.5 inline-block"><i class="ri-time-line"></i> เริ่มใช้ได้วันที่ ${validFrom}</div>` : ''}
-                                    <div class="text-base font-bold text-white flex items-center">${item.coupon.name} ${countBadge}</div>
+                                    <div class="text-base font-bold text-white flex items-center">${(window.pickLocalized ? window.pickLocalized(item.coupon.name, item.coupon.nameEn) : item.coupon.name)} ${countBadge}</div>
                                 </div>
                                 <div class="text-right">
                                     <div class="text-xl font-black text-white">
@@ -1198,7 +1198,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="text-xs text-gray-400 mb-3">${item.coupon.description || ''}</div>
+                            <div class="text-xs text-gray-400 mb-3">${(window.pickLocalized ? window.pickLocalized(item.coupon.description, item.coupon.descriptionEn) : (item.coupon.description || ''))}</div>
                             <div class="pt-3 border-t border-white/5 space-y-1">
                                 <div class="flex justify-between items-center text-[10px]">
                                     <span class="text-gray-500">วันที่เริ่มใช้:</span>

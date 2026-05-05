@@ -52,6 +52,8 @@
     "msg.login_to_review": "กรุณาเข้าสู่ระบบก่อนเขียนรีวิว",
     "msg.review_required": "กรุณาให้คะแนนดาวและพิมพ์ความคิดเห็น",
     "msg.out_of_stock": "สินค้าหมด",
+    "msg.coupon_applied_prefix": "ใช้คูปอง ",
+    "msg.coupon_applied_suffix": " แล้ว",
 
     "home.checking": "กำลังตรวจสอบข้อมูล...",
     "home.welcome": "ยินดีต้อนรับ",
@@ -97,6 +99,7 @@
 
     "cart.deliver_to": "จัดส่งที่",
     "cart.empty": "ตะกร้าของคุณว่างเปล่า",
+    "cart.coupon_prefix": "คูปอง: ",
 
     "payment.title": "ชำระเงิน",
     "payment.loading": "กำลังโหลดข้อมูลชำระเงิน...",

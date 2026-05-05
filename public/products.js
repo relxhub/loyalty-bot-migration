@@ -376,7 +376,7 @@
                     
                     if (couponArea) {
                         couponArea.classList.remove('hidden');
-                        couponNameEl.textContent = 'คูปอง: ' + c.name;
+                        couponNameEl.textContent = tt('cart.coupon_prefix', 'คูปอง: ') + (window.pickLocalized ? window.pickLocalized(c.name, c.nameEn) : c.name);
                         const couponDescEl = document.getElementById('cart-coupon-desc');
                         if (couponDescEl) {
                             if (window.appliedCoupon.isAuto !== false) {
@@ -744,8 +744,8 @@
                          class="p-4 rounded-2xl border-2 transition-all ${isSelected ? 'border-yellow-500 bg-yellow-500/10' : 'border-zinc-700 bg-zinc-900/50'} ${isLocked ? 'opacity-50 grayscale cursor-not-allowed' : 'active:scale-95 cursor-pointer'}">
                         <div class="flex justify-between items-start">
                             <div class="flex-grow">
-                                <div class="font-bold text-lg ${isSelected ? 'text-yellow-500' : 'text-white'} flex items-center">${c.name} ${countBadge}</div>
-                                <div class="text-xs text-zinc-400 mt-1">${c.description || ''}</div>
+                                <div class="font-bold text-lg ${isSelected ? 'text-yellow-500' : 'text-white'} flex items-center">${(window.pickLocalized ? window.pickLocalized(c.name, c.nameEn) : c.name)} ${countBadge}</div>
+                                <div class="text-xs text-zinc-400 mt-1">${(window.pickLocalized ? window.pickLocalized(c.description, c.descriptionEn) : (c.description || ''))}</div>
                                 ${statusText}
                             </div>
                             <div class="flex-shrink-0 ml-3 flex items-center justify-center">
@@ -805,7 +805,7 @@
                     window.appliedCoupon = target;
                     window.appliedCoupon.isAuto = false;
                     selectedGift = null;
-                    showToast('ใช้คูปอง ' + target.coupon.name + ' แล้ว', 'success');
+                    showToast(tt('msg.coupon_applied_prefix', 'ใช้คูปอง ') + (window.pickLocalized ? window.pickLocalized(target.coupon.name, target.coupon.nameEn) : target.coupon.name) + tt('msg.coupon_applied_suffix', ' แล้ว'), 'success');
 
                     renderCouponList();
                     if (typeof window.updateCartModalDisplay === 'function') window.updateCartModalDisplay();

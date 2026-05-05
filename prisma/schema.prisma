@@ -149,7 +149,9 @@ model CartItem {
 model Coupon {
   id          String     @id // เช่น 'FIRST_ENTRY', 'B3G1_SEPT'
   name        String
+  nameEn      String?    // English alias สำหรับ bilingual display (fallback → name)
   description String?
+  descriptionEn String?  // English description (fallback → description)
   type        CouponType
   value       Decimal?   @db.Decimal(10, 2) // จำนวนเงินที่ลด หรือ %
 
@@ -290,7 +292,9 @@ model Product {
   nameTh               String?
   nameEn               String?
   tagline              String?
+  taglineEn            String? // English tagline (fallback → tagline)
   description          String?
+  descriptionEn        String? // English description (fallback → description)
   imageUrl             String
   flavorIconUrl        String?
   status               ProductStatus @default(IN_STOCK)

@@ -52,6 +52,8 @@
     "msg.login_to_review": "Please log in before writing a review",
     "msg.review_required": "Please give a star rating and write a comment",
     "msg.out_of_stock": "Out of stock",
+    "msg.coupon_applied_prefix": "Applied coupon ",
+    "msg.coupon_applied_suffix": "",
 
     "home.checking": "Verifying your data...",
     "home.welcome": "Welcome",
@@ -97,6 +99,7 @@
 
     "cart.deliver_to": "Deliver to",
     "cart.empty": "Your cart is empty",
+    "cart.coupon_prefix": "Coupon: ",
 
     "payment.title": "Payment",
     "payment.loading": "Loading payment info...",

@@ -76,6 +76,12 @@
         setLang(window.__lang === 'th' ? 'en' : 'th');
     }
 
+    // pickLocalized(thValue, enValue) — picks EN when lang=en + EN is non-empty, else TH (or fallback)
+    function pickLocalized(thValue, enValue) {
+        if (window.__lang === 'en' && enValue != null && String(enValue).trim() !== '') return enValue;
+        return thValue != null ? thValue : (enValue || '');
+    }
+
     // formatDate(value, opts?) — convenient wrapper that picks Thai/English locale automatically
     function formatDate(value, options) {
         const d = value instanceof Date ? value : new Date(value);
@@ -97,6 +103,7 @@
         window.toggleLang = toggleLang;
         window.applyLangToDOM = applyLangToDOM;
         window.formatDate = formatDate;
+        window.pickLocalized = pickLocalized;
         window.langReady = ready;
         applyLangToDOM();
         _readyResolve(window.__lang);
