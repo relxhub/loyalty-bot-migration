@@ -270,6 +270,10 @@
         #bottom-nav { transition: transform 0.3s ease-in-out; }
         #bottom-nav.hide { transform: translateY(150%); }
 
+        /* Floating cart button — slides down with nav (never disappears) */
+        #cart-button { transition: bottom 0.3s ease-in-out; }
+        #cart-button.nav-hidden { bottom: 1.5rem; }
+
         /* Reduced motion */
         @media (prefers-reduced-motion: reduce) {
             .ticker-wrapper { animation: none !important; }

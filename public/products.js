@@ -3566,6 +3566,51 @@
                 appContainer.classList.remove('hidden');
                 loader.remove();
 
+                // Auto-hide bottom nav + cart on scroll up; reveal on scroll down
+                (function setupAutoHideNavOnScroll() {
+                    const nav = document.getElementById('bottom-nav');
+                    const cartBtn = document.getElementById('cart-button');
+                    if (!nav) return;
+
+                    const HIDE_THRESHOLD = 30;   // accumulated scroll-down before nav hides
+                    const SHOW_THRESHOLD = -30;  // accumulated scroll-up before nav reappears
+                    const TOP_RESET_Y = 50;      // always show when near top
+
+                    let lastY = window.scrollY || 0;
+                    let accum = 0;
+                    let ticking = false;
+
+                    const apply = (currentY) => {
+                        const delta = currentY - lastY;
+                        lastY = currentY;
+                        if ((delta > 0) !== (accum > 0)) accum = 0; // direction flip → reset
+                        accum += delta;
+
+                        if (currentY < TOP_RESET_Y) {
+                            nav.classList.remove('hide');
+                            cartBtn?.classList.remove('nav-hidden');
+                            accum = 0;
+                            return;
+                        }
+                        if (accum > HIDE_THRESHOLD) {
+                            nav.classList.add('hide');
+                            cartBtn?.classList.add('nav-hidden');
+                        } else if (accum < SHOW_THRESHOLD) {
+                            nav.classList.remove('hide');
+                            cartBtn?.classList.remove('nav-hidden');
+                        }
+                    };
+
+                    window.addEventListener('scroll', () => {
+                        if (ticking) return;
+                        ticking = true;
+                        requestAnimationFrame(() => {
+                            apply(window.scrollY || 0);
+                            ticking = false;
+                        });
+                    }, { passive: true });
+                })();
+
             } catch (error) {
                 console.error('[CLIENT ERROR] Failed to load product page data:', error);
                 loader.innerHTML = `<p class="text-center text-red-400">เกิดข้อผิดพลาดในการโหลดข้อมูล: ${error.message}</p>`;
