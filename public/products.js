@@ -1721,6 +1721,19 @@
                     `;
                 }
 
+                // ----- Bill number (visible only after admin attaches it) -----
+                let billHtml = '';
+                if (order.billNumber && String(order.billNumber).trim()) {
+                    const bills = String(order.billNumber).split(',').map(b => b.trim()).filter(Boolean);
+                    const billPills = bills.map(b => `<span class="inline-flex items-center gap-1.5 px-3 py-2 bg-amber-500/10 text-amber-300 border border-amber-500/25 rounded-lg text-xs font-mono font-bold">${escapeAttr(b)}</span>`).join('');
+                    billHtml = `
+                        <div class="od-section-title"><i class="ri-receipt-line text-amber-400"></i> เลขบิล</div>
+                        <div class="od-card mb-4">
+                            <div class="flex flex-wrap gap-2">${billPills}</div>
+                        </div>
+                    `;
+                }
+
                 // ----- Tracking -----
                 let trackingHtml = '';
                 if (order.trackingNumber) {
@@ -1798,6 +1811,9 @@
                                 <button onclick="window.copyOverPaidMessage('${order.id}')" class="w-full py-3 bg-gradient-to-r from-cyan-500 to-sky-500 rounded-xl font-bold text-white active:scale-95 transition shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2">
                                     <i class="ri-clipboard-line"></i> คัดลอกข้อความขอคืนเงิน
                                 </button>
+                                <button onclick="try { Telegram.WebApp.close(); } catch (e) { window.close(); }" class="w-full py-3 bg-zinc-800 border border-zinc-700 rounded-xl font-medium text-zinc-200 active:scale-95 transition flex items-center justify-center gap-2">
+                                    <i class="ri-chat-3-line"></i> ปิดและทักแอดมิน
+                                </button>
                             </div>
                         </div>
                     `;
@@ -1827,6 +1843,7 @@
                         </div>
 
                         ${shippingAddressHtml}
+                        ${billHtml}
                         ${trackingHtml}
 
                         <div class="od-section-title"><i class="ri-shopping-bag-3-fill text-orange-400"></i> รายการสินค้า · ${totalUnits} ชิ้น</div>
