@@ -458,7 +458,35 @@ router.get('/orders/:orderId', async (req, res) => {
             }
         }
 
-        res.json({ success: true, order, bankAccount });
+        // Surface mismatch info if order is locked, so payment.html can render the locked-state UI
+        let mismatchInfo = null;
+        if (order.mismatchLocked) {
+            const lastLog = await prisma.systemLog.findFirst({
+                where: { source: 'PAYMENT', action: 'AMOUNT_MISMATCH', customerId: order.customerId },
+                orderBy: { createdAt: 'desc' },
+            });
+            if (lastLog?.message) {
+                try {
+                    const parsed = JSON.parse(lastLog.message);
+                    if (parsed.orderId === order.id) {
+                        const fmt = (n) => Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        const expected = Number(parsed.expected || order.totalAmount);
+                        const actual = Number(parsed.actual || 0);
+                        const diff = Number(parsed.diff || 0);
+                        const copyMessage =
+                            `📌 แจ้งโอนเงินขาด\n\n` +
+                            `ออเดอร์: #${order.id}\n` +
+                            `ยอดที่ต้องโอน: ฿${fmt(expected)}\n` +
+                            `ยอดที่โอนแล้ว: ฿${fmt(actual)}\n` +
+                            `ขาดอีก: ฿${fmt(Math.abs(diff))}\n\n` +
+                            `ลูกค้า: ${order.customerId}`;
+                        mismatchInfo = { expected, actual, diff, copyMessage };
+                    }
+                } catch (e) {}
+            }
+        }
+
+        res.json({ success: true, order, bankAccount, mismatchInfo });
     } catch (error) {
         console.error("Get Order Error:", error);
         res.status(500).json({ error: "เกิดข้อผิดพลาดในการดึงข้อมูลสั่งซื้อ" });
@@ -573,6 +601,16 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
         if (!order) return res.status(404).json({ success: false, error: 'ไม่พบออเดอร์นี้' });
         if (order.status !== 'PENDING_PAYMENT') return res.status(400).json({ success: false, error: 'ออเดอร์นี้ชำระเงินไปแล้ว หรือถูกยกเลิก' });
 
+        // Re-upload guard: if order is mismatch-locked, block at the door (admin handles via chat)
+        if (order.mismatchLocked) {
+            return res.status(409).json({
+                success: false,
+                lockUpload: true,
+                error: 'ออเดอร์นี้รอแอดมินดำเนินการ',
+                message: 'ออเดอร์นี้ถูกล็อกรอแอดมิน กรุณาทักเข้ามาในแชทบอทเพื่อดำเนินการต่อ',
+            });
+        }
+
         // 2. Call SlipOK API
         // BYPASS is on by default to make end-to-end testing easy without real bank transfers.
         // Set BYPASS_SLIPOK=false in .env to enforce real SlipOK verification in production.
@@ -581,6 +619,8 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
         let slipData = {};
         let slipAmount = order.totalAmount;
         let slipTransRef = 'BYPASS-' + Date.now();
+        let overPaidNote = '';      // banner injected into admin notif if customer over-paid
+        let overPaidDiff = 0;       // amount over (positive) for response to customer
 
         if (BYPASS_SLIPOK) {
             // Fake data for bypass mode
@@ -739,14 +779,23 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
             slipAmount = slipData.data.amount;
             slipTransRef = slipData.data.transRef;
 
-            // 3. Validate Amount — L1.4: epsilon comparison to avoid float precision false-mismatch
-            if (Math.abs(parseFloat(slipAmount) - parseFloat(order.totalAmount)) >= 0.01) {
-                const expected = parseFloat(order.totalAmount);
-                const actual = parseFloat(slipAmount);
-                const diff = Math.round((actual - expected) * 100) / 100;
-                const fmtTh = (n) => Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            // 3. Duplicate slip guard — moved BEFORE amount check so reused slips are rejected first
+            const existingPayment = await prisma.payment.findFirst({
+                where: { slipOkTransactionId: slipTransRef },
+            });
+            if (existingPayment) {
+                return res.status(400).json({ success: false, error: 'สลิปนี้ถูกใช้งานไปแล้ว' });
+            }
 
-                // Audit log (best-effort)
+            // 4. Validate Amount — split under-paid (lock) vs over-paid (auto-accept)
+            const expected = parseFloat(order.totalAmount);
+            const actual = parseFloat(slipAmount);
+            const diff = Math.round((actual - expected) * 100) / 100;
+            const fmtTh = (n) => Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            // 4a. UNDER-PAID → lock + deduct stock + USE coupon + Payment(PENDING) + admin notif → return locked
+            if (diff <= -0.01) {
+                // Audit log
                 try {
                     await prisma.systemLog.create({
                         data: {
@@ -768,7 +817,47 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                     console.error('SystemLog AMOUNT_MISMATCH failed:', logErr.message);
                 }
 
-                // Notify admin (group + active admin) — best-effort, non-blocking response
+                // Lock + reserve stock/coupon + Payment(PENDING) — all in one transaction
+                try {
+                    await prisma.$transaction(async (tx) => {
+                        await tx.order.update({
+                            where: { id: orderId },
+                            data: { mismatchLocked: true },
+                        });
+                        await tx.payment.create({
+                            data: {
+                                orderId: order.id,
+                                amount: actual,
+                                status: 'PENDING',
+                                slipUrl: slipData?.data?.url || '',
+                                slipOkTransactionId: slipTransRef,
+                                payload: JSON.stringify({ ...slipData.data, mismatchUnder: true, expected, actual, diff }),
+                            },
+                        });
+                        for (const item of order.items) {
+                            await tx.product.update({
+                                where: { id: item.productId },
+                                data: { stockQuantity: { decrement: item.quantity } },
+                            });
+                        }
+                        if (order.appliedCouponId) {
+                            const cc = await tx.customerCoupon.findFirst({
+                                where: { customerId: order.customerId, couponId: order.appliedCouponId, status: 'AVAILABLE' },
+                            });
+                            if (cc) {
+                                await tx.customerCoupon.update({
+                                    where: { id: cc.id },
+                                    data: { status: 'USED', usedAt: new Date() },
+                                });
+                            }
+                        }
+                    });
+                } catch (txErr) {
+                    console.error('Mismatch lock transaction failed:', txErr);
+                    return res.status(500).json({ success: false, error: 'เกิดข้อผิดพลาดในการล็อกออเดอร์' });
+                }
+
+                // Admin notif (with action buttons) — best-effort, non-blocking
                 (async () => {
                     try {
                         const adminToken = process.env.ADMIN_BOT_TOKEN;
@@ -778,11 +867,9 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                         const custName = [cust?.firstName, cust?.lastName].filter(Boolean).join(' ').trim() || '-';
                         const custUsername = cust?.username ? `@${cust.username}` : '';
                         const custTgId = cust?.telegramUserId || '';
-
-                        const overUnder = diff > 0 ? 'โอนเกิน' : 'โอนน้อยกว่า';
                         const diffAbs = fmtTh(Math.abs(diff));
 
-                        let msg = `⚠️ <b>ยอดสลิปไม่ตรงกับออเดอร์</b>\n\n`;
+                        let msg = `⚠️ <b>ยอดสลิปไม่ตรงกับออเดอร์ (โอนน้อยกว่า)</b>\n\n`;
                         msg += `<b>ออเดอร์:</b> #${order.id}\n\n`;
                         msg += `👤 <b>[ลูกค้า]</b>\n`;
                         msg += `${custName}${custUsername ? ' · ' + custUsername : ''}\n`;
@@ -791,19 +878,14 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                         msg += `\n💰 <b>[ยอดเงิน]</b>\n`;
                         msg += `ต้องชำระ: ฿${fmtTh(expected)}\n`;
                         msg += `ในสลิป: ฿${fmtTh(actual)}\n`;
-                        msg += `ส่วนต่าง: <b>${diff >= 0 ? '+' : '−'}฿${diffAbs}</b> (${overUnder})\n\n`;
-                        msg += `ℹ️ ออเดอร์ยังเป็น <code>PENDING_PAYMENT</code> — ยังไม่ตัดสต็อก/คูปอง\n`;
-                        msg += `กรุณารอลูกค้าทักเข้ามาในแชทบอท แล้วเลือกการดำเนินการด้านล่าง`;
+                        msg += `ขาดอีก: <b>฿${diffAbs}</b>\n\n`;
+                        msg += `🔒 ออเดอร์ถูกล็อก — ตัดสต็อก/คูปองแล้ว ห้ามลูกค้า re-upload\n`;
+                        msg += `รอลูกค้าทักเข้ามาขอ top-up → กดปุ่มด้านล่างเมื่อโอนครบ`;
 
-                        // Inline action buttons (admin can decide after customer reaches out)
                         const replyMarkup = {
                             inline_keyboard: [
-                                [
-                                    { text: '✅ ยอมรับยอด (Mark PAID)', callback_data: `mm_paid_${order.id}` },
-                                ],
-                                [
-                                    { text: '❌ ปฏิเสธ + ยกเลิกออเดอร์', callback_data: `mm_reject_${order.id}` },
-                                ],
+                                [{ text: '✅ ยืนยันชำระครบ (top-up เรียบร้อย)', callback_data: `mm_paid_${order.id}` }],
+                                [{ text: '❌ ปฏิเสธ + ยกเลิกออเดอร์', callback_data: `mm_reject_${order.id}` }],
                             ],
                         };
 
@@ -831,25 +913,33 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                     }
                 })();
 
-                return res.status(400).json({
+                // Pre-formatted copy message for customer to paste in chat
+                const copyMessage =
+                    `📌 แจ้งโอนเงินขาด\n\n` +
+                    `ออเดอร์: #${order.id}\n` +
+                    `ยอดที่ต้องโอน: ฿${fmtTh(expected)}\n` +
+                    `ยอดที่โอนแล้ว: ฿${fmtTh(actual)}\n` +
+                    `ขาดอีก: ฿${fmtTh(Math.abs(diff))}\n\n` +
+                    `ลูกค้า: ${order.customerId}`;
+
+                return res.status(409).json({
                     success: false,
                     mismatch: true,
+                    mismatchType: 'under',
+                    lockUpload: true,
                     expectedAmount: expected,
                     slipAmount: actual,
                     diff,
-                    contactAdmin: true,
+                    copyMessage,
                     error: `ยอดเงินไม่ตรงกัน (ต้องชำระ: ฿${fmtTh(expected)}, ในสลิป: ฿${fmtTh(actual)})`,
-                    message: `ยอดเงินไม่ตรงกัน — ${diff > 0 ? `โอนเกิน` : `โอนน้อยกว่าที่ต้องชำระ`} ฿${fmtTh(Math.abs(diff))} กรุณาทักเข้ามาในแชทบอทเพื่อแจ้งหมายเลขออเดอร์กับแอดมิน`,
+                    message: `ยอดที่โอนขาดอยู่ ฿${fmtTh(Math.abs(diff))} กรุณาทักเข้ามาในแชทบอทเพื่อแจ้งแอดมินขอโอนเพิ่ม`,
                 });
             }
-            
-            // 4. Check for duplicate slip usage
-            const existingPayment = await prisma.payment.findFirst({
-                where: { slipOkTransactionId: slipTransRef }
-            });
 
-            if (existingPayment) {
-                 return res.status(400).json({ success: false, error: 'สลิปนี้ถูกใช้งานไปแล้ว' });
+            // 4b. OVER-PAID → continue to PAID flow (auto-accept) — banner attached at admin notif
+            if (diff >= 0.01) {
+                overPaidDiff = diff;
+                overPaidNote = `💰 <b>ลูกค้าโอนเกิน</b> +฿${fmtTh(diff)} — อาจติดต่อขอคืนเงินส่วนต่าง\n\n`;
             }
         }
 
@@ -919,13 +1009,22 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                 slipPhotoUrl: slipData?.data?.url || '',
                 referralMsg,
                 bypassMode: BYPASS_SLIPOK,
+                mismatchNote: overPaidNote,
             });
         } catch (notifErr) {
             console.error('Failed to send admin notification:', notifErr);
             // Non-fatal — order is already PAID
         }
 
-        res.json({ success: true, message: 'ตรวจสอบสลิปและยืนยันการสั่งซื้อสำเร็จ', slipUrl: slipData.data.url });
+        res.json({
+            success: true,
+            message: overPaidDiff >= 0.01
+                ? `ตรวจสอบสลิปและยืนยันการสั่งซื้อสำเร็จ — คุณโอนเกิน ฿${overPaidDiff.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} สามารถทักแอดมินเพื่อขอคืนเงินส่วนต่างได้`
+                : 'ตรวจสอบสลิปและยืนยันการสั่งซื้อสำเร็จ',
+            overPaid: overPaidDiff >= 0.01,
+            overPaidDiff,
+            slipUrl: slipData.data.url,
+        });
 
     } catch (error) {
         console.error("Verify Slip Error:", error);

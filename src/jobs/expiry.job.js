@@ -125,7 +125,8 @@ export async function runOrderExpiryJob() {
         const expiredOrders = await prisma.order.findMany({
             where: {
                 status: 'PENDING_PAYMENT',
-                createdAt: { lt: cutoffTime }
+                createdAt: { lt: cutoffTime },
+                mismatchLocked: false, // skip orders awaiting admin top-up confirmation (no expiry)
             },
             select: { id: true }
         });

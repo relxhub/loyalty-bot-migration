@@ -518,6 +518,9 @@ model Order {
   refundSlipUrl     String?     @db.Text
   groupMsgId        Int?
 
+  // Mismatch lock — ตอนเจอยอดสลิปไม่ตรง (ขาด): ตั้ง true → ตัดสต็อก/คูปองทันที, ห้าม re-upload, ไม่ให้ expiry-job ยกเลิก
+  mismatchLocked    Boolean     @default(false)
+
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 

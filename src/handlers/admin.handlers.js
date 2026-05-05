@@ -1166,7 +1166,7 @@ export async function handleAdminCallback(ctx) {
             const orderId = data.replace('mm_back_', '');
             await ctx.editMessageReplyMarkup({
                 inline_keyboard: [
-                    [{ text: '✅ ยอมรับยอด (Mark PAID)', callback_data: `mm_paid_${orderId}` }],
+                    [{ text: '✅ ยืนยันชำระครบ (top-up เรียบร้อย)', callback_data: `mm_paid_${orderId}` }],
                     [{ text: '❌ ปฏิเสธ + ยกเลิกออเดอร์', callback_data: `mm_reject_${orderId}` }],
                 ],
             });
@@ -1177,66 +1177,40 @@ export async function handleAdminCallback(ctx) {
 
             const order = await prisma.order.findUnique({
                 where: { id: orderId },
-                include: { items: true, customer: true },
+                include: { items: true, customer: true, payment: true },
             });
             if (!order) return ctx.answerCbQuery('❌ ไม่พบออเดอร์', { show_alert: true });
             if (order.status !== 'PENDING_PAYMENT') {
                 return ctx.answerCbQuery('⚠️ ออเดอร์นี้ดำเนินการไปแล้ว', { show_alert: true });
             }
 
-            // Pull last AMOUNT_MISMATCH log to recover slipUrl / transRef / actual amount
-            const log = await prisma.systemLog.findFirst({
-                where: { source: 'PAYMENT', action: 'AMOUNT_MISMATCH', customerId: order.customerId },
-                orderBy: { createdAt: 'desc' },
-            });
-            let logged = {};
-            if (log?.message) {
-                try { logged = JSON.parse(log.message); } catch (e) {}
-            }
-            // Only trust the log if it matches THIS order
-            if (logged.orderId !== orderId) logged = {};
-
-            const slipAmount = Number(logged.actual ?? order.totalAmount);
-            const slipUrl = logged.slipUrl || '';
-            const transRef = logged.transRef || `MANUAL-MM-${Date.now()}`;
-
             try {
                 await prisma.$transaction(async (tx) => {
-                    await tx.order.update({ where: { id: orderId }, data: { status: 'PAID' } });
-                    await tx.payment.create({
-                        data: {
-                            orderId,
-                            amount: slipAmount,
-                            status: 'VERIFIED',
-                            slipUrl,
-                            slipOkTransactionId: transRef,
-                            payload: JSON.stringify({ ...logged, acceptedByAdmin: userTgId, mismatchAccepted: true }),
-                            verifiedAt: new Date(),
-                        },
+                    await tx.order.update({
+                        where: { id: orderId },
+                        data: { status: 'PAID', mismatchLocked: false },
                     });
-                    for (const item of order.items) {
-                        await tx.product.update({
-                            where: { id: item.productId },
-                            data: { stockQuantity: { decrement: item.quantity } },
+                    // Update existing PENDING Payment row (created at lock time) → VERIFIED with full amount
+                    if (order.payment) {
+                        let prevPayload = {};
+                        try { prevPayload = order.payment.payload ? JSON.parse(order.payment.payload) : {}; } catch (e) {}
+                        await tx.payment.update({
+                            where: { id: order.payment.id },
+                            data: {
+                                amount: Number(order.totalAmount),
+                                status: 'VERIFIED',
+                                verifiedAt: new Date(),
+                                payload: JSON.stringify({ ...prevPayload, acceptedByAdmin: userTgId, topUpCompleted: true }),
+                            },
                         });
                     }
-                    if (order.appliedCouponId) {
-                        const cc = await tx.customerCoupon.findFirst({
-                            where: { customerId: order.customerId, couponId: order.appliedCouponId, status: 'AVAILABLE' },
-                        });
-                        if (cc) {
-                            await tx.customerCoupon.update({
-                                where: { id: cc.id },
-                                data: { status: 'USED', usedAt: new Date() },
-                            });
-                        }
-                    }
+                    // Stock + coupon already deducted at lock time → NOT re-deducted here
                     await tx.adminAuditLog.create({
                         data: {
                             adminName: userTgId,
                             action: 'MISMATCH_ACCEPT',
                             targetId: order.customerId,
-                            details: JSON.stringify({ orderId, expected: Number(order.totalAmount), actual: slipAmount, diff: logged.diff || null }),
+                            details: JSON.stringify({ orderId, totalAmount: Number(order.totalAmount), recordedAmount: Number(order.totalAmount) }),
                         },
                     });
                 });
@@ -1244,7 +1218,7 @@ export async function handleAdminCallback(ctx) {
                 // Try to complete referral (best-effort) + capture message
                 let referralMsg = '';
                 try {
-                    const refResult = await referralService.completeReferral(order.customerId, slipAmount);
+                    const refResult = await referralService.completeReferral(order.customerId, Number(order.totalAmount));
                     if (refResult?.success) {
                         referralMsg = `\n\n🎉 <b>[โบนัสแนะนำเพื่อน]</b>\n${refResult.message}`;
                     }
@@ -1258,22 +1232,14 @@ export async function handleAdminCallback(ctx) {
                     );
                 }
 
-                // Trigger the same rich admin payment notification (active admin + group)
+                // Trigger the same rich admin payment notification (active admin + group) — no mismatch banner per policy
                 try {
-                    const expected = Number(order.totalAmount);
-                    const diff = Math.round((slipAmount - expected) * 100) / 100;
-                    const overUnder = diff > 0 ? 'โอนเกิน' : 'โอนน้อยกว่า';
-                    const fmtAbs = Math.abs(diff).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                    const sign = diff >= 0 ? '+' : '−';
-                    const mismatchNote =
-                        `⚠️ <b>ยอมรับยอดต่างจากออเดอร์</b> ${sign}฿${fmtAbs} (${overUnder})\n` +
-                        `ยอมรับโดย admin <code>${userTgId}</code>\n\n`;
                     await sendOrderPaidAdminNotification(order.id, {
-                        slipAmount,
-                        slipPhotoUrl: slipUrl,
+                        slipAmount: Number(order.totalAmount),
+                        slipPhotoUrl: order.payment?.slipUrl || '',
                         referralMsg,
                         bypassMode: false,
-                        mismatchNote,
+                        mismatchNote: '', // intentionally empty: top-up completed = treat like normal paid
                     });
                 } catch (notifErr) {
                     console.error('Failed to send paid notif after mm_paid_yes:', notifErr);
@@ -1283,7 +1249,7 @@ export async function handleAdminCallback(ctx) {
                 try {
                     const orig = ctx.callbackQuery.message;
                     const baseText = orig.caption ?? orig.text ?? '';
-                    const newText = `${baseText}\n\n✅ <b>ยอมรับโดย admin <code>${userTgId}</code></b>`;
+                    const newText = `${baseText}\n\n✅ <b>ยืนยันชำระครบโดย admin <code>${userTgId}</code></b>`;
                     if (orig.caption != null) {
                         await ctx.editMessageCaption(newText, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } });
                     } else {
@@ -1291,7 +1257,7 @@ export async function handleAdminCallback(ctx) {
                     }
                 } catch (e) {}
 
-                await ctx.answerCbQuery('✅ ยอมรับยอดและยืนยันออเดอร์แล้ว');
+                await ctx.answerCbQuery('✅ ยืนยันชำระครบและส่งแจ้งเตือนใหม่แล้ว');
             } catch (e) {
                 console.error('mm_paid_yes error:', e);
                 await ctx.answerCbQuery('❌ เกิดข้อผิดพลาด ลองใหม่', { show_alert: true });
@@ -1301,7 +1267,7 @@ export async function handleAdminCallback(ctx) {
             const orderId = data.replace('mm_paid_', '');
             await ctx.editMessageReplyMarkup({
                 inline_keyboard: [
-                    [{ text: '⚠️ ยืนยัน: รับยอดและ Mark PAID', callback_data: `mm_paid_yes_${orderId}` }],
+                    [{ text: '⚠️ ยืนยัน: ลูกค้าโอนครบแล้ว', callback_data: `mm_paid_yes_${orderId}` }],
                     [{ text: '🔙 กลับ', callback_data: `mm_back_${orderId}` }],
                 ],
             });
@@ -1312,7 +1278,7 @@ export async function handleAdminCallback(ctx) {
 
             const order = await prisma.order.findUnique({
                 where: { id: orderId },
-                include: { customer: true },
+                include: { customer: true, items: true, payment: true },
             });
             if (!order) return ctx.answerCbQuery('❌ ไม่พบออเดอร์', { show_alert: true });
             if (order.status === 'CANCELLED') {
@@ -1322,41 +1288,71 @@ export async function handleAdminCallback(ctx) {
                 return ctx.answerCbQuery('⚠️ ออเดอร์นี้ดำเนินการไปแล้ว', { show_alert: true });
             }
 
+            const wasLocked = !!order.mismatchLocked;
+            const paidAmount = order.payment?.amount ? Number(order.payment.amount) : 0;
+
             try {
                 await prisma.$transaction(async (tx) => {
-                    await tx.order.update({ where: { id: orderId }, data: { status: 'CANCELLED' } });
-                    if (order.appliedCouponId) {
-                        const cc = await tx.customerCoupon.findFirst({
-                            where: { customerId: order.customerId, couponId: order.appliedCouponId },
-                        });
-                        if (cc && cc.status === 'USED') {
-                            await tx.customerCoupon.update({
-                                where: { id: cc.id },
-                                data: { status: 'AVAILABLE', usedAt: null },
+                    await tx.order.update({
+                        where: { id: orderId },
+                        data: { status: 'CANCELLED', mismatchLocked: false },
+                    });
+                    // Restore stock + coupon ONLY if order was locked (stock/coupon were reserved at lock time)
+                    if (wasLocked) {
+                        for (const item of order.items) {
+                            await tx.product.update({
+                                where: { id: item.productId },
+                                data: { stockQuantity: { increment: item.quantity } },
                             });
                         }
+                        if (order.appliedCouponId) {
+                            const cc = await tx.customerCoupon.findFirst({
+                                where: { customerId: order.customerId, couponId: order.appliedCouponId },
+                            });
+                            if (cc && cc.status === 'USED') {
+                                await tx.customerCoupon.update({
+                                    where: { id: cc.id },
+                                    data: { status: 'AVAILABLE', usedAt: null },
+                                });
+                            }
+                        }
+                    }
+                    // Mark Payment as REJECTED (keep row for audit + slipOkTransactionId stays unique-claimed)
+                    if (order.payment) {
+                        await tx.payment.update({
+                            where: { id: order.payment.id },
+                            data: { status: 'REJECTED' },
+                        });
                     }
                     await tx.adminAuditLog.create({
                         data: {
                             adminName: userTgId,
                             action: 'MISMATCH_REJECT',
                             targetId: order.customerId,
-                            details: JSON.stringify({ orderId, totalAmount: Number(order.totalAmount) }),
+                            details: JSON.stringify({ orderId, totalAmount: Number(order.totalAmount), paidAmount, wasLocked }),
                         },
                     });
                 });
 
                 if (order.customer?.telegramUserId) {
-                    await sendNotificationToCustomer(
-                        order.customer.telegramUserId,
-                        `❌ <b>ออเดอร์ถูกยกเลิก</b>\n\nออเดอร์ <b>#${order.id}</b> ถูกยกเลิกเนื่องจากยอดสลิปไม่ตรงกับยอดที่ต้องชำระ\nหากมีข้อสงสัยหรือต้องการขอคืนเงิน กรุณาทักเข้ามาในแชทบอท`
-                    );
+                    let custMsg = `❌ <b>ออเดอร์ถูกยกเลิก</b>\n\nออเดอร์ <b>#${order.id}</b> ถูกยกเลิกเนื่องจากยอดสลิปไม่ตรงกับยอดที่ต้องชำระ`;
+                    if (paidAmount > 0) {
+                        const fmtAmt = paidAmount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        custMsg += `\n\n💰 หากต้องการขอคืนเงินที่โอนมาแล้ว ฿${fmtAmt} กรุณาทักเข้ามาในแชทบอท`;
+                    } else {
+                        custMsg += `\nหากมีข้อสงสัย กรุณาทักเข้ามาในแชทบอท`;
+                    }
+                    await sendNotificationToCustomer(order.customer.telegramUserId, custMsg);
                 }
 
                 try {
                     const orig = ctx.callbackQuery.message;
                     const baseText = orig.caption ?? orig.text ?? '';
-                    const newText = `${baseText}\n\n❌ <b>ปฏิเสธ + ยกเลิกโดย admin <code>${userTgId}</code></b>`;
+                    let newText = `${baseText}\n\n❌ <b>ปฏิเสธ + ยกเลิกโดย admin <code>${userTgId}</code></b>`;
+                    if (paidAmount > 0) {
+                        const fmtAmt = paidAmount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        newText += `\n⚠️ <b>ลูกค้าโอนเงินมาแล้ว ฿${fmtAmt}</b> — กรุณา refund ก่อนปิดเคส`;
+                    }
                     if (orig.caption != null) {
                         await ctx.editMessageCaption(newText, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } });
                     } else {

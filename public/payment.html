@@ -476,45 +476,34 @@
                                 window.localStorage.removeItem('cart');
 
                                 if (window.posthog) {
-                                    posthog.capture('Submit Payment Slip', { orderId });
+                                    posthog.capture('Submit Payment Slip', { orderId, overPaid: !!data.overPaid });
                                 }
 
+                                const fmt = (n) => Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                const successMsg = data.overPaid
+                                    ? `ชำระเงินสำเร็จ\n\nคุณโอนเกินมา ฿${fmt(data.overPaidDiff)}\nสามารถทักแอดมินเพื่อขอคืนเงินส่วนต่างได้`
+                                    : 'ตรวจสอบสลิปและยืนยันคำสั่งซื้อเรียบร้อยแล้ว แอดมินจะทำการจัดส่งสินค้าโดยเร็วที่สุด';
                                 tg.showPopup({
                                     title: 'ชำระเงินสำเร็จ',
-                                    message: 'ตรวจสอบสลิปและยืนยันคำสั่งซื้อเรียบร้อยแล้ว แอดมินจะทำการจัดส่งสินค้าโดยเร็วที่สุด',
+                                    message: successMsg,
                                     buttons: [{ id: 'ok', type: 'default', text: 'ตกลง' }]
                                 }, () => {
-                                    // Optionally redirect to a success page or back to shop menu
                                     window.location.href = 'products.html';
                                 });
-                            } else if (data.mismatch) {
-                                submitBtn.innerHTML = originalText;
-                                submitBtn.disabled = false;
-
-                                const fmt = (n) => Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                                const overUnder = data.diff > 0 ? 'โอนเกิน' : 'โอนน้อยกว่าที่ต้องชำระ';
-                                const popupMsg =
-                                    `ต้องชำระ: ฿${fmt(data.expectedAmount)}\n` +
-                                    `ในสลิป: ฿${fmt(data.slipAmount)}\n` +
-                                    `${overUnder}: ฿${fmt(Math.abs(data.diff))}\n\n` +
-                                    `กรุณาทักเข้ามาในแชทบอท\nเพื่อแจ้งแอดมิน`;
-
+                            } else if (data.mismatch && data.lockUpload) {
+                                // Under-paid → lock the page (no re-upload allowed). Render locked UI.
                                 if (window.posthog) {
                                     posthog.capture('Slip Amount Mismatch', { orderId, diff: data.diff });
                                 }
-
-                                tg.showPopup({
-                                    title: 'ยอดเงินไม่ตรง',
-                                    message: popupMsg,
-                                    buttons: [
-                                        { id: 'contact', type: 'default', text: 'ปิดและทักแอดมิน' },
-                                        { id: 'close', type: 'cancel', text: 'ปิด' },
-                                    ],
-                                }, (id) => {
-                                    if (id === 'contact') {
-                                        try { tg.close(); } catch (e) { window.close(); }
-                                    }
+                                lockPaymentUI({
+                                    expected: data.expectedAmount,
+                                    actual: data.slipAmount,
+                                    diff: data.diff,
+                                    copyMessage: data.copyMessage,
                                 });
+                            } else if (data.lockUpload) {
+                                // Order is already locked (re-upload guard hit)
+                                lockPaymentUI(null);
                             } else if (data.serviceDown || data.manualReview) {
                                 submitBtn.innerHTML = originalText;
                                 submitBtn.disabled = false;
@@ -568,20 +557,47 @@
                         const pollRes = await fetch(`/api/orders/${orderId}?v=${Date.now()}`, { cache: 'no-cache', headers: { 'x-silent-poll': 'true' } });
                         const pollData = await pollRes.json();
                         if (pollData.success && pollData.order && pollData.order.items) {
+                            // Mismatch lock detected via polling (page reload after lock, or admin not yet acted)
+                            if (pollData.order.mismatchLocked) {
+                                window.isPaymentBlocked = true;
+                                lockPaymentUI(pollData.mismatchInfo);
+                                return;
+                            }
+                            // Order moved to PAID by admin top-up flow → redirect to success
+                            if (pollData.order.status === 'PAID') {
+                                window.isPaymentBlocked = true;
+                                window.localStorage.removeItem('cart');
+                                tg.showPopup({
+                                    title: 'ชำระเงินสำเร็จ',
+                                    message: 'แอดมินยืนยันการชำระเงินครบเรียบร้อยแล้ว',
+                                    buttons: [{ id: 'ok', type: 'default', text: 'ตกลง' }],
+                                }, () => { window.location.href = 'products.html'; });
+                                return;
+                            }
+                            // Order CANCELLED by admin → redirect with note
+                            if (pollData.order.status === 'CANCELLED') {
+                                window.isPaymentBlocked = true;
+                                tg.showPopup({
+                                    title: 'ออเดอร์ถูกยกเลิก',
+                                    message: 'ออเดอร์ถูกยกเลิก หากมีการโอนเงินมาแล้ว สามารถทักเข้ามาในแชทบอทเพื่อขอคืนเงินได้',
+                                    buttons: [{ id: 'ok', type: 'default', text: 'ตกลง' }],
+                                }, () => { window.location.href = 'products.html'; });
+                                return;
+                            }
                             let outOfStock = false;
                             pollData.order.items.forEach(item => {
                                 if (item.product && item.product.stockQuantity < item.quantity) {
                                     outOfStock = true;
                                 }
                             });
-                            
+
                             if (outOfStock) {
                                 window.isPaymentBlocked = true;
                                 const uploadSection = document.getElementById('upload-section');
                                 const bankDetailsContainer = document.getElementById('bank-details-container');
-                                
+
                                 if (bankDetailsContainer) bankDetailsContainer.style.display = 'none';
-                                
+
                                 if (uploadSection) {
                                     const warningDiv = document.createElement('div');
                                     warningDiv.className = "bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-center mt-4 mb-4";
@@ -591,12 +607,12 @@
                                         <div class="text-xs text-red-400 mb-4 leading-relaxed">ขออภัย สินค้าบางรายการในคำสั่งซื้อนี้หมดสต๊อกแล้วระหว่างรอชำระเงิน กรุณายกเลิกคำสั่งซื้อนี้ในหน้าประวัติแล้วทำรายการใหม่</div>
                                         <button onclick="window.location.href='products.html'" class="w-full py-3 bg-zinc-800 text-white rounded-xl text-sm font-bold active:scale-95 transition border border-zinc-700">กลับสู่หน้าหลัก</button>
                                     `;
-                                    
+
                                     const uploadArea = document.getElementById('upload-area');
                                     const submitBtn = document.getElementById('submit-slip-btn');
                                     if (uploadArea) uploadArea.style.display = 'none';
                                     if (submitBtn) submitBtn.style.display = 'none';
-                                    
+
                                     uploadSection.prepend(warningDiv);
                                 }
                             }
@@ -604,6 +620,102 @@
                     } catch(e) {}
                 }, 5000); // 5 sec poll
             }
+        }
+
+        // ============================================================
+        // Mismatch (under-paid) lock UI
+        // ============================================================
+        function copyToClipboard(text) {
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    return navigator.clipboard.writeText(text);
+                }
+            } catch (e) {}
+            // Fallback for older webviews
+            return new Promise((resolve, reject) => {
+                try {
+                    const ta = document.createElement('textarea');
+                    ta.value = text;
+                    ta.style.position = 'fixed';
+                    ta.style.left = '-9999px';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    const ok = document.execCommand('copy');
+                    document.body.removeChild(ta);
+                    ok ? resolve() : reject(new Error('execCommand failed'));
+                } catch (err) { reject(err); }
+            });
+        }
+
+        function lockPaymentUI(info) {
+            window.isPaymentBlocked = true;
+            const uploadSection = document.getElementById('upload-section');
+            const bankDetailsContainer = document.getElementById('bank-details-container');
+            if (bankDetailsContainer) bankDetailsContainer.style.display = 'none';
+            if (!uploadSection) return;
+            // Avoid double-render
+            if (document.getElementById('payment-locked-panel')) return;
+
+            const fmt = (n) => Number(n || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const expected = info?.expected ?? 0;
+            const actual = info?.actual ?? 0;
+            const diff = info?.diff ?? 0;
+            const copyMsg = info?.copyMessage || '';
+
+            const statsHtml = info ? `
+                <div class="grid grid-cols-3 gap-2 mt-4 mb-4 text-xs">
+                    <div class="bg-zinc-800/60 rounded-lg p-2">
+                        <div class="text-zinc-500">ต้องโอน</div>
+                        <div class="text-white font-bold mt-0.5">฿${fmt(expected)}</div>
+                    </div>
+                    <div class="bg-zinc-800/60 rounded-lg p-2">
+                        <div class="text-zinc-500">โอนแล้ว</div>
+                        <div class="text-white font-bold mt-0.5">฿${fmt(actual)}</div>
+                    </div>
+                    <div class="bg-orange-500/15 border border-orange-500/40 rounded-lg p-2">
+                        <div class="text-orange-300">ขาดอีก</div>
+                        <div class="text-orange-300 font-bold mt-0.5">฿${fmt(Math.abs(diff))}</div>
+                    </div>
+                </div>` : '';
+
+            const panel = document.createElement('div');
+            panel.id = 'payment-locked-panel';
+            panel.className = 'bg-orange-500/10 border border-orange-500/30 rounded-2xl p-5 text-center mt-4 mb-4';
+            panel.innerHTML = `
+                <i class="ri-lock-line text-orange-400 text-3xl mb-2"></i>
+                <div class="text-orange-300 font-bold text-base mb-1">ออเดอร์รอแอดมินยืนยัน</div>
+                <div class="text-xs text-zinc-400 leading-relaxed">ยอดที่โอนยังไม่ครบ — กรุณาทักแอดมินเพื่อโอนเพิ่มในแชทบอท</div>
+                ${statsHtml}
+                <div class="space-y-2 mt-4">
+                    ${copyMsg ? `<button id="lock-copy-btn" class="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl font-bold text-white active:scale-95 transition shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2"><i class="ri-clipboard-line"></i> คัดลอกข้อความแจ้งแอดมิน</button>` : ''}
+                    <button id="lock-close-btn" class="w-full py-3 bg-zinc-800 border border-zinc-700 rounded-xl font-medium text-zinc-200 active:scale-95 transition flex items-center justify-center gap-2"><i class="ri-chat-3-line"></i> ปิดและทักแอดมิน</button>
+                </div>`;
+            const uploadArea = document.getElementById('upload-area');
+            const submitBtn = document.getElementById('submit-slip-btn');
+            if (uploadArea) uploadArea.style.display = 'none';
+            if (submitBtn) submitBtn.style.display = 'none';
+            const slipInput = document.getElementById('slip-input');
+            if (slipInput) slipInput.disabled = true;
+            uploadSection.prepend(panel);
+
+            const copyBtn = document.getElementById('lock-copy-btn');
+            if (copyBtn) {
+                copyBtn.onclick = async () => {
+                    try {
+                        await copyToClipboard(copyMsg);
+                        showToast('คัดลอกข้อความแล้ว — paste ในแชทแอดมินได้เลย', 'success');
+                    } catch (e) {
+                        // Surface message in popup so user can manual-copy
+                        tg.showPopup({
+                            title: 'คัดลอกไม่สำเร็จ',
+                            message: copyMsg + '\n\n(โปรดเลือก-คัดลอกด้วยตนเอง)',
+                            buttons: [{ id: 'ok', type: 'default', text: 'ตกลง' }],
+                        });
+                    }
+                };
+            }
+            const closeBtn = document.getElementById('lock-close-btn');
+            if (closeBtn) closeBtn.onclick = () => { try { tg.close(); } catch (e) { window.close(); } };
         }         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', initPayment);
         } else {
