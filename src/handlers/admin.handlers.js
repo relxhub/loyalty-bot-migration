@@ -972,8 +972,16 @@ export async function handleAdminCallback(ctx) {
         }
 
         if (role !== "SuperAdmin") {
-            await ctx.answerCbQuery("⛔️ เฉพาะ Super Admin เท่านั้นที่ทำรายการนี้ได้", { show_alert: true });
-            return;
+            // Exception: mismatch (under-paid) action buttons are allowed for any Admin too
+            const isMismatchAction = data && (
+                data.startsWith('mm_paid_') ||
+                data.startsWith('mm_reject_') ||
+                data.startsWith('mm_back_')
+            );
+            if (!isMismatchAction) {
+                await ctx.answerCbQuery("⛔️ เฉพาะ Super Admin เท่านั้นที่ทำรายการนี้ได้", { show_alert: true });
+                return;
+            }
         }
 
         // --- MANAGE ORDER FLOW ---
