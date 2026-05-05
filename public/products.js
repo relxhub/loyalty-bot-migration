@@ -1850,15 +1850,22 @@
                 
                 // Update active tab UI
                 const tabs = document.querySelectorAll('.history-tab');
+                let activeTab = null;
                 tabs.forEach(tab => {
                     if (tab.dataset.status === status || tab.getAttribute('onclick').includes(`'${status}'`)) {
                         tab.classList.remove('text-zinc-500', 'hover:text-zinc-300', 'border-transparent');
                         tab.classList.add('text-brand-red', 'border-b-2', 'border-brand-red', 'active');
+                        activeTab = tab;
                     } else {
                         tab.classList.add('text-zinc-500', 'hover:text-zinc-300', 'border-transparent');
                         tab.classList.remove('text-brand-red', 'border-b-2', 'border-brand-red', 'active');
                     }
                 });
+
+                // Auto-scroll the active tab into view (mirrors category bar UX)
+                if (activeTab) {
+                    try { activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }); } catch (e) {}
+                }
 
                 let filteredOrders = window.allOrders || [];
                 if (status !== 'ALL') {
