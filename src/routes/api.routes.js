@@ -631,9 +631,101 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
 
             // 3. Validate Amount
             if (parseFloat(slipAmount) !== parseFloat(order.totalAmount)) {
-                return res.status(400).json({ 
-                    success: false, 
-                    error: `ยอดเงินไม่ตรงกัน (ยอดที่ต้องชำระ: ${order.totalAmount} ฿, ยอดในสลิป: ${slipAmount} ฿)` 
+                const expected = parseFloat(order.totalAmount);
+                const actual = parseFloat(slipAmount);
+                const diff = Math.round((actual - expected) * 100) / 100;
+                const fmtTh = (n) => Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                // Audit log (best-effort)
+                try {
+                    await prisma.systemLog.create({
+                        data: {
+                            level: 'WARN',
+                            source: 'PAYMENT',
+                            action: 'AMOUNT_MISMATCH',
+                            customerId: order.customerId,
+                            message: JSON.stringify({
+                                orderId: order.id,
+                                expected,
+                                actual,
+                                diff,
+                                transRef: slipTransRef,
+                                slipUrl: slipData?.data?.url || null,
+                            }),
+                        },
+                    });
+                } catch (logErr) {
+                    console.error('SystemLog AMOUNT_MISMATCH failed:', logErr.message);
+                }
+
+                // Notify admin (group + active admin) — best-effort, non-blocking response
+                (async () => {
+                    try {
+                        const adminToken = process.env.ADMIN_BOT_TOKEN;
+                        if (!adminToken) return;
+
+                        const cust = order.customer || await prisma.customer.findUnique({ where: { customerId: order.customerId } });
+                        const custName = [cust?.firstName, cust?.lastName].filter(Boolean).join(' ').trim() || '-';
+                        const custUsername = cust?.username ? `@${cust.username}` : '';
+                        const custTgId = cust?.telegramUserId || '';
+
+                        const overUnder = diff > 0 ? 'โอนเกิน' : 'โอนน้อยกว่า';
+                        const diffAbs = fmtTh(Math.abs(diff));
+
+                        let msg = `⚠️ <b>ยอดสลิปไม่ตรงกับออเดอร์</b>\n\n`;
+                        msg += `<b>ออเดอร์:</b> #${order.id}\n\n`;
+                        msg += `👤 <b>[ลูกค้า]</b>\n`;
+                        msg += `${custName}${custUsername ? ' · ' + custUsername : ''}\n`;
+                        msg += `รหัส: <code>${order.customerId}</code>\n`;
+                        if (custTgId) msg += `Telegram ID: <code>${custTgId}</code>\n`;
+                        msg += `\n💰 <b>[ยอดเงิน]</b>\n`;
+                        msg += `ต้องชำระ: ฿${fmtTh(expected)}\n`;
+                        msg += `ในสลิป: ฿${fmtTh(actual)}\n`;
+                        msg += `ส่วนต่าง: <b>${diff >= 0 ? '+' : '−'}฿${diffAbs}</b> (${overUnder})\n\n`;
+                        msg += `ℹ️ ออเดอร์ยังเป็น <code>PENDING_PAYMENT</code> — ยังไม่ตัดสต็อก/คูปอง\n`;
+                        msg += `กรุณาติดต่อลูกค้าใน Telegram เพื่อดำเนินการต่อ`;
+
+                        const customerLink = cust?.username
+                            ? `https://t.me/${cust.username}`
+                            : null;
+
+                        const replyMarkup = customerLink
+                            ? { inline_keyboard: [[{ text: '💬 เปิดแชทกับลูกค้า', url: customerLink }]] }
+                            : undefined;
+
+                        const photoUrl = slipData?.data?.url || null;
+                        const sendOne = async (chatId) => {
+                            if (!chatId) return;
+                            try {
+                                const url = photoUrl
+                                    ? `https://api.telegram.org/bot${adminToken}/sendPhoto`
+                                    : `https://api.telegram.org/bot${adminToken}/sendMessage`;
+                                const body = photoUrl
+                                    ? { chat_id: chatId, photo: photoUrl, caption: msg, parse_mode: 'HTML', ...(replyMarkup && { reply_markup: replyMarkup }) }
+                                    : { chat_id: chatId, text: msg, parse_mode: 'HTML', ...(replyMarkup && { reply_markup: replyMarkup }) };
+                                const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                                if (!r.ok) console.error(`Mismatch notif Telegram error for ${chatId}:`, await r.json().catch(() => ({})));
+                            } catch (e) {
+                                console.error(`Mismatch notif fetch error to ${chatId}:`, e.message);
+                            }
+                        };
+
+                        const groupId = process.env.ADMIN_GROUP_ID || process.env.SUPER_ADMIN_TELEGRAM_ID;
+                        if (groupId) await sendOne(groupId);
+                    } catch (notifErr) {
+                        console.error('Mismatch notif outer error:', notifErr.message);
+                    }
+                })();
+
+                return res.status(400).json({
+                    success: false,
+                    mismatch: true,
+                    expectedAmount: expected,
+                    slipAmount: actual,
+                    diff,
+                    contactAdmin: true,
+                    error: `ยอดเงินไม่ตรงกัน (ต้องชำระ: ฿${fmtTh(expected)}, ในสลิป: ฿${fmtTh(actual)})`,
+                    message: `ยอดเงินไม่ตรงกัน — ${diff > 0 ? `โอนเกิน` : `โอนน้อยกว่าที่ต้องชำระ`} ฿${fmtTh(Math.abs(diff))} กรุณาทักแอดมินใน Telegram เพื่อดำเนินการต่อ`,
                 });
             }
             

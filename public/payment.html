@@ -487,10 +487,38 @@
                                     // Optionally redirect to a success page or back to shop menu
                                     window.location.href = 'products.html';
                                 });
+                            } else if (data.mismatch) {
+                                submitBtn.innerHTML = originalText;
+                                submitBtn.disabled = false;
+
+                                const fmt = (n) => Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                const overUnder = data.diff > 0 ? 'โอนเกิน' : 'โอนน้อยกว่าที่ต้องชำระ';
+                                const popupMsg =
+                                    `ต้องชำระ: ฿${fmt(data.expectedAmount)}\n` +
+                                    `ในสลิป: ฿${fmt(data.slipAmount)}\n` +
+                                    `${overUnder}: ฿${fmt(Math.abs(data.diff))}\n\n` +
+                                    `กรุณาทักแอดมินใน Telegram\nเพื่อดำเนินการต่อ`;
+
+                                if (window.posthog) {
+                                    posthog.capture('Slip Amount Mismatch', { orderId, diff: data.diff });
+                                }
+
+                                tg.showPopup({
+                                    title: 'ยอดเงินไม่ตรง',
+                                    message: popupMsg,
+                                    buttons: [
+                                        { id: 'contact', type: 'default', text: 'ปิดและทักแอดมิน' },
+                                        { id: 'close', type: 'cancel', text: 'ปิด' },
+                                    ],
+                                }, (id) => {
+                                    if (id === 'contact') {
+                                        try { tg.close(); } catch (e) { window.close(); }
+                                    }
+                                });
                             } else {
                                 submitBtn.innerHTML = originalText;
                                 submitBtn.disabled = false;
-                                
+
                                 const errMsg = data.error || 'ตรวจสอบสลิปไม่สำเร็จ';
                                 if (errMsg.length > 200) {
                                     showToast('ข้อผิดพลาดจากเซิร์ฟเวอร์', 'error');
