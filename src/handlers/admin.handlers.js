@@ -1137,21 +1137,220 @@ export async function handleAdminCallback(ctx) {
         }
         else if (data && data.startsWith('confirm_edit_')) {
             const orderId = data.replace('confirm_edit_', '');
-            
+
             const order = await prisma.order.findUnique({
                 where: { id: orderId },
                 include: { customer: true }
             });
-            
+
             const finalKeyboard = await getManageMenu(orderId);
             await ctx.editMessageReplyMarkup({ inline_keyboard: finalKeyboard });
-            
+
             if (order.customer && order.customer.telegramUserId) {
                 const newTotal = parseFloat(order.totalAmount).toLocaleString('th-TH');
                 await sendNotificationToCustomer(order.customer.telegramUserId, `⚠️ <b>มีการแก้ไขคำสั่งซื้อ</b>\n\nออเดอร์ <b>#${order.id}</b> มีการเปลี่ยนแปลงรายการสินค้าเนื่องจากสินค้าบางรายการหมด\n\nยอดรวมใหม่ของคุณคือ: <b>฿${newTotal}</b>\n(สามารถตรวจสอบรายการสินค้าที่อัปเดตและสลิปโอนเงินคืนได้ที่เมนูประวัติคำสั่งซื้อ)`);
             }
 
             await ctx.answerCbQuery("ยืนยันและแจ้งลูกค้าเรียบร้อยแล้ว");
+        }
+        // ============================================================
+        // SLIP AMOUNT MISMATCH FLOW (Level A action buttons)
+        // mm_paid_<id>     → show confirm step
+        // mm_paid_yes_<id> → execute mark PAID
+        // mm_reject_<id>   → show confirm step
+        // mm_reject_yes_<id>→ execute cancel + refund coupon
+        // mm_back_<id>     → restore original 2 buttons
+        // ============================================================
+        else if (data && data.startsWith('mm_back_')) {
+            const orderId = data.replace('mm_back_', '');
+            await ctx.editMessageReplyMarkup({
+                inline_keyboard: [
+                    [{ text: '✅ ยอมรับยอด (Mark PAID)', callback_data: `mm_paid_${orderId}` }],
+                    [{ text: '❌ ปฏิเสธ + ยกเลิกออเดอร์', callback_data: `mm_reject_${orderId}` }],
+                ],
+            });
+            await ctx.answerCbQuery();
+        }
+        else if (data && data.startsWith('mm_paid_yes_')) {
+            const orderId = data.replace('mm_paid_yes_', '');
+
+            const order = await prisma.order.findUnique({
+                where: { id: orderId },
+                include: { items: true, customer: true },
+            });
+            if (!order) return ctx.answerCbQuery('❌ ไม่พบออเดอร์', { show_alert: true });
+            if (order.status !== 'PENDING_PAYMENT') {
+                return ctx.answerCbQuery('⚠️ ออเดอร์นี้ดำเนินการไปแล้ว', { show_alert: true });
+            }
+
+            // Pull last AMOUNT_MISMATCH log to recover slipUrl / transRef / actual amount
+            const log = await prisma.systemLog.findFirst({
+                where: { source: 'PAYMENT', action: 'AMOUNT_MISMATCH', customerId: order.customerId },
+                orderBy: { createdAt: 'desc' },
+            });
+            let logged = {};
+            if (log?.message) {
+                try { logged = JSON.parse(log.message); } catch (e) {}
+            }
+            // Only trust the log if it matches THIS order
+            if (logged.orderId !== orderId) logged = {};
+
+            const slipAmount = Number(logged.actual ?? order.totalAmount);
+            const slipUrl = logged.slipUrl || '';
+            const transRef = logged.transRef || `MANUAL-MM-${Date.now()}`;
+
+            try {
+                await prisma.$transaction(async (tx) => {
+                    await tx.order.update({ where: { id: orderId }, data: { status: 'PAID' } });
+                    await tx.payment.create({
+                        data: {
+                            orderId,
+                            amount: slipAmount,
+                            status: 'VERIFIED',
+                            slipUrl,
+                            slipOkTransactionId: transRef,
+                            payload: JSON.stringify({ ...logged, acceptedByAdmin: userTgId, mismatchAccepted: true }),
+                            verifiedAt: new Date(),
+                        },
+                    });
+                    for (const item of order.items) {
+                        await tx.product.update({
+                            where: { id: item.productId },
+                            data: { stockQuantity: { decrement: item.quantity } },
+                        });
+                    }
+                    if (order.appliedCouponId) {
+                        const cc = await tx.customerCoupon.findFirst({
+                            where: { customerId: order.customerId, couponId: order.appliedCouponId, status: 'AVAILABLE' },
+                        });
+                        if (cc) {
+                            await tx.customerCoupon.update({
+                                where: { id: cc.id },
+                                data: { status: 'USED', usedAt: new Date() },
+                            });
+                        }
+                    }
+                    await tx.adminAuditLog.create({
+                        data: {
+                            adminName: userTgId,
+                            action: 'MISMATCH_ACCEPT',
+                            targetId: order.customerId,
+                            details: JSON.stringify({ orderId, expected: Number(order.totalAmount), actual: slipAmount, diff: logged.diff || null }),
+                        },
+                    });
+                });
+
+                // Try to complete referral (best-effort)
+                try { await referralService.completeReferral(order.customerId, slipAmount); } catch (e) {}
+
+                // Notify customer (bot push, not direct chat)
+                if (order.customer?.telegramUserId) {
+                    await sendNotificationToCustomer(
+                        order.customer.telegramUserId,
+                        `✅ <b>ยืนยันคำสั่งซื้อแล้ว</b>\n\nออเดอร์ <b>#${order.id}</b> ของคุณได้รับการยืนยัน\nแอดมินจะดำเนินการจัดส่งให้โดยเร็วที่สุด`
+                    );
+                }
+
+                // Strip buttons + add admin marker to caption (best-effort)
+                try {
+                    const orig = ctx.callbackQuery.message;
+                    const baseText = orig.caption ?? orig.text ?? '';
+                    const newText = `${baseText}\n\n✅ <b>ยอมรับโดย admin <code>${userTgId}</code></b>`;
+                    if (orig.caption != null) {
+                        await ctx.editMessageCaption(newText, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } });
+                    } else {
+                        await ctx.editMessageText(newText, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } });
+                    }
+                } catch (e) {}
+
+                await ctx.answerCbQuery('✅ ยอมรับยอดและยืนยันออเดอร์แล้ว');
+            } catch (e) {
+                console.error('mm_paid_yes error:', e);
+                await ctx.answerCbQuery('❌ เกิดข้อผิดพลาด ลองใหม่', { show_alert: true });
+            }
+        }
+        else if (data && data.startsWith('mm_paid_')) {
+            const orderId = data.replace('mm_paid_', '');
+            await ctx.editMessageReplyMarkup({
+                inline_keyboard: [
+                    [{ text: '⚠️ ยืนยัน: รับยอดและ Mark PAID', callback_data: `mm_paid_yes_${orderId}` }],
+                    [{ text: '🔙 กลับ', callback_data: `mm_back_${orderId}` }],
+                ],
+            });
+            await ctx.answerCbQuery();
+        }
+        else if (data && data.startsWith('mm_reject_yes_')) {
+            const orderId = data.replace('mm_reject_yes_', '');
+
+            const order = await prisma.order.findUnique({
+                where: { id: orderId },
+                include: { customer: true },
+            });
+            if (!order) return ctx.answerCbQuery('❌ ไม่พบออเดอร์', { show_alert: true });
+            if (order.status === 'CANCELLED') {
+                return ctx.answerCbQuery('⚠️ ออเดอร์ถูกยกเลิกไปแล้ว', { show_alert: true });
+            }
+            if (order.status !== 'PENDING_PAYMENT') {
+                return ctx.answerCbQuery('⚠️ ออเดอร์นี้ดำเนินการไปแล้ว', { show_alert: true });
+            }
+
+            try {
+                await prisma.$transaction(async (tx) => {
+                    await tx.order.update({ where: { id: orderId }, data: { status: 'CANCELLED' } });
+                    if (order.appliedCouponId) {
+                        const cc = await tx.customerCoupon.findFirst({
+                            where: { customerId: order.customerId, couponId: order.appliedCouponId },
+                        });
+                        if (cc && cc.status === 'USED') {
+                            await tx.customerCoupon.update({
+                                where: { id: cc.id },
+                                data: { status: 'AVAILABLE', usedAt: null },
+                            });
+                        }
+                    }
+                    await tx.adminAuditLog.create({
+                        data: {
+                            adminName: userTgId,
+                            action: 'MISMATCH_REJECT',
+                            targetId: order.customerId,
+                            details: JSON.stringify({ orderId, totalAmount: Number(order.totalAmount) }),
+                        },
+                    });
+                });
+
+                if (order.customer?.telegramUserId) {
+                    await sendNotificationToCustomer(
+                        order.customer.telegramUserId,
+                        `❌ <b>ออเดอร์ถูกยกเลิก</b>\n\nออเดอร์ <b>#${order.id}</b> ถูกยกเลิกเนื่องจากยอดสลิปไม่ตรงกับยอดที่ต้องชำระ\nหากมีข้อสงสัยหรือต้องการขอคืนเงิน กรุณาทักเข้ามาในแชทบอท`
+                    );
+                }
+
+                try {
+                    const orig = ctx.callbackQuery.message;
+                    const baseText = orig.caption ?? orig.text ?? '';
+                    const newText = `${baseText}\n\n❌ <b>ปฏิเสธ + ยกเลิกโดย admin <code>${userTgId}</code></b>`;
+                    if (orig.caption != null) {
+                        await ctx.editMessageCaption(newText, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } });
+                    } else {
+                        await ctx.editMessageText(newText, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } });
+                    }
+                } catch (e) {}
+
+                await ctx.answerCbQuery('❌ ปฏิเสธและยกเลิกออเดอร์แล้ว');
+            } catch (e) {
+                console.error('mm_reject_yes error:', e);
+                await ctx.answerCbQuery('❌ เกิดข้อผิดพลาด ลองใหม่', { show_alert: true });
+            }
+        }
+        else if (data && data.startsWith('mm_reject_')) {
+            const orderId = data.replace('mm_reject_', '');
+            await ctx.editMessageReplyMarkup({
+                inline_keyboard: [
+                    [{ text: '⚠️ ยืนยัน: ปฏิเสธ + ยกเลิกออเดอร์', callback_data: `mm_reject_yes_${orderId}` }],
+                    [{ text: '🔙 กลับ', callback_data: `mm_back_${orderId}` }],
+                ],
+            });
+            await ctx.answerCbQuery();
         }
 
     } catch (error) {

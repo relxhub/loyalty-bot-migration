@@ -792,7 +792,19 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                         msg += `ในสลิป: ฿${fmtTh(actual)}\n`;
                         msg += `ส่วนต่าง: <b>${diff >= 0 ? '+' : '−'}฿${diffAbs}</b> (${overUnder})\n\n`;
                         msg += `ℹ️ ออเดอร์ยังเป็น <code>PENDING_PAYMENT</code> — ยังไม่ตัดสต็อก/คูปอง\n`;
-                        msg += `กรุณารอลูกค้าทักเข้ามาในแชทบอท`;
+                        msg += `กรุณารอลูกค้าทักเข้ามาในแชทบอท แล้วเลือกการดำเนินการด้านล่าง`;
+
+                        // Inline action buttons (admin can decide after customer reaches out)
+                        const replyMarkup = {
+                            inline_keyboard: [
+                                [
+                                    { text: '✅ ยอมรับยอด (Mark PAID)', callback_data: `mm_paid_${order.id}` },
+                                ],
+                                [
+                                    { text: '❌ ปฏิเสธ + ยกเลิกออเดอร์', callback_data: `mm_reject_${order.id}` },
+                                ],
+                            ],
+                        };
 
                         const photoUrl = slipData?.data?.url || null;
                         const sendOne = async (chatId) => {
@@ -802,8 +814,8 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                                     ? `https://api.telegram.org/bot${adminToken}/sendPhoto`
                                     : `https://api.telegram.org/bot${adminToken}/sendMessage`;
                                 const body = photoUrl
-                                    ? { chat_id: chatId, photo: photoUrl, caption: msg, parse_mode: 'HTML' }
-                                    : { chat_id: chatId, text: msg, parse_mode: 'HTML' };
+                                    ? { chat_id: chatId, photo: photoUrl, caption: msg, parse_mode: 'HTML', reply_markup: replyMarkup }
+                                    : { chat_id: chatId, text: msg, parse_mode: 'HTML', reply_markup: replyMarkup };
                                 const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
                                 if (!r.ok) console.error(`Mismatch notif Telegram error for ${chatId}:`, await r.json().catch(() => ({})));
                             } catch (e) {
