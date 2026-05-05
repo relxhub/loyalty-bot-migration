@@ -20,6 +20,12 @@
     "common.error_retry": "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง",
     "common.connection_error": "เกิดข้อผิดพลาดในการเชื่อมต่อ",
     "common.connection_error_retry": "เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่",
+    "common.load_failed": "โหลดข้อมูลไม่สำเร็จ",
+    "common.other": "อื่นๆ",
+
+    "unit.piece": "ชิ้น",
+    "unit.items": "รายการ",
+    "shipping.free": "ฟรี",
 
     "btn.close_and_chat": "ปิดและทักแอดมิน",
 
@@ -108,6 +114,28 @@
     "status.processing": "กำลังแพ็คสินค้า",
     "status.shipped": "จัดส่งแล้ว",
     "status.cancelled": "ยกเลิก",
+    "status.cancelled_done": "ยกเลิกแล้ว",
+
+    "timeline.order": "สั่งซื้อ",
+    "timeline.pay": "ชำระเงิน",
+    "timeline.pack": "แพ็คสินค้า",
+    "timeline.ship": "จัดส่ง",
+
+    "order.shipping_address": "ที่อยู่จัดส่ง",
+    "order.bill_number": "เลขบิล",
+    "order.tracking": "ตามรอยพัสดุ",
+    "order.tracking_hint": "แตะเลขพัสดุเพื่อติดตามสถานะ",
+    "order.summary": "สรุปยอดเงิน",
+    "order.items_title": "รายการสินค้า",
+    "order.view_refund_slip": "ดูสลิปคืนเงิน",
+    "order.reorder": "สั่งซื้ออีกครั้ง",
+
+    "history.no_identity": "ไม่สามารถระบุตัวตนได้",
+    "history.load_failed": "โหลดประวัติล้มเหลว",
+    "history.empty": "ยังไม่มีประวัติการสั่งซื้อ",
+    "history.start_shopping": "เริ่มช้อปปิ้ง",
+    "history.expires_in": "หมดเวลาใน",
+    "history.expired": "หมดเวลาชำระเงิน",
 
     "modal.history_title": "ประวัติคำสั่งซื้อ",
     "modal.order_details": "รายละเอียดคำสั่งซื้อ",
@@ -128,6 +156,14 @@
     "cart.total": "ยอดสุทธิ",
     "cart.checkout": "ชำระเงิน",
     "cart.choose_coupon": "เลือกคูปองที่ต้องการ",
+    "cart.no_coupon_selected": "ยังไม่ได้เลือกคูปอง",
+    "cart.no_usable_coupon": "คุณยังไม่มีคูปองที่ใช้งานได้",
+    "cart.free_ship_unlocked": "ได้รับฟรีค่าส่งแล้ว",
+    "cart.buy_more_prefix": "ซื้อเพิ่ม ฿",
+    "cart.buy_more_suffix": " รับฟรีค่าส่ง",
+    "cart.confirm_clear": "ยืนยันล้างตะกร้าสินค้าทั้งหมด?",
+
+    "favorites.empty": "ยังไม่มีรายการที่ชอบ",
 
     "address.book_title": "สมุดที่อยู่จัดส่ง",
     "address.add_new": "เพิ่มที่อยู่ใหม่",
@@ -142,6 +178,9 @@
     "address.province": "จังหวัด",
     "address.set_default": "ตั้งเป็นที่อยู่หลัก",
     "address.save": "บันทึกที่อยู่",
+    "address.no_address": "คุณยังไม่มีที่อยู่จัดส่งที่บันทึกไว้",
+    "address.default_tag": "หลัก",
+    "address.confirm_delete": "ยืนยันการลบที่อยู่นี้?",
 
     "payment.title": "ชำระเงิน",
     "payment.loading": "กำลังโหลดข้อมูลชำระเงิน...",

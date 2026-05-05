@@ -315,7 +315,7 @@
             const currentCart = window.cart || [];
 
             if (currentCart.length === 0) {
-                wrapper.innerHTML = '<p class="text-zinc-400 text-center py-4">ตะกร้าของคุณว่างเปล่า</p>';
+                wrapper.innerHTML = `<p class="text-zinc-400 text-center py-4">${tt('cart.empty', 'ตะกร้าของคุณว่างเปล่า')}</p>`;
                 if (subtotalEl) subtotalEl.textContent = '฿0';
                 if (shippingEl) shippingEl.textContent = '฿0';
                 if (totalEl) totalEl.textContent = '฿0';
@@ -380,7 +380,7 @@
                         const couponDescEl = document.getElementById('cart-coupon-desc');
                         if (couponDescEl) {
                             if (window.appliedCoupon.isAuto !== false) {
-                                couponDescEl.textContent = 'คูปองนี้ถูกเลือกอัตโนมัติ';
+                                couponDescEl.textContent = tt('cart.coupon_auto', 'คูปองนี้ถูกเลือกอัตโนมัติ');
                                 couponDescEl.classList.remove('hidden');
                             } else {
                                 couponDescEl.classList.add('hidden');
@@ -396,7 +396,7 @@
             } else {
                 if (couponArea) {
                     if(currentCart.length > 0) couponArea.classList.remove('hidden');
-                    if(!window.appliedCoupon) couponNameEl.textContent = 'ยังไม่ได้เลือกคูปอง';
+                    if(!window.appliedCoupon) couponNameEl.textContent = tt('cart.no_coupon_selected', 'ยังไม่ได้เลือกคูปอง');
                 }
                 if (discountRow) discountRow.classList.add('hidden');
             }
@@ -427,10 +427,10 @@
                     if (pctEl) pctEl.textContent = pct + '%';
                     if (textEl) {
                         if (isFree) {
-                            textEl.textContent = '🎉 ได้รับฟรีค่าส่งแล้ว';
+                            textEl.textContent = '🎉 ' + tt('cart.free_ship_unlocked', 'ได้รับฟรีค่าส่งแล้ว');
                         } else {
                             const remaining = Math.max(0, freeMin - subtotal);
-                            textEl.textContent = `ซื้อเพิ่ม ฿${remaining.toLocaleString('th-TH')} รับฟรีค่าส่ง`;
+                            textEl.textContent = `${tt('cart.buy_more_prefix', 'ซื้อเพิ่ม ฿')}${remaining.toLocaleString('th-TH')}${tt('cart.buy_more_suffix', ' รับฟรีค่าส่ง')}`;
                         }
                     }
                 }
@@ -478,14 +478,14 @@
                     renderAddresses();
                 }
             } catch (err) {
-                container.innerHTML = '<p class="text-center text-red-400">โหลดข้อมูลไม่สำเร็จ</p>';
+                container.innerHTML = `<p class="text-center text-red-400">${tt('common.load_failed', 'โหลดข้อมูลไม่สำเร็จ')}</p>`;
             }
         }
 
         function renderAddresses() {
             const container = document.getElementById('address-list-container');
             if (savedAddresses.length === 0) {
-                container.innerHTML = '<p class="text-center text-zinc-500 py-4 text-sm">คุณยังไม่มีที่อยู่จัดส่งที่บันทึกไว้</p>';
+                container.innerHTML = `<p class="text-center text-zinc-500 py-4 text-sm">${tt('address.no_address', 'คุณยังไม่มีที่อยู่จัดส่งที่บันทึกไว้')}</p>`;
                 return;
             }
 
@@ -496,7 +496,7 @@
                         <div class="flex-grow min-w-0">
                             <div class="flex items-center gap-2 mb-1">
                                 <span class="font-bold text-white">${addr.name}</span>
-                                ${addr.isDefault ? '<span class="text-[10px] bg-zinc-700 text-zinc-300 px-1.5 py-0.5 rounded">หลัก</span>' : ''}
+                                ${addr.isDefault ? `<span class="text-[10px] bg-zinc-700 text-zinc-300 px-1.5 py-0.5 rounded">${tt('address.default_tag', 'หลัก')}</span>` : ''}
                             </div>
                             <div class="text-xs text-zinc-300 font-medium">${addr.receiverName} | ${addr.phone}</div>
                             <div class="text-xs text-zinc-400 mt-1 line-clamp-2">${addr.address} ${addr.subdistrict} ${addr.district} ${addr.province} ${addr.zipcode}</div>
@@ -592,7 +592,7 @@
         };
 
         window.deleteAddress = async (id) => {
-            if (!confirm('ยืนยันการลบที่อยู่นี้?')) return;
+            if (!confirm(tt('address.confirm_delete', 'ยืนยันการลบที่อยู่นี้?'))) return;
             try {
                 const telegramId = tg.initDataUnsafe?.user?.id?.toString() || currentUser?.telegramUserId;
                 const res = await fetch(`/api/shipping-addresses/${telegramId}/${id}`, { method: 'DELETE' });
@@ -707,7 +707,7 @@
             const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
             if (availableCoupons.length === 0) {
-                listContainer.innerHTML = '<p class="text-center text-zinc-500 py-8">คุณยังไม่มีคูปองที่ใช้งานได้</p>';
+                listContainer.innerHTML = `<p class="text-center text-zinc-500 py-8">${tt('cart.no_usable_coupon', 'คุณยังไม่มีคูปองที่ใช้งานได้')}</p>`;
                 return;
             }
 
@@ -1269,7 +1269,7 @@
 
             const renderFavModal = () => {
                 if (favorites.length === 0) {
-                    favListWrapper.innerHTML = `<p class="text-zinc-500 text-center py-8">ยังไม่มีรายการที่ชอบ</p>`;
+                    favListWrapper.innerHTML = `<p class="text-zinc-500 text-center py-8">${tt('favorites.empty', 'ยังไม่มีรายการที่ชอบ')}</p>`;
                     return;
                 }
 
@@ -1405,7 +1405,7 @@
             };
 
             const clearCart = () => {
-                if (confirm('ยืนยันล้างตะกร้าสินค้าทั้งหมด?')) {
+                if (confirm(tt('cart.confirm_clear', 'ยืนยันล้างตะกร้าสินค้าทั้งหมด?'))) {
                     window.cart = [];
                     saveCart();
 
@@ -1606,11 +1606,11 @@
 
             // ============= Helpers for redesigned history/details =============
             const STATUS_META = {
-                PENDING_PAYMENT: { key: 'pending', label: 'รอชำระเงิน', icon: 'ri-time-line', step: 0 },
-                PAID:            { key: 'paid', label: 'ชำระเงินแล้ว', icon: 'ri-checkbox-circle-fill', step: 1 },
-                PROCESSING:      { key: 'processing', label: 'กำลังแพ็คสินค้า', icon: 'ri-archive-2-line', step: 2 },
-                SHIPPED:         { key: 'shipped', label: 'จัดส่งแล้ว', icon: 'ri-truck-fill', step: 3 },
-                CANCELLED:       { key: 'cancelled', label: 'ยกเลิกแล้ว', icon: 'ri-close-circle-fill', step: -1 },
+                PENDING_PAYMENT: { key: 'pending', label: tt('status.pending_payment', 'รอชำระเงิน'), icon: 'ri-time-line', step: 0 },
+                PAID:            { key: 'paid', label: tt('status.paid', 'ชำระเงินแล้ว'), icon: 'ri-checkbox-circle-fill', step: 1 },
+                PROCESSING:      { key: 'processing', label: tt('status.processing', 'กำลังแพ็คสินค้า'), icon: 'ri-archive-2-line', step: 2 },
+                SHIPPED:         { key: 'shipped', label: tt('status.shipped', 'จัดส่งแล้ว'), icon: 'ri-truck-fill', step: 3 },
+                CANCELLED:       { key: 'cancelled', label: tt('status.cancelled_done', 'ยกเลิกแล้ว'), icon: 'ri-close-circle-fill', step: -1 },
             };
             const formatRelativeDate = (iso) => {
                 const d = new Date(iso);
@@ -1648,10 +1648,10 @@
                 // ----- Hero with timeline -----
                 const isCancelled = order.status === 'CANCELLED';
                 const steps = [
-                    { label: 'สั่งซื้อ', icon: 'ri-shopping-bag-line' },
-                    { label: 'ชำระเงิน', icon: 'ri-bank-card-line' },
-                    { label: 'แพ็คสินค้า', icon: 'ri-archive-2-line' },
-                    { label: 'จัดส่ง', icon: 'ri-truck-line' },
+                    { label: tt('timeline.order', 'สั่งซื้อ'), icon: 'ri-shopping-bag-line' },
+                    { label: tt('timeline.pay', 'ชำระเงิน'), icon: 'ri-bank-card-line' },
+                    { label: tt('timeline.pack', 'แพ็คสินค้า'), icon: 'ri-archive-2-line' },
+                    { label: tt('timeline.ship', 'จัดส่ง'), icon: 'ri-truck-line' },
                 ];
                 const currentStep = isCancelled ? -1 : (meta.step ?? 0);
                 const stepHtml = steps.map((s, idx) => {
@@ -1673,7 +1673,7 @@
                 let subtotal = 0;
                 const itemsByCategory = order.items.reduce((acc, item) => {
                     const category = window.allCategories?.find(c => c.id === item.product.categoryId);
-                    const categoryName = category ? category.name : 'อื่นๆ';
+                    const categoryName = category ? category.name : tt('common.other', 'อื่นๆ');
                     if (!acc[categoryName]) acc[categoryName] = [];
                     acc[categoryName].push(item);
                     return acc;
@@ -1711,7 +1711,7 @@
                 if (order.shippingAddress) {
                     const addr = order.shippingAddress;
                     shippingAddressHtml = `
-                        <div class="od-section-title"><i class="ri-map-pin-2-fill text-blue-400"></i> ที่อยู่จัดส่ง</div>
+                        <div class="od-section-title"><i class="ri-map-pin-2-fill text-blue-400"></i> ${tt('order.shipping_address', 'ที่อยู่จัดส่ง')}</div>
                         <div class="od-card flex gap-3 mb-4">
                             <div class="w-10 h-10 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center flex-shrink-0">
                                 <i class="ri-home-4-fill"></i>
@@ -1731,7 +1731,7 @@
                     const bills = String(order.billNumber).split(',').map(b => b.trim()).filter(Boolean);
                     const billPills = bills.map(b => `<span class="inline-flex items-center gap-1.5 px-3 py-2 bg-amber-500/10 text-amber-300 border border-amber-500/25 rounded-lg text-xs font-mono font-bold">${escapeAttr(b)}</span>`).join('');
                     billHtml = `
-                        <div class="od-section-title"><i class="ri-receipt-line text-amber-400"></i> เลขบิล</div>
+                        <div class="od-section-title"><i class="ri-receipt-line text-amber-400"></i> ${tt('order.bill_number', 'เลขบิล')}</div>
                         <div class="od-card mb-4">
                             <div class="flex flex-wrap gap-2">${billPills}</div>
                         </div>
@@ -1748,9 +1748,9 @@
                         return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border border-blue-500/25 rounded-lg text-xs font-mono font-bold active:scale-95 transition"><i class="ri-truck-line"></i> ${t}</a>`;
                     }).join('');
                     trackingHtml = `
-                        <div class="od-section-title"><i class="ri-route-line text-blue-400"></i> ตามรอยพัสดุ</div>
+                        <div class="od-section-title"><i class="ri-route-line text-blue-400"></i> ${tt('order.tracking', 'ตามรอยพัสดุ')}</div>
                         <div class="od-card mb-4">
-                            <div class="text-[11px] text-zinc-400 mb-2">แตะเลขพัสดุเพื่อติดตามสถานะ</div>
+                            <div class="text-[11px] text-zinc-400 mb-2">${tt('order.tracking_hint', 'แตะเลขพัสดุเพื่อติดตามสถานะ')}</div>
                             <div class="flex flex-wrap gap-2">${links}</div>
                         </div>
                     `;
@@ -1758,23 +1758,23 @@
 
                 // ----- Summary -----
                 const summaryHtml = `
-                    <div class="od-section-title"><i class="ri-bill-line text-yellow-400"></i> สรุปยอดเงิน</div>
+                    <div class="od-section-title"><i class="ri-bill-line text-yellow-400"></i> ${tt('order.summary', 'สรุปยอดเงิน')}</div>
                     <div class="od-card summary mb-4">
                         <div class="flex justify-between text-sm py-1 text-zinc-300">
-                            <span>ค่าสินค้า (${totalUnits} ชิ้น)</span>
+                            <span>${tt('cart.subtotal', 'ค่าสินค้า')} (${totalUnits} ${tt('unit.piece', 'ชิ้น')})</span>
                             <span>฿${subtotal.toLocaleString('th-TH')}</span>
                         </div>
                         ${discount > 0 ? `
                         <div class="flex justify-between text-sm py-1 text-green-400">
-                            <span class="flex items-center gap-1"><i class="ri-coupon-line"></i> ส่วนลดคูปอง</span>
+                            <span class="flex items-center gap-1"><i class="ri-coupon-line"></i> ${tt('cart.coupon_discount', 'ส่วนลดคูปอง')}</span>
                             <span>- ฿${discount.toLocaleString('th-TH')}</span>
                         </div>` : ''}
                         <div class="flex justify-between text-sm py-1 text-zinc-300">
-                            <span>ค่าจัดส่ง</span>
-                            <span class="${shipping === 0 ? 'text-green-400 font-bold' : ''}">${shipping === 0 ? 'ฟรี' : '฿' + shipping.toLocaleString('th-TH')}</span>
+                            <span>${tt('cart.shipping', 'ค่าจัดส่ง')}</span>
+                            <span class="${shipping === 0 ? 'text-green-400 font-bold' : ''}">${shipping === 0 ? tt('shipping.free', 'ฟรี') : '฿' + shipping.toLocaleString('th-TH')}</span>
                         </div>
                         <div class="border-t border-white/10 mt-2 pt-2 flex justify-between items-baseline">
-                            <span class="font-bold text-white text-sm">ยอดสุทธิ</span>
+                            <span class="font-bold text-white text-sm">${tt('cart.total', 'ยอดสุทธิ')}</span>
                             <span class="total-amount-gold text-2xl">฿${total.toLocaleString('th-TH')}</span>
                         </div>
                     </div>
@@ -1783,7 +1783,7 @@
                 // ----- Refund slip (if any) -----
                 const refundHtml = order.refundSlipUrl ? `
                     <button onclick="window.showRefundSlip('${escapeAttr(order.refundSlipUrl)}')" class="w-full py-3 bg-white/5 hover:bg-white/10 text-zinc-200 rounded-xl text-sm font-bold active:scale-95 transition border border-white/10 flex justify-center items-center gap-2 mb-4">
-                        <i class="ri-file-list-3-line text-lg"></i> ดูสลิปคืนเงิน
+                        <i class="ri-file-list-3-line text-lg"></i> ${tt('order.view_refund_slip', 'ดูสลิปคืนเงิน')}
                     </button>
                 ` : '';
 
@@ -1795,28 +1795,28 @@
                     overPaidBoxHtml = `
                         <div class="bg-cyan-500/10 border border-cyan-500/30 rounded-2xl p-5 text-center mt-2 mb-4">
                             <i class="ri-refund-2-line text-cyan-300 text-3xl mb-2"></i>
-                            <div class="text-cyan-200 font-bold text-base mb-1">ออเดอร์รอแอดมินคืนเงิน</div>
-                            <div class="text-xs text-zinc-400 leading-relaxed">คุณโอนเงินมามากกว่ายอดที่ต้อง — กรุณาทักแอดมินเพื่อขอคืนเงินส่วนเกินในแชทบอท</div>
+                            <div class="text-cyan-200 font-bold text-base mb-1">${tt('lock.over_title', 'ออเดอร์รอแอดมินคืนเงิน')}</div>
+                            <div class="text-xs text-zinc-400 leading-relaxed">${tt('lock.over_desc', 'คุณโอนเงินมามากกว่ายอดที่ต้อง — กรุณาทักแอดมินเพื่อขอคืนเงินส่วนเกินในแชทบอท')}</div>
                             <div class="grid grid-cols-3 gap-2 mt-4 mb-4 text-xs">
                                 <div class="bg-zinc-800/60 rounded-lg p-2">
-                                    <div class="text-zinc-500">ต้องโอน</div>
+                                    <div class="text-zinc-500">${tt('lock.to_pay', 'ต้องโอน')}</div>
                                     <div class="text-white font-bold mt-0.5">฿${fmtOp(op.expected)}</div>
                                 </div>
                                 <div class="bg-zinc-800/60 rounded-lg p-2">
-                                    <div class="text-zinc-500">โอนแล้ว</div>
+                                    <div class="text-zinc-500">${tt('lock.paid', 'โอนแล้ว')}</div>
                                     <div class="text-white font-bold mt-0.5">฿${fmtOp(op.actual)}</div>
                                 </div>
                                 <div class="bg-cyan-500/15 border border-cyan-500/40 rounded-lg p-2">
-                                    <div class="text-cyan-200">เกินมา</div>
+                                    <div class="text-cyan-200">${tt('lock.over_label', 'เกินมา')}</div>
                                     <div class="text-cyan-200 font-bold mt-0.5">฿${fmtOp(op.diff)}</div>
                                 </div>
                             </div>
                             <div class="space-y-2 mt-4">
                                 <button onclick="window.copyOverPaidMessage('${order.id}')" class="w-full py-3 bg-gradient-to-r from-cyan-500 to-sky-500 rounded-xl font-bold text-white active:scale-95 transition shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2">
-                                    <i class="ri-clipboard-line"></i> คัดลอกข้อความขอคืนเงิน
+                                    <i class="ri-clipboard-line"></i> ${tt('lock.over_copy', 'คัดลอกข้อความขอคืนเงิน')}
                                 </button>
                                 <button onclick="try { Telegram.WebApp.close(); } catch (e) { window.close(); }" class="w-full py-3 bg-zinc-800 border border-zinc-700 rounded-xl font-medium text-zinc-200 active:scale-95 transition flex items-center justify-center gap-2">
-                                    <i class="ri-chat-3-line"></i> ปิดและทักแอดมิน
+                                    <i class="ri-chat-3-line"></i> ${tt('btn.close_and_chat', 'ปิดและทักแอดมิน')}
                                 </button>
                             </div>
                         </div>
@@ -1850,7 +1850,7 @@
                         ${billHtml}
                         ${trackingHtml}
 
-                        <div class="od-section-title"><i class="ri-shopping-bag-3-fill text-orange-400"></i> รายการสินค้า · ${totalUnits} ชิ้น</div>
+                        <div class="od-section-title"><i class="ri-shopping-bag-3-fill text-orange-400"></i> ${tt('order.items_title', 'รายการสินค้า')} · ${totalUnits} ${tt('unit.piece', 'ชิ้น')}</div>
                         <div class="od-card mb-4">
                             ${itemsHtml}
                         </div>
@@ -1866,9 +1866,9 @@
                 if (order.status === 'PENDING_PAYMENT') {
                     footerHtml = `
                         <div class="flex gap-2">
-                            <button onclick="window.closeOrderDetailsModal(); window.cancelOrder('${order.id}')" class="w-1/3 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-sm font-bold active:scale-95 transition border border-zinc-700">ยกเลิก</button>
+                            <button onclick="window.closeOrderDetailsModal(); window.cancelOrder('${order.id}')" class="w-1/3 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-sm font-bold active:scale-95 transition border border-zinc-700">${tt('common.cancel', 'ยกเลิก')}</button>
                             <button onclick="window.location.href='payment.html?orderId=${order.id}'" class="w-2/3 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-xl text-sm font-bold active:scale-95 transition shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2">
-                                <i class="ri-bank-card-line"></i> ชำระเงิน
+                                <i class="ri-bank-card-line"></i> ${tt('cart.checkout', 'ชำระเงิน')}
                             </button>
                         </div>
                     `;
@@ -1877,7 +1877,7 @@
                     if (!order.overPaidInfo) {
                         footerHtml = `
                             <button onclick="window.closeOrderDetailsModal(); window.reorder('${order.id}')" class="w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-xl text-sm font-bold active:scale-95 transition shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2">
-                                <i class="ri-restart-line text-lg"></i> สั่งซื้ออีกครั้ง
+                                <i class="ri-restart-line text-lg"></i> ${tt('order.reorder', 'สั่งซื้ออีกครั้ง')}
                             </button>
                         `;
                     }
@@ -1961,7 +1961,7 @@
                 
                 const telegramId = tg.initDataUnsafe?.user?.id?.toString() || window.currentUser?.telegramUserId;
                 if (!telegramId) {
-                    if (!silent) wrapper.innerHTML = '<div class="text-center py-8 text-zinc-500">ไม่สามารถระบุตัวตนได้</div>';
+                    if (!silent) wrapper.innerHTML = `<div class="text-center py-8 text-zinc-500">${tt('history.no_identity', 'ไม่สามารถระบุตัวตนได้')}</div>`;
                     return;
                 }
 
@@ -1989,11 +1989,11 @@
                         }
                         updatePendingBadge(data.orders);
                     } else {
-                        if (!silent) wrapper.innerHTML = `<div class="text-center py-8 text-red-500">${data.error || 'โหลดประวัติล้มเหลว'}</div>`;
+                        if (!silent) wrapper.innerHTML = `<div class="text-center py-8 text-red-500">${data.error || tt('history.load_failed', 'โหลดประวัติล้มเหลว')}</div>`;
                     }
                 } catch (err) {
                     console.error("Fetch History Error:", err);
-                    if (!silent) wrapper.innerHTML = '<div class="text-center py-8 text-red-500">ข้อผิดพลาดในการเชื่อมต่อ</div>';
+                    if (!silent) wrapper.innerHTML = `<div class="text-center py-8 text-red-500">${tt('common.connection_error', 'ข้อผิดพลาดในการเชื่อมต่อ')}</div>`;
                 }
             };
             
@@ -2050,8 +2050,8 @@
                             <div class="w-16 h-16 rounded-full bg-zinc-800/60 flex items-center justify-center">
                                 <i class="ri-receipt-line text-3xl text-zinc-600"></i>
                             </div>
-                            <p class="text-sm">ยังไม่มีประวัติการสั่งซื้อ</p>
-                            <button onclick="window.closeHistoryModal()" class="mt-2 px-5 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-xs font-bold transition active:scale-95">เริ่มช้อปปิ้ง</button>
+                            <p class="text-sm">${tt('history.empty', 'ยังไม่มีประวัติการสั่งซื้อ')}</p>
+                            <button onclick="window.closeHistoryModal()" class="mt-2 px-5 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-xs font-bold transition active:scale-95">${tt('history.start_shopping', 'เริ่มช้อปปิ้ง')}</button>
                         </div>`;
                     return;
                 }
@@ -2075,7 +2075,7 @@
                         const nic = i.product.nicotine !== null ? ` ${i.product.nicotine}%` : '';
                         return `<span class="item-chip">${i.product.nameEn}${nic} ×${i.quantity}</span>`;
                     }).join('');
-                    const moreItems = items.length > 3 ? `<span class="item-chip">+${items.length - 3} รายการ</span>` : '';
+                    const moreItems = items.length > 3 ? `<span class="item-chip">+${items.length - 3} ${tt('unit.items', 'รายการ')}</span>` : '';
 
                     // Pending expiry & status
                     let pillLabel = meta.label;
@@ -2087,12 +2087,12 @@
                         const expiryMs = new Date(order.createdAt).getTime() + (expiryMinutes * 60 * 1000);
                         const remainingMs = expiryMs - now;
                         if (remainingMs > 0) {
-                            expiryHtml = `<div class="text-[11px] text-orange-400 mt-1.5 font-mono flex items-center gap-1"><i class="ri-timer-flash-line"></i> หมดเวลาใน <span id="countdown-${order.id}">--:--</span></div>`;
+                            expiryHtml = `<div class="text-[11px] text-orange-400 mt-1.5 font-mono flex items-center gap-1"><i class="ri-timer-flash-line"></i> ${tt('history.expires_in', 'หมดเวลาใน')} <span id="countdown-${order.id}">--:--</span></div>`;
                             actionsHtml = `
                                 <div class="flex gap-2 mt-3 pt-3 border-t border-white/5">
-                                    <button onclick="event.stopPropagation(); window.cancelOrder('${order.id}')" class="flex-1 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-xs font-bold active:scale-95 transition border border-zinc-700">ยกเลิก</button>
+                                    <button onclick="event.stopPropagation(); window.cancelOrder('${order.id}')" class="flex-1 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-xs font-bold active:scale-95 transition border border-zinc-700">${tt('common.cancel', 'ยกเลิก')}</button>
                                     <button onclick="event.stopPropagation(); window.location.href='payment.html?orderId=${order.id}'" class="flex-1 py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-lg text-xs font-bold active:scale-95 transition shadow-md shadow-orange-500/20 flex items-center justify-center gap-1">
-                                        <i class="ri-bank-card-line"></i> ชำระเงิน
+                                        <i class="ri-bank-card-line"></i> ${tt('cart.checkout', 'ชำระเงิน')}
                                     </button>
                                 </div>`;
 
@@ -2117,7 +2117,7 @@
                                 window.historyIntervals.push(intv);
                             }, 0);
                         } else {
-                            pillLabel = 'หมดเวลาชำระเงิน';
+                            pillLabel = tt('history.expired', 'หมดเวลาชำระเงิน');
                             pillClass = 'cancelled';
                         }
                     } else if (order.trackingNumber && order.status === 'SHIPPED') {

@@ -20,6 +20,12 @@
     "common.error_retry": "Something went wrong. Please try again.",
     "common.connection_error": "Connection error",
     "common.connection_error_retry": "Connection error. Please try again.",
+    "common.load_failed": "Failed to load",
+    "common.other": "Other",
+
+    "unit.piece": "pcs",
+    "unit.items": "items",
+    "shipping.free": "Free",
 
     "btn.close_and_chat": "Close & chat admin",
 
@@ -108,6 +114,28 @@
     "status.processing": "Packing",
     "status.shipped": "Shipped",
     "status.cancelled": "Cancelled",
+    "status.cancelled_done": "Cancelled",
+
+    "timeline.order": "Order",
+    "timeline.pay": "Pay",
+    "timeline.pack": "Pack",
+    "timeline.ship": "Ship",
+
+    "order.shipping_address": "Shipping address",
+    "order.bill_number": "Bill number",
+    "order.tracking": "Tracking",
+    "order.tracking_hint": "Tap a tracking number to track shipment",
+    "order.summary": "Summary",
+    "order.items_title": "Items",
+    "order.view_refund_slip": "View refund slip",
+    "order.reorder": "Reorder",
+
+    "history.no_identity": "Could not identify user",
+    "history.load_failed": "Failed to load history",
+    "history.empty": "No order history yet",
+    "history.start_shopping": "Start shopping",
+    "history.expires_in": "Expires in",
+    "history.expired": "Payment expired",
 
     "modal.history_title": "Order History",
     "modal.order_details": "Order Details",
@@ -128,6 +156,14 @@
     "cart.total": "Total",
     "cart.checkout": "Checkout",
     "cart.choose_coupon": "Choose a coupon",
+    "cart.no_coupon_selected": "No coupon selected",
+    "cart.no_usable_coupon": "You don't have any usable coupons",
+    "cart.free_ship_unlocked": "Free shipping unlocked",
+    "cart.buy_more_prefix": "Add ฿",
+    "cart.buy_more_suffix": " more for free shipping",
+    "cart.confirm_clear": "Clear all items in the cart?",
+
+    "favorites.empty": "No favorites yet",
 
     "address.book_title": "Shipping addresses",
     "address.add_new": "Add new address",
@@ -142,6 +178,9 @@
     "address.province": "Province",
     "address.set_default": "Set as default address",
     "address.save": "Save address",
+    "address.no_address": "You don't have any saved addresses",
+    "address.default_tag": "Default",
+    "address.confirm_delete": "Confirm deleting this address?",
 
     "payment.title": "Payment",
     "payment.loading": "Loading payment info...",
