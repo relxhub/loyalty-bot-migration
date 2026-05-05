@@ -129,5 +129,12 @@
     "lock.under_label": "ขาดอีก",
     "lock.under_copy": "คัดลอกข้อความแจ้งแอดมิน",
     "lock.to_pay": "ต้องโอน",
-    "lock.paid": "โอนแล้ว"
+    "lock.paid": "โอนแล้ว",
+
+    "time.today": "วันนี้",
+    "time.yesterday": "เมื่อวาน",
+    "time.days_ago": "วันก่อน",
+
+    "coupon.no_expiry": "ไม่มีวันหมดอายุ",
+    "coupon.usable_now": "ใช้ได้ทันที"
 }

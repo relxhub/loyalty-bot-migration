@@ -129,5 +129,12 @@
     "lock.under_label": "Short by",
     "lock.under_copy": "Copy message for admin",
     "lock.to_pay": "To pay",
-    "lock.paid": "Paid"
+    "lock.paid": "Paid",
+
+    "time.today": "Today",
+    "time.yesterday": "Yesterday",
+    "time.days_ago": "days ago",
+
+    "coupon.no_expiry": "No expiry",
+    "coupon.usable_now": "Usable now"
 }

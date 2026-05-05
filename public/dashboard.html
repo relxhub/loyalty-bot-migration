@@ -950,7 +950,7 @@
             
             if(user.expiryDate) {
                 const date = new Date(user.expiryDate);
-                document.getElementById('expiry-date').innerText = date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+                document.getElementById('expiry-date').innerText = (window.formatDate ? window.formatDate(date, { day: 'numeric', month: 'short', year: '2-digit' }) : date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }));
             }
 
             // -----------------------------------------------------
@@ -1132,7 +1132,7 @@
                         // คำนวณวันหมดอายุรายใบ
                         const expiryToUse = item.expiryDate || item.coupon.validUntil;
                         const expiryDateObj = expiryToUse ? new Date(expiryToUse) : null;
-                        const validUntilStr = expiryDateObj ? expiryDateObj.toLocaleDateString('th-TH') : 'ไม่มีวันหมดอายุ';
+                        const validUntilStr = expiryDateObj ? (window.formatDate ? window.formatDate(expiryDateObj, { day: 'numeric', month: 'short', year: 'numeric' }) : expiryDateObj.toLocaleDateString('th-TH')) : (window.t ? window.t('coupon.no_expiry', 'ไม่มีวันหมดอายุ') : 'ไม่มีวันหมดอายุ');
                         const expiryTime = expiryDateObj ? expiryDateObj.getTime() : Infinity;
 
                         if (!acc[key]) {
@@ -1157,7 +1157,7 @@
                     }, {});
 
                     list.innerHTML = Object.values(groupedCoupons).map((item, index) => {
-                        const validFrom = item.coupon.validFrom ? new Date(item.coupon.validFrom).toLocaleDateString('th-TH') : 'ใช้ได้ทันที';
+                        const validFrom = item.coupon.validFrom ? (window.formatDate ? window.formatDate(new Date(item.coupon.validFrom), { day: 'numeric', month: 'short', year: 'numeric' }) : new Date(item.coupon.validFrom).toLocaleDateString('th-TH')) : (window.t ? window.t('coupon.usable_now', 'ใช้ได้ทันที') : 'ใช้ได้ทันที');
                         const validUntil = item.nearestExpiryStr;
                         const countBadge = item.count > 1 ? `<span class="ml-2 px-2 py-0.5 bg-[#050C0D] text-white text-xs rounded-full font-bold border border-white/10">x${item.count}</span>` : '';
                         

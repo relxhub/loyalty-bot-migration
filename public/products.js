@@ -734,7 +734,7 @@
                 
                 let statusText = '';
                 if (isUpcoming) {
-                    statusText = `<div class="text-[10px] mt-2 text-yellow-500"><i class="ri-time-line"></i> เริ่มใช้ได้วันที่ ${new Date(c.validFrom).toLocaleDateString('th-TH')}</div>`;
+                    statusText = `<div class="text-[10px] mt-2 text-yellow-500"><i class="ri-time-line"></i> เริ่มใช้ได้วันที่ ${(window.formatDate ? window.formatDate(new Date(c.validFrom), { day: 'numeric', month: 'short', year: 'numeric' }) : new Date(c.validFrom).toLocaleDateString('th-TH'))}</div>`;
                 } else if (minPurchase > 0) {
                     statusText = `<div class="text-[10px] mt-2 ${isLocked ? 'text-red-400' : 'text-zinc-500'}">ขั้นต่ำ ฿${minPurchase.toLocaleString()} ${isLocked ? `(ขาดอีก ฿${Math.max(0, minPurchase - subtotal).toLocaleString()})` : ''}</div>`;
                 }
@@ -1620,14 +1620,15 @@
                 const sameDay = d.toDateString() === now.toDateString();
                 const yesterdayDate = new Date(now.getTime() - oneDay);
                 const isYesterday = d.toDateString() === yesterdayDate.toDateString();
-                const time = d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-                if (sameDay) return `วันนี้ ${time}`;
-                if (isYesterday) return `เมื่อวาน ${time}`;
+                const timeLocale = (window.__lang === 'en' ? 'en-GB' : 'th-TH');
+                const time = d.toLocaleTimeString(timeLocale, { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' });
+                if (sameDay) return `${tt('time.today', 'วันนี้')} ${time}`;
+                if (isYesterday) return `${tt('time.yesterday', 'เมื่อวาน')} ${time}`;
                 if (diffMs < 7 * oneDay) {
                     const days = Math.floor(diffMs / oneDay);
-                    return `${days} วันก่อน · ${time}`;
+                    return `${days} ${tt('time.days_ago', 'วันก่อน')} · ${time}`;
                 }
-                return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }) + ' · ' + time;
+                return (window.formatDate ? window.formatDate(d, { day: 'numeric', month: 'short', year: 'numeric' }) : d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })) + ' · ' + time;
             };
             const escapeAttr = (s) => String(s == null ? '' : s).replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
@@ -1642,7 +1643,7 @@
                 if (!modal || !body) return;
 
                 const meta = STATUS_META[order.status] || STATUS_META.CANCELLED;
-                const dateFull = new Date(order.createdAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                const dateFull = (window.formatDate ? window.formatDate(new Date(order.createdAt), { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date(order.createdAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
 
                 // ----- Hero with timeline -----
                 const isCancelled = order.status === 'CANCELLED';

@@ -414,7 +414,7 @@
                 expiryText = `อายุ ${c.validityDays} วันหลังเก็บ`;
             } else if (c.validUntil) {
                 const d = new Date(c.validUntil);
-                expiryText = `หมดเขต ${d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}`;
+                expiryText = `หมดเขต ${(window.formatDate ? window.formatDate(d, { day: 'numeric', month: 'short', year: '2-digit' }) : d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }))}`;
             }
             
             let benefitText = '';
@@ -485,7 +485,7 @@
                 expiryText = `อายุ ${c.validityDays} วันหลังแลก`;
             } else if (c.validUntil) {
                 const d = new Date(c.validUntil);
-                expiryText = `หมดเขต ${d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}`;
+                expiryText = `หมดเขต ${(window.formatDate ? window.formatDate(d, { day: 'numeric', month: 'short', year: '2-digit' }) : d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }))}`;
             }
             
             let benefitText = '';
