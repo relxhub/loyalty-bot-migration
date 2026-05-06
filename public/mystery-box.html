@@ -148,19 +148,13 @@
                     </div>
                 </div>
 
-                <!-- หมายเหตุ -->
-                <div class="mb-4">
-                    <div class="text-[11px] text-zinc-400 uppercase tracking-wider mb-2">หมายเหตุถึงแอดมิน (ถ้ามี)</div>
-                    <textarea id="delivery-note" rows="2" placeholder="เช่น ฝากห่อของขวัญ, ส่งวันธรรมดาเท่านั้น" class="w-full bg-black/30 border border-white/10 rounded-lg p-2 text-sm text-white placeholder-zinc-500 focus:border-orange-400 focus:outline-none"></textarea>
-                </div>
-
                 <!-- สรุปค่าส่ง -->
                 <div class="bg-orange-500/10 border border-orange-400/30 rounded-xl p-3 mb-4">
                     <div class="flex items-center justify-between text-sm">
                         <span class="text-zinc-300">ค่าจัดส่ง</span>
                         <span class="text-orange-300 font-bold">฿<span id="delivery-fee">—</span></span>
                     </div>
-                    <p class="text-[10px] text-zinc-400 mt-1">แอดมินจะแจ้งวิธีชำระค่าส่งหลังยืนยัน</p>
+                    <p id="delivery-fee-hint" class="text-[10px] text-zinc-400 mt-1">ฟรี — กดยืนยันแล้วรอแอดมินจัดส่ง</p>
                 </div>
 
                 <button id="delivery-submit-btn" onclick="submitDelivery()" class="w-full py-3 rounded-xl bg-gradient-to-r from-orange-500 to-pink-500 text-white font-bold active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed">
@@ -543,6 +537,11 @@
                 const fData = await fRes.json();
                 // ใช้ ?? แทน || เพื่อรองรับค่า 0 (ค่าส่งฟรี)
                 const fee = (fData.shippingFee != null && Number.isFinite(Number(fData.shippingFee))) ? Number(fData.shippingFee) : 60;
+                // อัพเดท hint ตาม fee
+                const hintEl = document.getElementById('delivery-fee-hint');
+                if (hintEl) hintEl.textContent = fee > 0
+                    ? 'กดยืนยันแล้วจะนำไปหน้าชำระเงิน'
+                    : 'ฟรี — กดยืนยันแล้วรอแอดมินจัดส่ง';
                 feeEl.textContent = Number(fee).toLocaleString('th-TH', { minimumFractionDigits: 2 });
 
                 // API คืน { success, addresses } — ใช้สมุดที่อยู่ตัวเดียวกับหน้าตะกร้า
@@ -611,7 +610,6 @@
             const btn = document.getElementById('delivery-submit-btn');
             btn.disabled = true;
             btn.textContent = 'กำลังส่ง...';
-            const note = document.getElementById('delivery-note').value.trim();
 
             try {
                 const res = await fetch('/api/mystery-box/request-delivery', {
@@ -621,7 +619,6 @@
                         initData: tg.initData,
                         ticketIds: Array.from(_selectedPrizeIds),
                         shippingAddressId: window._selectedAddressId,
-                        customerNote: note || null,
                     }),
                 });
                 const data = await res.json();
@@ -632,10 +629,16 @@
                     return;
                 }
                 try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch(e){}
-                alert(`ส่งคำขอแล้ว!\nค่าจัดส่ง ฿${Number(data.shippingFee).toLocaleString('th-TH', { minimumFractionDigits: 2 })}\nแอดมินจะติดต่อกลับเร็วๆ นี้`);
                 _selectedPrizeIds.clear();
                 closeDeliveryModal();
-                loadMyPrizes(); // refresh
+
+                // ค่าส่ง > 0 → ไปหน้าชำระเงิน  |  ค่าส่ง = 0 → ส่งคำขอแล้ว
+                if (data.needsPayment && data.orderId) {
+                    window.location.href = `payment.html?orderId=${encodeURIComponent(data.orderId)}`;
+                } else {
+                    alert(`ส่งคำขอแล้ว! (ค่าส่งฟรี)\nออเดอร์: ${data.orderId}\nรอแอดมินจัดส่ง`);
+                    loadMyPrizes(); // refresh
+                }
             } catch (e) {
                 alert('เกิดข้อผิดพลาด: ' + e.message);
                 btn.disabled = false;

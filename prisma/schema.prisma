@@ -535,10 +535,12 @@ enum OrderStatus {
 }
 
 model Order {
-  id                String      @id // รหัสออเดอร์ เช่น ORD-12345
+  id                String      @id // รหัสออเดอร์ เช่น ORD-12345 (PRODUCT) / PRZ-12345 (PRIZE_DELIVERY)
   customerId        String
   totalAmount       Decimal     @db.Decimal(10, 2)
   status            OrderStatus @default(PENDING_PAYMENT)
+  // ประเภท order: PRODUCT (ตะกร้าสินค้าปกติ) | PRIZE_DELIVERY (ค่าจัดส่งของรางวัล Mystery Box)
+  kind              String      @default("PRODUCT")
   shippingAddressId Int?
 
   // ยอดแยก (ออเดอร์เก่าก่อน migration เป็น null → caller fallback คำนวณจาก items)
@@ -564,12 +566,14 @@ model Order {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  customer Customer    @relation(fields: [customerId], references: [customerId])
-  items    OrderItem[]
-  payment  Payment?
+  customer      Customer       @relation(fields: [customerId], references: [customerId])
+  items         OrderItem[]
+  payment       Payment?
+  prizeShipment PrizeShipment? // 1:1 back-relation (PrizeShipment.orderId holds FK)
 
   @@index([customerId])
   @@index([status])
+  @@index([kind])
 }
 
 model OrderItem {
@@ -711,8 +715,8 @@ model MysteryBoxPrize {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  mysteryBox       MysteryBox         @relation(fields: [mysteryBoxId], references: [id], onDelete: Cascade)
-  awardedTickets   MysteryBoxTicket[]
+  mysteryBox     MysteryBox         @relation(fields: [mysteryBoxId], references: [id], onDelete: Cascade)
+  awardedTickets MysteryBoxTicket[]
 
   @@index([mysteryBoxId])
 }
@@ -766,18 +770,22 @@ model MysteryBoxTicket {
 
 // 1 PrizeShipment = 1 รายการขอส่ง (ลูกค้ากดครั้งเดียว เลือกได้หลายของ)
 model PrizeShipment {
-  id                  Int      @id @default(autoincrement())
+  id                  Int       @id @default(autoincrement())
   customerId          String
   shippingAddressId   Int
-  shippingFeeSnapshot Decimal  @db.Decimal(10, 2)
-  customerNote        String?  @db.Text
-  status              String   @default("PENDING") // PENDING (รอ admin), SHIPPED, DELIVERED, CANCELLED
+  shippingFeeSnapshot Decimal   @db.Decimal(10, 2)
+  customerNote        String?   @db.Text
+  status              String    @default("PENDING") // PENDING (รอ admin), SHIPPED, DELIVERED, CANCELLED
   trackingNumber      String?
   shippedAt           DateTime?
   deliveredAt         DateTime?
-  adminNote           String?  @db.Text
+  adminNote           String?   @db.Text
   adminGroupMsgId     Int? // message_id ของ admin notif (ใช้ broadcast edit เมื่อ admin จัดส่ง)
-  createdAt           DateTime @default(now())
+  createdAt           DateTime  @default(now())
+
+  // 1:1 link กับ Order (ใช้ระบบชำระเงินเดียวกับตะกร้าสินค้า)
+  orderId String? @unique
+  order   Order?  @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
   tickets MysteryBoxTicket[]
 

@@ -534,7 +534,33 @@ router.get('/orders/:orderId', async (req, res) => {
             }
         }
 
-        res.json({ success: true, order, bankAccount, mismatchInfo, overPaidInfo });
+        // ถ้าเป็น PRIZE_DELIVERY → load prize shipment + tickets เพิ่ม
+        let prizeShipment = null;
+        if (order.kind === 'PRIZE_DELIVERY') {
+            const sh = await prisma.prizeShipment.findFirst({
+                where: { orderId: order.id },
+                include: {
+                    tickets: {
+                        include: { awardedPrize: { select: { id: true, name: true, imageUrl: true, description: true } } },
+                    },
+                },
+            });
+            if (sh) {
+                prizeShipment = {
+                    id: sh.id,
+                    status: sh.status,
+                    shippingFee: Number(sh.shippingFeeSnapshot),
+                    prizes: sh.tickets.map(t => ({
+                        ticketId: t.id,
+                        name: t.awardedPrize?.name,
+                        description: t.awardedPrize?.description,
+                        imageUrl: t.awardedPrize?.imageUrl,
+                    })),
+                };
+            }
+        }
+
+        res.json({ success: true, order, bankAccount, mismatchInfo, overPaidInfo, prizeShipment });
     } catch (error) {
         console.error("Get Order Error:", error);
         res.status(500).json({ error: "เกิดข้อผิดพลาดในการดึงข้อมูลสั่งซื้อ" });
@@ -1101,11 +1127,13 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
 
         // 5.45 Mystery Box: PURCHASE_MILESTONE — เช็คยอดสะสม lifetime ของลูกค้า
         // (best-effort — ไม่กระทบ flow ออเดอร์)
-        try {
+        // skip ถ้าเป็น PRIZE_DELIVERY เพราะค่าส่งของรางวัลไม่ใช่การ "ซื้อ" จริง
+        if (order.kind !== 'PRIZE_DELIVERY') try {
             const lifetime = await prisma.order.aggregate({
                 where: {
                     customerId: order.customerId,
                     status: { in: ['PAID', 'PROCESSING', 'SHIPPED'] },
+                    kind: 'PRODUCT',
                 },
                 _sum: { totalAmount: true },
             });
@@ -1120,7 +1148,8 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
 
         // 5.5 Auto-Complete Referral if applicable
         let referralMsg = '';
-        try {
+        // skip ถ้าเป็น PRIZE_DELIVERY (ค่าส่งไม่ใช่การซื้อสินค้าครั้งแรกจริง)
+        if (order.kind !== 'PRIZE_DELIVERY') try {
             const referralResult = await referralService.completeReferral(order.customerId, parseFloat(slipAmount), order.id);
             if (referralResult && referralResult.success) {
                 referralMsg = `\n\n🎉 <b>[โบนัสแนะนำเพื่อน]</b>\n${referralResult.message}`;
@@ -1129,16 +1158,21 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
             console.error('Auto referral completion error:', refErr);
         }
 
-        // 6. Send Notification to Admin (Round-Robin & Detailed Summary)
+        // 6. Send Notification to Admin
         try {
-            await sendOrderPaidAdminNotification(orderId, {
-                slipAmount: parseFloat(slipAmount),
-                slipPhotoUrl: slipData?.data?.url || '',
-                referralMsg,
-                bypassMode: BYPASS_SLIPOK,
-                mismatchNote: overPaidNote,
-                overPaidRefund: overPaidDiff >= 0.01,
-            });
+            // ถ้าเป็น PRIZE_DELIVERY → ใช้ notif แบบเฉพาะ (รายการของรางวัลแทนสินค้า)
+            if (order.kind === 'PRIZE_DELIVERY') {
+                await mysteryBox.sendPrizeOrderAdminNotification(orderId, { isFree: false });
+            } else {
+                await sendOrderPaidAdminNotification(orderId, {
+                    slipAmount: parseFloat(slipAmount),
+                    slipPhotoUrl: slipData?.data?.url || '',
+                    referralMsg,
+                    bypassMode: BYPASS_SLIPOK,
+                    mismatchNote: overPaidNote,
+                    overPaidRefund: overPaidDiff >= 0.01,
+                });
+            }
         } catch (notifErr) {
             console.error('Failed to send admin notification:', notifErr);
             // Non-fatal — order is already PAID

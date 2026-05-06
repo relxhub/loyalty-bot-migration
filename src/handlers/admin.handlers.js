@@ -38,16 +38,40 @@ export async function handleAdminCommand(ctx) {
 
         if (!role) return sendAdminReply(chatId, "⛔️ คุณไม่มีสิทธิ์ใช้งานคำสั่งนี้");
 
-        // Handle Force Reply for Bill Number
+        // Handle Force Reply for Bill Number (รองรับทั้ง #ORD- และ #PRZ-)
         if (ctx.message.reply_to_message && ctx.message.reply_to_message.text) {
             const repliedText = ctx.message.reply_to_message.text;
-            if (repliedText.includes('กรุณาตอบกลับข้อความนี้พร้อมแนบ "เลขพัสดุ/บิล" สำหรับออเดอร์: #ORD-')) {
-                const match = repliedText.match(/#ORD-[\d-]+/);
+            if (repliedText.includes('กรุณาตอบกลับข้อความนี้พร้อมแนบ "เลขพัสดุ/บิล" สำหรับออเดอร์: #')) {
+                const match = repliedText.match(/ออเดอร์: #([A-Z]+-[\d-]+)/);
                 const refMatch = repliedText.match(/\[RefMsgID:(\d+)\]/);
-                
+
                 if (match) {
-                    const orderId = match[0].replace('#', '');
+                    const orderId = match[1];
                     const billNumber = text.trim();
+
+                    // ถ้าเป็น PRIZE_DELIVERY → ใช้ markShipmentShipped (mark Order SHIPPED + PrizeShipment + tickets)
+                    const orderRow = await prisma.order.findUnique({
+                        where: { id: orderId },
+                        select: { kind: true, customerId: true },
+                    });
+                    if (orderRow && orderRow.kind === 'PRIZE_DELIVERY') {
+                        const r = await mysteryBoxService.markShipmentShipped({
+                            orderId,
+                            trackingNumber: billNumber,
+                            adminName: adminUser,
+                        });
+                        if (!r.success) {
+                            sendAdminReply(chatId, `❌ mark prize shipped ล้มเหลว: ${r.error}`);
+                            return;
+                        }
+                        sendAdminReply(chatId,
+                            `✅ <b>จัดส่งของรางวัลเรียบร้อย</b>\n` +
+                            `ออเดอร์: <code>${orderId}</code>\n` +
+                            `เลขพัสดุ: <code>${billNumber}</code>\n` +
+                            `แจ้งลูกค้าเรียบร้อย`
+                        );
+                        return; // ไม่ต้องเข้า flow ออเดอร์ปกติด้านล่าง
+                    }
                     
                     // Update Database (save bill number)
                     await prisma.order.update({

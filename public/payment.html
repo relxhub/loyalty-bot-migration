@@ -299,6 +299,8 @@
                 if (data.success && data.order) {
                     const order = data.order;
                     const bankAccount = data.bankAccount;
+                    const isPrizeDelivery = order.kind === 'PRIZE_DELIVERY';
+                    window._isPrizeDelivery = isPrizeDelivery;
 
                     // Lock UI on initial load if mismatch (under) or over-paid is in flight.
                     // This prevents customer from re-uploading via order-history → payment.html re-entry.
@@ -324,7 +326,32 @@
                     let itemsHtml = '';
                     let subtotal = 0;
                     let hasOutOfStockItems = false;
-                    if (order.items && order.items.length > 0) {
+
+                    // ถ้าเป็น PRIZE_DELIVERY → แสดงรายการของรางวัลแทน
+                    if (isPrizeDelivery && data.prizeShipment) {
+                        const ps = data.prizeShipment;
+                        itemsHtml = `
+                            <div class="bg-purple-500/10 border border-purple-400/30 rounded-xl p-3 mb-2">
+                                <div class="text-[11px] text-purple-300 font-bold mb-2 flex items-center gap-1.5">
+                                    <i class="ri-gift-2-fill"></i> ค่าจัดส่งของรางวัล Mystery Box
+                                </div>
+                                <div class="space-y-1.5">
+                                    ${ps.prizes.map((p, i) => {
+                                        const safe = (s) => String(s ?? '').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+                                        return `
+                                            <div class="flex items-center gap-2 text-sm">
+                                                ${p.imageUrl ? `<img src="${safe(p.imageUrl)}" class="w-9 h-9 rounded object-cover">` : `<div class="w-9 h-9 rounded bg-zinc-700 flex items-center justify-center text-base">🎁</div>`}
+                                                <span class="text-zinc-200 truncate">${safe(p.name)}</span>
+                                            </div>`;
+                                    }).join('')}
+                                </div>
+                            </div>`;
+                        itemsContainer.innerHTML = itemsHtml;
+                        // PRZ orders: ไม่มี subtotal/discount/items
+                        document.getElementById('display-subtotal').textContent = `0 ฿`;
+                        document.getElementById('display-shipping').textContent = `${ps.shippingFee.toLocaleString('th-TH')} ฿`;
+                        // ปิด stock check ทั้งหมด
+                    } else if (order.items && order.items.length > 0) {
                         order.items.forEach(item => {
                             const name = item.product ? item.product.nameEn : 'สินค้า';
                             const categoryName = item.product?.category?.name ? `<span class="text-[10px] text-zinc-500 bg-zinc-800 px-1.5 py-0.5 rounded mr-1 whitespace-nowrap">${item.product.category.name}</span>` : '';
@@ -380,25 +407,26 @@
                         }
                     }
 
-                    // Populate breakdown
-                    document.getElementById('display-subtotal').textContent = `${subtotal.toLocaleString('th-TH')} ฿`;
-                    
-                    const discount = parseFloat(order.discountAmount || 0);
-                    if (discount > 0) {
-                        const discountRow = document.getElementById('discount-row');
-                        discountRow.classList.remove('hidden');
-                        document.getElementById('display-discount').textContent = `- ${discount.toLocaleString('th-TH')} ฿`;
-                        if (order.appliedCouponId) {
-                            document.getElementById('display-coupon-id').textContent = `(${order.appliedCouponId})`;
-                        }
-                    }
+                    // Populate breakdown — skip ถ้าเป็น PRIZE_DELIVERY (set ไว้ด้านบนแล้ว)
+                    if (!isPrizeDelivery) {
+                        document.getElementById('display-subtotal').textContent = `${subtotal.toLocaleString('th-TH')} ฿`;
 
-                    // Calculate Shipping (Total = Subtotal - Discount + Shipping) => Shipping = Total - Subtotal + Discount
-                    const total = parseFloat(order.totalAmount);
-                    let shipping = total - subtotal + discount;
-                    // Fix floating point math issues
-                    shipping = Math.max(0, Math.round(shipping));
-                    document.getElementById('display-shipping').textContent = shipping === 0 ? 'ฟรี' : `${shipping.toLocaleString('th-TH')} ฿`;
+                        const discount = parseFloat(order.discountAmount || 0);
+                        if (discount > 0) {
+                            const discountRow = document.getElementById('discount-row');
+                            discountRow.classList.remove('hidden');
+                            document.getElementById('display-discount').textContent = `- ${discount.toLocaleString('th-TH')} ฿`;
+                            if (order.appliedCouponId) {
+                                document.getElementById('display-coupon-id').textContent = `(${order.appliedCouponId})`;
+                            }
+                        }
+
+                        // Calculate Shipping (Total = Subtotal - Discount + Shipping) => Shipping = Total - Subtotal + Discount
+                        const total = parseFloat(order.totalAmount);
+                        let shipping = total - subtotal + discount;
+                        shipping = Math.max(0, Math.round(shipping));
+                        document.getElementById('display-shipping').textContent = shipping === 0 ? 'ฟรี' : `${shipping.toLocaleString('th-TH')} ฿`;
+                    }
 
                     if (bankAccount) {
                         // Populate Bank Details
