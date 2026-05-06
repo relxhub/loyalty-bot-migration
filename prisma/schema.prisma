@@ -59,6 +59,19 @@ enum AutoAssignTrigger {
 }
 
 // ---------------------------------------------------------
+// REWARD COUPON (เงื่อนไขแบบ event-driven เช่น referee ซื้อครั้งแรก)
+// ---------------------------------------------------------
+enum RewardTrigger {
+  REFEREE_FIRST_PURCHASE // referee ซื้อครั้งแรกสำเร็จ → award referrer/referee
+}
+
+enum RewardRecipient {
+  REFERRER
+  REFEREE
+  BOTH
+}
+
+// ---------------------------------------------------------
 // CORE MODELS
 // ---------------------------------------------------------
 
@@ -91,7 +104,7 @@ model Customer {
   referralsMade     Referral[]         @relation("ReferredBy") // People this customer has referred
   referredBy        Referral?          @relation("Referred") // The referral record for how this customer joined
   reviews           ProductReview[] // Relation to reviews
-  reviewLikes       ReviewLike[]    // Relation to review likes
+  reviewLikes       ReviewLike[] // Relation to review likes
   coupons           CustomerCoupon[] // Relation to coupons
   shippingAddresses ShippingAddress[] // Relation to shipping addresses
   cart              Cart? // Relation to Cart
@@ -112,7 +125,7 @@ model Favorite {
   productId  Int
   addedAt    DateTime @default(now())
 
-  customer   Customer @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
   // Optionally relate to Product if we want strict referential integrity
   // product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
@@ -147,13 +160,13 @@ model CartItem {
 }
 
 model Coupon {
-  id          String     @id // เช่น 'FIRST_ENTRY', 'B3G1_SEPT'
-  name        String
-  nameEn      String?    // English alias สำหรับ bilingual display (fallback → name)
-  description String?
-  descriptionEn String?  // English description (fallback → description)
-  type        CouponType
-  value       Decimal?   @db.Decimal(10, 2) // จำนวนเงินที่ลด หรือ %
+  id            String     @id // เช่น 'FIRST_ENTRY', 'B3G1_SEPT'
+  name          String
+  nameEn        String? // English alias สำหรับ bilingual display (fallback → name)
+  description   String?
+  descriptionEn String? // English description (fallback → description)
+  type          CouponType
+  value         Decimal?   @db.Decimal(10, 2) // จำนวนเงินที่ลด หรือ %
 
   // ส่วนของแถม (กรณี type = GIFT)
   giftCategoryId Int? // เปลี่ยนจาก giftProductId เป็น giftCategoryId
@@ -185,6 +198,14 @@ model Coupon {
   autoAssignQty     Int               @default(0)
   autoAssignTrigger AutoAssignTrigger @default(ALL) // เงื่อนไขการแจก: ALL, MAGIC_LINK, REFERRAL, ADMIN_GENCODE
 
+  // Reward Coupon (แจกตอน event เกิด เช่น referee ซื้อครั้งแรก)
+  // null/undefined = ไม่ใช่ reward coupon ทำงานเหมือนเดิม
+  rewardTrigger         RewardTrigger?
+  rewardRecipient       RewardRecipient?
+  rewardMinAmount       Decimal?         @db.Decimal(10, 2) // ยอดขั้นต่ำ (ไม่รวมค่าส่ง, หลังหักคูปอง)
+  rewardMaxAmount       Decimal?         @db.Decimal(10, 2) // ยอดเพดาน (null = ไม่จำกัด)
+  rewardOncePerReferral Boolean          @default(true) // กันแจกซ้ำต่อ Referral
+
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
@@ -202,6 +223,10 @@ model CustomerCoupon {
   usedAt      DateTime?
   usedByAdmin String? // เก็บชื่อแอดมินที่กดตัดคูปอง
 
+  // ติดตามแหล่งที่มาของ reward coupon (ใช้กันแจกซ้ำตาม Referral)
+  sourceReferralId Int? // Referral.id ที่เป็นต้นเหตุ (null = ไม่ใช่ reward coupon)
+  sourceEvent      String? // เช่น "REFEREE_FIRST_PURCHASE"
+
   customer Customer @relation(fields: [customerId], references: [customerId])
   coupon   Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
 
@@ -209,6 +234,7 @@ model CustomerCoupon {
   @@index([couponId])
   @@index([status])
   @@index([expiryDate])
+  @@index([sourceReferralId])
 }
 
 model Referral {
@@ -320,7 +346,7 @@ model Product {
   categoryId Int?
   category   Category?       @relation(fields: [categoryId], references: [id])
   reviews    ProductReview[] // Relation to reviews
-  orderItems OrderItem[]     // Relation to OrderItems
+  orderItems OrderItem[] // Relation to OrderItems
 }
 
 // ---------------------------------------------------------
@@ -377,7 +403,7 @@ model ProductReview {
   id          Int      @id @default(autoincrement())
   rating      Int
   comment     String   @db.Text
-  tags        String?  // Comma-separated list of selected tags
+  tags        String? // Comma-separated list of selected tags
   isAnonymous Boolean  @default(false)
   likesCount  Int      @default(0)
   createdAt   DateTime @default(now())
@@ -402,8 +428,8 @@ model ReviewLike {
   customerId String
   createdAt  DateTime @default(now())
 
-  review     ProductReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
-  customer   Customer      @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
+  review   ProductReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  customer Customer      @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
 
   @@unique([reviewId, customerId])
   @@index([reviewId])
@@ -451,26 +477,26 @@ model ThaiAddress {
 
 model BankAccount {
   id              Int      @id @default(autoincrement())
-  bankName        String   // e.g., "ธนาคารกสิกรไทย"
-  accountName     String   // e.g., "บจก. ลอยัลตี้ ช็อป"
-  accountNumber   String   // e.g., "123-4-56789-0"
-  promptPayId     String   // Phone number or Tax ID for QR Generation
+  bankName        String // e.g., "ธนาคารกสิกรไทย"
+  accountName     String // e.g., "บจก. ลอยัลตี้ ช็อป"
+  accountNumber   String // e.g., "123-4-56789-0"
+  promptPayId     String // Phone number or Tax ID for QR Generation
   minAmount       Decimal? @default(0) @db.Decimal(10, 2)
   maxAmount       Decimal? @default(9999999) @db.Decimal(10, 2)
-  activeStartTime String?  // e.g., "00:00"
-  activeEndTime   String?  // e.g., "23:59"
+  activeStartTime String? // e.g., "00:00"
+  activeEndTime   String? // e.g., "23:59"
   isActive        Boolean  @default(true)
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ตั้งค่าร้านค้า (เช่น จำนวนเตือนสต็อกใกล้หมด)
 model StoreSetting {
-  id                  Int @id @default(1)
-  lowStockThreshold   Int @default(50)
-  outOfStockThreshold Int @default(20)
-  orderExpiryMinutes  Int @default(30)
+  id                  Int     @id @default(1)
+  lowStockThreshold   Int     @default(50)
+  outOfStockThreshold Int     @default(20)
+  orderExpiryMinutes  Int     @default(30)
   lastAssignedAdminId String? // เก็บ telegramId ของแอดมินคนล่าสุดที่ได้รับออเดอร์
 }
 
@@ -478,21 +504,21 @@ model StoreSetting {
 // ADMIN SHIFT MODELS (Phase 7)
 // ---------------------------------------------------------
 model AdminShift {
-  id              Int      @id @default(autoincrement())
+  id              Int    @id @default(autoincrement())
   adminTelegramId String
-  dayOfWeek       Int      // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-  
-  shift1Start     String?  // e.g. "08:00"
-  shift1End       String?  // e.g. "12:00"
-  shift2Start     String?  // e.g. "13:00"
-  shift2End       String?  // e.g. "17:00"
-  shift3Start     String?  // e.g. "18:00"
-  shift3End       String?  // e.g. "22:00"
+  dayOfWeek       Int // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
 
-  admin           Admin    @relation(fields: [adminTelegramId], references: [telegramId], onDelete: Cascade)
+  shift1Start String? // e.g. "08:00"
+  shift1End   String? // e.g. "12:00"
+  shift2Start String? // e.g. "13:00"
+  shift2End   String? // e.g. "17:00"
+  shift3Start String? // e.g. "18:00"
+  shift3End   String? // e.g. "22:00"
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  admin Admin @relation(fields: [adminTelegramId], references: [telegramId], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([adminTelegramId, dayOfWeek])
 }
@@ -511,27 +537,31 @@ model Order {
   totalAmount       Decimal     @db.Decimal(10, 2)
   status            OrderStatus @default(PENDING_PAYMENT)
   shippingAddressId Int?
-  
+
+  // ยอดแยก (ออเดอร์เก่าก่อน migration เป็น null → caller fallback คำนวณจาก items)
+  subtotal    Decimal? @db.Decimal(10, 2) // รวมราคาสินค้า ก่อนหักคูปอง
+  shippingFee Decimal? @db.Decimal(10, 2) // ค่าขนส่งที่คำนวณได้
+
   // ข้อมูลคูปองส่วนลดที่ใช้
-  appliedCouponId   String?
-  discountAmount    Decimal     @default(0) @db.Decimal(10, 2)
+  appliedCouponId String?
+  discountAmount  Decimal @default(0) @db.Decimal(10, 2)
 
   // ข้อมูลการจัดส่ง
-  trackingNumber    String?     @db.Text
-  billNumber        String?     @db.Text
-  refundSlipUrl     String?     @db.Text
-  groupMsgId        Int?
+  trackingNumber String? @db.Text
+  billNumber     String? @db.Text
+  refundSlipUrl  String? @db.Text
+  groupMsgId     Int?
 
   // Mismatch lock — ตอนเจอยอดสลิปไม่ตรง (ขาด): ตั้ง true → ตัดสต็อก/คูปองทันที, ห้าม re-upload, ไม่ให้ expiry-job ยกเลิก
-  mismatchLocked    Boolean     @default(false)
+  mismatchLocked Boolean @default(false)
 
   // Over-paid refund tracking — ตั้งเวลาเมื่อ admin กดยืนยันคืนเงินส่วนเกินแล้ว (null = ยังไม่ได้คืน)
   overPaidRefundedAt DateTime?
 
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  customer Customer  @relation(fields: [customerId], references: [customerId])
+  customer Customer    @relation(fields: [customerId], references: [customerId])
   items    OrderItem[]
   payment  Payment?
 
@@ -560,18 +590,36 @@ enum PaymentStatus {
 }
 
 model Payment {
-  id                  Int           @id @default(autoincrement())
-  orderId             String        @unique
-  slipUrl             String        // ลิงก์รูปสลิปที่ลูกค้าอัปโหลด
-  amount              Decimal       @db.Decimal(10, 2)
-  status              PaymentStatus @default(PENDING)
-  
+  id      Int           @id @default(autoincrement())
+  orderId String        @unique
+  slipUrl String // ลิงก์รูปสลิปที่ลูกค้าอัปโหลด
+  amount  Decimal       @db.Decimal(10, 2)
+  status  PaymentStatus @default(PENDING)
+
   // ข้อมูลจาก SlipOK
-  slipOkTransactionId String?       @unique // รหัสอ้างอิงของธนาคาร ป้องกันสลิปซ้ำ
-  payload             String?       @db.Text // ข้อมูล JSON เต็มๆ จาก SlipOK
-  
-  verifiedAt          DateTime?
-  createdAt           DateTime      @default(now())
+  slipOkTransactionId String? @unique // รหัสอ้างอิงของธนาคาร ป้องกันสลิปซ้ำ
+  payload             String? @db.Text // ข้อมูล JSON เต็มๆ จาก SlipOK
+
+  verifiedAt DateTime?
+  createdAt  DateTime  @default(now())
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------
+// ADMIN MESSAGE TRACKING
+// เก็บ message_id ของข้อความที่บอท admin ส่งให้ recipient ทุกราย
+// เพื่อให้ broadcast edit ได้ครบเมื่อสถานะเปลี่ยน (ถูกกดปุ่ม)
+// ---------------------------------------------------------
+model AdminMessage {
+  id        Int      @id @default(autoincrement())
+  orderId   String
+  kind      String // 'NEW_ORDER' | 'MISMATCH_UNDER' | (เพิ่มได้เรื่อยๆ)
+  chatId    String // Telegram chat_id ที่ส่งไป (personal admin / group / super)
+  messageId Int // message_id ที่ Telegram คืนมา
+  hasPhoto  Boolean  @default(false) // true → ใช้ editMessageCaption, false → editMessageText
+  createdAt DateTime @default(now())
+
+  @@index([orderId, kind])
+  @@index([orderId])
 }

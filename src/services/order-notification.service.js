@@ -6,6 +6,7 @@
 // Returns { groupMsgId } so caller can persist if needed.
 
 import { prisma } from '../db.js';
+import { recordAdminMessage } from './admin-message.service.js';
 
 const fmtMoney = (n) => {
     const num = parseFloat(n) || 0;
@@ -240,7 +241,20 @@ export async function sendOrderPaidAdminNotification(orderId, options = {}) {
     };
 
     let groupMsgId = null;
-    if (activeAdminId) await sendOne(activeAdminId, true);
+    const hasPhoto = !!slipPhotoUrl;
+
+    if (activeAdminId) {
+        const personalRes = await sendOne(activeAdminId, true);
+        if (personalRes?.result?.message_id) {
+            await recordAdminMessage({
+                orderId: order.id,
+                kind: 'NEW_ORDER',
+                chatId: activeAdminId,
+                messageId: personalRes.result.message_id,
+                hasPhoto,
+            });
+        }
+    }
     const groupId = process.env.ADMIN_GROUP_ID || process.env.SUPER_ADMIN_TELEGRAM_ID;
     if (groupId && groupId !== activeAdminId) {
         const groupRes = await sendOne(groupId, false);
@@ -254,6 +268,13 @@ export async function sendOrderPaidAdminNotification(orderId, options = {}) {
             } catch (dbErr) {
                 console.error('[ORDER-NOTIF] Failed to save groupMsgId:', dbErr.message);
             }
+            await recordAdminMessage({
+                orderId: order.id,
+                kind: 'NEW_ORDER',
+                chatId: groupId,
+                messageId: groupMsgId,
+                hasPhoto,
+            });
         }
     }
 

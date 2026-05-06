@@ -512,6 +512,21 @@
             </div>
         </div>
 
+        <!-- 🎁 Reward Coupons Box (dynamic — โชว์เฉพาะถ้ามีคูปองตั้งค่าไว้) -->
+        <div id="reward-coupons-box" class="glass-card p-5 hidden">
+            <div class="flex justify-between items-center mb-4">
+                <div class="font-semibold text-sm flex items-center gap-2 text-yellow-100">
+                    <i class="ri-gift-2-fill text-yellow-400"></i>
+                    <span data-i18n="referral.rewards_title">โปรพิเศษเมื่อชวนเพื่อน</span>
+                </div>
+                <span class="text-[10px] text-zinc-500 uppercase tracking-wider">ลุ้นรางวัล</span>
+            </div>
+            <p class="text-[11px] text-zinc-400 mb-3" data-i18n="referral.rewards_subtitle">
+                เมื่อเพื่อนของคุณซื้อตามเงื่อนไข — รับคูปองเข้ากระเป๋าทันที
+            </p>
+            <div id="reward-coupons-list" class="space-y-2.5"></div>
+        </div>
+
         <!-- Friends List Inline -->
         <div class="glass-card p-5">
             <div class="flex justify-between items-center mb-4">
@@ -776,6 +791,7 @@
                 document.getElementById('app-content').classList.remove('hidden');
 
                 loadFriendsList();
+                loadRewardCoupons();
             } catch (e) {
                 console.error('initApp error:', e);
                 showToast(e.message || 'เกิดข้อผิดพลาด', 'error');
@@ -944,6 +960,105 @@
             } catch (e) {
                 console.error('loadFriendsList error:', e);
                 list.innerHTML = '<div class="text-center text-red-400 py-8 text-sm">เกิดข้อผิดพลาดในการโหลดข้อมูล</div>';
+            }
+        }
+
+        // ---------- Reward Coupons (dynamic banner) ----------
+        async function loadRewardCoupons() {
+            const box = document.getElementById('reward-coupons-box');
+            const list = document.getElementById('reward-coupons-list');
+            if (!box || !list) return;
+            try {
+                const res = await fetch('/api/referral/reward-coupons');
+                const data = await res.json();
+                if (!data.success || !Array.isArray(data.rewards) || data.rewards.length === 0) {
+                    box.classList.add('hidden');
+                    return;
+                }
+                const lang = (window.appConfig?.lang) || 'th';
+                const fmt = (n) => Number(n).toLocaleString('th-TH', {
+                    minimumFractionDigits: n % 1 ? 2 : 0,
+                    maximumFractionDigits: 2
+                });
+                const recipientLabel = (r) => {
+                    if (r === 'BOTH') return lang === 'en' ? 'Both you & friend' : 'คุณและเพื่อน';
+                    if (r === 'REFEREE') return lang === 'en' ? 'Your friend' : 'เพื่อนที่ถูกชวน';
+                    return lang === 'en' ? 'You (inviter)' : 'คุณ (ผู้แนะนำ)';
+                };
+                const rewardLabel = (c) => {
+                    if (c.type === 'GIFT') {
+                        const qty = c.giftQty && c.giftQty > 1 ? ` x${c.giftQty}` : '';
+                        return lang === 'en' ? `Free gift${qty}` : `รับฟรี${qty}`;
+                    }
+                    if (c.type === 'DISCOUNT_PERCENT') {
+                        return lang === 'en' ? `${fmt(c.value)}% off` : `ลด ${fmt(c.value)}%`;
+                    }
+                    if (c.type === 'DISCOUNT_FLAT') {
+                        return lang === 'en' ? `฿${fmt(c.value)} off` : `ลด ฿${fmt(c.value)}`;
+                    }
+                    return '—';
+                };
+                const conditionLabel = (c) => {
+                    if (c.rewardMinAmount != null && c.rewardMaxAmount != null) {
+                        return lang === 'en'
+                            ? `When friend's first order is ฿${fmt(c.rewardMinAmount)}–฿${fmt(c.rewardMaxAmount)}`
+                            : `เมื่อเพื่อนซื้อครั้งแรก ฿${fmt(c.rewardMinAmount)}–฿${fmt(c.rewardMaxAmount)}`;
+                    }
+                    if (c.rewardMinAmount != null) {
+                        return lang === 'en'
+                            ? `When friend's first order ≥ ฿${fmt(c.rewardMinAmount)}`
+                            : `เมื่อเพื่อนซื้อครั้งแรกตั้งแต่ ฿${fmt(c.rewardMinAmount)}`;
+                    }
+                    if (c.rewardMaxAmount != null) {
+                        return lang === 'en'
+                            ? `When friend's first order ≤ ฿${fmt(c.rewardMaxAmount)}`
+                            : `เมื่อเพื่อนซื้อครั้งแรกไม่เกิน ฿${fmt(c.rewardMaxAmount)}`;
+                    }
+                    return lang === 'en'
+                        ? `When friend completes first purchase`
+                        : `เมื่อเพื่อนซื้อครั้งแรกสำเร็จ`;
+                };
+                const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({
+                    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+                }[c]));
+
+                let html = '';
+                data.rewards.forEach((c, idx) => {
+                    const title = lang === 'en' ? (c.nameEn || c.name) : c.name;
+                    const desc = lang === 'en' ? (c.descriptionEn || c.description || '') : (c.description || '');
+                    html += `
+                    <div class="bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-3 list-item-animate" style="animation-delay: ${idx * 80}ms">
+                        <div class="flex items-start gap-3">
+                            <div class="w-9 h-9 rounded-full bg-yellow-500/15 flex items-center justify-center text-yellow-300 flex-shrink-0">
+                                <i class="ri-coupon-3-fill"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 flex-wrap mb-1">
+                                    <span class="text-sm font-semibold text-yellow-100 truncate">${escapeHtml(title)}</span>
+                                    <span class="px-1.5 py-0.5 rounded bg-yellow-400/20 text-yellow-200 text-[9px] font-bold uppercase tracking-wider">${escapeHtml(rewardLabel(c))}</span>
+                                </div>
+                                ${desc ? `<p class="text-[11px] text-zinc-400 mb-1.5">${escapeHtml(desc)}</p>` : ''}
+                                <div class="text-[11px] text-zinc-300 flex items-start gap-1.5">
+                                    <i class="ri-checkbox-circle-line text-green-400 flex-shrink-0 mt-0.5"></i>
+                                    <span>${escapeHtml(conditionLabel(c))}</span>
+                                </div>
+                                <div class="text-[11px] text-zinc-300 flex items-start gap-1.5 mt-0.5">
+                                    <i class="ri-user-star-line text-blue-400 flex-shrink-0 mt-0.5"></i>
+                                    <span>${lang === 'en' ? 'Reward goes to' : 'ผู้รับรางวัล'}: <b>${escapeHtml(recipientLabel(c.rewardRecipient))}</b></span>
+                                </div>
+                                ${c.validityDays ? `
+                                <div class="text-[10px] text-zinc-500 mt-1.5">
+                                    <i class="ri-time-line"></i> ${lang === 'en' ? `Valid ${c.validityDays} days after granted` : `ใช้ภายใน ${c.validityDays} วันหลังได้รับ`}
+                                </div>` : ''}
+                            </div>
+                        </div>
+                    </div>`;
+                });
+                list.innerHTML = html;
+                box.classList.remove('hidden');
+            } catch (e) {
+                console.error('loadRewardCoupons error:', e);
+                box.classList.add('hidden');
             }
         }
 

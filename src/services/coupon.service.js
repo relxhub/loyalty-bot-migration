@@ -589,3 +589,133 @@ export async function assignAutoCoupons(customerId, triggerSource = "ALL") {
         console.log(`[Auto Coupon] Assigned ${couponsToCreate.length} coupons to new customer ${customerId}`);
     }
 }
+
+/**
+ * Grant Reward Coupons เมื่อเกิด event เช่น referee ซื้อครั้งแรกผ่านเกณฑ์
+ *
+ * @param {object} params
+ * @param {string} params.event           - "REFEREE_FIRST_PURCHASE" (ตรงกับ enum RewardTrigger)
+ * @param {string} params.referrerId      - customerId ของผู้แนะนำ (User A)
+ * @param {string} params.refereeId       - customerId ของผู้ถูกแนะนำ (User B)
+ * @param {number} params.eligibleAmount  - ยอดที่ใช้เทียบเงื่อนไข (subtotal - discount, ไม่รวมค่าส่ง)
+ * @param {number} [params.referralRowId] - Referral.id (ใช้กันแจกซ้ำ)
+ * @returns {Promise<{ granted: Array<{couponId,couponName,recipientId,recipientRole}>, skipped: Array }>}
+ */
+export async function grantRewardCoupons({ event, referrerId, refereeId, eligibleAmount, referralRowId = null }) {
+    const granted = [];
+    const skipped = [];
+
+    if (!event) return { granted, skipped };
+
+    const now = new Date();
+    let coupons = [];
+    try {
+        coupons = await prisma.coupon.findMany({
+            where: {
+                isActive: true,
+                rewardTrigger: event,
+                AND: [
+                    { OR: [{ startDate: null }, { startDate: { lte: now } }] },
+                    { OR: [{ endDate: null }, { endDate: { gte: now } }] },
+                ],
+            },
+        });
+    } catch (e) {
+        console.error('[RewardCoupon] lookup failed:', e.message);
+        return { granted, skipped };
+    }
+
+    if (coupons.length === 0) return { granted, skipped };
+
+    const amount = Number(eligibleAmount) || 0;
+
+    for (const coupon of coupons) {
+        // 1) check amount range
+        if (coupon.rewardMinAmount != null && amount < Number(coupon.rewardMinAmount)) {
+            skipped.push({ couponId: coupon.id, reason: 'BELOW_MIN' });
+            continue;
+        }
+        if (coupon.rewardMaxAmount != null && amount > Number(coupon.rewardMaxAmount)) {
+            skipped.push({ couponId: coupon.id, reason: 'ABOVE_MAX' });
+            continue;
+        }
+
+        // 2) decide recipients
+        const recipients = [];
+        const role = coupon.rewardRecipient || 'REFERRER';
+        if (role === 'REFERRER' || role === 'BOTH') recipients.push({ id: referrerId, role: 'REFERRER' });
+        if (role === 'REFEREE' || role === 'BOTH') recipients.push({ id: refereeId, role: 'REFEREE' });
+
+        for (const rcp of recipients) {
+            if (!rcp.id) continue;
+            try {
+                await prisma.$transaction(async (tx) => {
+                    // 3) กันแจกซ้ำ — ถ้า rewardOncePerReferral && referralRowId มีอยู่ → เช็คก่อน
+                    if (coupon.rewardOncePerReferral && referralRowId) {
+                        const dup = await tx.customerCoupon.findFirst({
+                            where: {
+                                customerId: rcp.id,
+                                couponId: coupon.id,
+                                sourceReferralId: referralRowId,
+                            },
+                        });
+                        if (dup) {
+                            skipped.push({ couponId: coupon.id, recipientId: rcp.id, reason: 'ALREADY_GRANTED' });
+                            return;
+                        }
+                    }
+
+                    // 4) เช็คโควตา
+                    if (coupon.totalQuota !== null && coupon.claimedCount >= coupon.totalQuota) {
+                        skipped.push({ couponId: coupon.id, recipientId: rcp.id, reason: 'QUOTA_FULL' });
+                        return;
+                    }
+
+                    let expiryDate = coupon.validUntil;
+                    if (coupon.validityDays) {
+                        expiryDate = new Date(now.getTime() + coupon.validityDays * 24 * 60 * 60 * 1000);
+                    }
+
+                    await tx.customerCoupon.create({
+                        data: {
+                            customerId: rcp.id,
+                            couponId: coupon.id,
+                            status: 'AVAILABLE',
+                            expiryDate,
+                            sourceReferralId: referralRowId,
+                            sourceEvent: event,
+                        },
+                    });
+
+                    const updated = await tx.coupon.update({
+                        where: { id: coupon.id },
+                        data: { claimedCount: { increment: 1 } },
+                    });
+                    if (updated.totalQuota !== null && updated.claimedCount > updated.totalQuota) {
+                        // เกินโควตา → rollback ทั้ง tx
+                        throw new Error('QUOTA_RACE');
+                    }
+
+                    granted.push({
+                        couponId: coupon.id,
+                        couponName: coupon.name,
+                        recipientId: rcp.id,
+                        recipientRole: rcp.role,
+                    });
+                });
+            } catch (e) {
+                if (String(e.message).includes('QUOTA_RACE')) {
+                    skipped.push({ couponId: coupon.id, recipientId: rcp.id, reason: 'QUOTA_RACE' });
+                } else {
+                    console.error(`[RewardCoupon] grant failed (${coupon.id} → ${rcp.id}):`, e.message);
+                    skipped.push({ couponId: coupon.id, recipientId: rcp.id, reason: 'ERROR' });
+                }
+            }
+        }
+    }
+
+    if (granted.length > 0) {
+        console.log(`[RewardCoupon] event=${event} granted=${granted.length} skipped=${skipped.length}`);
+    }
+    return { granted, skipped };
+}

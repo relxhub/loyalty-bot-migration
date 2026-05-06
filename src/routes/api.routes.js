@@ -8,6 +8,7 @@ import { getCustomerByTelegramId, updateCustomer, countCampaignReferralsByTag, c
 import { countMonthlyReferrals } from '../services/referral.service.js';
 import * as referralService from '../services/referral.service.js';
 import { sendOrderPaidAdminNotification } from '../services/order-notification.service.js';
+import { recordAdminMessage } from '../services/admin-message.service.js';
 import { getProductPageData } from '../services/product.service.js';
 import * as couponService from '../services/coupon.service.js';
 import * as shippingService from '../services/shipping.service.js';
@@ -347,16 +348,29 @@ router.post('/orders/checkout', async (req, res) => {
                 // We will mark it as USED in Phase 3 when the SlipOK API confirms payment.
             }
 
+            // คำนวณ subtotal/shippingFee จาก cart + ตัวเลขที่ส่งมา
+            // subtotal  = ผลรวมราคาสินค้า (ก่อนหักคูปอง)
+            // shipping  = totalAmount - (subtotal - discountAmount)  (กันค่าติดลบ)
+            const subtotalCalc = cart.reduce(
+                (s, item) => s + (parseFloat(item.price) || 0) * (parseInt(item.quantity, 10) || 0),
+                0
+            );
+            const discountCalc = parseFloat(discountAmount) || 0;
+            const totalCalc = parseFloat(totalAmount) || 0;
+            const shippingCalc = Math.max(0, Math.round((totalCalc - (subtotalCalc - discountCalc)) * 100) / 100);
+
             // Create Order
             const newOrder = await tx.order.create({
                 data: {
                     id: orderId,
                     customerId: customer.customerId,
-                    totalAmount: parseFloat(totalAmount),
+                    totalAmount: totalCalc,
                     status: 'PENDING_PAYMENT',
                     shippingAddressId: parseInt(shippingAddressId, 10),
                     appliedCouponId: appliedCouponId,
-                    discountAmount: parseFloat(discountAmount) || 0,
+                    discountAmount: discountCalc,
+                    subtotal: subtotalCalc,
+                    shippingFee: shippingCalc,
                     items: {
                         create: cart.map(item => ({
                             productId: parseInt(item.id, 10),
@@ -934,8 +948,9 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                         };
 
                         const photoUrl = slipData?.data?.url || null;
+                        const hasPhoto = !!photoUrl;
                         const sendOne = async (chatId) => {
-                            if (!chatId) return;
+                            if (!chatId) return null;
                             try {
                                 const url = photoUrl
                                     ? `https://api.telegram.org/bot${adminToken}/sendPhoto`
@@ -944,14 +959,30 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                                     ? { chat_id: chatId, photo: photoUrl, caption: msg, parse_mode: 'HTML', reply_markup: replyMarkup }
                                     : { chat_id: chatId, text: msg, parse_mode: 'HTML', reply_markup: replyMarkup };
                                 const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-                                if (!r.ok) console.error(`Mismatch notif Telegram error for ${chatId}:`, await r.json().catch(() => ({})));
+                                if (!r.ok) {
+                                    console.error(`Mismatch notif Telegram error for ${chatId}:`, await r.json().catch(() => ({})));
+                                    return null;
+                                }
+                                return await r.json();
                             } catch (e) {
                                 console.error(`Mismatch notif fetch error to ${chatId}:`, e.message);
+                                return null;
                             }
                         };
 
                         const groupId = process.env.ADMIN_GROUP_ID || process.env.SUPER_ADMIN_TELEGRAM_ID;
-                        if (groupId) await sendOne(groupId);
+                        if (groupId) {
+                            const res = await sendOne(groupId);
+                            if (res?.result?.message_id) {
+                                await recordAdminMessage({
+                                    orderId: order.id,
+                                    kind: 'MISMATCH_UNDER',
+                                    chatId: groupId,
+                                    messageId: res.result.message_id,
+                                    hasPhoto,
+                                });
+                            }
+                        }
                     } catch (notifErr) {
                         console.error('Mismatch notif outer error:', notifErr.message);
                     }
@@ -1038,7 +1069,7 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
         // 5.5 Auto-Complete Referral if applicable
         let referralMsg = '';
         try {
-            const referralResult = await referralService.completeReferral(order.customerId, parseFloat(slipAmount));
+            const referralResult = await referralService.completeReferral(order.customerId, parseFloat(slipAmount), order.id);
             if (referralResult && referralResult.success) {
                 referralMsg = `\n\n🎉 <b>[โบนัสแนะนำเพื่อน]</b>\n${referralResult.message}`;
             }
@@ -1248,17 +1279,41 @@ router.patch('/products/:id/status', async (req, res) => {
 // ==================================================
 // 📜 HISTORY
 // ==================================================
-function mapActionName(action) {
-    const map = {
-        'REFERRAL_BONUS': 'แนะนำเพื่อน',
-        'LINK_BONUS': 'โบนัสผูกบัญชี',
-        'ADMIN_ADJUST': 'Admin ปรับปรุงยอด',
-        'SYSTEM_ADJUST': 'ระบบปรับปรุงยอด',
-        'CAMPAIGN_BONUS': 'โบนัสแคมเปญ',
-        'REDEEM_REWARD': 'แลกของรางวัล',
-        'OTHER': 'อื่นๆ'
-    };
-    return map[action] || action;
+function mapActionName(action, detail) {
+    const d = (detail || '').trim();
+
+    switch (action) {
+        case 'REFERRAL_BONUS': {
+            // detail format: "Referral bonus from OT12345.[milestone msg]"
+            const m = d.match(/from\s+([A-Za-z0-9_-]+)/);
+            return m ? `แนะนำเพื่อน • ${m[1]}` : 'แนะนำเพื่อน';
+        }
+        case 'LINK_BONUS': {
+            if (/Welcome bonus from referral/i.test(d)) return 'โบนัสต้อนรับสมาชิกใหม่';
+            if (/Link Account/i.test(d)) return 'โบนัสผูกบัญชี Telegram';
+            return 'โบนัสผูกบัญชี';
+        }
+        case 'CAMPAIGN_BONUS': {
+            const m = d.match(/from\s+([A-Za-z0-9_-]+)/);
+            return m ? `โบนัสแคมเปญ • แนะนำ ${m[1]}` : 'โบนัสแคมเปญ';
+        }
+        case 'REDEEM_REWARD': {
+            // detail format: "แลกคูปอง <name> (ID: <id>)"
+            const m = d.match(/^แลกคูปอง\s+(.+?)\s*\(ID:/);
+            if (m) return `แลกคูปอง: ${m[1]}`;
+            return d || 'แลกของรางวัล';
+        }
+        case 'ADMIN_ADJUST':
+            return d ? `Admin ปรับปรุงยอด — ${d}` : 'Admin ปรับปรุงยอด';
+        case 'SYSTEM_ADJUST':
+            return d || 'ระบบปรับปรุงยอด';
+        case 'OTHER': {
+            if (/รีวิว/.test(d)) return 'คะแนนจากการรีวิวสินค้า';
+            return d || 'อื่นๆ';
+        }
+        default:
+            return d || action;
+    }
 }
 
 router.get('/history/:telegramId', async (req, res) => {
@@ -1283,7 +1338,7 @@ router.get('/history/:telegramId', async (req, res) => {
         });
 
         const formattedLogs = logs.map(log => ({
-            action: mapActionName(log.type),
+            action: mapActionName(log.type, log.detail),
             points: log.amount > 0 ? `+${log.amount}` : `${log.amount}`,
             date: formatToBangkok(log.createdAt),
             isPositive: log.amount > 0,
@@ -1301,6 +1356,64 @@ router.get('/history/:telegramId', async (req, res) => {
 // ==================================================
 // 👥 REFERRALS
 // ==================================================
+
+// Reward coupons ที่ active (สำหรับ banner หน้าแนะนำเพื่อน)
+// ส่งกลับเฉพาะ coupon ที่มี rewardTrigger ตั้งค่าไว้ใน Prisma Studio
+router.get('/referral/reward-coupons', async (req, res) => {
+    try {
+        const now = new Date();
+        const coupons = await prisma.coupon.findMany({
+            where: {
+                isActive: true,
+                rewardTrigger: { not: null },
+                AND: [
+                    { OR: [{ startDate: null }, { startDate: { lte: now } }] },
+                    { OR: [{ endDate: null }, { endDate: { gte: now } }] },
+                ],
+            },
+            orderBy: { createdAt: 'desc' },
+            select: {
+                id: true,
+                name: true,
+                nameEn: true,
+                description: true,
+                descriptionEn: true,
+                type: true,
+                value: true,
+                giftQty: true,
+                rewardTrigger: true,
+                rewardRecipient: true,
+                rewardMinAmount: true,
+                rewardMaxAmount: true,
+                validityDays: true,
+                endDate: true,
+            },
+        });
+
+        // คืนค่า primitives ที่ frontend แปลงได้ตรงๆ (Decimal → number)
+        const out = coupons.map((c) => ({
+            id: c.id,
+            name: c.name,
+            nameEn: c.nameEn,
+            description: c.description,
+            descriptionEn: c.descriptionEn,
+            type: c.type, // DISCOUNT_PERCENT | DISCOUNT_FLAT | GIFT
+            value: c.value != null ? Number(c.value) : null,
+            giftQty: c.giftQty,
+            rewardTrigger: c.rewardTrigger, // REFEREE_FIRST_PURCHASE
+            rewardRecipient: c.rewardRecipient || 'REFERRER', // REFERRER | REFEREE | BOTH
+            rewardMinAmount: c.rewardMinAmount != null ? Number(c.rewardMinAmount) : null,
+            rewardMaxAmount: c.rewardMaxAmount != null ? Number(c.rewardMaxAmount) : null,
+            validityDays: c.validityDays,
+            endDate: c.endDate,
+        }));
+
+        res.json({ success: true, rewards: out });
+    } catch (error) {
+        console.error('Reward coupons API error:', error);
+        res.status(500).json({ success: false, error: 'ดึงข้อมูล reward coupons ไม่สำเร็จ' });
+    }
+});
 
 router.post('/referral/register', async (req, res) => {
     const { referrerId, telegramId, firstName, lastName, username } = req.body;

@@ -12,6 +12,7 @@ import * as referralService from '../services/referral.service.js'; // Import th
 import * as couponService from '../services/coupon.service.js';
 import * as shippingService from '../services/shipping.service.js';
 import { sendOrderPaidAdminNotification } from '../services/order-notification.service.js';
+import { broadcastEditAdminMessages } from '../services/admin-message.service.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -1228,7 +1229,7 @@ export async function handleAdminCallback(ctx) {
                 // Try to complete referral (best-effort) + capture message
                 let referralMsg = '';
                 try {
-                    const refResult = await referralService.completeReferral(order.customerId, Number(order.totalAmount));
+                    const refResult = await referralService.completeReferral(order.customerId, Number(order.totalAmount), order.id);
                     if (refResult?.success) {
                         referralMsg = `\n\n🎉 <b>[โบนัสแนะนำเพื่อน]</b>\n${refResult.message}`;
                     }
@@ -1255,16 +1256,24 @@ export async function handleAdminCallback(ctx) {
                     console.error('Failed to send paid notif after mm_paid_yes:', notifErr);
                 }
 
-                // Strip buttons + add admin marker to caption (best-effort)
+                // Strip buttons + add admin marker — broadcast ไปทุก recipient ของข้อความ MISMATCH_UNDER
                 try {
                     const orig = ctx.callbackQuery.message;
                     const baseText = orig.caption ?? orig.text ?? '';
                     const newText = `${baseText}\n\n✅ <b>ยืนยันชำระครบโดย admin <code>${userTgId}</code></b>`;
-                    if (orig.caption != null) {
-                        await ctx.editMessageCaption(newText, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } });
-                    } else {
-                        await ctx.editMessageText(newText, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } });
-                    }
+                    // Broadcast ก่อน — กันคนอื่นกดซ้ำ
+                    await broadcastEditAdminMessages(order.id, 'MISMATCH_UNDER', {
+                        newText,
+                        replyMarkup: null, // ตัดปุ่มทั้งหมด
+                    });
+                    // Fallback: ถ้าข้อความที่กดไม่อยู่ใน track (เช่น เคสเก่าก่อน deploy) แก้ผ่าน ctx ด้วย
+                    try {
+                        if (orig.caption != null) {
+                            await ctx.editMessageCaption(newText, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } });
+                        } else {
+                            await ctx.editMessageText(newText, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } });
+                        }
+                    } catch (e) {}
                 } catch (e) {}
 
                 await ctx.answerCbQuery('✅ ยืนยันชำระครบและส่งแจ้งเตือนใหม่แล้ว');
@@ -1363,11 +1372,18 @@ export async function handleAdminCallback(ctx) {
                         const fmtAmt = paidAmount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         newText += `\n⚠️ <b>ลูกค้าโอนเงินมาแล้ว ฿${fmtAmt}</b> — กรุณา refund ก่อนปิดเคส`;
                     }
-                    if (orig.caption != null) {
-                        await ctx.editMessageCaption(newText, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } });
-                    } else {
-                        await ctx.editMessageText(newText, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } });
-                    }
+                    // Broadcast ทุก recipient — ออเดอร์ถูก cancel แล้ว ตัดปุ่มหมด
+                    await broadcastEditAdminMessages(order.id, 'MISMATCH_UNDER', {
+                        newText,
+                        replyMarkup: null,
+                    });
+                    try {
+                        if (orig.caption != null) {
+                            await ctx.editMessageCaption(newText, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } });
+                        } else {
+                            await ctx.editMessageText(newText, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } });
+                        }
+                    } catch (e) {}
                 } catch (e) {}
 
                 await ctx.answerCbQuery('❌ ปฏิเสธและยกเลิกออเดอร์แล้ว');
@@ -1444,21 +1460,36 @@ export async function handleAdminCallback(ctx) {
                     );
                 }
 
-                // Strip the refund button only — keep other buttons (addbill / manage) intact
+                // Strip the refund button only — keep addbill (private) / manage (group) intact
+                // Broadcast ไปทุก recipient ของข้อความ NEW_ORDER โดยใช้ markup ตามชนิด chat
                 try {
                     const orig = ctx.callbackQuery.message;
-                    const isPrivate = orig?.chat?.type === 'private';
-                    const inlineKb = isPrivate
-                        ? [[{ text: '📝 แนบเลขบิล', callback_data: `addbill_${orderId}` }]]
-                        : [[{ text: `⚙️ จัดการ #${orderId}`, callback_data: `manage_order_${orderId}` }]];
-
                     const baseText = orig.caption ?? orig.text ?? '';
                     const newText = `${baseText}\n\n✅ <b>ยืนยันคืนเงินโดย admin <code>${userTgId}</code></b>`;
-                    if (orig.caption != null) {
-                        await ctx.editMessageCaption(newText, { parse_mode: 'HTML', reply_markup: { inline_keyboard: inlineKb } });
-                    } else {
-                        await ctx.editMessageText(newText, { parse_mode: 'HTML', reply_markup: { inline_keyboard: inlineKb } });
-                    }
+                    const groupId = process.env.ADMIN_GROUP_ID || process.env.SUPER_ADMIN_TELEGRAM_ID;
+                    const replyMarkupForRow = (row) => {
+                        const isGroup = String(row.chatId) === String(groupId);
+                        const kb = isGroup
+                            ? [[{ text: `⚙️ จัดการ #${orderId}`, callback_data: `manage_order_${orderId}` }]]
+                            : [[{ text: '📝 แนบเลขบิล', callback_data: `addbill_${orderId}` }]];
+                        return { inline_keyboard: kb };
+                    };
+                    await broadcastEditAdminMessages(orderId, 'NEW_ORDER', {
+                        newText,
+                        replyMarkup: replyMarkupForRow,
+                    });
+                    // Fallback ผ่าน ctx (สำหรับเคสเก่าก่อน track + กรณี broadcast พลาด)
+                    try {
+                        const isPrivate = orig?.chat?.type === 'private';
+                        const inlineKb = isPrivate
+                            ? [[{ text: '📝 แนบเลขบิล', callback_data: `addbill_${orderId}` }]]
+                            : [[{ text: `⚙️ จัดการ #${orderId}`, callback_data: `manage_order_${orderId}` }]];
+                        if (orig.caption != null) {
+                            await ctx.editMessageCaption(newText, { parse_mode: 'HTML', reply_markup: { inline_keyboard: inlineKb } });
+                        } else {
+                            await ctx.editMessageText(newText, { parse_mode: 'HTML', reply_markup: { inline_keyboard: inlineKb } });
+                        }
+                    } catch (e) {}
                 } catch (e) {}
 
                 await ctx.answerCbQuery('💸 ยืนยันคืนเงินเรียบร้อย');

@@ -1,6 +1,7 @@
 import { prisma } from '../db.js';
 import * as customerService from './customer.service.js';
 import * as campaignService from './campaign.service.js';
+import * as couponService from './coupon.service.js';
 import { getConfig } from '../config/config.js';
 import { addDays } from '../utils/date.utils.js';
 
@@ -63,15 +64,57 @@ const createPendingReferral = async (referrerId, refereeData) => {
 };
 
 /**
+ * คำนวณยอดที่ใช้เทียบเงื่อนไข reward coupon
+ *   eligibleAmount = subtotal - discountAmount  (ไม่รวมค่าส่ง)
+ * - ถ้ามี orderId → ใช้ order นั้นโดยตรง
+ * - ไม่งั้นเลือก order ล่าสุดของ refereeId ที่จ่ายเงินแล้ว
+ * - ออเดอร์เก่าที่ subtotal เป็น null → fallback คำนวณจาก items
+ * - ถ้าหา order ไม่เจอ → fallback ใช้ purchaseAmount ที่ส่งเข้ามา
+ */
+async function computeEligibleAmount({ orderId, refereeId, fallback }) {
+  let order = null;
+  try {
+    if (orderId) {
+      order = await prisma.order.findUnique({
+        where: { id: orderId },
+        select: { subtotal: true, discountAmount: true, items: { select: { quantity: true, priceAtPurchase: true } } },
+      });
+    }
+    if (!order) {
+      order = await prisma.order.findFirst({
+        where: { customerId: refereeId, status: { in: ['PAID', 'PROCESSING', 'SHIPPED'] } },
+        orderBy: { createdAt: 'desc' },
+        select: { subtotal: true, discountAmount: true, items: { select: { quantity: true, priceAtPurchase: true } } },
+      });
+    }
+  } catch (e) {
+    console.error('[Referral] computeEligibleAmount lookup failed:', e.message);
+  }
+
+  if (!order) return Number(fallback) || 0;
+
+  let subtotal = order.subtotal != null ? Number(order.subtotal) : null;
+  if (subtotal == null) {
+    subtotal = (order.items || []).reduce(
+      (s, it) => s + Number(it.priceAtPurchase || 0) * Number(it.quantity || 0),
+      0
+    );
+  }
+  const discount = Number(order.discountAmount) || 0;
+  return Math.max(0, Math.round((subtotal - discount) * 100) / 100);
+}
+
+/**
  * Completes a referral process after a new user makes their first qualifying purchase.
- * This is triggered by the /refer admin command.
+ * This is triggered by the /refer admin command and auto-trigger from verify-slip.
  *
  * @param {string} refereeId - The customer ID of the new user making the purchase.
  * @param {number} purchaseAmount - The amount of the purchase.
+ * @param {string} [orderId] - Optional. Order ID ที่เพิ่งจ่าย — ใช้คำนวณ eligibleAmount แม่นยำ
  * @returns {Promise<{success: boolean, message: string, bonus?: number}>} Result of the operation.
  */
-const completeReferral = async (refereeId, purchaseAmount) => {
-  return prisma.$transaction(async (tx) => {
+const completeReferral = async (refereeId, purchaseAmount, orderId = null) => {
+  const txResult = await prisma.$transaction(async (tx) => {
     let referral = await tx.referral.findUnique({
       where: { refereeId }
     });
@@ -179,8 +222,42 @@ const completeReferral = async (refereeId, purchaseAmount) => {
       }
     });
 
-    return { success: true, message: `การแนะนำสำเร็จ! ผู้แนะนำ ${referral.referrerId} ได้รับ ${totalPointsToAdd} แต้ม${milestoneMessage}`, bonus: totalPointsToAdd };
+    return {
+      success: true,
+      message: `การแนะนำสำเร็จ! ผู้แนะนำ ${referral.referrerId} ได้รับ ${totalPointsToAdd} แต้ม${milestoneMessage}`,
+      bonus: totalPointsToAdd,
+      referralId: referral.id,
+      referrerId: referral.referrerId,
+    };
   });
+
+  if (!txResult || !txResult.success) return txResult;
+
+  // หลัง tx สำเร็จ → ลองมอบ reward coupon (best-effort, ไม่กระทบสถานะ referral)
+  let rewardSuffix = '';
+  try {
+    const eligibleAmount = await computeEligibleAmount({ orderId, refereeId, fallback: purchaseAmount });
+    const { granted } = await couponService.grantRewardCoupons({
+      event: 'REFEREE_FIRST_PURCHASE',
+      referrerId: txResult.referrerId,
+      refereeId,
+      eligibleAmount,
+      referralRowId: txResult.referralId,
+    });
+    if (granted.length > 0) {
+      const labelOf = (role) => role === 'REFERRER' ? 'ผู้แนะนำ' : 'ผู้สมัคร';
+      const lines = granted.map(g => `🎁 ${g.couponName} → ${labelOf(g.recipientRole)}`);
+      rewardSuffix = `\n${lines.join('\n')}`;
+    }
+  } catch (e) {
+    console.error('[Referral] grantRewardCoupons failed:', e.message);
+  }
+
+  return {
+    success: true,
+    message: txResult.message + rewardSuffix,
+    bonus: txResult.bonus,
+  };
 };
 
 
