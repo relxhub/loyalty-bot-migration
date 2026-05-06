@@ -3532,15 +3532,35 @@
         }
 
         // ---------- 📊 Owner Dashboard ----------
+        let _dashCatFilter = '';
         async function loadDashboard() {
             const wrap = document.getElementById('dash-content');
             const period = document.getElementById('dash-period').value;
+            const cat = _dashCatFilter || '';
             wrap.innerHTML = '<div class="text-center text-zinc-500 py-8 animate-pulse">กำลังโหลด...</div>';
             try {
-                const res = await fetch(`/api/admin/dashboard/financial?period=${encodeURIComponent(period)}`, { headers: { 'X-Init-Data': tg.initData } });
+                const res = await fetch(`/api/admin/dashboard/financial?period=${encodeURIComponent(period)}${cat?`&categoryId=${encodeURIComponent(cat)}`:''}`, { headers: { 'X-Init-Data': tg.initData } });
                 const data = await res.json();
                 if (!data.success) throw new Error(data.error || 'load failed');
                 const d = data.data;
+
+                // Sparkline (simple SVG)
+                const trendMax = Math.max(1, ...d.trend.map(t => t.revenue));
+                const sparkW = 280, sparkH = 60, padX = 2;
+                const stepX = d.trend.length > 1 ? (sparkW - padX*2) / (d.trend.length - 1) : 0;
+                const points = d.trend.map((t, i) => `${padX + i * stepX},${sparkH - (t.revenue / trendMax) * (sparkH - 4) - 2}`).join(' ');
+                const trendTotal = d.trend.reduce((s, t) => s + t.revenue, 0);
+                const peakDay = d.trend.reduce((m, t) => t.revenue > m.revenue ? t : m, { revenue: 0, date: '—' });
+
+                // Status breakdown
+                const statusColors = { PAID: 'blue', PROCESSING: 'cyan', SHIPPED: 'emerald', CANCELLED: 'red', PENDING_PAYMENT: 'zinc' };
+                const totalStatus = d.statusBreakdown.reduce((s, x) => s + x.count, 0) || 1;
+
+                // Category options
+                const catOpts = ['<option value="">ทุกหมวด</option>',
+                    ...d.allCategories.map(c => `<option value="${c.id}" ${String(_dashCatFilter)===String(c.id)?'selected':''}>${_esc(c.name)}</option>`)
+                ].join('');
+
                 wrap.innerHTML = `
                     <div class="grid grid-cols-2 gap-2 mb-3">
                         <div class="glass-card p-3">
@@ -3575,8 +3595,56 @@
                         </div>
                     </div>
 
+                    <!-- Health KPIs -->
+                    <div class="grid grid-cols-2 gap-2 mb-3">
+                        <div class="glass-card p-3">
+                            <div class="text-[10px] text-zinc-400">Repeat Customer</div>
+                            <div class="text-lg font-bold text-emerald-300">${d.repeatStats.repeatRate}%</div>
+                            <div class="text-[10px] text-zinc-500">${d.repeatStats.repeat}/${d.repeatStats.totalUnique} คน</div>
+                        </div>
+                        <div class="glass-card p-3">
+                            <div class="text-[10px] text-zinc-400">Cancel Rate</div>
+                            <div class="text-lg font-bold ${d.healthStats.cancelRate>10?'text-red-300':'text-zinc-200'}">${d.healthStats.cancelRate}%</div>
+                            <div class="text-[10px] text-zinc-500">${d.healthStats.cancelled}/${d.healthStats.totalOrders} ออเดอร์${d.healthStats.overpaidRefunded?` · refund ${d.healthStats.overpaidRefunded}`:''}</div>
+                        </div>
+                    </div>
+
+                    <!-- 📈 Sales trend -->
                     <div class="glass-card p-3 mb-3">
-                        <div class="text-[11px] font-bold text-zinc-300 mb-2">🏆 Top Products (ตามยอดขาย)</div>
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="text-[11px] font-bold text-zinc-300">📈 Sales Trend (${d.trendDays} วัน)</div>
+                            <div class="text-[10px] text-zinc-500">รวม ฿${_fmt(trendTotal)} · พีค ${peakDay.date}: ฿${_fmt(peakDay.revenue)}</div>
+                        </div>
+                        <svg viewBox="0 0 ${sparkW} ${sparkH}" class="w-full h-14">
+                            <defs>
+                                <linearGradient id="grad-spark" x1="0" x2="0" y1="0" y2="1">
+                                    <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.5"/>
+                                    <stop offset="100%" stop-color="#fbbf24" stop-opacity="0"/>
+                                </linearGradient>
+                            </defs>
+                            <polyline fill="url(#grad-spark)" stroke="#fbbf24" stroke-width="1.5" points="${points} ${padX + (d.trend.length-1)*stepX},${sparkH} ${padX},${sparkH}"/>
+                        </svg>
+                    </div>
+
+                    <!-- 📊 Status Breakdown -->
+                    <div class="glass-card p-3 mb-3">
+                        <div class="text-[11px] font-bold text-zinc-300 mb-2">📊 Order Status (${d.statusBreakdown.reduce((s,x)=>s+x.count,0)} ออเดอร์)</div>
+                        <div class="flex h-3 rounded overflow-hidden mb-2">
+                            ${d.statusBreakdown.map(s => `<div title="${s.status}: ${s.count}" class="bg-${statusColors[s.status]||'zinc'}-500" style="width:${(s.count/totalStatus)*100}%"></div>`).join('')}
+                        </div>
+                        ${d.statusBreakdown.map(s => `
+                            <div class="flex items-center justify-between text-[11px] py-0.5">
+                                <span class="flex items-center gap-1.5"><span class="inline-block w-2 h-2 rounded-full bg-${statusColors[s.status]||'zinc'}-500"></span><span class="text-zinc-300">${s.status}</span></span>
+                                <span class="text-zinc-400"><b class="text-white">${s.count}</b> · ฿${_fmt(s.totalAmount)}</span>
+                            </div>`).join('')}
+                    </div>
+
+                    <!-- 🏆 Top Products + category filter -->
+                    <div class="glass-card p-3 mb-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="text-[11px] font-bold text-zinc-300">🏆 Top Products${cat?' (filtered)':''}</div>
+                            <select id="dash-cat-filter" onchange="onDashCatChange(this.value)" class="text-[10px] bg-white/5 border border-white/10 rounded px-1.5 py-1 text-white">${catOpts}</select>
+                        </div>
                         ${d.topProducts.length ? d.topProducts.map((p, i) => `
                             <div class="flex items-center gap-2 py-1.5 ${i>0?'border-t border-white/5':''}">
                                 <div class="w-5 text-zinc-500 text-xs text-center">${i+1}</div>
@@ -3584,6 +3652,26 @@
                                 <div class="text-xs text-yellow-300 font-bold">฿${_fmt(p.revenue)}</div>
                                 <div class="text-[10px] text-zinc-500 w-12 text-right">x${p.qty}</div>
                             </div>`).join('') : '<div class="text-zinc-500 text-xs text-center py-2">ยังไม่มีข้อมูล</div>'}
+                    </div>
+
+                    <!-- 🗂️ Top Categories -->
+                    <div class="glass-card p-3 mb-3">
+                        <div class="text-[11px] font-bold text-zinc-300 mb-2">🗂️ Top Categories (ตามรายได้)</div>
+                        ${d.topCategories.length ? d.topCategories.map((c, i) => {
+                            const pct = trendTotal > 0 ? Math.round((c.revenue / d.topCategories.reduce((s,x)=>s+x.revenue,0)) * 100) : 0;
+                            return `
+                            <div class="py-1 ${i>0?'border-t border-white/5':''} cursor-pointer hover:bg-white/5" onclick="onDashCatChange('${c.id||''}')">
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-white">${i+1}. ${_esc(c.name)}</span>
+                                    <span class="text-yellow-300 font-bold">฿${_fmt(c.revenue)}</span>
+                                </div>
+                                <div class="flex items-center gap-2 mt-0.5">
+                                    <div class="flex-1 h-1.5 bg-white/5 rounded overflow-hidden"><div class="h-full bg-gradient-to-r from-yellow-500 to-orange-500" style="width:${pct}%"></div></div>
+                                    <span class="text-[9px] text-zinc-500 w-12 text-right">x${c.qty}</span>
+                                </div>
+                            </div>`;
+                        }).join('') : '<div class="text-zinc-500 text-xs text-center py-2">ยังไม่มีข้อมูล</div>'}
+                        <div class="text-[10px] text-zinc-500 text-center mt-2">💡 คลิกหมวดเพื่อ filter Top Products</div>
                     </div>
 
                     <div class="glass-card p-3 mb-3">
@@ -3604,11 +3692,16 @@
                         </div>
                     </div>
 
-                    <div class="text-[10px] text-zinc-600 text-center pt-3">ข้อมูล ณ ${new Date().toLocaleString('th-TH')} · ช่วง ${period === 'all' ? 'ทั้งหมด' : period+' วัน'}</div>
+                    <div class="text-[10px] text-zinc-600 text-center pt-3">ข้อมูล ณ ${new Date().toLocaleString('th-TH')} · ช่วง ${period === 'all' ? 'ทั้งหมด' : period+' วัน'}${cat?' · filter หมวด':''}</div>
                 `;
             } catch (e) {
                 wrap.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`;
             }
+        }
+
+        function onDashCatChange(catId) {
+            _dashCatFilter = catId;
+            loadDashboard();
         }
 
         // ---------- 🎫 Coupons ----------

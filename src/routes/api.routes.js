@@ -3872,6 +3872,7 @@ router.get('/admin/dashboard/financial', async (req, res) => {
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
     try {
         const period = (req.query.period || '30').toString();
+        const categoryId = req.query.categoryId ? parseInt(req.query.categoryId) : null;
         const since = period === 'all' ? null : new Date(Date.now() - parseInt(period) * 86400000);
         const dateFilter = since ? { createdAt: { gte: since } } : {};
         const paidStatuses = ['PAID', 'PROCESSING', 'SHIPPED'];
@@ -3912,12 +3913,15 @@ router.get('/admin/dashboard/financial', async (req, res) => {
         const couponsUsed = await prisma.customerCoupon.count({ where: { status: 'USED', ...(since ? { usedAt: { gte: since } } : {}) } });
 
         // top products (in revenue) — group by productId, join name
+        // รองรับ filter category: ถ้ามี categoryId → join ผ่าน product
+        const itemFilter = { order: { ...dateFilter, kind: 'PRODUCT', status: { in: paidStatuses } } };
+        if (categoryId) itemFilter.product = { categoryId };
         const itemsGrouped = await prisma.orderItem.groupBy({
             by: ['productId'],
-            where: { order: { ...dateFilter, kind: 'PRODUCT', status: { in: paidStatuses } } },
+            where: itemFilter,
             _sum: { quantity: true },
             orderBy: { _sum: { quantity: 'desc' } },
-            take: 5,
+            take: 10,
         });
         const productIds = itemsGrouped.map(i => i.productId);
         const products = productIds.length ? await prisma.product.findMany({
@@ -3964,6 +3968,71 @@ router.get('/admin/dashboard/financial', async (req, res) => {
             prisma.prizeShipment.count({ where: { status: 'PENDING' } }),
         ]);
 
+        // ⭐ NEW: top categories by revenue
+        const allItemsForCat = await prisma.orderItem.findMany({
+            where: { order: { ...dateFilter, kind: 'PRODUCT', status: { in: paidStatuses } } },
+            include: { product: { select: { categoryId: true, category: { select: { id: true, name: true } } } } },
+        });
+        const catRevMap = new Map();
+        for (const it of allItemsForCat) {
+            const cat = it.product.category;
+            const key = cat?.id ?? 0;
+            if (!catRevMap.has(key)) catRevMap.set(key, { id: cat?.id || null, name: cat?.name || 'ไม่มีหมวด', revenue: 0, qty: 0 });
+            const g = catRevMap.get(key);
+            g.revenue += Number(it.priceAtPurchase) * it.quantity;
+            g.qty += it.quantity;
+        }
+        const topCategories = [...catRevMap.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 8);
+        const allCategoriesMeta = await prisma.category.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } });
+
+        // ⭐ NEW: order status breakdown (pie data) ใน period
+        const statusBreakdown = await prisma.order.groupBy({
+            by: ['status'],
+            where: { ...dateFilter, kind: 'PRODUCT' },
+            _count: { _all: true },
+            _sum: { totalAmount: true },
+        });
+        const statusBreak = statusBreakdown.map(s => ({ status: s.status, count: s._count._all, totalAmount: Number(s._sum.totalAmount || 0) }));
+
+        // ⭐ NEW: daily revenue trend (period last N days, fallback 30)
+        const trendDays = period === 'all' ? 30 : Math.min(parseInt(period) || 30, 90);
+        const trendSince = new Date(Date.now() - trendDays * 86400000);
+        const dailyRows = await prisma.$queryRaw`
+            SELECT DATE("createdAt" AT TIME ZONE 'Asia/Bangkok') AS day,
+                   SUM("totalAmount") AS revenue,
+                   COUNT(*) AS orders
+            FROM "Order"
+            WHERE "kind" = 'PRODUCT' AND "status" IN ('PAID','PROCESSING','SHIPPED')
+              AND "createdAt" >= ${trendSince}
+            GROUP BY DATE("createdAt" AT TIME ZONE 'Asia/Bangkok')
+            ORDER BY day ASC
+        `;
+        // fill missing days with 0
+        const trendMap = new Map();
+        for (const r of dailyRows) trendMap.set(new Date(r.day).toISOString().slice(0, 10), { revenue: Number(r.revenue), orders: Number(r.orders) });
+        const trend = [];
+        for (let i = trendDays - 1; i >= 0; i--) {
+            const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+            const m = trendMap.get(d) || { revenue: 0, orders: 0 };
+            trend.push({ date: d, revenue: m.revenue, orders: m.orders });
+        }
+
+        // ⭐ NEW: repeat customer rate (ใน period นี้ → ลูกค้ากี่ % ที่มีออเดอร์ ≥ 2)
+        const customerOrderCounts = await prisma.order.groupBy({
+            by: ['customerId'],
+            where: { ...dateFilter, kind: 'PRODUCT', status: { in: paidStatuses } },
+            _count: { _all: true },
+        });
+        const totalUnique = customerOrderCounts.length;
+        const repeat = customerOrderCounts.filter(x => x._count._all >= 2).length;
+        const repeatRate = totalUnique ? Math.round((repeat / totalUnique) * 100) : 0;
+
+        // ⭐ NEW: cancel/refund rates
+        const totalAllStatus = await prisma.order.count({ where: { ...dateFilter, kind: 'PRODUCT' } });
+        const cancelled = await prisma.order.count({ where: { ...dateFilter, kind: 'PRODUCT', status: 'CANCELLED' } });
+        const overpaidRefunded = await prisma.order.count({ where: { ...dateFilter, kind: 'PRODUCT', overPaidRefundedAt: { not: null } } });
+        const cancelRate = totalAllStatus ? Math.round((cancelled / totalAllStatus) * 100) : 0;
+
         res.json({
             success: true,
             data: {
@@ -3973,8 +4042,15 @@ router.get('/admin/dashboard/financial', async (req, res) => {
                 pointsOutstanding, pointsIssued,
                 couponsClaimed, couponsUsed,
                 topProducts,
+                topCategories,
                 tierCounts,
                 boxStats: { ticketsIssued, opened, shipmentsPending },
+                statusBreakdown: statusBreak,
+                trend, trendDays,
+                repeatStats: { totalUnique, repeat, repeatRate },
+                healthStats: { totalOrders: totalAllStatus, cancelled, cancelRate, overpaidRefunded },
+                allCategories: allCategoriesMeta,
+                filter: { categoryId, period },
             },
         });
     } catch (e) {
