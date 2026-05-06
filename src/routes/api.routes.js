@@ -2834,11 +2834,11 @@ async function authAdmin(req, allowedRoles = ['Admin', 'SuperAdmin', 'Owner']) {
 const RBAC_SECTIONS = [
     'orders', 'shipments', 'customers', 'coupons', 'mystery-boxes',
     'products', 'categories', 'banners', 'campaigns',
-    'broadcast', 'audit', 'settings',
+    'broadcast', 'audit', 'settings', 'ship-sync',
 ];
 const RBAC_DEFAULT = {
     Admin: ['orders', 'shipments', 'customers'],
-    SuperAdmin: ['orders', 'shipments', 'customers', 'coupons', 'mystery-boxes', 'products', 'categories', 'banners', 'campaigns', 'broadcast', 'audit', 'settings'],
+    SuperAdmin: ['orders', 'shipments', 'customers', 'coupons', 'mystery-boxes', 'products', 'categories', 'banners', 'campaigns', 'broadcast', 'audit', 'settings', 'ship-sync'],
 };
 
 async function getRbacMatrix() {
@@ -3743,6 +3743,28 @@ function sanitizeProductPayload(b) {
         categoryId: intOrNull(b.categoryId),
     };
 }
+
+// ---------- 📦 SHIPPING SYNC (SuperAdmin/Owner) ----------
+// POST /admin/shipping/sync-sheet { sheetUrl }
+router.post('/admin/shipping/sync-sheet', async (req, res) => {
+    const a = await authAdmin(req, ['SuperAdmin', 'Owner']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const sheetUrl = String(req.body?.sheetUrl || '').trim();
+        if (!sheetUrl.includes('docs.google.com/spreadsheets')) {
+            return res.status(400).json({ success: false, error: 'URL ต้องเป็น Google Sheets' });
+        }
+        const stats = await shippingService.syncShippingFromGoogleSheet(sheetUrl);
+        await prisma.adminAuditLog.create({
+            data: { adminName: a.admin?.name || a.telegramId, action: 'SHIPPING_SYNC',
+                details: JSON.stringify({ sheetUrl, ...stats, errors: stats.errors?.slice(0, 10) }) },
+        });
+        res.json({ success: true, stats });
+    } catch (e) {
+        console.error('shipping sync error:', e);
+        res.status(500).json({ success: false, error: e.message || 'sync failed' });
+    }
+});
 
 // ---------- ⚙️ SETTINGS ----------
 const KNOWN_CONFIG_KEYS = [

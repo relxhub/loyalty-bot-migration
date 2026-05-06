@@ -190,6 +190,15 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
+            <button onclick="showView('ship-sync')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+                <div class="w-12 h-12 rounded-xl bg-teal-500/20 flex items-center justify-center text-2xl">📦</div>
+                <div class="flex-1">
+                    <div class="font-bold text-white text-sm">ซิงค์เลขพัสดุจาก Google Sheet <span class="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/30 text-purple-300 font-bold ml-1">SuperAdmin</span></div>
+                    <div class="text-[11px] text-zinc-400">วาง URL ชีต → จับเบอร์/zipcode → mark SHIPPED</div>
+                </div>
+                <i class="ri-arrow-right-s-line text-zinc-400"></i>
+            </button>
+
             <!-- Owner-only -->
             <button id="menu-admins" onclick="showView('admins')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden border-yellow-500/40">
                 <div class="w-12 h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center text-2xl">👨‍💼</div>
@@ -315,8 +324,23 @@
                 <div id="set-bank-list" class="space-y-2"></div>
             </div>
         </div>
+        <!-- 📦 Shipping Sync view -->
+        <div id="view-ship-sync" class="hidden">
+            <div class="font-bold text-sm mb-3 flex items-center gap-2"><i class="ri-truck-line text-teal-400"></i> ซิงค์เลขพัสดุจาก Google Sheet</div>
+            <div class="glass-card p-4 space-y-3 text-sm">
+                <div class="text-[11px] text-zinc-400 leading-relaxed">
+                    วาง URL ของ Google Sheet ที่ <span class="text-teal-300">share เป็น "ใครก็ได้ที่มีลิงก์ดูได้"</span><br>
+                    ระบบจะหา column "เลขพัสดุ/Tracking" และ "เบอร์/Phone" → จับคู่กับออเดอร์ที่ <span class="text-cyan-300">PROCESSING</span> → ใส่ tracking + เปลี่ยนเป็น <span class="text-emerald-300">SHIPPED</span> + แจ้งลูกค้า
+                </div>
+                <div>
+                    <label class="text-[11px] text-zinc-400 block mb-1">URL Google Sheet *</label>
+                    <input id="ss-sheet-url" type="text" placeholder="https://docs.google.com/spreadsheets/d/..../edit#gid=0" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white text-xs font-mono">
+                </div>
+                <button id="ss-sync-btn" onclick="runShippingSync()" class="w-full py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-white font-bold text-sm"><i class="ri-refresh-line"></i> เริ่มซิงค์</button>
+                <div id="ss-result" class="text-xs"></div>
+            </div>
+        </div>
 
-        <!-- 📣 Broadcast view -->
         <div id="view-broadcast" class="hidden">
             <div class="font-bold text-sm mb-3 flex items-center gap-2"><i class="ri-megaphone-line text-fuchsia-400"></i> ส่งข่าวสารถึงลูกค้า</div>
             <div class="glass-card p-4 space-y-3 text-sm">
@@ -561,6 +585,7 @@
             else if (name === 'audit') loadAuditLog();
             else if (name === 'settings') loadSettings();
             else if (name === 'rbac') loadRbacMatrix();
+            else if (name === 'ship-sync') { document.getElementById('ss-result').innerHTML = ''; }
         }
 
         // ซ่อนเมนูที่ไม่อยู่ใน permissions ของ role ปัจจุบัน
@@ -579,6 +604,7 @@
                 broadcast: 'showView(\'broadcast\')',
                 audit: 'showView(\'audit\')',
                 settings: 'showView(\'settings\')',
+                'ship-sync': 'showView(\'ship-sync\')',
             };
             document.querySelectorAll('#view-home button.menu-card').forEach(btn => {
                 const onclick = btn.getAttribute('onclick') || '';
@@ -1920,6 +1946,53 @@
             } catch (e) { alert('error: '+e.message); }
         }
 
+        // ---------- 📦 Shipping Sync ----------
+        async function runShippingSync() {
+            const url = document.getElementById('ss-sheet-url').value.trim();
+            if (!url.includes('docs.google.com/spreadsheets')) return alert('ใส่ Google Sheets URL ที่ถูกต้อง');
+            if (!confirm('เริ่มซิงค์เลขพัสดุจาก Google Sheet?\n(ระบบจะอัปเดตออเดอร์ + แจ้งลูกค้าเลย)')) return;
+            const btn = document.getElementById('ss-sync-btn');
+            const result = document.getElementById('ss-result');
+            btn.disabled = true; const wasText = btn.textContent; btn.textContent = '⏳ กำลังซิงค์...';
+            result.innerHTML = '<div class="text-zinc-500 animate-pulse">กำลังประมวลผลข้อมูลจากชีต...</div>';
+            try {
+                const res = await fetch('/api/admin/shipping/sync-sheet', {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ sheetUrl: url, initData: tg.initData }),
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    result.innerHTML = `<div class="text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg p-3">❌ ${_esc(data.error||'sync failed')}</div>`;
+                    return;
+                }
+                const s = data.stats;
+                const errBlock = (s.errors && s.errors.length) ? `
+                    <div class="mt-2 pt-2 border-t border-white/10">
+                        <div class="text-orange-300 font-bold text-[11px] mb-1">⚠️ ${s.errors.length} ข้อผิดพลาด</div>
+                        ${s.errors.slice(0, 10).map(e => `<div class="text-[10px] text-zinc-400">• ${_esc(e)}</div>`).join('')}
+                        ${s.errors.length > 10 ? `<div class="text-[10px] text-zinc-500 mt-1">...และอีก ${s.errors.length - 10} รายการ</div>` : ''}
+                    </div>` : '<div class="text-emerald-300 text-[11px] mt-2">✓ ไม่มีข้อผิดพลาด</div>';
+                result.innerHTML = `
+                    <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
+                        <div class="text-emerald-300 font-bold text-sm mb-2">✅ ซิงค์สำเร็จ</div>
+                        <div class="grid grid-cols-2 gap-2 text-center">
+                            <div class="bg-black/30 rounded p-2">
+                                <div class="text-base font-bold text-white">${s.totalUpdated}</div>
+                                <div class="text-[10px] text-zinc-500">ออเดอร์อัปเดต</div>
+                            </div>
+                            <div class="bg-black/30 rounded p-2">
+                                <div class="text-base font-bold text-white">${s.totalProcessed}</div>
+                                <div class="text-[10px] text-zinc-500">เบอร์ในชีต</div>
+                            </div>
+                        </div>
+                        ${errBlock}
+                    </div>`;
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
+            } catch (e) {
+                result.innerHTML = `<div class="text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg p-3">❌ ${_esc(e.message)}</div>`;
+            } finally { btn.disabled = false; btn.textContent = wasText; }
+        }
+
         // ---------- 🔐 RBAC matrix (Owner) ----------
         const _RBAC_LABELS = {
             orders: '🛒 จัดการออเดอร์',
@@ -1934,6 +2007,7 @@
             broadcast: '📣 Broadcast',
             audit: '📜 Audit Log',
             settings: '⚙️ ตั้งค่าระบบ',
+            'ship-sync': '📦 ซิงค์เลขพัสดุ (Sheet)',
         };
 
         async function loadRbacMatrix() {
