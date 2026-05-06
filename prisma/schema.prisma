@@ -264,6 +264,10 @@ model Admin {
   name       String?
   role       Role    @default(Admin)
 
+  // ถ้ามีค่า → ใช้ permissions ของ custom role นั้น override default ของ Role enum
+  // (custom role definitions เก็บใน SystemConfig key='rbac_matrix' → custom: { name: [sections] })
+  customRoleName String?
+
   adminShifts AdminShift[]
 }
 

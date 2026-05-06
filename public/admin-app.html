@@ -71,6 +71,7 @@
                     <div class="flex items-center gap-2 mt-0.5">
                         <div class="text-base font-bold text-white" id="admin-name">—</div>
                         <span id="admin-role" class="role-badge">—</span>
+                        <span id="admin-custom-role" class="hidden text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 font-bold">—</span>
                     </div>
                 </div>
             </div>
@@ -250,7 +251,14 @@
             <div class="font-bold text-sm mb-3 flex items-center gap-2"><i class="ri-shield-keyhole-line text-yellow-400"></i> สิทธิ์การเข้าถึงเมนู</div>
             <div class="text-[11px] text-zinc-400 mb-3">เลือกว่า role ไหนเข้าถึง section ไหนได้บ้าง · Owner เห็นทั้งหมดเสมอ</div>
             <div id="rbac-matrix" class="glass-card p-3 mb-3"></div>
-            <button id="rbac-save-btn" onclick="saveRbacMatrix()" class="w-full py-2.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black font-bold text-sm">บันทึกการเปลี่ยนแปลง</button>
+
+            <div class="flex items-center justify-between mb-2 mt-4">
+                <div class="font-bold text-sm flex items-center gap-2"><i class="ri-team-line text-yellow-400"></i> Custom Roles</div>
+                <button onclick="openCustRoleEdit()" class="text-xs px-3 py-1.5 rounded-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold"><i class="ri-add-line"></i> สร้าง role</button>
+            </div>
+            <div id="rbac-custom-list" class="space-y-2 mb-3"></div>
+
+            <button id="rbac-save-btn" onclick="saveRbacMatrix()" class="w-full py-2.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black font-bold text-sm">บันทึกการเปลี่ยนแปลง (Admin / SuperAdmin permissions)</button>
         </div>
 
         <!-- 📊 Dashboard view (Owner only) -->
@@ -546,6 +554,11 @@
         <div id="sh-modal-content" class="glass-card w-full max-w-sm p-5 rounded-t-3xl sm:rounded-2xl"></div>
     </div>
 
+    <!-- 🛡️ Custom Role Edit Modal -->
+    <div id="cr-modal" class="hidden fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-sm">
+        <div id="cr-modal-content" class="glass-card w-full max-w-md max-h-[92vh] overflow-y-auto p-5 rounded-t-3xl sm:rounded-2xl"></div>
+    </div>
+
     <!-- 🖼️ Slip Image Lightbox -->
     <div id="img-lightbox" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4" onclick="this.classList.add('hidden')">
         <img id="img-lightbox-src" src="" class="max-w-full max-h-full object-contain rounded-lg">
@@ -675,6 +688,11 @@
                 window._adminRole = me.role;
                 window._myPermissions = me.permissions || [];
                 window._allSections = me.allSections || [];
+                if (me.customRoleName) {
+                    const cr = document.getElementById('admin-custom-role');
+                    cr.textContent = '🛡️ ' + me.customRoleName;
+                    cr.classList.remove('hidden');
+                }
                 if (me.role === 'Owner') {
                     document.getElementById('menu-dashboard').classList.remove('hidden');
                     document.getElementById('menu-admins').classList.remove('hidden');
@@ -825,6 +843,7 @@
             document.getElementById('ad-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeAdModal(); });
             document.getElementById('bk-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeBkModal(); });
             document.getElementById('sh-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeShModal(); });
+            document.getElementById('cr-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeCustRoleModal(); });
             document.querySelectorAll('.set-tab').forEach(b => {
                 b.addEventListener('click', () => switchSettingsTab(b.dataset.tab));
             });
@@ -1873,17 +1892,29 @@
                         <div class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-base">${ad.role==='Owner'?'👑':ad.role==='SuperAdmin'?'⭐':'🛠️'}</div>
                         <div class="flex-1 min-w-0">
                             <div class="text-sm font-bold text-white truncate">${_esc(ad.name||'(no name)')}</div>
-                            <div class="text-[10px] text-zinc-500"><code>${_esc(ad.telegramId)}</code></div>
+                            <div class="text-[10px] text-zinc-500"><code>${_esc(ad.telegramId)}</code>${ad.customRoleName ? ` · 🛡️ <span class="text-yellow-300">${_esc(ad.customRoleName)}</span>` : ''}</div>
                         </div>
                         <span class="role-badge role-${ad.role}">${ad.role}</span>
                     </div>`).join('');
             } catch (e) { list.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`; }
         }
 
-        function openAdEdit(tgId) {
+        async function openAdEdit(tgId) {
             _editingAdTgId = tgId || null;
             const isNew = !tgId;
             const ad = tgId ? (window._adCache || []).find(x => x.telegramId === tgId) || {} : {};
+
+            // โหลด custom roles list (Owner only — endpoint จะ 403 ถ้าไม่ใช่)
+            let customRoles = [];
+            try {
+                const r = await fetch('/api/admin/rbac-matrix', { headers: { 'X-Init-Data': tg.initData } });
+                const d = await r.json();
+                if (d.success) customRoles = Object.keys(d.matrix.custom || {});
+            } catch (e) {}
+            const customOpts = ['<option value="">— ใช้ default ตาม Role —</option>',
+                ...customRoles.map(n => `<option value="${_esc(n)}" ${ad.customRoleName===n?'selected':''}>${_esc(n)}</option>`)
+            ].join('');
+
             document.getElementById('ad-modal-content').innerHTML = `
                 <div class="flex items-start justify-between mb-3">
                     <h3 class="text-base font-bold">${isNew?'➕ เพิ่ม Admin':'✏️ แก้ไข Admin'}</h3>
@@ -1892,10 +1923,14 @@
                 <div class="space-y-3 text-sm">
                     <div><label class="text-[11px] text-zinc-400 block mb-1">Telegram ID *</label><input id="ad-telegramId" type="text" value="${_esc(ad.telegramId||'')}" ${!isNew?'disabled':''} class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white ${!isNew?'opacity-60':''}"></div>
                     <div><label class="text-[11px] text-zinc-400 block mb-1">ชื่อ</label><input id="ad-name" type="text" value="${_esc(ad.name||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
-                    <div><label class="text-[11px] text-zinc-400 block mb-1">Role</label>
+                    <div><label class="text-[11px] text-zinc-400 block mb-1">Built-in Role *</label>
                         <select id="ad-role" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
                             ${['Admin','SuperAdmin'].map(r => `<option value="${r}" ${(ad.role||'Admin')===r?'selected':''}>${r}</option>`).join('')}
                         </select>
+                    </div>
+                    <div><label class="text-[11px] text-zinc-400 block mb-1">Custom Role (override permissions, optional)</label>
+                        <select id="ad-customRoleName" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">${customOpts}</select>
+                        <div class="text-[10px] text-zinc-500 mt-1">เลือกถ้าต้องการให้ admin คนนี้ใช้ permissions ของ custom role แทน default</div>
                     </div>
                 </div>
                 <div class="mt-4 flex gap-2">
@@ -1911,8 +1946,8 @@
             const v = (id) => document.getElementById(id)?.value;
             const isNew = !_editingAdTgId;
             const body = isNew
-                ? { telegramId: v('ad-telegramId'), name: v('ad-name'), role: v('ad-role'), initData: tg.initData }
-                : { name: v('ad-name'), role: v('ad-role'), initData: tg.initData };
+                ? { telegramId: v('ad-telegramId'), name: v('ad-name'), role: v('ad-role'), customRoleName: v('ad-customRoleName') || null, initData: tg.initData }
+                : { name: v('ad-name'), role: v('ad-role'), customRoleName: v('ad-customRoleName') || null, initData: tg.initData };
             try {
                 const url = isNew ? '/api/admin/admins' : `/api/admin/admins/${encodeURIComponent(_editingAdTgId)}`;
                 const method = isNew ? 'POST' : 'PATCH';
@@ -2360,13 +2395,17 @@
 
         async function loadRbacMatrix() {
             const wrap = document.getElementById('rbac-matrix');
+            const customWrap = document.getElementById('rbac-custom-list');
             wrap.innerHTML = '<div class="text-center text-zinc-500 py-6 animate-pulse">กำลังโหลด...</div>';
+            customWrap.innerHTML = '';
             try {
                 const res = await fetch('/api/admin/rbac-matrix', { headers: { 'X-Init-Data': tg.initData } });
                 const data = await res.json();
                 if (!data.success) throw new Error(data.error || 'load failed');
                 const sections = data.sections;
                 const matrix = data.matrix;
+                window._rbacMatrixCache = matrix;
+                window._rbacSectionsCache = sections;
                 wrap.innerHTML = `
                     <table class="w-full text-xs">
                         <thead>
@@ -2388,7 +2427,96 @@
                     <div class="text-[10px] text-zinc-500 mt-3 pt-3 border-t border-white/10">
                         Owner เห็นทุกเมนู + Financial Dashboard + Admin Mgmt + RBAC matrix นี้เสมอ (แก้ไม่ได้)
                     </div>`;
+
+                // render custom roles
+                const customNames = Object.keys(matrix.custom || {});
+                if (!customNames.length) {
+                    customWrap.innerHTML = '<div class="text-center text-zinc-500 py-3 text-xs">ยังไม่มี custom role</div>';
+                } else {
+                    customWrap.innerHTML = customNames.map(name => {
+                        const perms = matrix.custom[name];
+                        const labels = perms.map(p => _RBAC_LABELS[p] || p).slice(0, 4).join(' · ');
+                        const more = perms.length > 4 ? ` +${perms.length-4}` : '';
+                        return `
+                            <div class="bg-white/5 border border-white/10 rounded-xl p-3 cursor-pointer hover:bg-white/10" onclick="openCustRoleEdit('${_esc(name)}')">
+                                <div class="flex items-center justify-between mb-1">
+                                    <div class="text-sm font-bold text-white">🛡️ ${_esc(name)}</div>
+                                    <span class="text-[10px] px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-300">${perms.length} sections</span>
+                                </div>
+                                <div class="text-[10px] text-zinc-400">${labels || '<i>ไม่มีสิทธิ์เข้าถึง</i>'}${more}</div>
+                            </div>`;
+                    }).join('');
+                }
             } catch (e) { wrap.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`; }
+        }
+
+        // Custom role create/edit modal
+        let _editingCustRole = null; // null = new, string = existing name
+        function openCustRoleEdit(name) {
+            _editingCustRole = name || null;
+            const isNew = !name;
+            const matrix = window._rbacMatrixCache || { custom: {} };
+            const sections = window._rbacSectionsCache || [];
+            const perms = name ? (matrix.custom[name] || []) : [];
+            document.getElementById('cr-modal-content').innerHTML = `
+                <div class="flex items-start justify-between mb-3">
+                    <h3 class="text-base font-bold">${isNew?'➕ สร้าง Custom Role':'✏️ แก้ไข ' + _esc(name)}</h3>
+                    <button onclick="closeCustRoleModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center"><i class="ri-close-line"></i></button>
+                </div>
+                <div class="space-y-3 text-sm">
+                    <div>
+                        <label class="text-[11px] text-zinc-400 block mb-1">ชื่อ Role *</label>
+                        <input id="cr-name" type="text" value="${_esc(name||'')}" ${name?'disabled':''} placeholder="เช่น Cashier, Inventory Manager" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white ${name?'opacity-60':''}">
+                        ${name?'<div class="text-[10px] text-zinc-500 mt-1">เปลี่ยนชื่อไม่ได้ (เพราะ admin อาจถูก assign อยู่)</div>':''}
+                    </div>
+                    <div>
+                        <div class="text-[11px] text-zinc-400 mb-1">สิทธิ์เข้าถึง section (${sections.length})</div>
+                        <div class="grid grid-cols-2 gap-1.5 max-h-72 overflow-y-auto bg-black/30 rounded-lg p-2">
+                            ${sections.map(s => `
+                                <label class="flex items-center gap-1.5 text-[11px] text-white">
+                                    <input type="checkbox" data-section="${s}" ${perms.includes(s)?'checked':''} class="cr-cb w-3.5 h-3.5 accent-yellow-500">
+                                    ${_RBAC_LABELS[s] || s}
+                                </label>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4 flex gap-2">
+                    ${!isNew ? `<button onclick="deleteCustRole()" class="px-3 py-2.5 rounded-xl bg-red-600/80 hover:bg-red-500 text-white"><i class="ri-delete-bin-line"></i></button>` : ''}
+                    <button onclick="closeCustRoleModal()" class="flex-1 py-2.5 rounded-xl bg-zinc-700 text-white font-bold">ยกเลิก</button>
+                    <button onclick="saveCustRole()" class="flex-1 py-2.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black font-bold">${isNew?'สร้าง':'บันทึก'}</button>
+                </div>`;
+            document.body.classList.add('no-scroll');
+            document.getElementById('cr-modal').classList.remove('hidden');
+        }
+        function closeCustRoleModal() { _editingCustRole = null; document.body.classList.remove('no-scroll'); document.getElementById('cr-modal').classList.add('hidden'); }
+        async function saveCustRole() {
+            const name = (document.getElementById('cr-name').value || '').trim() || _editingCustRole;
+            if (!name) return alert('ใส่ชื่อ role');
+            const permissions = Array.from(document.querySelectorAll('.cr-cb:checked')).map(c => c.dataset.section);
+            try {
+                const res = await fetch('/api/admin/custom-roles', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, permissions, initData: tg.initData }),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error || 'ไม่สำเร็จ'); return; }
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
+                closeCustRoleModal(); await loadRbacMatrix();
+            } catch (e) { alert('error: ' + e.message); }
+        }
+        async function deleteCustRole() {
+            if (!_editingCustRole) return;
+            if (!confirm(`ลบ role "${_editingCustRole}"?\n(ถ้ามี admin ใช้อยู่จะลบไม่ได้)`)) return;
+            try {
+                const res = await fetch(`/api/admin/custom-roles/${encodeURIComponent(_editingCustRole)}`, {
+                    method: 'DELETE', headers: { 'Content-Type': 'application/json', 'X-Init-Data': tg.initData },
+                    body: JSON.stringify({ initData: tg.initData }),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error || 'ไม่สำเร็จ'); return; }
+                closeCustRoleModal(); await loadRbacMatrix();
+            } catch (e) { alert('error: ' + e.message); }
         }
 
         async function saveRbacMatrix() {
@@ -2399,12 +2527,13 @@
                 if (cb.dataset.role === 'Admin') Admin.push(cb.dataset.section);
                 else SuperAdmin.push(cb.dataset.section);
             });
+            const custom = window._rbacMatrixCache?.custom || {};
             const btn = document.getElementById('rbac-save-btn');
             btn.disabled = true; const wasText = btn.textContent; btn.textContent = 'กำลังบันทึก...';
             try {
                 const res = await fetch('/api/admin/rbac-matrix', {
                     method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ matrix: { Admin, SuperAdmin }, initData: tg.initData }),
+                    body: JSON.stringify({ matrix: { Admin, SuperAdmin, custom }, initData: tg.initData }),
                 });
                 const data = await res.json();
                 if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }

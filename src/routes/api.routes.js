@@ -2844,19 +2844,31 @@ const RBAC_DEFAULT = {
 
 async function getRbacMatrix() {
     const row = await prisma.systemConfig.findUnique({ where: { key: 'rbac_matrix' } });
-    if (!row?.value) return RBAC_DEFAULT;
+    if (!row?.value) return { ...RBAC_DEFAULT, custom: {} };
     try {
         const parsed = JSON.parse(row.value);
+        const customClean = {};
+        if (parsed.custom && typeof parsed.custom === 'object') {
+            for (const [name, perms] of Object.entries(parsed.custom)) {
+                if (typeof name !== 'string' || !name.trim()) continue;
+                if (!Array.isArray(perms)) continue;
+                customClean[name] = perms.filter(s => RBAC_SECTIONS.includes(s));
+            }
+        }
         return {
             Admin: Array.isArray(parsed.Admin) ? parsed.Admin.filter(s => RBAC_SECTIONS.includes(s)) : RBAC_DEFAULT.Admin,
             SuperAdmin: Array.isArray(parsed.SuperAdmin) ? parsed.SuperAdmin.filter(s => RBAC_SECTIONS.includes(s)) : RBAC_DEFAULT.SuperAdmin,
+            custom: customClean,
         };
-    } catch (e) { return RBAC_DEFAULT; }
+    } catch (e) { return { ...RBAC_DEFAULT, custom: {} }; }
 }
 
-async function getPermissionsFor(role) {
-    if (role === 'Owner') return [...RBAC_SECTIONS]; // Owner เห็นทุก section ผ่าน gate (admin/dashboard/rbac เป็น role check ต่างหาก)
+async function getPermissionsFor(role, customRoleName = null) {
+    if (role === 'Owner') return [...RBAC_SECTIONS]; // Owner เห็นทุก section ผ่าน gate
     const matrix = await getRbacMatrix();
+    if (customRoleName && matrix.custom?.[customRoleName]) {
+        return matrix.custom[customRoleName];
+    }
     return matrix[role] || [];
 }
 
@@ -2864,8 +2876,12 @@ async function getPermissionsFor(role) {
 router.get('/admin/me', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
-    const permissions = await getPermissionsFor(a.admin.role);
-    res.json({ success: true, telegramId: a.telegramId, role: a.admin.role, name: a.admin.name, permissions, allSections: RBAC_SECTIONS });
+    const permissions = await getPermissionsFor(a.admin.role, a.admin.customRoleName);
+    res.json({
+        success: true, telegramId: a.telegramId, role: a.admin.role, name: a.admin.name,
+        customRoleName: a.admin.customRoleName || null,
+        permissions, allSections: RBAC_SECTIONS,
+    });
 });
 
 // GET /api/admin/rbac-matrix — Owner only
@@ -2873,28 +2889,79 @@ router.get('/admin/rbac-matrix', async (req, res) => {
     const a = await authAdmin(req, ['Owner']);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
     const matrix = await getRbacMatrix();
+    if (!matrix.custom) matrix.custom = {};
     res.json({ success: true, matrix, sections: RBAC_SECTIONS, defaults: RBAC_DEFAULT });
 });
 
-// PATCH /api/admin/rbac-matrix — Owner only
+// PATCH /api/admin/rbac-matrix — Owner only (รองรับ custom roles)
 router.patch('/admin/rbac-matrix', async (req, res) => {
     const a = await authAdmin(req, ['Owner']);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
     try {
         const m = req.body?.matrix;
         if (!m || typeof m !== 'object') return res.status(400).json({ success: false, error: 'matrix ต้องเป็น object' });
+        const customClean = {};
+        if (m.custom && typeof m.custom === 'object') {
+            for (const [name, perms] of Object.entries(m.custom)) {
+                if (typeof name !== 'string' || !name.trim()) continue;
+                if (!Array.isArray(perms)) continue;
+                customClean[name.trim()] = perms.filter(s => RBAC_SECTIONS.includes(s));
+            }
+        }
         const cleaned = {
             Admin: Array.isArray(m.Admin) ? m.Admin.filter(s => RBAC_SECTIONS.includes(s)) : [],
             SuperAdmin: Array.isArray(m.SuperAdmin) ? m.SuperAdmin.filter(s => RBAC_SECTIONS.includes(s)) : [],
+            custom: customClean,
         };
         await prisma.systemConfig.upsert({
             where: { key: 'rbac_matrix' },
             update: { value: JSON.stringify(cleaned) },
             create: { key: 'rbac_matrix', value: JSON.stringify(cleaned) },
         });
-        await prisma.adminAuditLog.create({ data: { adminName: a.admin?.name || a.telegramId, action: 'RBAC_UPDATE', details: JSON.stringify(cleaned) } });
+        await prisma.adminAuditLog.create({ data: { adminName: a.admin?.name || a.telegramId, action: 'RBAC_UPDATE', details: JSON.stringify({ Admin: cleaned.Admin.length, SuperAdmin: cleaned.SuperAdmin.length, customCount: Object.keys(customClean).length }) } });
         res.json({ success: true, matrix: cleaned });
     } catch (e) { res.status(500).json({ success: false, error: e.message || 'update failed' }); }
+});
+
+// POST /admin/custom-roles { name, permissions[] } — Owner only — สร้างหรือ rename
+router.post('/admin/custom-roles', async (req, res) => {
+    const a = await authAdmin(req, ['Owner']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const name = String(req.body?.name || '').trim();
+        const perms = Array.isArray(req.body?.permissions) ? req.body.permissions.filter(s => RBAC_SECTIONS.includes(s)) : [];
+        if (!name) return res.status(400).json({ success: false, error: 'name ห้ามว่าง' });
+        if (['Admin', 'SuperAdmin', 'Owner'].includes(name)) return res.status(400).json({ success: false, error: 'ห้ามใช้ชื่อ built-in role' });
+        const matrix = await getRbacMatrix();
+        matrix.custom[name] = perms;
+        await prisma.systemConfig.upsert({
+            where: { key: 'rbac_matrix' },
+            update: { value: JSON.stringify(matrix) },
+            create: { key: 'rbac_matrix', value: JSON.stringify(matrix) },
+        });
+        await prisma.adminAuditLog.create({ data: { adminName: a.admin?.name || a.telegramId, action: 'CUSTOM_ROLE_UPSERT', details: JSON.stringify({ name, permsCount: perms.length }) } });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'create failed' }); }
+});
+
+// DELETE /admin/custom-roles/:name — Owner only
+router.delete('/admin/custom-roles/:name', async (req, res) => {
+    const a = await authAdmin(req, ['Owner']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const name = req.params.name;
+        // ถ้ามี admin ใช้ role นี้อยู่ → block
+        const used = await prisma.admin.count({ where: { customRoleName: name } });
+        if (used > 0) return res.status(400).json({ success: false, error: `ลบไม่ได้ — มี admin ${used} คนใช้ role นี้อยู่` });
+        const matrix = await getRbacMatrix();
+        if (!matrix.custom[name]) return res.status(404).json({ success: false, error: 'ไม่พบ role' });
+        delete matrix.custom[name];
+        await prisma.systemConfig.update({
+            where: { key: 'rbac_matrix' }, data: { value: JSON.stringify(matrix) },
+        });
+        await prisma.adminAuditLog.create({ data: { adminName: a.admin?.name || a.telegramId, action: 'CUSTOM_ROLE_DELETE', details: JSON.stringify({ name }) } });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'delete failed' }); }
 });
 
 // GET /api/admin/prize-shipments — list ตามสถานะ
@@ -4208,9 +4275,15 @@ router.post('/admin/admins', async (req, res) => {
         if (!b.telegramId) return res.status(400).json({ success: false, error: 'telegramId ห้ามว่าง' });
         const allowed = ['Admin', 'SuperAdmin'];
         const role = allowed.includes(b.role) ? b.role : 'Admin';
-        const created = await prisma.admin.create({ data: { telegramId: String(b.telegramId), name: b.name || null, role } });
+        const customRoleName = b.customRoleName ? String(b.customRoleName).trim() : null;
+        // ถ้าระบุ customRoleName → ต้องมีจริงใน matrix
+        if (customRoleName) {
+            const matrix = await getRbacMatrix();
+            if (!matrix.custom?.[customRoleName]) return res.status(400).json({ success: false, error: 'ไม่พบ custom role: ' + customRoleName });
+        }
+        const created = await prisma.admin.create({ data: { telegramId: String(b.telegramId), name: b.name || null, role, customRoleName } });
         await prisma.adminAuditLog.create({ data: { adminName: a.admin?.name || a.telegramId, action: 'ADMIN_ADD',
-            details: JSON.stringify({ targetTelegramId: created.telegramId, role }) } });
+            details: JSON.stringify({ targetTelegramId: created.telegramId, role, customRoleName }) } });
         res.json({ success: true });
     } catch (e) {
         if (e.code === 'P2002') return res.status(400).json({ success: false, error: 'มี admin telegram id นี้อยู่แล้ว' });
@@ -4233,6 +4306,14 @@ router.patch('/admin/admins/:telegramId', async (req, res) => {
         if (b.role !== undefined) {
             if (!allowed.includes(b.role)) return res.status(400).json({ success: false, error: 'role ไม่ถูกต้อง (Admin/SuperAdmin)' });
             data.role = b.role;
+        }
+        if (b.customRoleName !== undefined) {
+            const cn = b.customRoleName ? String(b.customRoleName).trim() : null;
+            if (cn) {
+                const matrix = await getRbacMatrix();
+                if (!matrix.custom?.[cn]) return res.status(400).json({ success: false, error: 'ไม่พบ custom role: ' + cn });
+            }
+            data.customRoleName = cn;
         }
         await prisma.admin.update({ where: { telegramId: tgId }, data });
         await prisma.adminAuditLog.create({ data: { adminName: a.admin?.name || a.telegramId, action: 'ADMIN_EDIT',
