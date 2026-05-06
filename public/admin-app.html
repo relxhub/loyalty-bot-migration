@@ -163,7 +163,34 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
-            <!-- Owner-only: financial dashboard -->
+            <button onclick="showView('broadcast')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+                <div class="w-12 h-12 rounded-xl bg-fuchsia-500/20 flex items-center justify-center text-2xl">📣</div>
+                <div class="flex-1">
+                    <div class="font-bold text-white text-sm">ส่งข่าวสาร (Broadcast)</div>
+                    <div class="text-[11px] text-zinc-400">แจ้งลูกค้าหลายคนพร้อมกัน</div>
+                </div>
+                <i class="ri-arrow-right-s-line text-zinc-400"></i>
+            </button>
+
+            <button onclick="showView('audit')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+                <div class="w-12 h-12 rounded-xl bg-zinc-500/20 flex items-center justify-center text-2xl">📜</div>
+                <div class="flex-1">
+                    <div class="font-bold text-white text-sm">Audit Log</div>
+                    <div class="text-[11px] text-zinc-400">ประวัติการกระทำของ admin</div>
+                </div>
+                <i class="ri-arrow-right-s-line text-zinc-400"></i>
+            </button>
+
+            <!-- Owner-only -->
+            <button id="menu-admins" onclick="showView('admins')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden border-yellow-500/40">
+                <div class="w-12 h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center text-2xl">👨‍💼</div>
+                <div class="flex-1">
+                    <div class="font-bold text-white text-sm">จัดการ Admin <span class="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/30 text-yellow-300 font-bold ml-1">Owner</span></div>
+                    <div class="text-[11px] text-zinc-400">เพิ่ม/ลบ + เปลี่ยน role</div>
+                </div>
+                <i class="ri-arrow-right-s-line text-zinc-400"></i>
+            </button>
+
             <button id="menu-dashboard" onclick="showView('dashboard')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden border-yellow-500/40">
                 <div class="w-12 h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center text-2xl">📊</div>
                 <div class="flex-1">
@@ -236,6 +263,69 @@
                 <button onclick="openCpnEdit()" class="text-xs px-3 py-1.5 rounded-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold"><i class="ri-add-line"></i> สร้างใหม่</button>
             </div>
             <div id="cpn-list" class="space-y-2"></div>
+        </div>
+
+        <!-- 📣 Broadcast view -->
+        <div id="view-broadcast" class="hidden">
+            <div class="font-bold text-sm mb-3 flex items-center gap-2"><i class="ri-megaphone-line text-fuchsia-400"></i> ส่งข่าวสารถึงลูกค้า</div>
+            <div class="glass-card p-4 space-y-3 text-sm">
+                <div>
+                    <label class="text-[11px] text-zinc-400 block mb-1">หัวข้อ *</label>
+                    <input id="bc-title" type="text" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white" placeholder="ส่วนลดพิเศษ!">
+                </div>
+                <div>
+                    <label class="text-[11px] text-zinc-400 block mb-1">เนื้อหา *</label>
+                    <textarea id="bc-body" rows="4" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white" placeholder="..."></textarea>
+                </div>
+                <div>
+                    <label class="text-[11px] text-zinc-400 block mb-1">ลิงก์ปลายทาง (optional)</label>
+                    <input id="bc-link" type="text" placeholder="dashboard.html#coupons" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                </div>
+                <div>
+                    <label class="text-[11px] text-zinc-400 block mb-1">กลุ่มเป้าหมาย</label>
+                    <select id="bc-filter" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                        <option value="all">ทั้งหมด</option>
+                        <option value="bronze">Bronze (ชวน &lt; 3 คน)</option>
+                        <option value="silver">Silver (ชวน 3-5 คน)</option>
+                        <option value="gold">Gold (ชวน ≥ 6 คน)</option>
+                        <option value="new">สมาชิกใหม่ (สมัครภายใน 7 วัน)</option>
+                        <option value="inactive">Inactive (ไม่ซื้อใน 30 วัน)</option>
+                    </select>
+                </div>
+                <label class="flex items-center gap-2 pt-2 border-t border-white/10"><input id="bc-sendTelegram" type="checkbox" class="w-4 h-4 accent-fuchsia-500"> ส่ง Telegram message ด้วย <span class="text-[10px] text-orange-300">(ระวัง rate limit)</span></label>
+                <button id="bc-send-btn" onclick="sendBroadcast()" class="w-full py-2.5 rounded-xl bg-fuchsia-500 hover:bg-fuchsia-400 text-white font-bold text-sm"><i class="ri-send-plane-line"></i> ส่ง Broadcast</button>
+            </div>
+        </div>
+
+        <!-- 👨‍💼 Admin Mgmt view (Owner only) -->
+        <div id="view-admins" class="hidden">
+            <div class="flex items-center justify-between mb-3">
+                <div class="font-bold text-sm flex items-center gap-2"><i class="ri-user-settings-line text-yellow-400"></i> จัดการ Admin</div>
+                <button onclick="openAdEdit()" class="text-xs px-3 py-1.5 rounded-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold"><i class="ri-add-line"></i> เพิ่ม</button>
+            </div>
+            <div id="ad-list" class="space-y-2"></div>
+        </div>
+
+        <!-- 📜 Audit Log view -->
+        <div id="view-audit" class="hidden">
+            <div class="flex items-center justify-between mb-3">
+                <div class="font-bold text-sm flex items-center gap-2"><i class="ri-file-list-3-line text-zinc-400"></i> Audit Log</div>
+                <select id="audit-filter" onchange="loadAuditLog()" class="text-xs bg-white/5 border border-white/10 rounded-lg p-1.5 text-white">
+                    <option value="">ทั้งหมด</option>
+                    <option value="MISMATCH_ACCEPT">MISMATCH_ACCEPT</option>
+                    <option value="MISMATCH_REJECT">MISMATCH_REJECT</option>
+                    <option value="ORDER_CANCEL">ORDER_CANCEL</option>
+                    <option value="SET_BILL">SET_BILL</option>
+                    <option value="SET_TRACKING">SET_TRACKING</option>
+                    <option value="OVERPAID_REFUND_CONFIRM">OVERPAID_REFUND_CONFIRM</option>
+                    <option value="BROADCAST">BROADCAST</option>
+                    <option value="ADMIN_ADD">ADMIN_ADD</option>
+                    <option value="ADMIN_EDIT">ADMIN_EDIT</option>
+                    <option value="ADMIN_REMOVE">ADMIN_REMOVE</option>
+                    <option value="EDIT_POINTS">EDIT_POINTS</option>
+                </select>
+            </div>
+            <div id="audit-list" class="space-y-1.5"></div>
         </div>
 
         <!-- 🎞️ Banners view -->
@@ -348,6 +438,11 @@
         <div id="cm-modal-content" class="glass-card w-full max-w-md max-h-[92vh] overflow-y-auto p-5 rounded-t-3xl sm:rounded-2xl"></div>
     </div>
 
+    <!-- 👨‍💼 Admin Edit Modal -->
+    <div id="ad-modal" class="hidden fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-sm">
+        <div id="ad-modal-content" class="glass-card w-full max-w-sm p-5 rounded-t-3xl sm:rounded-2xl"></div>
+    </div>
+
     <!-- 🖼️ Slip Image Lightbox -->
     <div id="img-lightbox" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4" onclick="this.classList.add('hidden')">
         <img id="img-lightbox-src" src="" class="max-w-full max-h-full object-contain rounded-lg">
@@ -405,6 +500,9 @@
             else if (name === 'categories') loadAdminCategories();
             else if (name === 'banners') loadAdminBanners();
             else if (name === 'campaigns') loadAdminCampaigns();
+            else if (name === 'broadcast') { /* form already in DOM */ }
+            else if (name === 'admins') loadAdminList();
+            else if (name === 'audit') loadAuditLog();
         }
         function goHome() { showView('home'); loadShipmentsBadge(); loadOrdersBadge(); }
 
@@ -428,7 +526,10 @@
                 roleEl.textContent = me.role;
                 roleEl.classList.add(`role-${me.role}`);
                 window._adminRole = me.role;
-                if (me.role === 'Owner') document.getElementById('menu-dashboard').classList.remove('hidden');
+                if (me.role === 'Owner') {
+                    document.getElementById('menu-dashboard').classList.remove('hidden');
+                    document.getElementById('menu-admins').classList.remove('hidden');
+                }
                 document.getElementById('loading-screen').classList.add('hidden');
                 document.getElementById('app').classList.remove('hidden');
 
@@ -566,6 +667,7 @@
             document.getElementById('cat-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeCatModal(); });
             document.getElementById('bn-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeBnModal(); });
             document.getElementById('cm-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeCmModal(); });
+            document.getElementById('ad-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeAdModal(); });
             document.getElementById('prod-search').addEventListener('input', (e) => {
                 clearTimeout(_prodSearchDebounce);
                 _prodSearchDebounce = setTimeout(() => loadAdminProducts(), 300);
@@ -1425,6 +1527,133 @@
                 if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
                 closeCmModal(); await loadAdminCampaigns();
             } catch (e) { alert('error: '+e.message); }
+        }
+
+        // ---------- 📣 Broadcast ----------
+        async function sendBroadcast() {
+            const v = (id) => document.getElementById(id)?.value;
+            const ck = (id) => document.getElementById(id)?.checked;
+            const title = v('bc-title').trim(), body = v('bc-body').trim();
+            if (!title || !body) return alert('กรอกหัวข้อและเนื้อหา');
+            const filter = v('bc-filter');
+            const sendTelegram = ck('bc-sendTelegram');
+            if (!confirm(`ส่ง Broadcast "${title}" ถึงกลุ่ม "${filter}"${sendTelegram?' + Telegram':''}?\n(ยกเลิกไม่ได้)`)) return;
+            const btn = document.getElementById('bc-send-btn');
+            btn.disabled = true; const wasText = btn.textContent; btn.textContent = 'กำลังส่ง...';
+            try {
+                const res = await fetch('/api/admin/broadcast', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, body, link: v('bc-link') || null, filter, sendTelegram, initData: tg.initData }),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error || 'ไม่สำเร็จ'); return; }
+                alert(`✅ ส่งแล้ว ${data.created} ราย${data.telegramSent?` · Telegram ${data.telegramSent}`:''}`);
+                document.getElementById('bc-title').value = '';
+                document.getElementById('bc-body').value = '';
+                document.getElementById('bc-link').value = '';
+            } catch (e) { alert('error: '+e.message); }
+            finally { btn.disabled = false; btn.textContent = wasText; }
+        }
+
+        // ---------- 👨‍💼 Admin Mgmt ----------
+        let _editingAdTgId = null;
+        async function loadAdminList() {
+            const list = document.getElementById('ad-list');
+            list.innerHTML = '<div class="text-center text-zinc-500 py-6 animate-pulse">กำลังโหลด...</div>';
+            try {
+                const res = await fetch('/api/admin/admins', { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'load failed');
+                window._adCache = data.admins;
+                if (!data.admins.length) { list.innerHTML = '<div class="text-center text-zinc-500 py-6 text-sm">ไม่มี admin</div>'; return; }
+                list.innerHTML = data.admins.map((ad, idx) => `
+                    <div class="bg-white/5 border border-white/10 rounded-xl p-3 flex items-center gap-3 ${ad.role==='Owner'?'':'cursor-pointer hover:bg-white/10'} item-fade-in" style="animation-delay:${idx*25}ms" ${ad.role!=='Owner'?`onclick="openAdEdit('${_esc(ad.telegramId)}')"`:''}>
+                        <div class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-base">${ad.role==='Owner'?'👑':ad.role==='SuperAdmin'?'⭐':'🛠️'}</div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-bold text-white truncate">${_esc(ad.name||'(no name)')}</div>
+                            <div class="text-[10px] text-zinc-500"><code>${_esc(ad.telegramId)}</code></div>
+                        </div>
+                        <span class="role-badge role-${ad.role}">${ad.role}</span>
+                    </div>`).join('');
+            } catch (e) { list.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`; }
+        }
+
+        function openAdEdit(tgId) {
+            _editingAdTgId = tgId || null;
+            const isNew = !tgId;
+            const ad = tgId ? (window._adCache || []).find(x => x.telegramId === tgId) || {} : {};
+            document.getElementById('ad-modal-content').innerHTML = `
+                <div class="flex items-start justify-between mb-3">
+                    <h3 class="text-base font-bold">${isNew?'➕ เพิ่ม Admin':'✏️ แก้ไข Admin'}</h3>
+                    <button onclick="closeAdModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center"><i class="ri-close-line"></i></button>
+                </div>
+                <div class="space-y-3 text-sm">
+                    <div><label class="text-[11px] text-zinc-400 block mb-1">Telegram ID *</label><input id="ad-telegramId" type="text" value="${_esc(ad.telegramId||'')}" ${!isNew?'disabled':''} class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white ${!isNew?'opacity-60':''}"></div>
+                    <div><label class="text-[11px] text-zinc-400 block mb-1">ชื่อ</label><input id="ad-name" type="text" value="${_esc(ad.name||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    <div><label class="text-[11px] text-zinc-400 block mb-1">Role</label>
+                        <select id="ad-role" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                            ${['Admin','SuperAdmin'].map(r => `<option value="${r}" ${(ad.role||'Admin')===r?'selected':''}>${r}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-4 flex gap-2">
+                    ${!isNew ? `<button onclick="deleteAd()" class="px-3 py-2.5 rounded-xl bg-red-600/80 hover:bg-red-500 text-white"><i class="ri-delete-bin-line"></i></button>` : ''}
+                    <button onclick="closeAdModal()" class="flex-1 py-2.5 rounded-xl bg-zinc-700 text-white font-bold">ยกเลิก</button>
+                    <button onclick="saveAd()" class="flex-1 py-2.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black font-bold">${isNew?'เพิ่ม':'บันทึก'}</button>
+                </div>`;
+            document.body.classList.add('no-scroll');
+            document.getElementById('ad-modal').classList.remove('hidden');
+        }
+        function closeAdModal() { _editingAdTgId = null; document.body.classList.remove('no-scroll'); document.getElementById('ad-modal').classList.add('hidden'); }
+        async function saveAd() {
+            const v = (id) => document.getElementById(id)?.value;
+            const isNew = !_editingAdTgId;
+            const body = isNew
+                ? { telegramId: v('ad-telegramId'), name: v('ad-name'), role: v('ad-role'), initData: tg.initData }
+                : { name: v('ad-name'), role: v('ad-role'), initData: tg.initData };
+            try {
+                const url = isNew ? '/api/admin/admins' : `/api/admin/admins/${encodeURIComponent(_editingAdTgId)}`;
+                const method = isNew ? 'POST' : 'PATCH';
+                const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                closeAdModal(); await loadAdminList();
+            } catch (e) { alert('error: '+e.message); }
+        }
+        async function deleteAd() {
+            if (!_editingAdTgId || !confirm('ลบ admin นี้?')) return;
+            try {
+                const res = await fetch(`/api/admin/admins/${encodeURIComponent(_editingAdTgId)}`, { method: 'DELETE', headers: {'Content-Type':'application/json', 'X-Init-Data': tg.initData}, body: JSON.stringify({initData: tg.initData}) });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                closeAdModal(); await loadAdminList();
+            } catch (e) { alert('error: '+e.message); }
+        }
+
+        // ---------- 📜 Audit Log ----------
+        async function loadAuditLog() {
+            const list = document.getElementById('audit-list');
+            list.innerHTML = '<div class="text-center text-zinc-500 py-6 animate-pulse">กำลังโหลด...</div>';
+            const action = document.getElementById('audit-filter').value;
+            try {
+                const res = await fetch(`/api/admin/audit-log${action?'?action='+encodeURIComponent(action):''}`, { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'load failed');
+                if (!data.logs.length) { list.innerHTML = '<div class="text-center text-zinc-500 py-6 text-sm">ไม่มีรายการ</div>'; return; }
+                list.innerHTML = data.logs.map((l, idx) => {
+                    let detailsParsed = '';
+                    try { const o = JSON.parse(l.details||'{}'); detailsParsed = Object.entries(o).map(([k,v])=>`<span class="text-zinc-500">${k}=</span><span class="text-zinc-300">${_esc(typeof v==='object'?JSON.stringify(v):v)}</span>`).join(' '); } catch(e){ detailsParsed = _esc(l.details||''); }
+                    return `
+                    <div class="bg-white/5 border border-white/10 rounded-lg p-2 text-[11px] item-fade-in" style="animation-delay:${idx*15}ms">
+                        <div class="flex items-center justify-between mb-0.5">
+                            <span class="font-bold text-white">${_esc(l.action)}</span>
+                            <span class="text-[10px] text-zinc-500">${_dt(l.createdAt)}</span>
+                        </div>
+                        <div class="text-[10px] text-zinc-400">by <code>${_esc(l.adminName)}</code>${l.targetId?` → <code>${_esc(l.targetId)}</code>`:''}</div>
+                        <div class="text-[10px] mt-0.5 break-words">${detailsParsed}</div>
+                    </div>`;
+                }).join('');
+            } catch (e) { list.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`; }
         }
 
         // ---------- 📊 Owner Dashboard ----------

@@ -3685,6 +3685,143 @@ function sanitizeProductPayload(b) {
     };
 }
 
+// ---------- 📣 BROADCAST ----------
+// POST /admin/broadcast { title, body, link?, sendTelegram?, filter: 'all'|'bronze'|'silver'|'gold'|'new'|'inactive' }
+router.post('/admin/broadcast', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const b = req.body || {};
+        if (!b.title || !b.body) return res.status(400).json({ success: false, error: 'title/body ห้ามว่าง' });
+        const filter = String(b.filter || 'all');
+        const sendTelegram = !!b.sendTelegram;
+
+        // คำนวณ excludeCustomerIds (กลับด้านจาก filter)
+        let excludeCustomerIds = [];
+        if (filter !== 'all') {
+            const all = await prisma.customer.findMany({
+                where: { isDeleted: false },
+                select: { customerId: true, referralCount: true, joinDate: true },
+            });
+            const now = Date.now();
+            const includeSet = new Set();
+            for (const c of all) {
+                let match = false;
+                if (filter === 'bronze') match = c.referralCount < 3;
+                else if (filter === 'silver') match = c.referralCount >= 3 && c.referralCount < 6;
+                else if (filter === 'gold') match = c.referralCount >= 6;
+                else if (filter === 'new') match = (now - new Date(c.joinDate).getTime()) <= 7 * 86400000;
+                if (match) includeSet.add(c.customerId);
+            }
+            if (filter === 'inactive') {
+                // ลูกค้าที่ไม่มี order ใน 30 วัน
+                const since = new Date(Date.now() - 30 * 86400000);
+                const recent = await prisma.order.findMany({
+                    where: { createdAt: { gte: since } },
+                    select: { customerId: true }, distinct: ['customerId'],
+                });
+                const recentSet = new Set(recent.map(o => o.customerId));
+                for (const c of all) if (!recentSet.has(c.customerId)) includeSet.add(c.customerId);
+            }
+            excludeCustomerIds = all.map(c => c.customerId).filter(id => !includeSet.has(id));
+        }
+
+        const broadcastId = `bc-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+        const result = await notifCenter.broadcastNotification({
+            kind: 'ADMIN_BROADCAST',
+            title: b.title, body: b.body, link: b.link || null,
+            broadcastId, sendTelegram, excludeCustomerIds,
+        });
+        await prisma.adminAuditLog.create({
+            data: { adminName: a.admin?.name || a.telegramId, action: 'BROADCAST',
+                details: JSON.stringify({ broadcastId, filter, title: b.title, sendTelegram, ...result }) },
+        });
+        res.json({ success: true, broadcastId, ...result });
+    } catch (e) {
+        console.error('admin broadcast error:', e);
+        res.status(500).json({ success: false, error: e.message || 'broadcast failed' });
+    }
+});
+
+// ---------- 👨‍💼 ADMIN MANAGEMENT (Owner only) ----------
+router.get('/admin/admins', async (req, res) => {
+    const a = await authAdmin(req, ['Owner']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const admins = await prisma.admin.findMany({ orderBy: { role: 'asc' } });
+        res.json({ success: true, admins });
+    } catch (e) { res.status(500).json({ success: false, error: 'load failed' }); }
+});
+
+router.post('/admin/admins', async (req, res) => {
+    const a = await authAdmin(req, ['Owner']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const b = req.body || {};
+        if (!b.telegramId) return res.status(400).json({ success: false, error: 'telegramId ห้ามว่าง' });
+        const allowed = ['Admin', 'SuperAdmin'];
+        const role = allowed.includes(b.role) ? b.role : 'Admin';
+        const created = await prisma.admin.create({ data: { telegramId: String(b.telegramId), name: b.name || null, role } });
+        await prisma.adminAuditLog.create({ data: { adminName: a.admin?.name || a.telegramId, action: 'ADMIN_ADD',
+            details: JSON.stringify({ targetTelegramId: created.telegramId, role }) } });
+        res.json({ success: true });
+    } catch (e) {
+        if (e.code === 'P2002') return res.status(400).json({ success: false, error: 'มี admin telegram id นี้อยู่แล้ว' });
+        res.status(500).json({ success: false, error: e.message || 'create failed' });
+    }
+});
+
+router.patch('/admin/admins/:telegramId', async (req, res) => {
+    const a = await authAdmin(req, ['Owner']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const tgId = req.params.telegramId;
+        const exist = await prisma.admin.findUnique({ where: { telegramId: tgId } });
+        if (!exist) return res.status(404).json({ success: false, error: 'ไม่พบ admin' });
+        if (exist.role === 'Owner') return res.status(400).json({ success: false, error: 'แก้ไข Owner ไม่ได้' });
+        const b = req.body || {};
+        const allowed = ['Admin', 'SuperAdmin'];
+        const data = {};
+        if (b.name !== undefined) data.name = b.name || null;
+        if (b.role !== undefined) {
+            if (!allowed.includes(b.role)) return res.status(400).json({ success: false, error: 'role ไม่ถูกต้อง (Admin/SuperAdmin)' });
+            data.role = b.role;
+        }
+        await prisma.admin.update({ where: { telegramId: tgId }, data });
+        await prisma.adminAuditLog.create({ data: { adminName: a.admin?.name || a.telegramId, action: 'ADMIN_EDIT',
+            details: JSON.stringify({ targetTelegramId: tgId, changes: data }) } });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'update failed' }); }
+});
+
+router.delete('/admin/admins/:telegramId', async (req, res) => {
+    const a = await authAdmin(req, ['Owner']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const tgId = req.params.telegramId;
+        const exist = await prisma.admin.findUnique({ where: { telegramId: tgId } });
+        if (!exist) return res.status(404).json({ success: false, error: 'ไม่พบ admin' });
+        if (exist.role === 'Owner') return res.status(400).json({ success: false, error: 'ลบ Owner ไม่ได้' });
+        await prisma.admin.delete({ where: { telegramId: tgId } });
+        await prisma.adminAuditLog.create({ data: { adminName: a.admin?.name || a.telegramId, action: 'ADMIN_REMOVE',
+            details: JSON.stringify({ targetTelegramId: tgId, prevRole: exist.role }) } });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'delete failed' }); }
+});
+
+// ---------- 📜 AUDIT LOG ----------
+router.get('/admin/audit-log', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const take = Math.min(parseInt(req.query.take) || 100, 500);
+        const action = req.query.action ? String(req.query.action) : null;
+        const where = action ? { action } : {};
+        const logs = await prisma.adminAuditLog.findMany({ where, orderBy: { createdAt: 'desc' }, take });
+        res.json({ success: true, logs });
+    } catch (e) { res.status(500).json({ success: false, error: 'load failed' }); }
+});
+
 // ---------- 🎞️ BANNERS ----------
 router.get('/admin/banners', async (req, res) => {
     const a = await authAdmin(req);
