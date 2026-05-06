@@ -2891,13 +2891,13 @@ async function authAdmin(req, allowedRoles = ['Admin', 'SuperAdmin', 'Owner']) {
 // All sections that can be permission-gated. Owner เห็นทุก section + 'admins'+'rbac'+'dashboard' เสมอ
 const RBAC_SECTIONS = [
     'orders', 'shipments', 'customers', 'coupons', 'mystery-boxes',
-    'products', 'stock-alert', 'categories', 'banners', 'campaigns',
+    'products', 'stock-alert', 'categories', 'banners', 'campaigns', 'reviews',
     'broadcast', 'audit', 'activity', 'settings', 'ship-sync',
     'analytics', 'jobs',
 ];
 const RBAC_DEFAULT = {
     Admin: ['orders', 'shipments', 'customers', 'stock-alert'],
-    SuperAdmin: ['orders', 'shipments', 'customers', 'coupons', 'mystery-boxes', 'products', 'stock-alert', 'categories', 'banners', 'campaigns', 'broadcast', 'audit', 'activity', 'settings', 'ship-sync', 'analytics', 'jobs'],
+    SuperAdmin: ['orders', 'shipments', 'customers', 'coupons', 'mystery-boxes', 'products', 'stock-alert', 'categories', 'banners', 'campaigns', 'reviews', 'broadcast', 'audit', 'activity', 'settings', 'ship-sync', 'analytics', 'jobs'],
 };
 
 async function getRbacMatrix() {
@@ -4302,6 +4302,63 @@ router.delete('/admin/products/:id', async (req, res) => {
         console.error('admin product delete error:', e);
         res.status(500).json({ success: false, error: e.message || 'delete failed' });
     }
+});
+
+// ---------- ⭐ PRODUCT REVIEWS (admin) ----------
+// GET /admin/reviews?productId=&minRating=&maxRating=&q= — list ทั้งหมด + filter
+router.get('/admin/reviews', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'reviews'))) return denyPermission(res, 'reviews');
+    try {
+        const productId = req.query.productId ? parseInt(req.query.productId) : null;
+        const minRating = req.query.minRating ? parseInt(req.query.minRating) : null;
+        const maxRating = req.query.maxRating ? parseInt(req.query.maxRating) : null;
+        const q = String(req.query.q || '').trim();
+        const where = {};
+        if (productId) where.productId = productId;
+        if (minRating != null) where.rating = { ...(where.rating || {}), gte: minRating };
+        if (maxRating != null) where.rating = { ...(where.rating || {}), lte: maxRating };
+        if (q) where.comment = { contains: q, mode: 'insensitive' };
+        const reviews = await prisma.productReview.findMany({
+            where,
+            include: {
+                product: { select: { id: true, nameTh: true, nameEn: true, imageUrl: true } },
+                customer: { select: { customerId: true, firstName: true, lastName: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 200,
+        });
+        // stats สำหรับ header
+        const total = await prisma.productReview.count();
+        const avgAgg = await prisma.productReview.aggregate({ _avg: { rating: true } });
+        res.json({
+            success: true,
+            stats: { total, avgRating: avgAgg._avg.rating ? Number(avgAgg._avg.rating.toFixed(2)) : null },
+            reviews,
+        });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'load failed' }); }
+});
+
+// DELETE /admin/reviews/:id — ลบรีวิว (กรณีโดนป่วน)
+router.delete('/admin/reviews/:id', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'reviews'))) return denyPermission(res, 'reviews');
+    try {
+        const id = parseInt(req.params.id);
+        const exist = await prisma.productReview.findUnique({ where: { id }, include: { product: { select: { nameTh: true, nameEn: true } } } });
+        if (!exist) return res.status(404).json({ success: false, error: 'ไม่พบรีวิว' });
+        await prisma.productReview.delete({ where: { id } });
+        await prisma.adminAuditLog.create({
+            data: {
+                adminName: a.admin?.name || a.telegramId, action: 'REVIEW_DELETE',
+                targetId: exist.customerId,
+                details: JSON.stringify({ reviewId: id, productId: exist.productId, productName: exist.product?.nameTh || exist.product?.nameEn, rating: exist.rating, commentLen: exist.comment?.length || 0 }),
+            },
+        });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'delete failed' }); }
 });
 
 // ---------- 📡 ACTIVITY DASHBOARD ----------

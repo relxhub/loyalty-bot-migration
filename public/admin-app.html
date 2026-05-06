@@ -196,6 +196,15 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
+            <button data-menu-key="reviews" onclick="showView('reviews')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+                <div class="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center text-2xl">⭐</div>
+                <div class="flex-1">
+                    <div class="font-bold text-white text-sm">รีวิวสินค้า</div>
+                    <div class="text-[11px] text-zinc-400">ดู/ลบรีวิวที่ลูกค้าเขียน (กันป่วน)</div>
+                </div>
+                <i class="ri-arrow-right-s-line text-zinc-400"></i>
+            </button>
+
             <button data-menu-key="broadcast" onclick="showView('broadcast')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
                 <div class="w-12 h-12 rounded-xl bg-fuchsia-500/20 flex items-center justify-center text-2xl">📣</div>
                 <div class="flex-1">
@@ -574,6 +583,24 @@
             <div id="bn-list" class="space-y-2"></div>
         </div>
 
+        <!-- ⭐ Reviews view -->
+        <div id="view-reviews" class="hidden">
+            <div class="font-bold text-sm mb-2 flex items-center gap-2"><i class="ri-star-line text-amber-400"></i> รีวิวสินค้า</div>
+            <div id="rv-stats" class="text-[11px] text-zinc-500 mb-2"></div>
+            <div class="flex flex-wrap gap-1.5 mb-3">
+                <input id="rv-search" type="text" placeholder="ค้นหาในความคิดเห็น..." class="flex-1 min-w-[140px] bg-white/5 border border-white/10 rounded-xl p-2 text-xs text-white">
+                <select id="rv-rating" class="bg-white/5 border border-white/10 rounded-xl p-2 text-xs text-white">
+                    <option value="">ทุก rating</option>
+                    <option value="5">⭐ 5</option>
+                    <option value="4">⭐ 4+</option>
+                    <option value="3">⭐ 3+</option>
+                    <option value="low">⭐ ≤2 (ลบง่าย)</option>
+                </select>
+                <button onclick="loadAdminReviews()" class="px-3 rounded-xl bg-amber-500 text-black font-bold text-xs">ค้นหา</button>
+            </div>
+            <div id="rv-list" class="space-y-2"></div>
+        </div>
+
         <!-- 📅 Campaigns view -->
         <div id="view-campaigns" class="hidden">
             <div class="flex items-center justify-between mb-3">
@@ -798,6 +825,7 @@
             else if (name === 'stock-alert') loadStockAlert();
             else if (name === 'analytics') loadAnalytics('heatmap');
             else if (name === 'jobs') { /* static view */ }
+            else if (name === 'reviews') loadAdminReviews();
             else if (name === 'activity') loadActivityDashboard();
         }
         // ---------- 🔀 Home Menu Reorder ----------
@@ -890,6 +918,64 @@
                 if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
                 alert('✅ รีเซ็ตแล้ว — refresh เพื่อดูผล');
                 location.reload();
+            } catch (e) { alert('error: '+e.message); }
+        }
+
+        // ---------- ⭐ Reviews ----------
+        async function loadAdminReviews() {
+            const list = document.getElementById('rv-list');
+            const stats = document.getElementById('rv-stats');
+            list.innerHTML = '<div class="text-center text-zinc-500 py-6 animate-pulse">กำลังโหลด...</div>';
+            try {
+                const q = document.getElementById('rv-search').value.trim();
+                const ratingSel = document.getElementById('rv-rating').value;
+                const params = new URLSearchParams();
+                if (q) params.set('q', q);
+                if (ratingSel === 'low') params.set('maxRating', '2');
+                else if (ratingSel) params.set('minRating', ratingSel);
+                const res = await fetch('/api/admin/reviews?' + params, { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'load failed');
+                const s = data.stats;
+                stats.innerHTML = `รีวิวทั้งหมด: <span class="text-white font-bold">${s.total}</span> · เฉลี่ย: <span class="text-amber-300 font-bold">${s.avgRating ?? '—'}</span> ⭐`;
+                if (!data.reviews.length) { list.innerHTML = '<div class="text-center text-zinc-500 py-6 text-sm">ไม่พบรีวิวที่ตรง filter</div>'; return; }
+                const stars = (n) => '⭐'.repeat(Math.max(0, Math.min(5, n)));
+                list.innerHTML = data.reviews.map((r, idx) => {
+                    const cust = r.isAnonymous ? '👤 ไม่ระบุชื่อ' : `${_esc(r.customer?.firstName || '')} ${_esc(r.customer?.lastName || '')}`.trim() || _esc(r.customerId);
+                    const tagsArr = (r.tags || '').split(',').filter(Boolean);
+                    return `
+                    <div class="bg-white/5 border border-white/10 rounded-xl p-3 item-fade-in" style="animation-delay:${Math.min(idx,15)*20}ms">
+                        <div class="flex items-start gap-2.5 mb-1.5">
+                            ${r.product?.imageUrl ? `<img src="${_esc(r.product.imageUrl)}" class="w-10 h-10 rounded object-cover">` : '<div class="w-10 h-10 rounded bg-zinc-700"></div>'}
+                            <div class="flex-1 min-w-0">
+                                <div class="text-xs font-bold text-white truncate">${_esc(r.product?.nameTh || r.product?.nameEn || '#'+r.productId)}</div>
+                                <div class="text-[10px] text-zinc-500">${cust} · ${_dt(r.createdAt)}</div>
+                            </div>
+                            <div class="text-amber-300 text-xs font-bold whitespace-nowrap">${stars(r.rating)}</div>
+                        </div>
+                        <div class="text-xs text-zinc-300 leading-relaxed mb-2 break-words">${_esc(r.comment || '')}</div>
+                        ${tagsArr.length ? `<div class="flex flex-wrap gap-1 mb-2">${tagsArr.map(t => `<span class="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-zinc-400">${_esc(t)}</span>`).join('')}</div>` : ''}
+                        <div class="flex items-center justify-between">
+                            <div class="text-[10px] text-zinc-500">❤️ ${r.likesCount || 0}</div>
+                            <button onclick="deleteAdminReview(${r.id})" class="text-[10px] px-2 py-1 rounded bg-red-500/20 hover:bg-red-500/40 text-red-300 border border-red-500/40"><i class="ri-delete-bin-line"></i> ลบ</button>
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch (e) { list.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`; }
+        }
+
+        async function deleteAdminReview(id) {
+            if (!confirm('ลบรีวิวนี้?\n(ลูกค้าจะเขียนใหม่ได้ ระบบ log ไว้ใน audit)')) return;
+            try {
+                const res = await fetch(`/api/admin/reviews/${id}`, {
+                    method: 'DELETE', headers: {'Content-Type':'application/json', 'X-Init-Data': tg.initData},
+                    body: JSON.stringify({initData: tg.initData}),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
+                showToast('🗑 ลบรีวิวแล้ว');
+                loadAdminReviews();
             } catch (e) { alert('error: '+e.message); }
         }
 
@@ -1019,6 +1105,7 @@
                 categories: 'showView(\'categories\')',
                 banners: 'showView(\'banners\')',
                 campaigns: 'showView(\'campaigns\')',
+                reviews: 'showView(\'reviews\')',
                 broadcast: 'showView(\'broadcast\')',
                 audit: 'showView(\'audit\')',
                 activity: 'showView(\'activity\')',
@@ -3421,6 +3508,7 @@
             categories: '📂 หมวดหมู่',
             banners: '🎞️ Banner',
             campaigns: '📅 แคมเปญ',
+            reviews: '⭐ รีวิวสินค้า',
             broadcast: '📣 Broadcast',
             audit: '📜 Audit Log',
             activity: '📡 Activity Dashboard',
