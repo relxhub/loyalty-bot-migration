@@ -3696,6 +3696,35 @@ router.delete('/admin/orders/:id/items/:itemId', async (req, res) => {
     }
 });
 
+// POST /admin/orders/:id/upload-slip (multipart 'file') — admin อัปสลิปแทนลูกค้า
+// (สำหรับออเดอร์ที่ลูกค้า upload แล้วแต่ slipUrl ใน DB ว่าง — เช่น BYPASS mode + Telegram fail)
+router.post('/admin/orders/:id/upload-slip', upload.single('file'), async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        if (!req.file) return res.status(400).json({ success: false, error: 'ไม่มีรูปแนบมา' });
+        const order = await prisma.order.findUnique({ where: { id: req.params.id }, include: { customer: true, payment: true } });
+        if (!order) return res.status(404).json({ success: false, error: 'ไม่พบออเดอร์' });
+        if (!order.payment) return res.status(400).json({ success: false, error: 'ออเดอร์นี้ไม่มี Payment row (ลูกค้ายังไม่ verify)' });
+
+        const slipUrl = await uploadSlipToTelegram(req.file, order.customer?.telegramUserId);
+        if (!slipUrl) return res.status(500).json({ success: false, error: 'upload Telegram fail — ดู log' });
+
+        await prisma.payment.update({ where: { id: order.payment.id }, data: { slipUrl } });
+        await prisma.adminAuditLog.create({
+            data: {
+                adminName: a.admin?.name || a.telegramId, action: 'SLIP_BACKFILL',
+                targetId: order.customerId,
+                details: JSON.stringify({ orderId: order.id, slipUrl }),
+            },
+        });
+        res.json({ success: true, slipUrl });
+    } catch (e) {
+        console.error('upload-slip error:', e);
+        res.status(500).json({ success: false, error: e.message || 'failed' });
+    }
+});
+
 // POST /admin/orders/:id/refund-slip (multipart 'file') — แอดมินอัปสลิปคืนเงิน → upload Telegram → save /api/images/<file_id>
 router.post('/admin/orders/:id/refund-slip', upload.single('file'), async (req, res) => {
     // initData อาจมาทาง body หรือ header (multipart ต้องใช้ header)

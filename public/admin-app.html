@@ -2066,11 +2066,25 @@
 
             const couponLine = o.coupon ? `<div class="flex justify-between text-[11px]"><span class="text-zinc-400">คูปอง ${_esc(o.coupon.name)}</span><span class="text-red-300">-฿${_fmt(o.discountAmount)}</span></div>` : '';
 
-            const slipPreview = o.payment?.slipUrl ? `
-                <div class="mt-2">
-                    <img src="${_esc(o.payment.slipUrl)}" onclick="document.getElementById('img-lightbox-src').src='${_esc(o.payment.slipUrl)}'; document.getElementById('img-lightbox').classList.remove('hidden')" class="w-full max-h-64 object-contain rounded-lg cursor-zoom-in bg-black/40">
-                    ${o.payment.slipOkTransactionId ? `<div class="text-[9px] text-zinc-500 mt-1">SlipOK: <code>${_esc(o.payment.slipOkTransactionId)}</code></div>` : ''}
-                </div>` : '<div class="text-[11px] text-zinc-500">ยังไม่ได้แนบสลิป</div>';
+            const slipPreview = (() => {
+                if (o.payment?.slipUrl) {
+                    return `<div class="mt-2">
+                        <img src="${_esc(o.payment.slipUrl)}" onclick="document.getElementById('img-lightbox-src').src='${_esc(o.payment.slipUrl)}'; document.getElementById('img-lightbox').classList.remove('hidden')" class="w-full max-h-64 object-contain rounded-lg cursor-zoom-in bg-black/40">
+                        ${o.payment.slipOkTransactionId ? `<div class="text-[9px] text-zinc-500 mt-1">SlipOK: <code>${_esc(o.payment.slipOkTransactionId)}</code></div>` : ''}
+                    </div>`;
+                }
+                if (o.payment) {
+                    return `<div class="rounded-lg p-3 bg-orange-500/10 border border-orange-500/30">
+                        <div class="text-[11px] text-orange-300 font-bold mb-1">⚠️ ลูกค้าได้ verify slip แล้ว แต่ระบบไม่ได้เก็บรูป</div>
+                        <div class="text-[10px] text-zinc-400 mb-2">payment status: <code>${_esc(o.payment.status)}</code> · ยอด ฿${_fmt(o.payment.amount)} · <span class="text-zinc-500">(สลิปจริงอยู่ใน Telegram chat ของลูกค้า)</span></div>
+                        <label class="block">
+                            <input type="file" accept="image/*" onchange="ordUploadSlip(this.files[0])" class="hidden">
+                            <span class="block w-full py-1.5 rounded bg-orange-500 hover:bg-orange-400 text-white text-[11px] text-center cursor-pointer font-bold"><i class="ri-image-add-line"></i> อัปสลิปแทนลูกค้า</span>
+                        </label>
+                    </div>`;
+                }
+                return '<div class="text-[11px] text-zinc-500">ยังไม่มี Payment record (ลูกค้ายังไม่ verify)</div>';
+            })();
 
             // Action buttons
             const actions = buildOrdActions(o, isNeedsVerify, overpaid);
@@ -2237,6 +2251,24 @@
                     loadOrders();
                 } catch (e) { alert('error: '+e.message); }
             })();
+        }
+
+        async function ordUploadSlip(file) {
+            if (!file) return;
+            if (!confirm('อัปโหลดสลิปแทนลูกค้าสำหรับออเดอร์นี้?\n(ใช้กรณีลูกค้า verify แล้วแต่ระบบไม่ได้เก็บรูป — ขอภาพจากลูกค้าใน Telegram chat แล้วเอามาอัป)')) return;
+            try {
+                const fd = new FormData();
+                fd.append('file', file);
+                const res = await fetch(`/api/admin/orders/${encodeURIComponent(_currentOrdId)}/upload-slip`, {
+                    method: 'POST', headers: { 'X-Init-Data': tg.initData },
+                    body: fd,
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'อัปโหลดล้มเหลว'); return; }
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
+                showToast('💾 บันทึกสลิปแล้ว');
+                await openOrdDetail(_currentOrdId);
+            } catch (e) { alert('error: '+e.message); }
         }
 
         async function ordUploadRefundSlip(file) {
