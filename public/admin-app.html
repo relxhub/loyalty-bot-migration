@@ -1133,7 +1133,19 @@
                     document.getElementById('loading-text').innerHTML = '<span class="text-red-400">กรุณาเปิดผ่าน Telegram</span>';
                     return;
                 }
-                const meRes = await fetch('/api/admin/me', { headers: { 'X-Init-Data': tg.initData } });
+                // 10s timeout + แสดง retry button หลัง 5s ถ้ายังไม่เสร็จ
+                const slowTimer = setTimeout(() => {
+                    const t = document.getElementById('loading-text');
+                    if (t) t.innerHTML = 'กำลังตรวจสิทธิ์... (ช้ากว่าปกติ)<br><button onclick="location.reload()" class="mt-2 px-3 py-1.5 rounded bg-yellow-500 text-black text-xs font-bold">โหลดใหม่</button>';
+                }, 5000);
+                const ctrl = new AbortController();
+                const timeoutId = setTimeout(() => ctrl.abort(), 10000);
+                let meRes;
+                try {
+                    meRes = await fetch('/api/admin/me', { headers: { 'X-Init-Data': tg.initData }, signal: ctrl.signal });
+                } finally {
+                    clearTimeout(slowTimer); clearTimeout(timeoutId);
+                }
                 if (meRes.status === 403 || meRes.status === 401) {
                     document.getElementById('loading-screen').classList.add('hidden');
                     document.getElementById('forbidden').classList.remove('hidden');

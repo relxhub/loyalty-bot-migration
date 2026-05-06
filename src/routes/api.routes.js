@@ -15,6 +15,7 @@ import * as mysteryBox from '../services/mystery-box.service.js';
 import { getProductPageData } from '../services/product.service.js';
 import * as couponService from '../services/coupon.service.js';
 import * as shippingService from '../services/shipping.service.js';
+import { runDailyDigestJob, runBirthdayCouponJob, runWinBackJob, notifyWishlistOnRestock } from '../jobs/engagement.job.js';
 import multer from 'multer';
 import rateLimit from 'express-rate-limit';
 
@@ -2944,17 +2945,27 @@ function denyPermission(res, section) {
 
 // GET /api/admin/me — ใช้ตรวจสิทธิ์ตอน admin-app load
 router.get('/admin/me', async (req, res) => {
-    const a = await authAdmin(req);
-    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
-    const permissions = await getPermissionsFor(a.admin.role, a.admin.customRoleName);
-    let menuOrder = null;
-    try { menuOrder = a.admin.menuOrder ? JSON.parse(a.admin.menuOrder) : null; } catch (e) {}
-    res.json({
-        success: true, telegramId: a.telegramId, role: a.admin.role, name: a.admin.name,
-        customRoleName: a.admin.customRoleName || null,
-        permissions, allSections: RBAC_SECTIONS,
-        menuOrder,
-    });
+    try {
+        const a = await authAdmin(req);
+        if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+        let permissions = [];
+        try { permissions = await getPermissionsFor(a.admin.role, a.admin.customRoleName); }
+        catch (e) {
+            console.error('[/admin/me] getPermissionsFor failed:', e.message);
+            permissions = a.admin.role === 'Owner' ? [...RBAC_SECTIONS] : (RBAC_DEFAULT[a.admin.role] || []);
+        }
+        let menuOrder = null;
+        try { menuOrder = a.admin.menuOrder ? JSON.parse(a.admin.menuOrder) : null; } catch (e) {}
+        res.json({
+            success: true, telegramId: a.telegramId, role: a.admin.role, name: a.admin.name,
+            customRoleName: a.admin.customRoleName || null,
+            permissions, allSections: RBAC_SECTIONS,
+            menuOrder,
+        });
+    } catch (e) {
+        console.error('[/admin/me] fatal error:', e);
+        res.status(500).json({ success: false, error: 'auth check failed: ' + (e.message || 'unknown') });
+    }
 });
 
 // PATCH /admin/me/menu-order { order: ['orders','customers',...] } — บันทึกลำดับเมนูของตัวเอง
@@ -4509,8 +4520,6 @@ router.post('/admin/db-backup', async (req, res) => {
 });
 
 // ---------- 🤖 ENGAGEMENT JOBS (manual trigger) ----------
-import { runDailyDigestJob, runBirthdayCouponJob, runWinBackJob, notifyWishlistOnRestock } from '../jobs/engagement.job.js';
-
 router.post('/admin/jobs/daily-digest', async (req, res) => {
     const a = await authAdmin(req, ['SuperAdmin', 'Owner']);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
