@@ -143,8 +143,9 @@
 
         <!-- 🎫 Coupons view -->
         <div id="view-coupons" class="hidden">
-            <div class="font-bold text-sm mb-3 flex items-center gap-2">
-                <i class="ri-coupon-line text-yellow-400"></i> คูปองทั้งหมด
+            <div class="font-bold text-sm mb-3 flex items-center justify-between">
+                <span class="flex items-center gap-2"><i class="ri-coupon-line text-yellow-400"></i> คูปองทั้งหมด</span>
+                <button onclick="openCpnEdit()" class="text-xs px-3 py-1.5 rounded-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold"><i class="ri-add-line"></i> สร้างใหม่</button>
             </div>
             <div id="cpn-list" class="space-y-2"></div>
         </div>
@@ -190,6 +191,11 @@
     <!-- Prize Edit Modal -->
     <div id="prize-modal" class="hidden fixed inset-0 z-[90] flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-sm">
         <div id="prize-modal-content" class="glass-card w-full max-w-sm p-5 rounded-t-3xl sm:rounded-2xl"></div>
+    </div>
+
+    <!-- 🎫 Coupon Edit Modal -->
+    <div id="cpn-modal" class="hidden fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-sm">
+        <div id="cpn-modal-content" class="glass-card w-full max-w-md max-h-[92vh] overflow-y-auto p-5 rounded-t-3xl sm:rounded-2xl"></div>
     </div>
 
     <!-- Adjust Points Modal -->
@@ -375,6 +381,7 @@
             document.getElementById('adj-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeAdjModal(); });
             document.getElementById('mbox-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeMboxModal(); });
             document.getElementById('prize-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closePrizeModal(); });
+            document.getElementById('cpn-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeCpnModal(); });
         });
 
         // ---------- 👥 Customers ----------
@@ -505,6 +512,7 @@
                 const data = await res.json();
                 if (!data.success) throw new Error(data.error || 'load failed');
                 if (!data.coupons.length) { list.innerHTML = '<div class="text-center text-zinc-500 py-6 text-sm">ยังไม่มีคูปอง</div>'; return; }
+                window._cpnCache = data.coupons;
                 list.innerHTML = data.coupons.map((c, idx) => {
                     const valDisplay = c.type === 'GIFT' ? `รับฟรี${c.giftQty > 1 ? ' x'+c.giftQty : ''}` :
                         c.type === 'DISCOUNT_PERCENT' ? `ลด ${c.value}%` :
@@ -514,7 +522,7 @@
                     if (c.isAutoAssign) tags.push('<span class="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300">Auto</span>');
                     if (c.rewardTrigger) tags.push(`<span class="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300">${_esc(c.rewardTrigger)}</span>`);
                     return `
-                    <div class="bg-white/5 border border-white/10 rounded-xl p-3 item-fade-in" style="animation-delay:${idx*30}ms">
+                    <div class="bg-white/5 border border-white/10 rounded-xl p-3 item-fade-in cursor-pointer hover:bg-white/10" style="animation-delay:${idx*30}ms" onclick="openCpnEdit('${_esc(c.id)}')">
                         <div class="flex items-start justify-between gap-2">
                             <div class="flex-1 min-w-0">
                                 <div class="text-sm font-bold text-white truncate">${_esc(c.name)}</div>
@@ -525,7 +533,7 @@
                                     ${c.endDate ? ' · ปิดรับ ' + _date(c.endDate) : ''}
                                 </div>
                             </div>
-                            <label class="switch flex-shrink-0">
+                            <label class="switch flex-shrink-0" onclick="event.stopPropagation()">
                                 <input type="checkbox" ${c.isActive ? 'checked' : ''} onchange="toggleCoupon('${_esc(c.id)}', this)">
                                 <span class="slider"></span>
                             </label>
@@ -546,6 +554,281 @@
                 else { try { tg.hapticFeedback?.impactOccurred?.('light'); } catch(e){} }
             } catch (e) { alert('error: '+e.message); checkbox.checked = !checkbox.checked; }
             finally { checkbox.disabled = false; }
+        }
+
+        // ----- Coupon edit modal -----
+        let _editingCpnId = null;
+        let _categoryOptions = [];
+
+        async function openCpnEdit(id) {
+            _editingCpnId = id || null;
+            const isNew = !id;
+            const c = id ? (window._cpnCache || []).find(x => x.id === id) || {} : {};
+
+            // load categories ถ้ายังไม่มี (สำหรับ giftCategoryId / targetCategoryId)
+            if (_categoryOptions.length === 0) {
+                try {
+                    const r = await fetch('/api/admin/category-options', { headers: { 'X-Init-Data': tg.initData } });
+                    const d = await r.json();
+                    if (d.success) _categoryOptions = d.categories || [];
+                } catch (e) {}
+            }
+            // edit mode: ดึงรายละเอียดเต็มจาก API (list ส่งมาไม่ครบทุก field)
+            let full = c;
+            if (!isNew) {
+                try {
+                    const r = await fetch(`/api/admin/coupons/${encodeURIComponent(id)}/detail`, { headers: { 'X-Init-Data': tg.initData } });
+                    const d = await r.json();
+                    if (d.success && d.coupon) full = d.coupon;
+                } catch (e) {}
+            }
+            const f = full;
+
+            const catOpts = (selVal) => ['<option value="">— ไม่กำหนด —</option>',
+                ..._categoryOptions.map(x => `<option value="${x.id}" ${Number(selVal)===x.id?'selected':''}>${_esc(x.name)}</option>`)
+            ].join('');
+
+            const dtVal = (v) => v ? new Date(v).toISOString().slice(0,16) : '';
+
+            const html = `
+                <div class="flex items-start justify-between mb-3">
+                    <h3 class="text-base font-bold">${isNew ? '➕ สร้างคูปองใหม่' : '✏️ แก้ไข ' + _esc(f.name||'')}</h3>
+                    <button onclick="closeCpnModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center"><i class="ri-close-line"></i></button>
+                </div>
+                <div class="space-y-3 text-sm">
+                    ${isNew ? `
+                    <div>
+                        <label class="text-[11px] text-zinc-400 block mb-1">รหัสคูปอง (เช่น FIRST_ENTRY) *</label>
+                        <input id="cp-id" type="text" placeholder="UPPERCASE_NO_SPACE" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                    </div>` : ''}
+                    <div>
+                        <label class="text-[11px] text-zinc-400 block mb-1">ชื่อ (TH) *</label>
+                        <input id="cp-name" type="text" value="${_esc(f.name||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-zinc-400 block mb-1">ชื่อ (EN, optional)</label>
+                        <input id="cp-nameEn" type="text" value="${_esc(f.nameEn||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-zinc-400 block mb-1">รายละเอียด (TH)</label>
+                        <textarea id="cp-description" rows="2" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">${_esc(f.description||'')}</textarea>
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-zinc-400 block mb-1">ประเภท *</label>
+                        <select id="cp-type" onchange="onCpnTypeChange()" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                            ${['DISCOUNT_PERCENT','DISCOUNT_FLAT','GIFT'].map(t => `<option value="${t}" ${f.type===t?'selected':''}>${t}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div id="cp-value-row">
+                        <label class="text-[11px] text-zinc-400 block mb-1"><span id="cp-value-label">มูลค่า</span></label>
+                        <input id="cp-value" type="number" step="0.01" value="${f.value??''}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                    </div>
+                    <div id="cp-gift-row" class="${f.type==='GIFT'?'':'hidden'} grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-[11px] text-zinc-400 block mb-1">หมวดของแถม</label>
+                            <select id="cp-giftCategoryId" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">${catOpts(f.giftCategoryId)}</select>
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-zinc-400 block mb-1">จำนวน</label>
+                            <input id="cp-giftQty" type="number" value="${f.giftQty??1}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                        </div>
+                    </div>
+
+                    <div class="pt-2 border-t border-white/10">
+                        <div class="text-[11px] text-zinc-400 font-bold mb-2">เงื่อนไข</div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[11px] text-zinc-400 block mb-1">ยอดขั้นต่ำ ฿</label>
+                                <input id="cp-minPurchase" type="number" value="${f.minPurchase??''}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                            </div>
+                            <div>
+                                <label class="text-[11px] text-zinc-400 block mb-1">จำนวนชิ้นขั้นต่ำ</label>
+                                <input id="cp-minQty" type="number" value="${f.minQty??''}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 mt-2">
+                            <div>
+                                <label class="text-[11px] text-zinc-400 block mb-1">เฉพาะหมวด</label>
+                                <select id="cp-targetCategoryId" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">${catOpts(f.targetCategoryId)}</select>
+                            </div>
+                            <div>
+                                <label class="text-[11px] text-zinc-400 block mb-1">เฉพาะ Product ID</label>
+                                <input id="cp-targetProductId" type="number" value="${f.targetProductId??''}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-2 border-t border-white/10">
+                        <div class="text-[11px] text-zinc-400 font-bold mb-2">โควตา / อายุ</div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[11px] text-zinc-400 block mb-1">โควตาทั้งหมด</label>
+                                <input id="cp-totalQuota" type="number" value="${f.totalQuota??''}" placeholder="ไม่จำกัด" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                            </div>
+                            <div>
+                                <label class="text-[11px] text-zinc-400 block mb-1">จำกัดต่อคน</label>
+                                <input id="cp-usageLimitPerUser" type="number" value="${f.usageLimitPerUser??1}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 mt-2">
+                            <div>
+                                <label class="text-[11px] text-zinc-400 block mb-1">เริ่มเก็บได้</label>
+                                <input id="cp-startDate" type="datetime-local" value="${dtVal(f.startDate)}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                            </div>
+                            <div>
+                                <label class="text-[11px] text-zinc-400 block mb-1">ปิดรับเก็บ</label>
+                                <input id="cp-endDate" type="datetime-local" value="${dtVal(f.endDate)}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 mt-2">
+                            <div>
+                                <label class="text-[11px] text-zinc-400 block mb-1">ใช้ได้ตั้งแต่</label>
+                                <input id="cp-validFrom" type="datetime-local" value="${dtVal(f.validFrom)}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                            </div>
+                            <div>
+                                <label class="text-[11px] text-zinc-400 block mb-1">หมดอายุ (global)</label>
+                                <input id="cp-validUntil" type="datetime-local" value="${dtVal(f.validUntil)}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <label class="text-[11px] text-zinc-400 block mb-1">หรืออายุนับจากวันเก็บ (วัน)</label>
+                            <input id="cp-validityDays" type="number" value="${f.validityDays??''}" placeholder="เช่น 30" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                        </div>
+                    </div>
+
+                    <div class="pt-2 border-t border-white/10">
+                        <div class="text-[11px] text-zinc-400 font-bold mb-2">แลกด้วยแต้ม / Auto / Reward</div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[11px] text-zinc-400 block mb-1">แต้มที่ใช้แลก</label>
+                                <input id="cp-pointsCost" type="number" value="${f.pointsCost??''}" placeholder="ว่าง = ไม่ต้องแลก" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                            </div>
+                            <div>
+                                <label class="text-[11px] text-zinc-400 block mb-1">Auto Trigger</label>
+                                <select id="cp-autoAssignTrigger" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                                    ${['ALL','MAGIC_LINK','REFERRAL','ADMIN_GENCODE'].map(t => `<option value="${t}" ${(f.autoAssignTrigger||'ALL')===t?'selected':''}>${t}</option>`).join('')}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 mt-2">
+                            <label class="flex items-center gap-2"><input id="cp-isAutoAssign" type="checkbox" ${f.isAutoAssign?'checked':''} class="w-4 h-4 accent-yellow-500"> Auto-assign</label>
+                            <div>
+                                <label class="text-[11px] text-zinc-400 block mb-1">Auto qty</label>
+                                <input id="cp-autoAssignQty" type="number" value="${f.autoAssignQty??0}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 mt-2">
+                            <div>
+                                <label class="text-[11px] text-zinc-400 block mb-1">Reward Trigger</label>
+                                <select id="cp-rewardTrigger" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                                    <option value="">— ไม่ใช่ reward —</option>
+                                    ${['REFEREE_FIRST_PURCHASE','MYSTERY_BOX'].map(t => `<option value="${t}" ${f.rewardTrigger===t?'selected':''}>${t}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[11px] text-zinc-400 block mb-1">Reward Recipient</label>
+                                <select id="cp-rewardRecipient" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                                    <option value="">—</option>
+                                    ${['REFERRER','REFEREE','BOTH'].map(t => `<option value="${t}" ${f.rewardRecipient===t?'selected':''}>${t}</option>`).join('')}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 mt-2">
+                            <div>
+                                <label class="text-[11px] text-zinc-400 block mb-1">Reward minAmount</label>
+                                <input id="cp-rewardMinAmount" type="number" step="0.01" value="${f.rewardMinAmount??''}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                            </div>
+                            <div>
+                                <label class="text-[11px] text-zinc-400 block mb-1">Reward maxAmount</label>
+                                <input id="cp-rewardMaxAmount" type="number" step="0.01" value="${f.rewardMaxAmount??''}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                            </div>
+                        </div>
+                        <label class="flex items-center gap-2 mt-2"><input id="cp-rewardOncePerReferral" type="checkbox" ${f.rewardOncePerReferral!==false?'checked':''} class="w-4 h-4 accent-yellow-500"> แจกครั้งเดียวต่อ Referral</label>
+                    </div>
+
+                    <label class="flex items-center gap-2 pt-2 border-t border-white/10"><input id="cp-isActive" type="checkbox" ${(f.isActive!==false)?'checked':''} class="w-4 h-4 accent-yellow-500"> Active</label>
+                </div>
+
+                <div class="mt-4 flex gap-2">
+                    ${!isNew ? `<button onclick="deleteCpn()" class="px-3 py-2.5 rounded-xl bg-red-600/80 hover:bg-red-500 text-white"><i class="ri-delete-bin-line"></i></button>` : ''}
+                    <button onclick="closeCpnModal()" class="flex-1 py-2.5 rounded-xl bg-zinc-700 text-white font-bold">ยกเลิก</button>
+                    <button id="cp-save-btn" onclick="saveCpn()" class="flex-1 py-2.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black font-bold">${isNew?'สร้าง':'บันทึก'}</button>
+                </div>`;
+
+            document.getElementById('cpn-modal-content').innerHTML = html;
+            document.body.classList.add('no-scroll');
+            document.getElementById('cpn-modal').classList.remove('hidden');
+            onCpnTypeChange();
+        }
+
+        function onCpnTypeChange() {
+            const t = document.getElementById('cp-type')?.value;
+            const giftRow = document.getElementById('cp-gift-row');
+            const valueLabel = document.getElementById('cp-value-label');
+            const valueRow = document.getElementById('cp-value-row');
+            if (!t || !giftRow || !valueLabel) return;
+            if (t === 'GIFT') { giftRow.classList.remove('hidden'); valueRow.classList.add('hidden'); }
+            else { giftRow.classList.add('hidden'); valueRow.classList.remove('hidden'); valueLabel.textContent = (t === 'DISCOUNT_PERCENT') ? 'ส่วนลด %' : 'ส่วนลด ฿'; }
+        }
+
+        function closeCpnModal() {
+            _editingCpnId = null;
+            document.body.classList.remove('no-scroll');
+            document.getElementById('cpn-modal').classList.add('hidden');
+        }
+
+        async function saveCpn() {
+            const btn = document.getElementById('cp-save-btn');
+            btn.disabled = true; const wasText = btn.textContent; btn.textContent = 'กำลังบันทึก...';
+            const isNew = !_editingCpnId;
+            const v = (id) => document.getElementById(id)?.value;
+            const ck = (id) => document.getElementById(id)?.checked;
+            const body = {
+                name: v('cp-name'), nameEn: v('cp-nameEn'), description: v('cp-description'),
+                type: v('cp-type'), value: v('cp-value'),
+                giftCategoryId: v('cp-giftCategoryId'), giftQty: v('cp-giftQty'),
+                minPurchase: v('cp-minPurchase'), minQty: v('cp-minQty'),
+                targetCategoryId: v('cp-targetCategoryId'), targetProductId: v('cp-targetProductId'),
+                totalQuota: v('cp-totalQuota'), usageLimitPerUser: v('cp-usageLimitPerUser'),
+                startDate: v('cp-startDate') || null, endDate: v('cp-endDate') || null,
+                validFrom: v('cp-validFrom') || null, validUntil: v('cp-validUntil') || null,
+                validityDays: v('cp-validityDays'),
+                pointsCost: v('cp-pointsCost'),
+                isAutoAssign: ck('cp-isAutoAssign'), autoAssignQty: v('cp-autoAssignQty'),
+                autoAssignTrigger: v('cp-autoAssignTrigger'),
+                rewardTrigger: v('cp-rewardTrigger') || null, rewardRecipient: v('cp-rewardRecipient') || null,
+                rewardMinAmount: v('cp-rewardMinAmount'), rewardMaxAmount: v('cp-rewardMaxAmount'),
+                rewardOncePerReferral: ck('cp-rewardOncePerReferral'),
+                isActive: ck('cp-isActive'),
+                initData: tg.initData,
+            };
+            if (isNew) body.id = v('cp-id');
+            try {
+                const url = isNew ? '/api/admin/coupons' : `/api/admin/coupons/${encodeURIComponent(_editingCpnId)}`;
+                const method = isNew ? 'POST' : 'PATCH';
+                const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+                const data = await res.json();
+                if (!data.success) { alert(data.error || 'ไม่สำเร็จ'); btn.disabled = false; btn.textContent = wasText; return; }
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch(e){}
+                closeCpnModal();
+                await loadCoupons();
+            } catch (e) { alert('error: '+e.message); btn.disabled=false; btn.textContent=wasText; }
+        }
+
+        async function deleteCpn() {
+            if (!_editingCpnId) return;
+            if (!confirm('ลบคูปองนี้?\n(ถ้าเคยมีลูกค้าเก็บ จะ deactivate แทน)')) return;
+            try {
+                const res = await fetch(`/api/admin/coupons/${encodeURIComponent(_editingCpnId)}`, {
+                    method: 'DELETE', headers: {'Content-Type':'application/json', 'X-Init-Data': tg.initData},
+                    body: JSON.stringify({ initData: tg.initData }),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error || 'ไม่สำเร็จ'); return; }
+                if (data.softDeleted) alert('Soft-deleted (มีลูกค้าเก็บแล้ว ' + data.claimed + ' ราย)');
+                closeCpnModal();
+                await loadCoupons();
+            } catch (e) { alert('error: '+e.message); }
         }
 
         // ---------- 🎁 Mystery Boxes ----------

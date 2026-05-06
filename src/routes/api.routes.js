@@ -3026,6 +3026,124 @@ router.get('/admin/coupons', async (req, res) => {
     }
 });
 
+// GET /admin/coupons/:id/detail — full row สำหรับ edit form
+router.get('/admin/coupons/:id/detail', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const c = await prisma.coupon.findUnique({ where: { id: req.params.id } });
+        if (!c) return res.status(404).json({ success: false, error: 'ไม่พบคูปอง' });
+        res.json({ success: true, coupon: c });
+    } catch (e) {
+        res.status(500).json({ success: false, error: 'load failed' });
+    }
+});
+
+// POST /admin/coupons — create
+router.post('/admin/coupons', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const b = req.body || {};
+        if (!b.id || !b.name || !b.type) return res.status(400).json({ success: false, error: 'id/name/type ห้ามว่าง' });
+        const exist = await prisma.coupon.findUnique({ where: { id: b.id } });
+        if (exist) return res.status(400).json({ success: false, error: 'รหัสคูปองนี้มีอยู่แล้ว' });
+        const data = sanitizeCouponPayload(b);
+        const created = await prisma.coupon.create({ data: { id: b.id, ...data } });
+        res.json({ success: true, coupon: { id: created.id } });
+    } catch (e) {
+        console.error('admin coupon create error:', e);
+        res.status(500).json({ success: false, error: e.message || 'create failed' });
+    }
+});
+
+// PATCH /admin/coupons/:id — update full
+router.patch('/admin/coupons/:id', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const exist = await prisma.coupon.findUnique({ where: { id: req.params.id } });
+        if (!exist) return res.status(404).json({ success: false, error: 'ไม่พบคูปอง' });
+        const data = sanitizeCouponPayload(req.body || {});
+        const updated = await prisma.coupon.update({ where: { id: exist.id }, data });
+        res.json({ success: true, coupon: { id: updated.id } });
+    } catch (e) {
+        console.error('admin coupon update error:', e);
+        res.status(500).json({ success: false, error: e.message || 'update failed' });
+    }
+});
+
+// DELETE /admin/coupons/:id — hard delete ถ้าไม่เคยถูก claim, มิฉะนั้น soft delete
+router.delete('/admin/coupons/:id', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const exist = await prisma.coupon.findUnique({ where: { id: req.params.id } });
+        if (!exist) return res.status(404).json({ success: false, error: 'ไม่พบคูปอง' });
+        const claimed = await prisma.customerCoupon.count({ where: { couponId: exist.id } });
+        if (claimed > 0) {
+            await prisma.coupon.update({ where: { id: exist.id }, data: { isActive: false } });
+            return res.json({ success: true, softDeleted: true, claimed });
+        }
+        await prisma.coupon.delete({ where: { id: exist.id } });
+        res.json({ success: true });
+    } catch (e) {
+        console.error('admin coupon delete error:', e);
+        res.status(500).json({ success: false, error: e.message || 'delete failed' });
+    }
+});
+
+// GET /admin/category-options — สำหรับเลือกใน coupon form (giftCategoryId / targetCategoryId)
+router.get('/admin/category-options', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const cats = await prisma.category.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } });
+        res.json({ success: true, categories: cats });
+    } catch (e) {
+        res.status(500).json({ success: false, error: 'load failed' });
+    }
+});
+
+function sanitizeCouponPayload(b) {
+    const num = (v) => (v === '' || v == null ? null : Number(v));
+    const intOrNull = (v) => (v === '' || v == null ? null : parseInt(v));
+    const dt = (v) => (v ? new Date(v) : null);
+    const allowedTypes = ['DISCOUNT_PERCENT', 'DISCOUNT_FLAT', 'GIFT'];
+    if (b.type && !allowedTypes.includes(b.type)) throw new Error('type ไม่ถูกต้อง');
+    return {
+        name: b.name ?? undefined,
+        nameEn: b.nameEn || null,
+        description: b.description || null,
+        descriptionEn: b.descriptionEn || null,
+        type: b.type ?? undefined,
+        value: num(b.value),
+        giftCategoryId: intOrNull(b.giftCategoryId),
+        giftQty: intOrNull(b.giftQty),
+        minPurchase: num(b.minPurchase),
+        minQty: intOrNull(b.minQty),
+        targetCategoryId: intOrNull(b.targetCategoryId),
+        targetProductId: intOrNull(b.targetProductId),
+        pointsCost: intOrNull(b.pointsCost),
+        totalQuota: intOrNull(b.totalQuota),
+        usageLimitPerUser: intOrNull(b.usageLimitPerUser) ?? 1,
+        startDate: dt(b.startDate),
+        endDate: dt(b.endDate),
+        validFrom: dt(b.validFrom),
+        validUntil: dt(b.validUntil),
+        validityDays: intOrNull(b.validityDays),
+        isAutoAssign: !!b.isAutoAssign,
+        autoAssignQty: intOrNull(b.autoAssignQty) ?? 0,
+        autoAssignTrigger: b.autoAssignTrigger || 'ALL',
+        rewardTrigger: b.rewardTrigger || null,
+        rewardRecipient: b.rewardRecipient || null,
+        rewardMinAmount: num(b.rewardMinAmount),
+        rewardMaxAmount: num(b.rewardMaxAmount),
+        rewardOncePerReferral: b.rewardOncePerReferral !== false,
+        isActive: b.isActive !== false,
+    };
+}
+
 // PATCH /admin/coupons/:id/toggle — switch isActive
 router.patch('/admin/coupons/:id/toggle', async (req, res) => {
     const a = await authAdmin(req);
