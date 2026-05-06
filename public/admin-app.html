@@ -151,8 +151,13 @@
 
         <!-- 🎁 Mystery Boxes view -->
         <div id="view-mystery-boxes" class="hidden">
-            <div class="font-bold text-sm mb-3 flex items-center gap-2">
-                <i class="ri-gift-2-fill text-purple-400"></i> Mystery Box ทั้งหมด
+            <div class="flex items-center justify-between mb-3">
+                <div class="font-bold text-sm flex items-center gap-2">
+                    <i class="ri-gift-2-fill text-purple-400"></i> Mystery Box ทั้งหมด
+                </div>
+                <button onclick="openMboxEdit()" class="text-xs px-3 py-1.5 rounded-full bg-purple-500 hover:bg-purple-400 text-white font-bold">
+                    <i class="ri-add-line"></i> สร้างใหม่
+                </button>
             </div>
             <div id="mbox-list" class="space-y-2"></div>
         </div>
@@ -175,6 +180,16 @@
     <!-- Customer Detail Modal -->
     <div id="cust-modal" class="hidden fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-sm">
         <div id="cust-modal-content" class="glass-card w-full max-w-md max-h-[92vh] overflow-y-auto p-5 rounded-t-3xl sm:rounded-2xl"></div>
+    </div>
+
+    <!-- 🎁 Mystery Box Edit Modal -->
+    <div id="mbox-modal" class="hidden fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-sm">
+        <div id="mbox-modal-content" class="glass-card w-full max-w-md max-h-[92vh] overflow-y-auto p-5 rounded-t-3xl sm:rounded-2xl"></div>
+    </div>
+
+    <!-- Prize Edit Modal -->
+    <div id="prize-modal" class="hidden fixed inset-0 z-[90] flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-sm">
+        <div id="prize-modal-content" class="glass-card w-full max-w-sm p-5 rounded-t-3xl sm:rounded-2xl"></div>
     </div>
 
     <!-- Adjust Points Modal -->
@@ -358,6 +373,8 @@
             document.getElementById('ship-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeShipModal(); });
             document.getElementById('cust-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeCustModal(); });
             document.getElementById('adj-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeAdjModal(); });
+            document.getElementById('mbox-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeMboxModal(); });
+            document.getElementById('prize-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closePrizeModal(); });
         });
 
         // ---------- 👥 Customers ----------
@@ -540,6 +557,7 @@
                 const data = await res.json();
                 if (!data.success) throw new Error(data.error || 'load failed');
                 if (!data.boxes.length) { list.innerHTML = '<div class="text-center text-zinc-500 py-6 text-sm">ยังไม่มี Mystery Box</div>'; return; }
+                window._mboxCache = data.boxes;
                 list.innerHTML = data.boxes.map((b, idx) => {
                     const tierTag = b.requiredTier && b.requiredTier !== 'NONE' ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300">${b.requiredTier} only</span>` : '';
                     const conditionTag = b.minPurchaseAmount || b.maxPurchaseAmount
@@ -553,8 +571,8 @@
                     return `
                     <div class="bg-white/5 border border-white/10 rounded-xl p-3 item-fade-in" style="animation-delay:${idx*30}ms">
                         <div class="flex items-start justify-between gap-2 mb-2">
-                            <div class="flex-1 min-w-0">
-                                <div class="text-sm font-bold text-white truncate">${_esc(b.name)}</div>
+                            <div class="flex-1 min-w-0 cursor-pointer" onclick="openMboxEdit('${_esc(b.id)}')">
+                                <div class="text-sm font-bold text-white truncate">${_esc(b.name)} <i class="ri-edit-line text-[11px] text-zinc-500"></i></div>
                                 <div class="text-[11px] text-zinc-400"><code>${_esc(b.id)}</code> · ${_esc(b.trigger)}</div>
                                 <div class="flex flex-wrap gap-1 mt-1">${tierTag}${conditionTag}</div>
                                 <div class="text-[10px] text-zinc-500 mt-1">
@@ -572,6 +590,267 @@
                 }).join('');
             } catch (e) { list.innerHTML = '<div class="text-center text-red-400 py-6">โหลดไม่สำเร็จ</div>'; }
         }
+        // ----- Mystery Box edit modal -----
+        let _editingMboxId = null;
+        let _editingMboxData = null;
+
+        async function openMboxEdit(id) {
+            _editingMboxId = id || null; // null = create new
+            _editingMboxData = id ? (window._mboxCache || []).find(b => b.id === id) : null;
+            const isNew = !id;
+            const b = _editingMboxData || {};
+
+            const html = `
+                <div class="flex items-start justify-between mb-3">
+                    <h3 class="text-base font-bold">${isNew ? '➕ สร้าง Mystery Box ใหม่' : '✏️ แก้ไข ' + _esc(b.name || '')}</h3>
+                    <button onclick="closeMboxModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center"><i class="ri-close-line"></i></button>
+                </div>
+                <div class="space-y-3 text-sm">
+                    ${isNew ? `
+                    <div>
+                        <label class="text-[11px] text-zinc-400 block mb-1">รหัสกล่อง (เช่น MB_FRIEND, ห้ามซ้ำ) *</label>
+                        <input id="mb-id" type="text" placeholder="MB_XXX" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                    </div>` : ''}
+                    <div>
+                        <label class="text-[11px] text-zinc-400 block mb-1">ชื่อกล่อง *</label>
+                        <input id="mb-name" type="text" value="${_esc(b.name||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-zinc-400 block mb-1">ชื่ออังกฤษ (optional)</label>
+                        <input id="mb-nameEn" type="text" value="${_esc(b.nameEn||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-zinc-400 block mb-1">รายละเอียด</label>
+                        <textarea id="mb-description" rows="2" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">${_esc(b.description||'')}</textarea>
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-zinc-400 block mb-1">URL รูปกล่อง</label>
+                        <input id="mb-imageUrl" type="text" value="${_esc(b.imageUrl||'')}" placeholder="https://..." class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-zinc-400 block mb-1">Trigger *</label>
+                        <select id="mb-trigger" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                            ${['REFEREE_FIRST_PURCHASE','PURCHASE_MILESTONE','REVIEW_PRODUCT','JOIN_CHANNEL','ADMIN_GRANT'].map(t =>
+                                `<option value="${t}" ${b.trigger===t?'selected':''}>${t}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-[11px] text-zinc-400 block mb-1">ยอดขั้นต่ำ (ถ้ามี)</label>
+                            <input id="mb-minPurchaseAmount" type="number" value="${b.minPurchaseAmount||''}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-zinc-400 block mb-1">ยอดเพดาน (ถ้ามี)</label>
+                            <input id="mb-maxPurchaseAmount" type="number" value="${b.maxPurchaseAmount||''}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-[11px] text-zinc-400 block mb-1">สิทธิ์ต่อ event</label>
+                            <input id="mb-ticketsPerEvent" type="number" value="${b.ticketsPerEvent||1}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-zinc-400 block mb-1">เพดานต่อคน (ตลอดอายุกล่อง)</label>
+                            <input id="mb-maxPerUser" type="number" value="${b.maxPerUser||''}" placeholder="ไม่จำกัด" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-zinc-400 block mb-1">เงื่อนไข tier</label>
+                        <select id="mb-requiredTier" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                            ${['NONE','SILVER','GOLD'].map(t => `<option value="${t}" ${(b.requiredTier||'NONE')===t?'selected':''}>${t}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-[11px] text-zinc-400 block mb-1">เริ่ม (optional)</label>
+                            <input id="mb-startDate" type="datetime-local" value="${b.startDate ? new Date(b.startDate).toISOString().slice(0,16) : ''}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-zinc-400 block mb-1">จบ (optional)</label>
+                            <input id="mb-endDate" type="datetime-local" value="${b.endDate ? new Date(b.endDate).toISOString().slice(0,16) : ''}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                        </div>
+                    </div>
+                    <label class="flex items-center gap-2"><input id="mb-isActive" type="checkbox" ${(b.isActive!==false)?'checked':''} class="w-4 h-4 accent-purple-500"> Active</label>
+                </div>
+
+                ${!isNew ? `
+                <div class="mt-4 pt-3 border-t border-white/10">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="text-sm font-bold">🎁 รางวัลในกล่อง (${b.prizes?.length || 0})</div>
+                        <button onclick="openPrizeEdit('${_esc(id)}', null)" class="text-xs px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white">+ เพิ่มรางวัล</button>
+                    </div>
+                    <div id="mb-prizes-inline" class="space-y-1.5">
+                        ${(b.prizes||[]).map(p => `
+                            <div class="flex items-center gap-2 text-xs bg-white/5 border border-white/10 rounded-lg p-2">
+                                ${p.imageUrl ? `<img src="${_esc(p.imageUrl)}" class="w-7 h-7 rounded object-cover">` : '<div class="w-7 h-7 rounded bg-zinc-700 flex items-center justify-center text-sm">🎁</div>'}
+                                <div class="flex-1 min-w-0">
+                                    <div class="truncate text-white">${_esc(p.name)}</div>
+                                    <div class="text-[10px] text-zinc-500">w${p.weight}${p.isPhysicalReward?' · physical':''}${p.rewardCouponId?' · coupon: '+_esc(p.rewardCouponId):''}</div>
+                                </div>
+                                <button onclick="openPrizeEdit('${_esc(id)}', ${p.id})" class="text-zinc-400 hover:text-white text-base"><i class="ri-edit-line"></i></button>
+                                <button onclick="deletePrize('${_esc(id)}', ${p.id})" class="text-zinc-500 hover:text-red-400 text-base"><i class="ri-delete-bin-line"></i></button>
+                            </div>`).join('') || '<div class="text-zinc-500 text-xs py-2 text-center">ยังไม่มีรางวัล</div>'}
+                    </div>
+                </div>` : ''}
+
+                <div class="mt-4 flex gap-2">
+                    <button onclick="closeMboxModal()" class="flex-1 py-2.5 rounded-xl bg-zinc-700 text-white font-bold">ยกเลิก</button>
+                    <button id="mb-save-btn" onclick="saveMbox()" class="flex-1 py-2.5 rounded-xl bg-purple-500 hover:bg-purple-400 text-white font-bold disabled:opacity-50">${isNew ? 'สร้าง' : 'บันทึก'}</button>
+                </div>`;
+
+            document.getElementById('mbox-modal-content').innerHTML = html;
+            document.body.classList.add('no-scroll');
+            document.getElementById('mbox-modal').classList.remove('hidden');
+        }
+
+        function closeMboxModal() {
+            _editingMboxId = null; _editingMboxData = null;
+            document.body.classList.remove('no-scroll');
+            document.getElementById('mbox-modal').classList.add('hidden');
+        }
+
+        async function saveMbox() {
+            const btn = document.getElementById('mb-save-btn');
+            btn.disabled = true; const wasText = btn.textContent; btn.textContent = 'กำลังบันทึก...';
+            const isNew = !_editingMboxId;
+            const body = {
+                name: document.getElementById('mb-name').value,
+                nameEn: document.getElementById('mb-nameEn').value,
+                description: document.getElementById('mb-description').value,
+                imageUrl: document.getElementById('mb-imageUrl').value,
+                trigger: document.getElementById('mb-trigger').value,
+                minPurchaseAmount: document.getElementById('mb-minPurchaseAmount').value,
+                maxPurchaseAmount: document.getElementById('mb-maxPurchaseAmount').value,
+                ticketsPerEvent: document.getElementById('mb-ticketsPerEvent').value,
+                maxPerUser: document.getElementById('mb-maxPerUser').value,
+                requiredTier: document.getElementById('mb-requiredTier').value,
+                startDate: document.getElementById('mb-startDate').value || null,
+                endDate: document.getElementById('mb-endDate').value || null,
+                isActive: document.getElementById('mb-isActive').checked,
+                initData: tg.initData,
+            };
+            if (isNew) body.id = document.getElementById('mb-id').value;
+            try {
+                const url = isNew ? '/api/admin/mystery-boxes' : `/api/admin/mystery-boxes/${encodeURIComponent(_editingMboxId)}`;
+                const method = isNew ? 'POST' : 'PATCH';
+                const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+                const data = await res.json();
+                if (!data.success) { alert(data.error || 'ไม่สำเร็จ'); btn.disabled = false; btn.textContent = wasText; return; }
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch(e){}
+                closeMboxModal();
+                await loadMysteryBoxes();
+            } catch (e) { alert('error: '+e.message); btn.disabled=false; btn.textContent=wasText; }
+        }
+
+        // ----- Prize edit modal -----
+        let _editingPrizeBoxId = null;
+        let _editingPrizeId = null;
+        let _couponOptions = [];
+
+        async function openPrizeEdit(boxId, prizeId) {
+            _editingPrizeBoxId = boxId;
+            _editingPrizeId = prizeId; // null = create
+            const box = (window._mboxCache || []).find(b => b.id === boxId);
+            const prize = prizeId ? (box?.prizes || []).find(p => p.id === prizeId) : null;
+            const isNew = !prizeId;
+
+            // load coupon options ถ้ายังไม่มี
+            if (_couponOptions.length === 0) {
+                try {
+                    const r = await fetch('/api/admin/coupon-options', { headers: { 'X-Init-Data': tg.initData } });
+                    const d = await r.json();
+                    if (d.success) _couponOptions = d.coupons || [];
+                } catch (e) {}
+            }
+            const couponOpts = ['<option value="">— ไม่ผูกคูปอง —</option>',
+                ..._couponOptions.map(c => `<option value="${_esc(c.id)}" ${prize?.rewardCouponId===c.id?'selected':''}>${_esc(c.name)} (${_esc(c.id)})</option>`)
+            ].join('');
+
+            const html = `
+                <div class="flex items-start justify-between mb-3">
+                    <h3 class="text-base font-bold">${isNew ? '➕ เพิ่มรางวัล' : '✏️ แก้ไขรางวัล'}</h3>
+                    <button onclick="closePrizeModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center"><i class="ri-close-line"></i></button>
+                </div>
+                <div class="space-y-3 text-sm">
+                    <div>
+                        <label class="text-[11px] text-zinc-400 block mb-1">ชื่อรางวัล *</label>
+                        <input id="pz-name" type="text" value="${_esc(prize?.name||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-zinc-400 block mb-1">URL รูป</label>
+                        <input id="pz-imageUrl" type="text" value="${_esc(prize?.imageUrl||'')}" placeholder="https://..." class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-zinc-400 block mb-1">น้ำหนัก (สูง = มีโอกาสออกมาก)</label>
+                        <input id="pz-weight" type="number" value="${prize?.weight||1}" min="1" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-zinc-400 block mb-1">คูปองที่ผูก (optional)</label>
+                        <select id="pz-rewardCouponId" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">${couponOpts}</select>
+                        <p class="text-[10px] text-zinc-500 mt-1">เลือกคูปอง = หลังเปิดกล่อง ลูกค้าได้คูปองในกระเป๋า</p>
+                    </div>
+                    <label class="flex items-center gap-2"><input id="pz-isPhysical" type="checkbox" ${prize?.isPhysicalReward?'checked':''} class="w-4 h-4 accent-purple-500"> เป็นของจริง (admin ต้องส่งไปรษณีย์)</label>
+                </div>
+                <div class="mt-4 flex gap-2">
+                    <button onclick="closePrizeModal()" class="flex-1 py-2.5 rounded-xl bg-zinc-700 text-white font-bold">ยกเลิก</button>
+                    <button id="pz-save-btn" onclick="savePrize()" class="flex-1 py-2.5 rounded-xl bg-purple-500 hover:bg-purple-400 text-white font-bold">${isNew?'เพิ่ม':'บันทึก'}</button>
+                </div>`;
+
+            document.getElementById('prize-modal-content').innerHTML = html;
+            document.body.classList.add('no-scroll');
+            document.getElementById('prize-modal').classList.remove('hidden');
+        }
+
+        function closePrizeModal() {
+            _editingPrizeBoxId = null; _editingPrizeId = null;
+            document.body.classList.remove('no-scroll');
+            document.getElementById('prize-modal').classList.add('hidden');
+        }
+
+        async function savePrize() {
+            const btn = document.getElementById('pz-save-btn');
+            btn.disabled = true; const wasText = btn.textContent; btn.textContent = 'กำลังบันทึก...';
+            const body = {
+                name: document.getElementById('pz-name').value,
+                imageUrl: document.getElementById('pz-imageUrl').value,
+                weight: document.getElementById('pz-weight').value,
+                rewardCouponId: document.getElementById('pz-rewardCouponId').value,
+                isPhysicalReward: document.getElementById('pz-isPhysical').checked,
+                initData: tg.initData,
+            };
+            try {
+                const url = _editingPrizeId
+                    ? `/api/admin/mystery-boxes/${encodeURIComponent(_editingPrizeBoxId)}/prizes/${_editingPrizeId}`
+                    : `/api/admin/mystery-boxes/${encodeURIComponent(_editingPrizeBoxId)}/prizes`;
+                const method = _editingPrizeId ? 'PATCH' : 'POST';
+                const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+                const data = await res.json();
+                if (!data.success) { alert(data.error || 'ไม่สำเร็จ'); btn.disabled=false; btn.textContent=wasText; return; }
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch(e){}
+                const boxId = _editingPrizeBoxId;
+                closePrizeModal();
+                await loadMysteryBoxes();
+                openMboxEdit(boxId); // re-open box edit to show updated prizes
+            } catch (e) { alert('error: '+e.message); btn.disabled=false; btn.textContent=wasText; }
+        }
+
+        async function deletePrize(boxId, prizeId) {
+            if (!confirm('ลบรางวัลนี้?\n(ถ้าเคยมีลูกค้าได้รับ จะ soft-delete แทน)')) return;
+            try {
+                const res = await fetch(`/api/admin/mystery-boxes/${encodeURIComponent(boxId)}/prizes/${prizeId}`, {
+                    method: 'DELETE',
+                    headers: {'Content-Type':'application/json', 'X-Init-Data': tg.initData},
+                    body: JSON.stringify({ initData: tg.initData }),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                if (data.softDeleted) alert('Soft-deleted (มีลูกค้าใช้แล้ว ' + data.usedCount + ' ราย)');
+                await loadMysteryBoxes();
+                openMboxEdit(boxId);
+            } catch (e) { alert('error: '+e.message); }
+        }
+
         async function toggleMbox(id, checkbox) {
             checkbox.disabled = true;
             try {

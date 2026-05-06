@@ -3079,6 +3079,178 @@ router.get('/admin/mystery-boxes', async (req, res) => {
     }
 });
 
+// POST /admin/mystery-boxes — create
+router.post('/admin/mystery-boxes', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const b = req.body || {};
+        if (!b.id || !b.name || !b.trigger) {
+            return res.status(400).json({ success: false, error: 'id, name, trigger จำเป็น' });
+        }
+        // กัน duplicate
+        const exist = await prisma.mysteryBox.findUnique({ where: { id: String(b.id).trim() } });
+        if (exist) return res.status(409).json({ success: false, error: 'รหัสกล่องซ้ำ' });
+
+        const created = await prisma.mysteryBox.create({
+            data: {
+                id: String(b.id).trim(),
+                name: String(b.name).trim(),
+                nameEn: b.nameEn || null,
+                description: b.description || null,
+                descriptionEn: b.descriptionEn || null,
+                imageUrl: b.imageUrl || null,
+                trigger: b.trigger,
+                minPurchaseAmount: b.minPurchaseAmount != null && b.minPurchaseAmount !== '' ? Number(b.minPurchaseAmount) : null,
+                maxPurchaseAmount: b.maxPurchaseAmount != null && b.maxPurchaseAmount !== '' ? Number(b.maxPurchaseAmount) : null,
+                ticketsPerEvent: parseInt(b.ticketsPerEvent) || 1,
+                maxPerUser: b.maxPerUser != null && b.maxPerUser !== '' ? parseInt(b.maxPerUser) : null,
+                requiredTier: b.requiredTier || 'NONE',
+                isActive: b.isActive !== false,
+                startDate: b.startDate ? new Date(b.startDate) : null,
+                endDate: b.endDate ? new Date(b.endDate) : null,
+            },
+        });
+        res.json({ success: true, box: created });
+    } catch (e) {
+        console.error('mbox create error:', e);
+        res.status(500).json({ success: false, error: e.message || 'create failed' });
+    }
+});
+
+// PATCH /admin/mystery-boxes/:id — update
+router.patch('/admin/mystery-boxes/:id', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const id = req.params.id;
+        const exist = await prisma.mysteryBox.findUnique({ where: { id } });
+        if (!exist) return res.status(404).json({ success: false, error: 'ไม่พบกล่อง' });
+        const b = req.body || {};
+        const data = {};
+        if (b.name !== undefined) data.name = String(b.name).trim();
+        if (b.nameEn !== undefined) data.nameEn = b.nameEn || null;
+        if (b.description !== undefined) data.description = b.description || null;
+        if (b.descriptionEn !== undefined) data.descriptionEn = b.descriptionEn || null;
+        if (b.imageUrl !== undefined) data.imageUrl = b.imageUrl || null;
+        if (b.trigger !== undefined) data.trigger = b.trigger;
+        if (b.minPurchaseAmount !== undefined) data.minPurchaseAmount = (b.minPurchaseAmount === '' || b.minPurchaseAmount === null) ? null : Number(b.minPurchaseAmount);
+        if (b.maxPurchaseAmount !== undefined) data.maxPurchaseAmount = (b.maxPurchaseAmount === '' || b.maxPurchaseAmount === null) ? null : Number(b.maxPurchaseAmount);
+        if (b.ticketsPerEvent !== undefined) data.ticketsPerEvent = parseInt(b.ticketsPerEvent) || 1;
+        if (b.maxPerUser !== undefined) data.maxPerUser = (b.maxPerUser === '' || b.maxPerUser === null) ? null : parseInt(b.maxPerUser);
+        if (b.requiredTier !== undefined) data.requiredTier = b.requiredTier || 'NONE';
+        if (b.isActive !== undefined) data.isActive = !!b.isActive;
+        if (b.startDate !== undefined) data.startDate = b.startDate ? new Date(b.startDate) : null;
+        if (b.endDate !== undefined) data.endDate = b.endDate ? new Date(b.endDate) : null;
+        const updated = await prisma.mysteryBox.update({ where: { id }, data });
+        res.json({ success: true, box: updated });
+    } catch (e) {
+        console.error('mbox update error:', e);
+        res.status(500).json({ success: false, error: e.message || 'update failed' });
+    }
+});
+
+// POST /admin/mystery-boxes/:id/prizes — add prize
+router.post('/admin/mystery-boxes/:id/prizes', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const boxId = req.params.id;
+        const exist = await prisma.mysteryBox.findUnique({ where: { id: boxId } });
+        if (!exist) return res.status(404).json({ success: false, error: 'ไม่พบกล่อง' });
+        const b = req.body || {};
+        if (!b.name) return res.status(400).json({ success: false, error: 'name จำเป็น' });
+
+        const created = await prisma.mysteryBoxPrize.create({
+            data: {
+                mysteryBoxId: boxId,
+                name: String(b.name).trim(),
+                nameEn: b.nameEn || null,
+                description: b.description || null,
+                descriptionEn: b.descriptionEn || null,
+                imageUrl: b.imageUrl || null,
+                weight: parseInt(b.weight) || 1,
+                rewardCouponId: b.rewardCouponId || null,
+                isPhysicalReward: !!b.isPhysicalReward,
+                isActive: b.isActive !== false,
+            },
+        });
+        res.json({ success: true, prize: created });
+    } catch (e) {
+        console.error('prize create error:', e);
+        res.status(500).json({ success: false, error: e.message || 'create failed' });
+    }
+});
+
+// PATCH /admin/mystery-boxes/:boxId/prizes/:prizeId — update
+router.patch('/admin/mystery-boxes/:boxId/prizes/:prizeId', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const prizeId = parseInt(req.params.prizeId);
+        const exist = await prisma.mysteryBoxPrize.findUnique({ where: { id: prizeId } });
+        if (!exist || exist.mysteryBoxId !== req.params.boxId) {
+            return res.status(404).json({ success: false, error: 'ไม่พบรางวัล' });
+        }
+        const b = req.body || {};
+        const data = {};
+        if (b.name !== undefined) data.name = String(b.name).trim();
+        if (b.nameEn !== undefined) data.nameEn = b.nameEn || null;
+        if (b.description !== undefined) data.description = b.description || null;
+        if (b.descriptionEn !== undefined) data.descriptionEn = b.descriptionEn || null;
+        if (b.imageUrl !== undefined) data.imageUrl = b.imageUrl || null;
+        if (b.weight !== undefined) data.weight = parseInt(b.weight) || 1;
+        if (b.rewardCouponId !== undefined) data.rewardCouponId = b.rewardCouponId || null;
+        if (b.isPhysicalReward !== undefined) data.isPhysicalReward = !!b.isPhysicalReward;
+        if (b.isActive !== undefined) data.isActive = !!b.isActive;
+        const updated = await prisma.mysteryBoxPrize.update({ where: { id: prizeId }, data });
+        res.json({ success: true, prize: updated });
+    } catch (e) {
+        console.error('prize update error:', e);
+        res.status(500).json({ success: false, error: e.message || 'update failed' });
+    }
+});
+
+// DELETE /admin/mystery-boxes/:boxId/prizes/:prizeId
+router.delete('/admin/mystery-boxes/:boxId/prizes/:prizeId', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const prizeId = parseInt(req.params.prizeId);
+        const exist = await prisma.mysteryBoxPrize.findUnique({ where: { id: prizeId } });
+        if (!exist || exist.mysteryBoxId !== req.params.boxId) {
+            return res.status(404).json({ success: false, error: 'ไม่พบรางวัล' });
+        }
+        // ถ้ามี ticket ที่ awardedPrizeId ชี้มา → ใช้ soft delete (isActive=false)
+        const usedCount = await prisma.mysteryBoxTicket.count({ where: { awardedPrizeId: prizeId } });
+        if (usedCount > 0) {
+            await prisma.mysteryBoxPrize.update({ where: { id: prizeId }, data: { isActive: false } });
+            return res.json({ success: true, softDeleted: true, usedCount });
+        }
+        await prisma.mysteryBoxPrize.delete({ where: { id: prizeId } });
+        res.json({ success: true });
+    } catch (e) {
+        console.error('prize delete error:', e);
+        res.status(500).json({ success: false, error: e.message || 'delete failed' });
+    }
+});
+
+// GET /admin/coupon-options — สำหรับใช้เลือกใน prize.rewardCouponId selector
+router.get('/admin/coupon-options', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const coupons = await prisma.coupon.findMany({
+            where: { isActive: true },
+            select: { id: true, name: true, type: true, value: true },
+            orderBy: { name: 'asc' },
+        });
+        res.json({ success: true, coupons });
+    } catch (e) {
+        res.status(500).json({ success: false, error: 'load failed' });
+    }
+});
+
 // PATCH /admin/mystery-boxes/:id/toggle — switch isActive
 router.patch('/admin/mystery-boxes/:id/toggle', async (req, res) => {
     const a = await authAdmin(req);
