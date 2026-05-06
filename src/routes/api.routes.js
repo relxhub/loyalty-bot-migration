@@ -9,7 +9,7 @@ import { countMonthlyReferrals } from '../services/referral.service.js';
 import * as referralService from '../services/referral.service.js';
 import { sendOrderPaidAdminNotification } from '../services/order-notification.service.js';
 import { sendNotificationToCustomer } from '../services/notification.service.js';
-import { recordAdminMessage } from '../services/admin-message.service.js';
+import { recordAdminMessage, stripAdminMessageButtons, notifyAdminOrderActionFromMiniApp } from '../services/admin-message.service.js';
 import * as notifCenter from '../services/notification-center.service.js';
 import * as mysteryBox from '../services/mystery-box.service.js';
 import { getProductPageData } from '../services/product.service.js';
@@ -3143,6 +3143,11 @@ router.post('/admin/orders/:id/approve', async (req, res) => {
         });
         try { await notifCenter.notifyOrderStatusChanged({ orderId: order.id, customerId: order.customerId, status: 'PAID' }); } catch (e) {}
         try { await referralService.completeReferral(order.customerId, Number(order.totalAmount), order.id); } catch (e) {}
+        // cross-channel: ลบปุ่มใน TG + reply note
+        try {
+            await stripAdminMessageButtons(order.id, ['MISMATCH_UNDER', 'NEW_ORDER']);
+            await notifyAdminOrderActionFromMiniApp({ orderId: order.id, action: '✅ อนุมัติสลิป (รับยอดเต็ม)', byAdmin: a.admin?.name || a.telegramId, kindFilter: ['MISMATCH_UNDER', 'NEW_ORDER'] });
+        } catch (e) {}
         res.json({ success: true });
     } catch (e) {
         console.error('admin order approve error:', e);
@@ -3193,6 +3198,14 @@ router.post('/admin/orders/:id/reject', async (req, res) => {
                 note: 'ยอดสลิปไม่ตรงกับยอดที่ต้องชำระ',
             });
         } catch (e) {}
+        try {
+            await stripAdminMessageButtons(order.id, ['MISMATCH_UNDER', 'NEW_ORDER']);
+            await notifyAdminOrderActionFromMiniApp({
+                orderId: order.id, action: '❌ ปฏิเสธสลิป + ยกเลิกออเดอร์',
+                byAdmin: a.admin?.name || a.telegramId, kindFilter: ['MISMATCH_UNDER', 'NEW_ORDER'],
+                extra: paidAmount > 0 ? `⚠️ ลูกค้าโอนมาแล้ว ฿${paidAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })} — กรุณา refund` : '',
+            });
+        } catch (e) {}
         res.json({ success: true, paidAmount });
     } catch (e) {
         console.error('admin order reject error:', e);
@@ -3219,6 +3232,14 @@ router.post('/admin/orders/:id/confirm-overpaid-refund', async (req, res) => {
                     details: JSON.stringify({ orderId: order.id, expected, actual, diff, via: 'mini-app' }) },
             });
         });
+        try {
+            await stripAdminMessageButtons(order.id, 'NEW_ORDER');
+            await notifyAdminOrderActionFromMiniApp({
+                orderId: order.id, action: '💸 ยืนยันคืนเงินส่วนเกินแล้ว',
+                byAdmin: a.admin?.name || a.telegramId, kindFilter: 'NEW_ORDER',
+                extra: `จ่ายเกิน ฿${diff.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`,
+            });
+        } catch (e) {}
         res.json({ success: true, diff });
     } catch (e) {
         console.error('admin overpaid refund error:', e);
@@ -3251,6 +3272,14 @@ router.post('/admin/orders/:id/set-bill', async (req, res) => {
             });
         });
         try { await notifCenter.notifyOrderStatusChanged({ orderId: order.id, customerId: order.customerId, status: 'PROCESSING', note: `เลขบิล: ${billNumber}` }); } catch (e) {}
+        try {
+            await stripAdminMessageButtons(order.id, 'NEW_ORDER');
+            await notifyAdminOrderActionFromMiniApp({
+                orderId: order.id, action: '📝 แนบเลขบิลแล้ว',
+                byAdmin: a.admin?.name || a.telegramId, kindFilter: 'NEW_ORDER',
+                extra: `บิล: <code>${billNumber}</code>`,
+            });
+        } catch (e) {}
         res.json({ success: true });
     } catch (e) {
         console.error('admin set-bill error:', e);
@@ -3278,6 +3307,14 @@ router.post('/admin/orders/:id/set-tracking', async (req, res) => {
             });
         });
         try { await notifCenter.notifyOrderStatusChanged({ orderId: order.id, customerId: order.customerId, status: 'SHIPPED', note: `เลขพัสดุ: ${trackingNumber}` }); } catch (e) {}
+        try {
+            await stripAdminMessageButtons(order.id, 'NEW_ORDER');
+            await notifyAdminOrderActionFromMiniApp({
+                orderId: order.id, action: '🚚 จัดส่งแล้ว',
+                byAdmin: a.admin?.name || a.telegramId, kindFilter: 'NEW_ORDER',
+                extra: `เลขพัสดุ: <code>${trackingNumber}</code>`,
+            });
+        } catch (e) {}
         res.json({ success: true });
     } catch (e) {
         console.error('admin set-tracking error:', e);
@@ -3444,6 +3481,13 @@ router.post('/admin/orders/:id/cancel', async (req, res) => {
             });
         });
         try { await notifCenter.notifyOrderStatusChanged({ orderId: order.id, customerId: order.customerId, status: 'CANCELLED' }); } catch (e) {}
+        try {
+            await stripAdminMessageButtons(order.id, ['NEW_ORDER', 'MISMATCH_UNDER']);
+            await notifyAdminOrderActionFromMiniApp({
+                orderId: order.id, action: '🗑 ยกเลิกออเดอร์',
+                byAdmin: a.admin?.name || a.telegramId, kindFilter: ['NEW_ORDER', 'MISMATCH_UNDER'],
+            });
+        } catch (e) {}
         res.json({ success: true });
     } catch (e) {
         console.error('admin order cancel error:', e);

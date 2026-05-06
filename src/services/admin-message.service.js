@@ -94,6 +94,85 @@ export async function broadcastEditAdminMessages(orderId, kindFilter, { newText,
     return { ok, failed };
 }
 
+/**
+ * Strip-only mode: ไม่แตะข้อความเดิม แค่ลบปุ่มออก (ใช้ editMessageReplyMarkup)
+ * เร็วและไม่ต้องรู้ข้อความเก่า — เหมาะกับ flow Mini App
+ */
+export async function stripAdminMessageButtons(orderId, kindFilter) {
+    const adminToken = process.env.ADMIN_BOT_TOKEN;
+    if (!adminToken) return { ok: 0, failed: 0 };
+    const where = { orderId: String(orderId) };
+    if (Array.isArray(kindFilter)) where.kind = { in: kindFilter };
+    else if (typeof kindFilter === 'string') where.kind = kindFilter;
+    let rows = [];
+    try { rows = await prisma.adminMessage.findMany({ where }); }
+    catch (e) { return { ok: 0, failed: 0 }; }
+    if (!rows.length) return { ok: 0, failed: 0 };
+    const seen = new Set();
+    const targets = rows.filter(r => {
+        const k = `${r.chatId}:${r.messageId}`;
+        if (seen.has(k)) return false;
+        seen.add(k); return true;
+    });
+    const tasks = targets.map(async (r) => {
+        try {
+            const res = await fetch(TELEGRAM_API(adminToken, 'editMessageReplyMarkup'), {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: r.chatId, message_id: Number(r.messageId), reply_markup: { inline_keyboard: [] } }),
+            });
+            return res.ok;
+        } catch (e) { return false; }
+    });
+    const results = await Promise.allSettled(tasks);
+    let ok = 0, failed = 0;
+    for (const r of results) (r.status === 'fulfilled' && r.value === true) ? ok++ : failed++;
+    return { ok, failed };
+}
+
+/**
+ * ส่งข้อความ "การกระทำของแอดมินใน Mini App" ไปให้ admin group + reply ไปข้อความออเดอร์เดิม
+ * เพื่อให้ admin คนอื่นใน TG เห็น context ว่าออเดอร์ถูก action จาก Mini App แล้ว
+ */
+export async function notifyAdminOrderActionFromMiniApp({ orderId, action, byAdmin, kindFilter, extra = '' }) {
+    const adminToken = process.env.ADMIN_BOT_TOKEN;
+    if (!adminToken) return;
+    const text = `📱 <b>${action}</b>\nออเดอร์: <code>#${orderId}</code>\nโดย: <code>${byAdmin}</code>${extra ? '\n' + extra : ''}\n<i>(ผ่าน Mini App)</i>`;
+
+    // แนบ reply ไปข้อความ admin เดิมทุกข้อความ ถ้ามี kindFilter
+    const where = { orderId: String(orderId) };
+    if (Array.isArray(kindFilter)) where.kind = { in: kindFilter };
+    else if (typeof kindFilter === 'string') where.kind = kindFilter;
+    let rows = [];
+    try { rows = await prisma.adminMessage.findMany({ where }); }
+    catch (e) {}
+    const seenChat = new Set();
+    const targets = rows.filter(r => { if (seenChat.has(r.chatId)) return false; seenChat.add(r.chatId); return true; });
+    if (targets.length === 0) {
+        // ไม่มีบันทึก message เดิม → ส่งเข้า admin group ตรงๆ
+        const groupId = process.env.ADMIN_GROUP_ID || process.env.SUPER_ADMIN_TELEGRAM_ID;
+        if (!groupId) return;
+        try {
+            await fetch(TELEGRAM_API(adminToken, 'sendMessage'), {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: groupId, text, parse_mode: 'HTML' }),
+            });
+        } catch (e) {}
+        return;
+    }
+    await Promise.allSettled(targets.map(async (r) => {
+        try {
+            await fetch(TELEGRAM_API(adminToken, 'sendMessage'), {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: r.chatId, text, parse_mode: 'HTML',
+                    reply_to_message_id: Number(r.messageId),
+                    allow_sending_without_reply: true,
+                }),
+            });
+        } catch (e) {}
+    }));
+}
+
 async function editOne({ adminToken, chatId, messageId, hasPhoto, newText, replyMarkup }) {
     try {
         const method = hasPhoto ? 'editMessageCaption' : 'editMessageText';
