@@ -2965,6 +2965,305 @@ router.get('/admin/orders', async (req, res) => {
     }
 });
 
+// GET /admin/orders/:id — full detail
+router.get('/admin/orders/:id', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const order = await prisma.order.findUnique({
+            where: { id: req.params.id },
+            include: {
+                customer: true,
+                items: { include: { product: { include: { category: { select: { id: true, name: true } } } } } },
+                payment: true,
+                prizeShipment: { include: { tickets: { include: { awardedPrize: { select: { name: true, imageUrl: true } } } } } },
+            },
+        });
+        if (!order) return res.status(404).json({ success: false, error: 'ไม่พบออเดอร์' });
+
+        let address = null;
+        if (order.shippingAddressId) {
+            address = await prisma.shippingAddress.findUnique({ where: { id: order.shippingAddressId } });
+        }
+        let coupon = null;
+        if (order.appliedCouponId) {
+            coupon = await prisma.coupon.findUnique({
+                where: { id: order.appliedCouponId },
+                select: { id: true, name: true, type: true, value: true },
+            });
+        }
+        // audit log: actions ที่เคยเกิดกับออเดอร์นี้
+        const audit = await prisma.adminAuditLog.findMany({
+            where: { details: { contains: order.id } },
+            orderBy: { createdAt: 'desc' },
+            take: 20,
+            select: { adminName: true, action: true, createdAt: true, details: true },
+        });
+
+        res.json({
+            success: true,
+            order: {
+                id: order.id,
+                kind: order.kind,
+                status: order.status,
+                customerId: order.customerId,
+                totalAmount: Number(order.totalAmount),
+                subtotal: order.subtotal != null ? Number(order.subtotal) : null,
+                shippingFee: order.shippingFee != null ? Number(order.shippingFee) : null,
+                discountAmount: Number(order.discountAmount || 0),
+                appliedCouponId: order.appliedCouponId,
+                billNumber: order.billNumber,
+                trackingNumber: order.trackingNumber,
+                refundSlipUrl: order.refundSlipUrl,
+                mismatchLocked: order.mismatchLocked,
+                overPaidRefundedAt: order.overPaidRefundedAt,
+                createdAt: order.createdAt,
+                updatedAt: order.updatedAt,
+                customer: order.customer ? {
+                    customerId: order.customer.customerId,
+                    firstName: order.customer.firstName, lastName: order.customer.lastName,
+                    username: order.customer.username, phoneNumber: order.customer.phoneNumber,
+                    telegramUserId: order.customer.telegramUserId, points: order.customer.points,
+                } : null,
+                items: order.items.map(it => ({
+                    id: it.id, quantity: it.quantity, priceAtPurchase: Number(it.priceAtPurchase),
+                    product: { id: it.product.id, name: it.product.name, nameEn: it.product.nameEn, imageUrl: it.product.imageUrl, category: it.product.category },
+                })),
+                payment: order.payment ? {
+                    id: order.payment.id, status: order.payment.status,
+                    amount: Number(order.payment.amount), slipUrl: order.payment.slipUrl,
+                    slipOkTransactionId: order.payment.slipOkTransactionId,
+                    verifiedAt: order.payment.verifiedAt, createdAt: order.payment.createdAt,
+                } : null,
+                address, coupon,
+                prizeShipment: order.prizeShipment ? {
+                    id: order.prizeShipment.id, status: order.prizeShipment.status,
+                    trackingNumber: order.prizeShipment.trackingNumber,
+                    prizes: order.prizeShipment.tickets.map(t => ({ name: t.awardedPrize?.name, imageUrl: t.awardedPrize?.imageUrl })),
+                } : null,
+                audit,
+            },
+        });
+    } catch (e) {
+        console.error('admin order detail error:', e);
+        res.status(500).json({ success: false, error: e.message || 'load failed' });
+    }
+});
+
+// POST /admin/orders/:id/approve — เห็นยอด under-paid + ยืนยันว่ารับ top-up จากลูกค้าแล้ว
+router.post('/admin/orders/:id/approve', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const order = await prisma.order.findUnique({
+            where: { id: req.params.id },
+            include: { payment: true, customer: true },
+        });
+        if (!order) return res.status(404).json({ success: false, error: 'ไม่พบออเดอร์' });
+        if (order.status !== 'PENDING_PAYMENT') {
+            return res.status(400).json({ success: false, error: 'ออเดอร์นี้ดำเนินการไปแล้ว' });
+        }
+        await prisma.$transaction(async (tx) => {
+            await tx.order.update({ where: { id: order.id }, data: { status: 'PAID', mismatchLocked: false } });
+            if (order.payment) {
+                let prevPayload = {};
+                try { prevPayload = order.payment.payload ? JSON.parse(order.payment.payload) : {}; } catch (e) {}
+                await tx.payment.update({
+                    where: { id: order.payment.id },
+                    data: {
+                        amount: Number(order.totalAmount), status: 'VERIFIED', verifiedAt: new Date(),
+                        payload: JSON.stringify({ ...prevPayload, acceptedByAdmin: a.telegramId, viaMiniApp: true, topUpCompleted: true }),
+                    },
+                });
+            }
+            await tx.adminAuditLog.create({
+                data: { adminName: a.admin?.name || a.telegramId, action: 'MISMATCH_ACCEPT', targetId: order.customerId,
+                    details: JSON.stringify({ orderId: order.id, totalAmount: Number(order.totalAmount), via: 'mini-app' }) },
+            });
+        });
+        try { await notifCenter.notifyOrderStatusChanged({ orderId: order.id, customerId: order.customerId, status: 'PAID' }); } catch (e) {}
+        try { await referralService.completeReferral(order.customerId, Number(order.totalAmount), order.id); } catch (e) {}
+        res.json({ success: true });
+    } catch (e) {
+        console.error('admin order approve error:', e);
+        res.status(500).json({ success: false, error: e.message || 'approve failed' });
+    }
+});
+
+// POST /admin/orders/:id/reject — ปฏิเสธสลิป + ยกเลิกออเดอร์ (mismatch under-paid case)
+router.post('/admin/orders/:id/reject', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const order = await prisma.order.findUnique({
+            where: { id: req.params.id },
+            include: { items: true, payment: true, customer: true },
+        });
+        if (!order) return res.status(404).json({ success: false, error: 'ไม่พบออเดอร์' });
+        if (order.status === 'CANCELLED') return res.status(400).json({ success: false, error: 'ออเดอร์ถูกยกเลิกไปแล้ว' });
+        if (order.status !== 'PENDING_PAYMENT') return res.status(400).json({ success: false, error: 'ออเดอร์นี้ดำเนินการไปแล้ว' });
+
+        const wasLocked = !!order.mismatchLocked;
+        const paidAmount = order.payment?.amount ? Number(order.payment.amount) : 0;
+
+        await prisma.$transaction(async (tx) => {
+            await tx.order.update({ where: { id: order.id }, data: { status: 'CANCELLED', mismatchLocked: false } });
+            if (wasLocked) {
+                for (const item of order.items) {
+                    await tx.product.update({ where: { id: item.productId }, data: { stockQuantity: { increment: item.quantity } } });
+                }
+                if (order.appliedCouponId) {
+                    const cc = await tx.customerCoupon.findFirst({ where: { customerId: order.customerId, couponId: order.appliedCouponId } });
+                    if (cc && cc.status === 'USED') {
+                        await tx.customerCoupon.update({ where: { id: cc.id }, data: { status: 'AVAILABLE', usedAt: null } });
+                    }
+                }
+            }
+            if (order.payment) {
+                await tx.payment.update({ where: { id: order.payment.id }, data: { status: 'REJECTED' } });
+            }
+            await tx.adminAuditLog.create({
+                data: { adminName: a.admin?.name || a.telegramId, action: 'MISMATCH_REJECT', targetId: order.customerId,
+                    details: JSON.stringify({ orderId: order.id, totalAmount: Number(order.totalAmount), paidAmount, wasLocked, via: 'mini-app' }) },
+            });
+        });
+        try {
+            await notifCenter.notifyOrderStatusChanged({
+                orderId: order.id, customerId: order.customerId, status: 'CANCELLED',
+                note: 'ยอดสลิปไม่ตรงกับยอดที่ต้องชำระ',
+            });
+        } catch (e) {}
+        res.json({ success: true, paidAmount });
+    } catch (e) {
+        console.error('admin order reject error:', e);
+        res.status(500).json({ success: false, error: e.message || 'reject failed' });
+    }
+});
+
+// POST /admin/orders/:id/confirm-overpaid-refund
+router.post('/admin/orders/:id/confirm-overpaid-refund', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const order = await prisma.order.findUnique({ where: { id: req.params.id }, include: { payment: true } });
+        if (!order) return res.status(404).json({ success: false, error: 'ไม่พบออเดอร์' });
+        if (order.overPaidRefundedAt) return res.status(400).json({ success: false, error: 'ยืนยันคืนเงินไปแล้ว' });
+        const expected = Number(order.totalAmount);
+        const actual = order.payment ? Number(order.payment.amount) : 0;
+        const diff = Math.round((actual - expected) * 100) / 100;
+        if (diff <= 0) return res.status(400).json({ success: false, error: 'ออเดอร์นี้ไม่ใช่กรณีจ่ายเกิน' });
+        await prisma.$transaction(async (tx) => {
+            await tx.order.update({ where: { id: order.id }, data: { overPaidRefundedAt: new Date() } });
+            await tx.adminAuditLog.create({
+                data: { adminName: a.admin?.name || a.telegramId, action: 'OVERPAID_REFUND_CONFIRM', targetId: order.customerId,
+                    details: JSON.stringify({ orderId: order.id, expected, actual, diff, via: 'mini-app' }) },
+            });
+        });
+        res.json({ success: true, diff });
+    } catch (e) {
+        console.error('admin overpaid refund error:', e);
+        res.status(500).json({ success: false, error: e.message || 'confirm failed' });
+    }
+});
+
+// POST /admin/orders/:id/set-bill { billNumber } — set billNumber + status PROCESSING
+router.post('/admin/orders/:id/set-bill', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const billNumber = String(req.body?.billNumber || '').trim();
+        if (!billNumber) return res.status(400).json({ success: false, error: 'billNumber ห้ามว่าง' });
+        const order = await prisma.order.findUnique({ where: { id: req.params.id } });
+        if (!order) return res.status(404).json({ success: false, error: 'ไม่พบออเดอร์' });
+        if (order.kind === 'PRIZE_DELIVERY') {
+            const r = await mysteryBox.markShipmentShipped({ orderId: order.id, trackingNumber: billNumber, adminName: a.admin?.name || a.telegramId });
+            if (!r.success) return res.status(400).json({ success: false, error: r.error });
+            return res.json({ success: true, kind: 'PRIZE_DELIVERY' });
+        }
+        if (!['PAID', 'PROCESSING'].includes(order.status)) {
+            return res.status(400).json({ success: false, error: 'สถานะออเดอร์ไม่อนุญาตให้ใส่บิล (ต้อง PAID/PROCESSING)' });
+        }
+        await prisma.$transaction(async (tx) => {
+            await tx.order.update({ where: { id: order.id }, data: { billNumber, status: 'PROCESSING', updatedAt: new Date() } });
+            await tx.adminAuditLog.create({
+                data: { adminName: a.admin?.name || a.telegramId, action: 'SET_BILL', targetId: order.customerId,
+                    details: JSON.stringify({ orderId: order.id, billNumber, via: 'mini-app' }) },
+            });
+        });
+        try { await notifCenter.notifyOrderStatusChanged({ orderId: order.id, customerId: order.customerId, status: 'PROCESSING', note: `เลขบิล: ${billNumber}` }); } catch (e) {}
+        res.json({ success: true });
+    } catch (e) {
+        console.error('admin set-bill error:', e);
+        res.status(500).json({ success: false, error: e.message || 'set bill failed' });
+    }
+});
+
+// POST /admin/orders/:id/set-tracking { trackingNumber } — set tracking + status SHIPPED
+router.post('/admin/orders/:id/set-tracking', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const trackingNumber = String(req.body?.trackingNumber || '').trim();
+        if (!trackingNumber) return res.status(400).json({ success: false, error: 'trackingNumber ห้ามว่าง' });
+        const order = await prisma.order.findUnique({ where: { id: req.params.id } });
+        if (!order) return res.status(404).json({ success: false, error: 'ไม่พบออเดอร์' });
+        if (!['PAID', 'PROCESSING', 'SHIPPED'].includes(order.status)) {
+            return res.status(400).json({ success: false, error: 'สถานะไม่อนุญาตให้ใส่ tracking' });
+        }
+        await prisma.$transaction(async (tx) => {
+            await tx.order.update({ where: { id: order.id }, data: { trackingNumber, status: 'SHIPPED', updatedAt: new Date() } });
+            await tx.adminAuditLog.create({
+                data: { adminName: a.admin?.name || a.telegramId, action: 'SET_TRACKING', targetId: order.customerId,
+                    details: JSON.stringify({ orderId: order.id, trackingNumber, via: 'mini-app' }) },
+            });
+        });
+        try { await notifCenter.notifyOrderStatusChanged({ orderId: order.id, customerId: order.customerId, status: 'SHIPPED', note: `เลขพัสดุ: ${trackingNumber}` }); } catch (e) {}
+        res.json({ success: true });
+    } catch (e) {
+        console.error('admin set-tracking error:', e);
+        res.status(500).json({ success: false, error: e.message || 'set tracking failed' });
+    }
+});
+
+// POST /admin/orders/:id/cancel — ยกเลิก (PAID/PROCESSING) + คืนสต็อก/คูปอง
+router.post('/admin/orders/:id/cancel', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const order = await prisma.order.findUnique({
+            where: { id: req.params.id },
+            include: { items: true, customer: true },
+        });
+        if (!order) return res.status(404).json({ success: false, error: 'ไม่พบออเดอร์' });
+        if (order.status === 'CANCELLED') return res.status(400).json({ success: false, error: 'ยกเลิกไปแล้ว' });
+        if (order.status === 'SHIPPED') return res.status(400).json({ success: false, error: 'ออเดอร์ส่งแล้ว ยกเลิกไม่ได้' });
+
+        await prisma.$transaction(async (tx) => {
+            await tx.order.update({ where: { id: order.id }, data: { status: 'CANCELLED' } });
+            if (order.kind === 'PRODUCT') {
+                for (const item of order.items) {
+                    await tx.product.update({ where: { id: item.productId }, data: { stockQuantity: { increment: item.quantity } } });
+                }
+                if (order.appliedCouponId) {
+                    const cc = await tx.customerCoupon.findFirst({ where: { customerId: order.customerId, couponId: order.appliedCouponId } });
+                    if (cc && cc.status === 'USED') {
+                        await tx.customerCoupon.update({ where: { id: cc.id }, data: { status: 'AVAILABLE', usedAt: null } });
+                    }
+                }
+            }
+            await tx.adminAuditLog.create({
+                data: { adminName: a.admin?.name || a.telegramId, action: 'ORDER_CANCEL', targetId: order.customerId,
+                    details: JSON.stringify({ orderId: order.id, prevStatus: order.status, via: 'mini-app' }) },
+            });
+        });
+        try { await notifCenter.notifyOrderStatusChanged({ orderId: order.id, customerId: order.customerId, status: 'CANCELLED' }); } catch (e) {}
+        res.json({ success: true });
+    } catch (e) {
+        console.error('admin order cancel error:', e);
+        res.status(500).json({ success: false, error: e.message || 'cancel failed' });
+    }
+});
+
 // ---------- 👥 CUSTOMERS ----------
 // GET /admin/customers/search?q=... — by customerId / phone / firstName / lastName / username
 router.get('/admin/customers/search', async (req, res) => {

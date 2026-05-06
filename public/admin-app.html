@@ -250,6 +250,16 @@
         <div id="cpn-modal-content" class="glass-card w-full max-w-md max-h-[92vh] overflow-y-auto p-5 rounded-t-3xl sm:rounded-2xl"></div>
     </div>
 
+    <!-- 🛒 Order Detail Modal -->
+    <div id="ord-modal" class="hidden fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-sm">
+        <div id="ord-modal-content" class="glass-card w-full max-w-md max-h-[95vh] overflow-y-auto p-4 rounded-t-3xl sm:rounded-2xl"></div>
+    </div>
+
+    <!-- 🖼️ Slip Image Lightbox -->
+    <div id="img-lightbox" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4" onclick="this.classList.add('hidden')">
+        <img id="img-lightbox-src" src="" class="max-w-full max-h-full object-contain rounded-lg">
+    </div>
+
     <!-- Adjust Points Modal -->
     <div id="adj-modal" class="hidden fixed inset-0 z-[90] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4">
         <div class="glass-card w-full max-w-sm p-5">
@@ -450,6 +460,7 @@
             document.getElementById('mbox-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeMboxModal(); });
             document.getElementById('prize-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closePrizeModal(); });
             document.getElementById('cpn-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeCpnModal(); });
+            document.getElementById('ord-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeOrdModal(); });
         });
 
         // ---------- 👥 Customers ----------
@@ -664,9 +675,215 @@
             return `<span class="text-[9px] px-1.5 py-0.5 rounded ${cls}">${label}</span>`;
         }
 
-        function openOrdDetail(orderId) {
-            // Phase 3.1B จะ implement detail modal
-            alert('Detail modal: ' + orderId + '\n(Phase 3.1B กำลังทำ)');
+        let _currentOrdId = null;
+
+        async function openOrdDetail(orderId) {
+            _currentOrdId = orderId;
+            document.body.classList.add('no-scroll');
+            document.getElementById('ord-modal').classList.remove('hidden');
+            document.getElementById('ord-modal-content').innerHTML =
+                '<div class="text-center text-zinc-500 py-12 animate-pulse">กำลังโหลด...</div>';
+            try {
+                const res = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}`, { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'load failed');
+                renderOrdDetail(data.order);
+            } catch (e) {
+                document.getElementById('ord-modal-content').innerHTML =
+                    `<div class="text-center text-red-400 py-8 text-sm">${_esc(e.message)}</div>
+                     <button onclick="closeOrdModal()" class="w-full py-2.5 rounded-xl bg-zinc-700 text-white font-bold mt-3">ปิด</button>`;
+            }
+        }
+
+        function closeOrdModal() {
+            _currentOrdId = null;
+            document.body.classList.remove('no-scroll');
+            document.getElementById('ord-modal').classList.add('hidden');
+        }
+
+        function renderOrdDetail(o) {
+            const isNeedsVerify = o.payment?.status === 'PENDING' && (o.status === 'PENDING_PAYMENT' || o.status === 'PAID');
+            const slipAmt = o.payment ? o.payment.amount : 0;
+            const expected = o.totalAmount;
+            const diff = Math.round((slipAmt - expected) * 100) / 100;
+            const overpaid = slipAmt > expected && !o.overPaidRefundedAt;
+            const underpaid = o.mismatchLocked || (o.payment?.status === 'PENDING' && slipAmt < expected && slipAmt > 0);
+
+            const statusBanner = isNeedsVerify ? `
+                <div class="rounded-xl p-3 bg-yellow-500/10 border border-yellow-500/40 mb-3">
+                    <div class="text-xs font-bold text-yellow-300 mb-1">⚠️ รอตรวจสอบสลิป</div>
+                    <div class="text-[11px] text-yellow-200">ยอดที่ต้องชำระ ฿${_fmt(expected)} · สลิป ฿${_fmt(slipAmt)}${diff !== 0 ? ` · ${diff > 0 ? 'เกิน' : 'ขาด'} ฿${_fmt(Math.abs(diff))}` : ''}</div>
+                </div>` : '';
+
+            const overpaidBanner = (overpaid && o.status !== 'PENDING_PAYMENT') ? `
+                <div class="rounded-xl p-3 bg-orange-500/10 border border-orange-500/40 mb-3">
+                    <div class="text-xs font-bold text-orange-300 mb-1">💰 ลูกค้าจ่ายเกิน ฿${_fmt(diff)}</div>
+                    <div class="text-[11px] text-orange-200">โอนคืนแล้วกดยืนยันด้านล่าง</div>
+                </div>` : '';
+
+            const items = o.items.map(it => `
+                <div class="flex items-center gap-2 py-1.5 border-b border-white/5 last:border-0">
+                    ${it.product.imageUrl ? `<img src="${_esc(it.product.imageUrl)}" class="w-10 h-10 rounded object-cover">` : '<div class="w-10 h-10 rounded bg-zinc-700"></div>'}
+                    <div class="flex-1 min-w-0">
+                        <div class="text-xs text-white truncate">${_esc(it.product.name)}</div>
+                        <div class="text-[10px] text-zinc-500">${_esc(it.product.category?.name || '')} · ฿${_fmt(it.priceAtPurchase)} × ${it.quantity}</div>
+                    </div>
+                    <div class="text-xs text-emerald-300 whitespace-nowrap">฿${_fmt(it.priceAtPurchase * it.quantity)}</div>
+                </div>`).join('');
+
+            const addr = o.address;
+            const addrBlock = addr ? `
+                <div class="text-xs text-white">${_esc(addr.receiverName)} · ${_esc(addr.phone)}</div>
+                <div class="text-[11px] text-zinc-400 mt-0.5">${_esc(addr.address)} ${_esc(addr.subdistrict||'')} ${_esc(addr.district||'')} ${_esc(addr.province||'')} ${_esc(addr.zipcode||'')}</div>
+                <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([addr.address,addr.subdistrict,addr.district,addr.province,addr.zipcode].filter(Boolean).join(' '))}" target="_blank" class="inline-flex items-center gap-1 text-[10px] text-blue-300 mt-1"><i class="ri-map-pin-line"></i> เปิด Maps</a>
+            ` : '<div class="text-[11px] text-zinc-500">ไม่มีที่อยู่จัดส่ง</div>';
+
+            const cust = o.customer ? `
+                <div class="flex items-center justify-between">
+                    <div class="min-w-0">
+                        <div class="text-xs text-white truncate">${_esc((o.customer.firstName||'') + ' ' + (o.customer.lastName||'')).trim() || '—'}</div>
+                        <div class="text-[10px] text-zinc-500"><code>${_esc(o.customer.customerId)}</code> · ${_esc(o.customer.phoneNumber||'—')} · ${_fmt(o.customer.points)} แต้ม</div>
+                    </div>
+                    <button onclick="closeOrdModal(); openCustModal('${_esc(o.customer.customerId)}')" class="text-[10px] px-2 py-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/40">ดูลูกค้า</button>
+                </div>` : '';
+
+            const audit = o.audit?.length ? `
+                <div class="pt-2 mt-2 border-t border-white/10">
+                    <div class="text-[10px] text-zinc-500 font-bold mb-1">ประวัติ admin (${o.audit.length})</div>
+                    ${o.audit.slice(0, 5).map(l => `<div class="text-[10px] text-zinc-400">${_dt(l.createdAt)} · <code>${_esc(l.adminName)}</code> · ${_esc(l.action)}</div>`).join('')}
+                </div>` : '';
+
+            const couponLine = o.coupon ? `<div class="flex justify-between text-[11px]"><span class="text-zinc-400">คูปอง ${_esc(o.coupon.name)}</span><span class="text-red-300">-฿${_fmt(o.discountAmount)}</span></div>` : '';
+
+            const slipPreview = o.payment?.slipUrl ? `
+                <div class="mt-2">
+                    <img src="${_esc(o.payment.slipUrl)}" onclick="document.getElementById('img-lightbox-src').src='${_esc(o.payment.slipUrl)}'; document.getElementById('img-lightbox').classList.remove('hidden')" class="w-full max-h-64 object-contain rounded-lg cursor-zoom-in bg-black/40">
+                    ${o.payment.slipOkTransactionId ? `<div class="text-[9px] text-zinc-500 mt-1">SlipOK: <code>${_esc(o.payment.slipOkTransactionId)}</code></div>` : ''}
+                </div>` : '<div class="text-[11px] text-zinc-500">ยังไม่ได้แนบสลิป</div>';
+
+            // Action buttons
+            const actions = buildOrdActions(o, isNeedsVerify, overpaid);
+
+            const html = `
+                <div class="flex items-start justify-between mb-2">
+                    <div class="min-w-0">
+                        <div class="text-base font-bold text-white"><code>#${_esc(o.id)}</code></div>
+                        <div class="text-[10px] text-zinc-500">${_dt(o.createdAt)}${o.kind === 'PRIZE_DELIVERY' ? ' · <span class="text-purple-300">PRIZE</span>' : ''}</div>
+                    </div>
+                    <button onclick="closeOrdModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center"><i class="ri-close-line"></i></button>
+                </div>
+                ${statusBanner}
+                ${overpaidBanner}
+
+                <div class="space-y-3">
+                    <div>
+                        <div class="text-[10px] text-zinc-500 font-bold mb-1">ลูกค้า</div>
+                        ${cust}
+                    </div>
+                    <div>
+                        <div class="text-[10px] text-zinc-500 font-bold mb-1">ที่อยู่จัดส่ง</div>
+                        ${addrBlock}
+                    </div>
+                    <div>
+                        <div class="text-[10px] text-zinc-500 font-bold mb-1">รายการสินค้า (${o.items.reduce((s,i)=>s+i.quantity,0)} ชิ้น)</div>
+                        <div class="bg-black/30 rounded-lg p-2">${items || '<div class="text-[11px] text-zinc-500 text-center py-2">—</div>'}</div>
+                    </div>
+                    <div class="bg-black/30 rounded-lg p-2.5 space-y-1">
+                        ${o.subtotal != null ? `<div class="flex justify-between text-[11px]"><span class="text-zinc-400">สินค้า</span><span class="text-white">฿${_fmt(o.subtotal)}</span></div>` : ''}
+                        ${o.shippingFee != null ? `<div class="flex justify-between text-[11px]"><span class="text-zinc-400">ค่าส่ง</span><span class="text-white">${o.shippingFee === 0 ? 'ฟรี' : '฿'+_fmt(o.shippingFee)}</span></div>` : ''}
+                        ${couponLine}
+                        <div class="flex justify-between text-sm font-bold pt-1 border-t border-white/10"><span class="text-white">รวมที่ต้องชำระ</span><span class="text-emerald-300">฿${_fmt(o.totalAmount)}</span></div>
+                        ${o.payment ? `<div class="flex justify-between text-[11px] pt-1"><span class="text-zinc-400">สลิปลูกค้า (${o.payment.status})</span><span class="${diff===0?'text-white':(diff>0?'text-orange-300':'text-red-300')} font-bold">฿${_fmt(o.payment.amount)}</span></div>` : ''}
+                    </div>
+                    <div>
+                        <div class="text-[10px] text-zinc-500 font-bold mb-1">สลิปการชำระเงิน</div>
+                        ${slipPreview}
+                    </div>
+                    ${o.billNumber ? `<div class="text-[11px]"><span class="text-zinc-500">เลขบิล:</span> <code class="text-blue-300">${_esc(o.billNumber)}</code></div>` : ''}
+                    ${o.trackingNumber ? `<div class="text-[11px]"><span class="text-zinc-500">เลขพัสดุ:</span> <code class="text-emerald-300">${_esc(o.trackingNumber)}</code></div>` : ''}
+                    ${audit}
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-white/10 space-y-2">
+                    ${actions}
+                </div>
+            `;
+            document.getElementById('ord-modal-content').innerHTML = html;
+        }
+
+        function buildOrdActions(o, isNeedsVerify, overpaid) {
+            const blocks = [];
+            if (isNeedsVerify) {
+                blocks.push(`
+                    <button onclick="ordApprove()" class="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-sm"><i class="ri-check-line"></i> อนุมัติสลิป (รับยอดเต็ม)</button>
+                    <button onclick="ordReject()" class="w-full py-2.5 rounded-xl bg-red-500 hover:bg-red-400 text-white font-bold text-sm"><i class="ri-close-line"></i> ปฏิเสธ + ยกเลิกออเดอร์</button>
+                `);
+            }
+            if (overpaid && (o.status === 'PAID' || o.status === 'PROCESSING')) {
+                blocks.push(`<button onclick="ordConfirmOverpaid()" class="w-full py-2.5 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-bold text-sm"><i class="ri-money-dollar-circle-line"></i> ยืนยันคืนเงินส่วนเกินแล้ว</button>`);
+            }
+            if ((o.status === 'PAID' || o.status === 'PROCESSING') && o.kind === 'PRODUCT') {
+                blocks.push(`
+                    <div class="flex gap-2">
+                        <input id="ord-bill-input" type="text" value="${_esc(o.billNumber||'')}" placeholder="เลขบิล" class="flex-1 bg-black/40 border border-white/10 rounded-lg p-2 text-white text-sm">
+                        <button onclick="ordSetBill()" class="px-4 rounded-lg bg-blue-500 text-white font-bold text-sm">บันทึกบิล</button>
+                    </div>
+                `);
+            }
+            if (['PAID','PROCESSING','SHIPPED'].includes(o.status)) {
+                blocks.push(`
+                    <div class="flex gap-2">
+                        <input id="ord-track-input" type="text" value="${_esc(o.trackingNumber||'')}" placeholder="เลขพัสดุ" class="flex-1 bg-black/40 border border-white/10 rounded-lg p-2 text-white text-sm">
+                        <button onclick="ordSetTracking()" class="px-4 rounded-lg bg-emerald-500 text-white font-bold text-sm">${o.status==='SHIPPED'?'แก้พัสดุ':'จัดส่ง'}</button>
+                    </div>
+                `);
+            }
+            // PRIZE_DELIVERY: ปุ่มเดียว — ใส่ tracking = mark shipped
+            if (o.kind === 'PRIZE_DELIVERY' && (o.status === 'PAID' || o.status === 'PROCESSING')) {
+                blocks.push(`
+                    <div class="flex gap-2">
+                        <input id="ord-bill-input" type="text" placeholder="เลขพัสดุ" class="flex-1 bg-black/40 border border-white/10 rounded-lg p-2 text-white text-sm">
+                        <button onclick="ordSetBill()" class="px-4 rounded-lg bg-purple-500 text-white font-bold text-sm">จัดส่ง</button>
+                    </div>
+                `);
+            }
+            if (['PENDING_PAYMENT','PAID','PROCESSING'].includes(o.status)) {
+                blocks.push(`<button onclick="ordCancel()" class="w-full py-2 rounded-xl bg-red-600/80 hover:bg-red-500 text-white text-xs"><i class="ri-delete-bin-line"></i> ยกเลิกออเดอร์${o.status==='PAID'||o.status==='PROCESSING'?' + คืนสต็อก':''}</button>`);
+            }
+            if (!blocks.length) blocks.push(`<div class="text-center text-zinc-500 text-xs py-2">ไม่มี action สำหรับสถานะนี้</div>`);
+            return blocks.join('');
+        }
+
+        async function ordAction(path, body, confirmText) {
+            if (confirmText && !confirm(confirmText)) return;
+            try {
+                const res = await fetch(`/api/admin/orders/${encodeURIComponent(_currentOrdId)}/${path}`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...(body || {}), initData: tg.initData }),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error || 'ไม่สำเร็จ'); return false; }
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
+                await openOrdDetail(_currentOrdId); // refresh
+                loadOrders(); // refresh list
+                loadOrdersBadge();
+                return true;
+            } catch (e) { alert('error: ' + e.message); return false; }
+        }
+
+        const ordApprove = () => ordAction('approve', null, 'ยืนยันรับยอดเต็ม (top-up เรียบร้อย)?');
+        const ordReject = () => ordAction('reject', null, 'ปฏิเสธสลิป + ยกเลิกออเดอร์ + คืนสต็อก/คูปอง?');
+        const ordConfirmOverpaid = () => ordAction('confirm-overpaid-refund', null, 'ยืนยันว่าโอนคืนเงินส่วนเกินให้ลูกค้าแล้ว?');
+        const ordCancel = () => ordAction('cancel', null, 'ยกเลิกออเดอร์นี้?');
+        function ordSetBill() {
+            const v = document.getElementById('ord-bill-input').value.trim();
+            if (!v) return alert('ใส่เลขบิลก่อน');
+            ordAction('set-bill', { billNumber: v });
+        }
+        function ordSetTracking() {
+            const v = document.getElementById('ord-track-input').value.trim();
+            if (!v) return alert('ใส่เลขพัสดุก่อน');
+            ordAction('set-tracking', { trackingNumber: v }, 'ใส่เลขพัสดุนี้และเปลี่ยนสถานะเป็น "จัดส่งแล้ว"?');
         }
 
         // ---------- 📊 Owner Dashboard ----------
