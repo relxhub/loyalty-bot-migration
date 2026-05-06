@@ -477,12 +477,15 @@
                 <div class="mb-4">
                     <div class="flex items-center justify-between mb-1.5">
                         <span class="text-[11px] text-zinc-300 font-semibold">
-                            <span id="mission-current">0</span> / <span id="mission-target">5</span> คน
+                            ทั้งแคมเปญ <span id="mission-current-total" class="text-white">0</span> คน
                         </span>
                         <span id="mission-percent" class="text-[11px] text-yellow-400 font-bold">0%</span>
                     </div>
                     <div class="mission-progress-track">
                         <div id="mission-progress-fill" class="mission-progress-fill" style="width:0%"></div>
+                    </div>
+                    <div class="mt-1.5 text-[10px] text-zinc-500">
+                        ภารกิจถัดไป: อีก <span id="mission-tier-remaining" class="text-yellow-300 font-bold">5</span> คน · ครบ <span id="mission-target">5</span> คนได้โบนัส
                     </div>
                 </div>
 
@@ -870,11 +873,14 @@
                     ? 'เตรียมตัวให้พร้อม! ภารกิจกำลังจะเริ่ม'
                     : 'ชวนเพื่อนยิ่งเยอะ ยิ่งคุ้ม โบนัสทบไม่จำกัด';
 
-                // Progress
-                const effectiveTarget = isComingSoon ? target : (Math.floor(current / target) + 1) * target;
+                // Progress: แสดงเลขจริง + บอก tier ถัดไปแยก
                 const progressInTier = isComingSoon ? 0 : (current % target);
+                const tierRemaining = isComingSoon ? target : (target - progressInTier);
                 const pct = isComingSoon ? 0 : Math.min(100, Math.round((progressInTier / target) * 100));
-                document.getElementById('mission-current').innerText = isComingSoon ? '0' : progressInTier;
+                const totalEl = document.getElementById('mission-current-total');
+                if (totalEl) totalEl.innerText = isComingSoon ? '0' : current;
+                const tierRemEl = document.getElementById('mission-tier-remaining');
+                if (tierRemEl) tierRemEl.innerText = tierRemaining;
                 document.getElementById('mission-target').innerText = target;
                 document.getElementById('mission-percent').innerText = pct + '%';
                 document.getElementById('mission-progress-fill').style.width = pct + '%';

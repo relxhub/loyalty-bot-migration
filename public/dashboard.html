@@ -334,20 +334,26 @@
                 </div>
             </div>
 
-            <div class="mt-5 grid grid-cols-2 gap-3 border-t border-zinc-700/50 pt-5">
-                <button 
-                    onclick="openMyCouponsModal(); try { Telegram.WebApp.hapticFeedback.impactOccurred('medium'); } catch(e){}" 
-                    class="relative bg-gradient-to-br from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 border border-orange-400/50 py-3 rounded-xl flex items-center justify-center gap-2 transition group active:scale-95 w-full shadow-lg shadow-orange-500/20">
+            <div class="mt-5 grid grid-cols-3 gap-2 border-t border-zinc-700/50 pt-5">
+                <button
+                    onclick="openMyCouponsModal(); try { Telegram.WebApp.hapticFeedback.impactOccurred('medium'); } catch(e){}"
+                    class="relative bg-gradient-to-br from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 border border-orange-400/50 py-2.5 rounded-xl flex flex-col items-center justify-center gap-0.5 transition active:scale-95 shadow-lg shadow-orange-500/20">
                     <i class="ri-ticket-2-line text-white text-lg drop-shadow-md"></i>
-                    <span class="text-sm font-bold text-white drop-shadow-md" data-i18n="dashboard.my_coupons">คูปองของฉัน</span>
-                    <!-- Coupon Badge -->
+                    <span class="text-[11px] font-bold text-white drop-shadow-md leading-tight" data-i18n="dashboard.my_coupons">คูปองของฉัน</span>
                     <span id="coupon-badge" class="hidden absolute -top-2 -right-2 bg-red-600 text-white text-[10px] rounded-full h-[22px] w-[22px] flex items-center justify-center font-bold border-2 border-zinc-800 z-20">0</span>
                 </button>
-                <button 
-                    onclick="openHistoryModal(); try { Telegram.WebApp.hapticFeedback.impactOccurred('medium'); } catch(e){}" 
-                    class="bg-zinc-700/50 hover:bg-zinc-700 border border-zinc-600/50 py-3 rounded-xl flex items-center justify-center gap-2 transition group active:scale-95 w-full">
+                <a href="mystery-box.html"
+                    onclick="try { Telegram.WebApp.hapticFeedback.impactOccurred('medium'); } catch(e){}"
+                    class="relative bg-gradient-to-br from-purple-500 to-pink-500 hover:opacity-90 border border-pink-400/50 py-2.5 rounded-xl flex flex-col items-center justify-center gap-0.5 transition active:scale-95 shadow-lg shadow-pink-500/20 no-underline">
+                    <i class="ri-gift-2-fill text-white text-lg drop-shadow-md"></i>
+                    <span class="text-[11px] font-bold text-white drop-shadow-md leading-tight" data-i18n="dashboard.mystery_box">กล่องสุ่ม</span>
+                    <span id="mbox-tile-badge" class="hidden absolute -top-2 -right-2 bg-red-600 text-white text-[10px] rounded-full h-[22px] w-[22px] flex items-center justify-center font-bold border-2 border-zinc-800 z-20">0</span>
+                </a>
+                <button
+                    onclick="openHistoryModal(); try { Telegram.WebApp.hapticFeedback.impactOccurred('medium'); } catch(e){}"
+                    class="bg-zinc-700/50 hover:bg-zinc-700 border border-zinc-600/50 py-2.5 rounded-xl flex flex-col items-center justify-center gap-0.5 transition active:scale-95">
                     <i class="ri-history-line text-zinc-300 text-lg"></i>
-                    <span class="text-sm font-bold text-white" data-i18n="dashboard.points_history">ประวัติคะแนน</span>
+                    <span class="text-[11px] font-bold text-white leading-tight" data-i18n="dashboard.points_history">ประวัติคะแนน</span>
                 </button>
             </div>
         </div>
@@ -933,19 +939,30 @@
                     badge.classList.add('hidden');
                 }
 
-                // Mystery box banner — ดึงจาก API ใหม่
+                // Mystery box: banner + tile badge — ดึงจาก API ใหม่
                 try {
                     const mRes = await fetch(`/api/mystery-box/my/${telegramId}/unopened-count`);
                     const mData = await mRes.json();
                     const banner = document.getElementById('mystery-banner');
                     const bannerCount = document.getElementById('mystery-banner-count');
-                    if (banner && bannerCount && mData.success) {
+                    const tileBadge = document.getElementById('mbox-tile-badge');
+                    if (mData.success) {
                         const n = mData.unopened || 0;
-                        if (n > 0) {
-                            bannerCount.textContent = n;
-                            banner.classList.remove('hidden');
-                        } else {
-                            banner.classList.add('hidden');
+                        if (banner && bannerCount) {
+                            if (n > 0) {
+                                bannerCount.textContent = n;
+                                banner.classList.remove('hidden');
+                            } else {
+                                banner.classList.add('hidden');
+                            }
+                        }
+                        if (tileBadge) {
+                            if (n > 0) {
+                                tileBadge.textContent = n > 99 ? '99+' : String(n);
+                                tileBadge.classList.remove('hidden');
+                            } else {
+                                tileBadge.classList.add('hidden');
+                            }
                         }
                     }
                 } catch (e) { /* silent */ }
