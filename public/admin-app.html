@@ -208,6 +208,23 @@
                 </div>
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
+
+            <button id="menu-rbac" onclick="showView('rbac')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden border-yellow-500/40">
+                <div class="w-12 h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center text-2xl">🔐</div>
+                <div class="flex-1">
+                    <div class="font-bold text-white text-sm">สิทธิ์การเข้าถึง <span class="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/30 text-yellow-300 font-bold ml-1">Owner</span></div>
+                    <div class="text-[11px] text-zinc-400">กำหนดเมนูที่แต่ละ role เห็นได้</div>
+                </div>
+                <i class="ri-arrow-right-s-line text-zinc-400"></i>
+            </button>
+        </div>
+
+        <!-- 🔐 RBAC view (Owner only) -->
+        <div id="view-rbac" class="hidden">
+            <div class="font-bold text-sm mb-3 flex items-center gap-2"><i class="ri-shield-keyhole-line text-yellow-400"></i> สิทธิ์การเข้าถึงเมนู</div>
+            <div class="text-[11px] text-zinc-400 mb-3">เลือกว่า role ไหนเข้าถึง section ไหนได้บ้าง · Owner เห็นทั้งหมดเสมอ</div>
+            <div id="rbac-matrix" class="glass-card p-3 mb-3"></div>
+            <button id="rbac-save-btn" onclick="saveRbacMatrix()" class="w-full py-2.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black font-bold text-sm">บันทึกการเปลี่ยนแปลง</button>
         </div>
 
         <!-- 📊 Dashboard view (Owner only) -->
@@ -543,6 +560,35 @@
             else if (name === 'admins') loadAdminList();
             else if (name === 'audit') loadAuditLog();
             else if (name === 'settings') loadSettings();
+            else if (name === 'rbac') loadRbacMatrix();
+        }
+
+        // ซ่อนเมนูที่ไม่อยู่ใน permissions ของ role ปัจจุบัน
+        function applyRbacToMenu() {
+            const perms = new Set(window._myPermissions || []);
+            const map = {
+                orders: 'showView(\'orders\')',
+                shipments: 'showView(\'shipments\')',
+                customers: 'showView(\'customers\')',
+                coupons: 'showView(\'coupons\')',
+                'mystery-boxes': 'showView(\'mystery-boxes\')',
+                products: 'showView(\'products\')',
+                categories: 'showView(\'categories\')',
+                banners: 'showView(\'banners\')',
+                campaigns: 'showView(\'campaigns\')',
+                broadcast: 'showView(\'broadcast\')',
+                audit: 'showView(\'audit\')',
+                settings: 'showView(\'settings\')',
+            };
+            document.querySelectorAll('#view-home button.menu-card').forEach(btn => {
+                const onclick = btn.getAttribute('onclick') || '';
+                for (const [section, sig] of Object.entries(map)) {
+                    if (onclick.includes(sig)) {
+                        if (!perms.has(section)) btn.classList.add('hidden');
+                        break;
+                    }
+                }
+            });
         }
         function goHome() { showView('home'); loadShipmentsBadge(); loadOrdersBadge(); }
 
@@ -566,10 +612,14 @@
                 roleEl.textContent = me.role;
                 roleEl.classList.add(`role-${me.role}`);
                 window._adminRole = me.role;
+                window._myPermissions = me.permissions || [];
+                window._allSections = me.allSections || [];
                 if (me.role === 'Owner') {
                     document.getElementById('menu-dashboard').classList.remove('hidden');
                     document.getElementById('menu-admins').classList.remove('hidden');
+                    document.getElementById('menu-rbac').classList.remove('hidden');
                 }
+                applyRbacToMenu();
                 document.getElementById('loading-screen').classList.add('hidden');
                 document.getElementById('app').classList.remove('hidden');
 
@@ -1868,6 +1918,78 @@
                 if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
                 closeBkModal(); await loadBankAccounts();
             } catch (e) { alert('error: '+e.message); }
+        }
+
+        // ---------- 🔐 RBAC matrix (Owner) ----------
+        const _RBAC_LABELS = {
+            orders: '🛒 จัดการออเดอร์',
+            shipments: '📦 จัดส่งของรางวัล',
+            customers: '👥 ลูกค้า',
+            coupons: '🎫 คูปอง',
+            'mystery-boxes': '🎁 Mystery Box',
+            products: '🛍️ สินค้า',
+            categories: '📂 หมวดหมู่',
+            banners: '🎞️ Banner',
+            campaigns: '📅 แคมเปญ',
+            broadcast: '📣 Broadcast',
+            audit: '📜 Audit Log',
+            settings: '⚙️ ตั้งค่าระบบ',
+        };
+
+        async function loadRbacMatrix() {
+            const wrap = document.getElementById('rbac-matrix');
+            wrap.innerHTML = '<div class="text-center text-zinc-500 py-6 animate-pulse">กำลังโหลด...</div>';
+            try {
+                const res = await fetch('/api/admin/rbac-matrix', { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'load failed');
+                const sections = data.sections;
+                const matrix = data.matrix;
+                wrap.innerHTML = `
+                    <table class="w-full text-xs">
+                        <thead>
+                            <tr class="text-zinc-500">
+                                <th class="text-left py-2 px-1 font-normal">เมนู / Section</th>
+                                <th class="py-2 px-1 font-normal w-16">Admin</th>
+                                <th class="py-2 px-1 font-normal w-20">SuperAdmin</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${sections.map(s => `
+                                <tr class="border-t border-white/10">
+                                    <td class="py-2 px-1 text-white">${_RBAC_LABELS[s] || s}</td>
+                                    <td class="text-center"><input type="checkbox" data-role="Admin" data-section="${s}" ${matrix.Admin.includes(s)?'checked':''} class="rbac-cb w-4 h-4 accent-yellow-500"></td>
+                                    <td class="text-center"><input type="checkbox" data-role="SuperAdmin" data-section="${s}" ${matrix.SuperAdmin.includes(s)?'checked':''} class="rbac-cb w-4 h-4 accent-yellow-500"></td>
+                                </tr>`).join('')}
+                        </tbody>
+                    </table>
+                    <div class="text-[10px] text-zinc-500 mt-3 pt-3 border-t border-white/10">
+                        Owner เห็นทุกเมนู + Financial Dashboard + Admin Mgmt + RBAC matrix นี้เสมอ (แก้ไม่ได้)
+                    </div>`;
+            } catch (e) { wrap.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`; }
+        }
+
+        async function saveRbacMatrix() {
+            const Admin = [];
+            const SuperAdmin = [];
+            document.querySelectorAll('.rbac-cb').forEach(cb => {
+                if (!cb.checked) return;
+                if (cb.dataset.role === 'Admin') Admin.push(cb.dataset.section);
+                else SuperAdmin.push(cb.dataset.section);
+            });
+            const btn = document.getElementById('rbac-save-btn');
+            btn.disabled = true; const wasText = btn.textContent; btn.textContent = 'กำลังบันทึก...';
+            try {
+                const res = await fetch('/api/admin/rbac-matrix', {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ matrix: { Admin, SuperAdmin }, initData: tg.initData }),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
+                alert('✅ บันทึกแล้ว — admin คนอื่นต้องเปิดแอปใหม่');
+            } catch (e) { alert('error: '+e.message); }
+            finally { btn.disabled = false; btn.textContent = wasText; }
         }
 
         // ---------- 📊 Owner Dashboard ----------

@@ -2830,11 +2830,70 @@ async function authAdmin(req, allowedRoles = ['Admin', 'SuperAdmin', 'Owner']) {
     return { ok: true, telegramId, admin };
 }
 
+// All sections that can be permission-gated. Owner เห็นทุก section + 'admins'+'rbac'+'dashboard' เสมอ
+const RBAC_SECTIONS = [
+    'orders', 'shipments', 'customers', 'coupons', 'mystery-boxes',
+    'products', 'categories', 'banners', 'campaigns',
+    'broadcast', 'audit', 'settings',
+];
+const RBAC_DEFAULT = {
+    Admin: ['orders', 'shipments', 'customers'],
+    SuperAdmin: ['orders', 'shipments', 'customers', 'coupons', 'mystery-boxes', 'products', 'categories', 'banners', 'campaigns', 'broadcast', 'audit', 'settings'],
+};
+
+async function getRbacMatrix() {
+    const row = await prisma.systemConfig.findUnique({ where: { key: 'rbac_matrix' } });
+    if (!row?.value) return RBAC_DEFAULT;
+    try {
+        const parsed = JSON.parse(row.value);
+        return {
+            Admin: Array.isArray(parsed.Admin) ? parsed.Admin.filter(s => RBAC_SECTIONS.includes(s)) : RBAC_DEFAULT.Admin,
+            SuperAdmin: Array.isArray(parsed.SuperAdmin) ? parsed.SuperAdmin.filter(s => RBAC_SECTIONS.includes(s)) : RBAC_DEFAULT.SuperAdmin,
+        };
+    } catch (e) { return RBAC_DEFAULT; }
+}
+
+async function getPermissionsFor(role) {
+    if (role === 'Owner') return [...RBAC_SECTIONS]; // Owner เห็นทุก section ผ่าน gate (admin/dashboard/rbac เป็น role check ต่างหาก)
+    const matrix = await getRbacMatrix();
+    return matrix[role] || [];
+}
+
 // GET /api/admin/me — ใช้ตรวจสิทธิ์ตอน admin-app load
 router.get('/admin/me', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
-    res.json({ success: true, telegramId: a.telegramId, role: a.admin.role, name: a.admin.name });
+    const permissions = await getPermissionsFor(a.admin.role);
+    res.json({ success: true, telegramId: a.telegramId, role: a.admin.role, name: a.admin.name, permissions, allSections: RBAC_SECTIONS });
+});
+
+// GET /api/admin/rbac-matrix — Owner only
+router.get('/admin/rbac-matrix', async (req, res) => {
+    const a = await authAdmin(req, ['Owner']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    const matrix = await getRbacMatrix();
+    res.json({ success: true, matrix, sections: RBAC_SECTIONS, defaults: RBAC_DEFAULT });
+});
+
+// PATCH /api/admin/rbac-matrix — Owner only
+router.patch('/admin/rbac-matrix', async (req, res) => {
+    const a = await authAdmin(req, ['Owner']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const m = req.body?.matrix;
+        if (!m || typeof m !== 'object') return res.status(400).json({ success: false, error: 'matrix ต้องเป็น object' });
+        const cleaned = {
+            Admin: Array.isArray(m.Admin) ? m.Admin.filter(s => RBAC_SECTIONS.includes(s)) : [],
+            SuperAdmin: Array.isArray(m.SuperAdmin) ? m.SuperAdmin.filter(s => RBAC_SECTIONS.includes(s)) : [],
+        };
+        await prisma.systemConfig.upsert({
+            where: { key: 'rbac_matrix' },
+            update: { value: JSON.stringify(cleaned) },
+            create: { key: 'rbac_matrix', value: JSON.stringify(cleaned) },
+        });
+        await prisma.adminAuditLog.create({ data: { adminName: a.admin?.name || a.telegramId, action: 'RBAC_UPDATE', details: JSON.stringify(cleaned) } });
+        res.json({ success: true, matrix: cleaned });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'update failed' }); }
 });
 
 // GET /api/admin/prize-shipments — list ตามสถานะ
