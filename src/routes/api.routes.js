@@ -692,6 +692,15 @@ router.post('/orders/:orderId/cancel', async (req, res) => {
     }
 });
 
+// Helper: เก็บ image เป็น base64 string (data URL) — ใช้เป็น guaranteed fallback
+// ลูกค้า upload ผ่าน Mini App (ไม่ใช่ Telegram chat) → ทุกอย่างต้องผ่าน server
+function fileToBase64DataUrl(file) {
+    if (!file?.buffer) return '';
+    const mime = file.mimetype || 'image/jpeg';
+    const b64 = file.buffer.toString('base64');
+    return `data:${mime};base64,${b64}`;
+}
+
 // Helper: upload slip image to Telegram → return /api/images/<file_id> URL
 // strategy:
 //   1) ลองส่งผ่าน ORDER_BOT ไปยัง customer chat — bot มีสิทธิ์ส่งเสมอ (ลูกค้า /start แล้ว)
@@ -977,6 +986,7 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
 
                 // Lock + reserve stock/coupon + Payment(PENDING) — all in one transaction
                 const slipUrlForDb = (await tgSlipUrlPromise) || slipData?.data?.url || '';
+                const slipImageB64 = slipUrlForDb ? null : fileToBase64DataUrl(file); // base64 fallback
                 try {
                     await prisma.$transaction(async (tx) => {
                         await tx.order.update({
@@ -989,6 +999,7 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                                 amount: actual,
                                 status: 'PENDING',
                                 slipUrl: slipUrlForDb,
+                                slipImage: slipImageB64,
                                 slipOkTransactionId: slipTransRef,
                                 payload: JSON.stringify({ ...slipData.data, mismatchUnder: true, expected, actual, diff }),
                             },
@@ -1132,12 +1143,14 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
 
             // B. Create Payment Record
             const slipUrlForDb = (await tgSlipUrlPromise) || slipData.data.url || '';
+            const slipImageB64 = slipUrlForDb ? null : fileToBase64DataUrl(file);
             await tx.payment.create({
                 data: {
                     orderId: order.id,
                     amount: parseFloat(slipAmount),
                     status: 'VERIFIED',
                     slipUrl: slipUrlForDb,
+                    slipImage: slipImageB64,
                     slipOkTransactionId: slipTransRef,
                     payload: JSON.stringify(slipData.data),
                     verifiedAt: new Date()
@@ -3271,6 +3284,33 @@ router.get('/admin/orders/export', async (req, res) => {
     }
 });
 
+// GET /api/payment-slip/:paymentId — serve base64 slip image (fallback when Telegram upload failed)
+// admin only — ใช้ initData ใน query string เพราะ <img src> ส่ง header ไม่ได้
+router.get('/payment-slip/:paymentId', async (req, res) => {
+    try {
+        const initData = req.query.initData || req.headers['x-init-data'];
+        if (!verifyTelegramWebAppData(initData)) return res.status(401).send('Unauthorized');
+        const userData = JSON.parse(new URLSearchParams(initData).get('user') || '{}');
+        const tgId = String(userData.id || '');
+        const admin = await prisma.admin.findUnique({ where: { telegramId: tgId } });
+        if (!admin) return res.status(403).send('Forbidden');
+
+        const p = await prisma.payment.findUnique({ where: { id: parseInt(req.params.paymentId) }, select: { slipImage: true } });
+        if (!p?.slipImage) return res.status(404).send('No image');
+        // parse data URL: data:image/jpeg;base64,xxx
+        const m = p.slipImage.match(/^data:([^;]+);base64,(.+)$/);
+        if (!m) return res.status(500).send('Bad data URL');
+        const mime = m[1];
+        const buf = Buffer.from(m[2], 'base64');
+        res.setHeader('Content-Type', mime);
+        res.setHeader('Cache-Control', 'private, max-age=300');
+        res.send(buf);
+    } catch (e) {
+        console.error('payment-slip error:', e);
+        res.status(500).send('Server error');
+    }
+});
+
 // GET /admin/orders/:id — full detail
 router.get('/admin/orders/:id', async (req, res) => {
     const a = await authAdmin(req);
@@ -3344,7 +3384,9 @@ router.get('/admin/orders/:id', async (req, res) => {
                 })),
                 payment: order.payment ? {
                     id: order.payment.id, status: order.payment.status,
-                    amount: Number(order.payment.amount), slipUrl: order.payment.slipUrl,
+                    amount: Number(order.payment.amount),
+                    // ถ้า slipUrl ว่าง + มี slipImage → ใช้ proxy endpoint
+                    slipUrl: order.payment.slipUrl || (order.payment.slipImage ? `/api/payment-slip/${order.payment.id}?initData=${encodeURIComponent(req.headers['x-init-data'] || '')}` : ''),
                     slipOkTransactionId: order.payment.slipOkTransactionId,
                     verifiedAt: order.payment.verifiedAt, createdAt: order.payment.createdAt,
                 } : null,
@@ -3708,9 +3750,9 @@ router.post('/admin/orders/:id/upload-slip', upload.single('file'), async (req, 
         if (!order.payment) return res.status(400).json({ success: false, error: 'ออเดอร์นี้ไม่มี Payment row (ลูกค้ายังไม่ verify)' });
 
         const slipUrl = await uploadSlipToTelegram(req.file, order.customer?.telegramUserId);
-        if (!slipUrl) return res.status(500).json({ success: false, error: 'upload Telegram fail — ดู log' });
-
-        await prisma.payment.update({ where: { id: order.payment.id }, data: { slipUrl } });
+        // เสมอเก็บ base64 fallback ด้วย — กัน Telegram link หาย
+        const slipImage = fileToBase64DataUrl(req.file);
+        await prisma.payment.update({ where: { id: order.payment.id }, data: { slipUrl: slipUrl || '', slipImage } });
         await prisma.adminAuditLog.create({
             data: {
                 adminName: a.admin?.name || a.telegramId, action: 'SLIP_BACKFILL',

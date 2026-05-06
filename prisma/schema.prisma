@@ -623,7 +623,10 @@ enum PaymentStatus {
 model Payment {
   id      Int           @id @default(autoincrement())
   orderId String        @unique
-  slipUrl String // ลิงก์รูปสลิปที่ลูกค้าอัปโหลด
+  slipUrl String // ลิงก์รูปสลิปที่ลูกค้าอัปโหลด (Telegram CDN proxy)
+  // Fallback storage — base64 ของรูปสลิป (ใช้กรณี Telegram upload fail)
+  // เปิดใช้งานเมื่อ slipUrl ว่าง → admin endpoint จะ serve จาก field นี้
+  slipImage String? @db.Text
   amount  Decimal       @db.Decimal(10, 2)
   status  PaymentStatus @default(PENDING)
 
