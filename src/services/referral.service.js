@@ -138,15 +138,21 @@ const completeReferral = async (refereeId, purchaseAmount, orderId = null) => {
       }
     }
     
-    if (referral.status !== 'PENDING_PURCHASE') {
-      return { success: false, message: "การแนะนำนี้เสร็จสมบูรณ์แล้วหรือไม่ถูกต้อง" };
+    // COMPLETED แล้วก็ไม่ต้องทำซ้ำ — ถ้าเป็น FAILED_MIN_PURCHASE → อนุญาตให้ retry
+    // (เผื่อรอบแรกยอดน้อยไม่ผ่าน แต่รอบถัดไปยอดถึงเกณฑ์ ลูกค้าควรได้)
+    if (referral.status === 'COMPLETED') {
+      return { success: false, message: "การแนะนำนี้เสร็จสมบูรณ์ไปแล้ว" };
+    }
+    if (referral.status !== 'PENDING_PURCHASE' && referral.status !== 'FAILED_MIN_PURCHASE') {
+      return { success: false, message: "สถานะการแนะนำไม่ถูกต้อง" };
     }
 
     // 2. Check purchase amount against campaign rules
     const activeCampaign = await campaignService.getActiveCampaign();
-    // Assuming campaign or system config has minPurchaseForReferral, otherwise use default 500
-    // TODO: Add minPurchaseForReferral to Campaign model or SystemConfig for dynamic configuration
-    const minPurchaseForReferral = parseInt(getConfig('minPurchaseForReferral')) || 500; // Use from config or default
+    // Default 500 — แก้ใน Prisma Studio (key: minPurchaseForReferral)
+    // ใช้ Number() ไม่ใช่ parseInt() เพราะ config อาจเป็นทศนิยม + Number("0") = 0 (ไม่ fallback ผิด)
+    const rawMin = getConfig('minPurchaseForReferral');
+    const minPurchaseForReferral = (rawMin != null && rawMin !== '') ? Number(rawMin) : 500;
 
     if (purchaseAmount < minPurchaseForReferral) {
       // Mark referral as FAILED so subsequent purchases don't trigger the bonus
