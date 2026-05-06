@@ -37,10 +37,18 @@ const configs = [
         key: 'expiryDaysAddPoints', 
         value: '30' // How many days to extend expiry when an admin adds points
     },
-    { 
-        key: 'expiryDaysLimitMax', 
+    {
+        key: 'expiryDaysLimitMax',
         value: '60' // The maximum number of days into the future an expiry date can be set to
     },
+
+    // --- Inviter Tier (Bronze / Silver / Gold) — แสดงใน referral.html ---
+    // ปรับค่าได้ใน Prisma Studio: ตาราง SystemConfig
+    { key: 'tier_silver_min', value: '3' },     // จำนวนเพื่อนที่ชวนสำเร็จเดือนนี้ ≥ ค่านี้ → Silver
+    { key: 'tier_gold_min',   value: '6' },     // ≥ ค่านี้ → Gold
+    { key: 'tier_bronze_label', value: 'Bronze' },
+    { key: 'tier_silver_label', value: 'Silver' },
+    { key: 'tier_gold_label',   value: 'Gold' },
 ];
 
 async function seedSystemConfig() {

@@ -301,6 +301,18 @@
             </div>
         </div>
 
+        <!-- 🎁 Mystery Box Banner — โชว์เด่นบนสุด ถ้ามีกล่องที่ยังไม่เปิด -->
+        <div id="mystery-banner" class="hidden mt-2 mb-1 cursor-pointer rounded-2xl p-3.5 active:scale-[.98] transition" onclick="openMyCouponsModal(); try { Telegram.WebApp.hapticFeedback.impactOccurred('medium'); } catch(e){}" style="background: linear-gradient(135deg, rgba(168,85,247,0.25), rgba(236,72,153,0.25)); border: 1px solid rgba(168,85,247,0.5); animation: mystery-pulse 2.5s ease-in-out infinite;">
+            <div class="flex items-center gap-3">
+                <div class="text-3xl">🎁</div>
+                <div class="flex-1 min-w-0">
+                    <div class="font-bold text-white text-sm">มีกล่องสุ่ม <span id="mystery-banner-count" class="text-yellow-300">0</span> ใบ รอเปิด</div>
+                    <div class="text-[11px] text-purple-100 mt-0.5">แตะเพื่อเปิดและลุ้นรางวัลพิเศษ ✨</div>
+                </div>
+                <i class="ri-arrow-right-s-line text-2xl text-white/70"></i>
+            </div>
+        </div>
+
         <div class="glass-card p-5 relative overflow-hidden group border border-zinc-700 mt-2">
             <div class="flex justify-between items-start">
                 <div class="flex flex-col justify-start">
@@ -920,6 +932,19 @@
                 } else {
                     badge.classList.add('hidden');
                 }
+
+                // Mystery box banner
+                const banner = document.getElementById('mystery-banner');
+                const bannerCount = document.getElementById('mystery-banner-count');
+                if (banner && bannerCount && data.success && Array.isArray(data.coupons)) {
+                    const lockedCount = data.coupons.filter(c => c.isMysteryBoxLocked).length;
+                    if (lockedCount > 0) {
+                        bannerCount.textContent = lockedCount;
+                        banner.classList.remove('hidden');
+                    } else {
+                        banner.classList.add('hidden');
+                    }
+                }
             } catch (err) {
                 console.error("Failed to update coupon badge", err);
             }
@@ -1234,18 +1259,9 @@
         function closeMysteryReveal() {
             const modal = document.getElementById('mystery-reveal-modal');
             if (modal) modal.remove();
-            // reload coupon list ใน wallet
+            // reload wallet + refresh badge/banner
             try { openMyCouponsModal(); } catch (e) {}
-            // refresh badge ทันที
-            try { fetch(`/api/coupons/my/${window.currentUser?.telegramUserId || tg.initDataUnsafe?.user?.id}`).then(r => r.json()).then((d) => {
-                if (d.success) {
-                    const badge = document.getElementById('coupon-badge');
-                    if (badge) {
-                        if (d.coupons && d.coupons.length > 0) { badge.innerText = d.coupons.length; badge.classList.remove('hidden'); }
-                        else badge.classList.add('hidden');
-                    }
-                }
-            }); } catch (e) {}
+            try { updateCouponBadge(); } catch (e) {}
         }
 
         async function openMyCouponsModal() {
@@ -1660,6 +1676,11 @@
                     const myCustomerId = window.currentUser?.customerId;
                     if (!myCustomerId || msg.customerId !== myCustomerId) return;
                     refreshUnreadCount();
+
+                    // ถ้าเป็นเรื่องคูปอง — refresh badge + mystery banner ทันที
+                    if (msg.notification.kind === 'REWARD_COUPON_GRANTED') {
+                        try { updateCouponBadge(); } catch (e) {}
+                    }
 
                     // โชว์ toast แค่ถ้า modal notif ไม่ได้เปิดอยู่ (ไม่งั้นจะซ้ำซ้อน)
                     const modal = document.getElementById('notif-modal');

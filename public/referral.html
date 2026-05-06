@@ -895,25 +895,45 @@
         }
 
         // ========== 🏆 TIER STREAK ==========
-        // ระดับขึ้นกับ "จำนวนเพื่อนที่ชวนสำเร็จในเดือนนี้"
-        // Bronze 0-2, Silver 3-5, Gold 6+
-        function computeTier(monthCount) {
-            const n = parseInt(monthCount) || 0;
-            if (n >= 6) {
-                return { name: 'Gold', icon: 'ri-vip-crown-fill', color: 'text-yellow-300', tagline: 'ระดับสูงสุด — ขอบคุณที่เป็นกองหนุนของร้าน 🏆', current: n, nextThreshold: null, remaining: 0, pct: 100 };
-            }
-            if (n >= 3) {
-                const remaining = 6 - n;
-                return { name: 'Silver', icon: 'ri-medal-2-fill', color: 'text-zinc-300', tagline: 'อีก ' + remaining + ' คน ขึ้น Gold', current: n, nextThreshold: 6, remaining, pct: Math.round(((n - 3) / 3) * 100) };
-            }
-            const remaining = 3 - n;
-            return { name: 'Bronze', icon: 'ri-medal-fill', color: 'text-orange-400', tagline: 'อีก ' + remaining + ' คน ขึ้น Silver', current: n, nextThreshold: 3, remaining, pct: Math.round((n / 3) * 100) };
+        // ค่า threshold + label อ่านจาก SystemConfig (แก้ใน Prisma Studio ได้)
+        // Default: Silver≥3, Gold≥6
+        let _tierConfig = null;
+        async function loadTierConfig() {
+            if (_tierConfig) return _tierConfig;
+            try {
+                const res = await fetch('/api/config/tiers');
+                const data = await res.json();
+                if (data.success && data.tiers) {
+                    _tierConfig = data.tiers;
+                    return _tierConfig;
+                }
+            } catch (e) { /* fall through to defaults */ }
+            _tierConfig = { silverMin: 3, goldMin: 6, bronzeLabel: 'Bronze', silverLabel: 'Silver', goldLabel: 'Gold' };
+            return _tierConfig;
         }
 
-        function renderTier(monthCount) {
+        function computeTier(monthCount, cfg) {
+            const n = parseInt(monthCount) || 0;
+            const silverMin = cfg.silverMin;
+            const goldMin = cfg.goldMin;
+
+            if (n >= goldMin) {
+                return { name: cfg.goldLabel, icon: 'ri-vip-crown-fill', color: 'text-yellow-300', tagline: 'ระดับสูงสุด — ขอบคุณที่เป็นกองหนุนของร้าน 🏆', current: n, nextThreshold: null, remaining: 0, pct: 100 };
+            }
+            if (n >= silverMin) {
+                const remaining = Math.max(0, goldMin - n);
+                const span = Math.max(1, goldMin - silverMin);
+                return { name: cfg.silverLabel, icon: 'ri-medal-2-fill', color: 'text-zinc-300', tagline: `อีก ${remaining} คน ขึ้น ${cfg.goldLabel}`, current: n, nextThreshold: goldMin, remaining, pct: Math.min(100, Math.round(((n - silverMin) / span) * 100)) };
+            }
+            const remaining = Math.max(0, silverMin - n);
+            return { name: cfg.bronzeLabel, icon: 'ri-medal-fill', color: 'text-orange-400', tagline: `อีก ${remaining} คน ขึ้น ${cfg.silverLabel}`, current: n, nextThreshold: silverMin, remaining, pct: silverMin > 0 ? Math.min(100, Math.round((n / silverMin) * 100)) : 100 };
+        }
+
+        async function renderTier(monthCount) {
             const card = document.getElementById('tier-card');
             if (!card) return;
-            const t = computeTier(monthCount);
+            const cfg = await loadTierConfig();
+            const t = computeTier(monthCount, cfg);
             const lang = window.appConfig?.lang || 'th';
             document.getElementById('tier-icon').className = `${t.icon} text-2xl ${t.color}`;
             document.getElementById('tier-name').textContent = t.name;

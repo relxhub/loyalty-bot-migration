@@ -2172,6 +2172,30 @@ router.post('/coupons/validate', async (req, res) => {
 });
 
 // --- System Config ---
+
+// Tier config (Bronze/Silver/Gold) สำหรับ referral.html
+// อ่านจาก SystemConfig — admin แก้ใน Prisma Studio ได้
+router.get('/config/tiers', async (req, res) => {
+    try {
+        const keys = ['tier_silver_min', 'tier_gold_min', 'tier_bronze_label', 'tier_silver_label', 'tier_gold_label'];
+        const rows = await prisma.systemConfig.findMany({ where: { key: { in: keys } } });
+        const map = rows.reduce((acc, r) => { acc[r.key] = r.value; return acc; }, {});
+        res.json({
+            success: true,
+            tiers: {
+                silverMin: parseInt(map.tier_silver_min) || 3,
+                goldMin: parseInt(map.tier_gold_min) || 6,
+                bronzeLabel: map.tier_bronze_label || 'Bronze',
+                silverLabel: map.tier_silver_label || 'Silver',
+                goldLabel: map.tier_gold_label || 'Gold',
+            },
+        });
+    } catch (e) {
+        console.error('Tier config error:', e);
+        res.status(500).json({ success: false, error: 'load tier config failed' });
+    }
+});
+
 router.get('/config/shipping', async (req, res) => {
     try {
         const configs = await prisma.systemConfig.findMany({
