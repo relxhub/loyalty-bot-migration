@@ -3875,11 +3875,32 @@ router.get('/admin/dashboard/financial', async (req, res) => {
             take: 5,
         });
         const productIds = itemsGrouped.map(i => i.productId);
-        const products = productIds.length ? await prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, name: true, price: true } }) : [];
+        const products = productIds.length ? await prisma.product.findMany({
+            where: { id: { in: productIds } },
+            select: { id: true, nameTh: true, nameEn: true, category: { select: { price: true } } },
+        }) : [];
+        // หา revenue จาก orderItem.priceAtPurchase (ที่จ่ายจริง) — แม่นกว่าใช้ category.price
+        const revenueByProduct = await prisma.orderItem.groupBy({
+            by: ['productId'],
+            where: { productId: { in: productIds }, order: { ...dateFilter, kind: 'PRODUCT', status: { in: paidStatuses } } },
+            _sum: { quantity: true },
+        });
+        const qtyMap = new Map(revenueByProduct.map(r => [r.productId, r._sum.quantity || 0]));
+        // คำนวณ revenue ต่อ product
+        const itemsAll = await prisma.orderItem.findMany({
+            where: { productId: { in: productIds }, order: { ...dateFilter, kind: 'PRODUCT', status: { in: paidStatuses } } },
+            select: { productId: true, quantity: true, priceAtPurchase: true },
+        });
+        const revMap = new Map();
+        for (const it of itemsAll) {
+            const cur = revMap.get(it.productId) || 0;
+            revMap.set(it.productId, cur + Number(it.priceAtPurchase) * it.quantity);
+        }
         const pMap = new Map(products.map(p => [p.id, p]));
         const topProducts = itemsGrouped.map(i => {
             const p = pMap.get(i.productId);
-            return { id: i.productId, name: p?.name || `#${i.productId}`, qty: i._sum.quantity || 0, revenue: Number(p?.price || 0) * (i._sum.quantity || 0) };
+            const name = p?.nameTh || p?.nameEn || `#${i.productId}`;
+            return { id: i.productId, name, qty: i._sum.quantity || 0, revenue: revMap.get(i.productId) || 0 };
         });
 
         // tier distribution — best-effort: ใช้ referralCount จาก Customer (ตามนิยาม Bronze<3 / Silver 3-5 / Gold 6+)
