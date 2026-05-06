@@ -2181,7 +2181,11 @@ router.post('/coupons/validate', async (req, res) => {
 // อ่านจาก SystemConfig — admin แก้ใน Prisma Studio ได้
 router.get('/config/tiers', async (req, res) => {
     try {
-        const keys = ['tier_silver_min', 'tier_gold_min', 'tier_bronze_label', 'tier_silver_label', 'tier_gold_label'];
+        const keys = [
+            'tier_silver_min', 'tier_gold_min',
+            'tier_bronze_label', 'tier_silver_label', 'tier_gold_label',
+            'tier_silver_multiplier', 'tier_gold_multiplier',
+        ];
         const rows = await prisma.systemConfig.findMany({ where: { key: { in: keys } } });
         const map = rows.reduce((acc, r) => { acc[r.key] = r.value; return acc; }, {});
         res.json({
@@ -2192,6 +2196,8 @@ router.get('/config/tiers', async (req, res) => {
                 bronzeLabel: map.tier_bronze_label || 'Bronze',
                 silverLabel: map.tier_silver_label || 'Silver',
                 goldLabel: map.tier_gold_label || 'Gold',
+                silverMultiplier: Number(map.tier_silver_multiplier) || 1.0,
+                goldMultiplier: Number(map.tier_gold_multiplier) || 1.0,
             },
         });
     } catch (e) {

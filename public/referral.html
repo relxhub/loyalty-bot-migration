@@ -517,13 +517,16 @@
         </div>
 
         <!-- 🏆 Tier Streak (Bronze/Silver/Gold ตามจำนวนเพื่อนที่ชวนสำเร็จเดือนนี้) -->
-        <div id="tier-card" class="glass-card p-5 hidden">
+        <div id="tier-card" class="glass-card p-5 hidden cursor-pointer hover:bg-white/5 transition active:scale-[0.99]" onclick="openTierModal()" role="button" aria-label="ดูรายละเอียดระดับนักชวน">
             <div class="flex items-center justify-between mb-3">
                 <div class="font-semibold text-sm flex items-center gap-2">
                     <i id="tier-icon" class="ri-medal-fill text-2xl"></i>
                     <span><span data-i18n="referral.tier_label">ระดับนักชวน</span> · <span id="tier-name" class="font-bold">Bronze</span></span>
                 </div>
-                <span id="tier-count-badge" class="text-[10px] px-2 py-0.5 rounded-full bg-white/10">0 เดือนนี้</span>
+                <div class="flex items-center gap-1.5">
+                    <span id="tier-count-badge" class="text-[10px] px-2 py-0.5 rounded-full bg-white/10">0 เดือนนี้</span>
+                    <i class="ri-information-line text-zinc-400 text-base"></i>
+                </div>
             </div>
             <p id="tier-tagline" class="text-[11px] text-zinc-400 mb-3"></p>
             <div class="mb-1.5 flex items-center justify-between text-[11px]">
@@ -532,6 +535,28 @@
             </div>
             <div class="w-full h-2 rounded-full bg-white/10 overflow-hidden">
                 <div id="tier-progress-fill" class="h-full bg-gradient-to-r from-yellow-400 to-orange-500 transition-all duration-500" style="width:0%"></div>
+            </div>
+            <div class="mt-2 text-[10px] text-zinc-500 text-right">แตะเพื่อดูสิทธิประโยชน์ทุกระดับ →</div>
+        </div>
+
+        <!-- 🏆 Tier Benefits Modal -->
+        <div id="tier-modal" class="hidden fixed inset-0 z-[60] flex items-end justify-center bg-black/85 backdrop-blur-md opacity-0 transition-opacity duration-300">
+            <div id="tier-modal-content" class="glass-card w-full max-w-md max-h-[90vh] flex flex-col transform translate-y-full transition-transform duration-300 rounded-t-3xl">
+                <div class="p-5 border-b border-white/10 flex justify-between items-center bg-black/20 flex-shrink-0">
+                    <h3 class="text-lg font-bold flex items-center gap-2">
+                        <i class="ri-vip-crown-fill text-yellow-400"></i> สิทธิประโยชน์ระดับนักชวน
+                    </h3>
+                    <button onclick="closeTierModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition">
+                        <i class="ri-close-line"></i>
+                    </button>
+                </div>
+                <div class="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                    <p class="text-[11px] text-zinc-400 mb-4 text-center">
+                        ระดับขึ้นกับ <b class="text-zinc-200">จำนวนเพื่อนที่คุณชวนสำเร็จในเดือนนี้</b><br>
+                        เริ่มนับใหม่ทุกต้นเดือน
+                    </p>
+                    <div id="tier-modal-list" class="space-y-3"></div>
+                </div>
             </div>
         </div>
 
@@ -992,6 +1017,145 @@
             const remaining = Math.max(0, silverMin - n);
             return { name: cfg.bronzeLabel, icon: 'ri-medal-fill', color: 'text-orange-400', tagline: `อีก ${remaining} คน ขึ้น ${cfg.silverLabel}`, current: n, nextThreshold: silverMin, remaining, pct: silverMin > 0 ? Math.min(100, Math.round((n / silverMin) * 100)) : 100 };
         }
+
+        // ========== Tier Benefits Modal ==========
+        let _tierModalOpen = false;
+        async function openTierModal() {
+            const modal = document.getElementById('tier-modal');
+            const content = document.getElementById('tier-modal-content');
+            const listEl = document.getElementById('tier-modal-list');
+            if (!modal || !listEl) return;
+
+            try { tg.hapticFeedback?.impactOccurred?.('light'); } catch(e){}
+
+            document.body.classList.add('no-scroll');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('translate-y-full');
+            }, 10);
+            _tierModalOpen = true;
+
+            listEl.innerHTML = '<div class="text-center text-gray-500 py-6 animate-pulse">กำลังโหลด...</div>';
+
+            try {
+                const cfg = await loadTierConfig();
+                const monthCount = parseInt(window.currentUser?.referralCountMonth) || 0;
+                const userTier = computeTier(monthCount, cfg).name;
+
+                // โหลด mystery boxes ที่ active เพื่อแยก tier-restricted
+                let exclusiveBoxes = { SILVER: [], GOLD: [] };
+                try {
+                    const tgId = window.currentUser?.telegramUserId || tg.initDataUnsafe?.user?.id;
+                    const mres = await fetch(`/api/mystery-box/catalog?telegramId=${encodeURIComponent(tgId || '')}`);
+                    const mdata = await mres.json();
+                    if (mdata.success && Array.isArray(mdata.boxes)) {
+                        mdata.boxes.forEach(b => {
+                            if (b.requiredTier === 'SILVER' || b.requiredTier === 'GOLD') {
+                                exclusiveBoxes[b.requiredTier].push(b);
+                            }
+                        });
+                    }
+                } catch (e) { /* silent */ }
+
+                const tiers = [
+                    {
+                        key: 'BRONZE', label: cfg.bronzeLabel, icon: 'ri-medal-fill',
+                        color: 'text-orange-400', bg: 'from-orange-500/15 to-amber-500/10',
+                        border: 'border-orange-400/40',
+                        rangeText: `0–${cfg.silverMin - 1} คน/เดือน`,
+                        multiplier: 1.0,
+                        boxes: [],
+                    },
+                    {
+                        key: 'SILVER', label: cfg.silverLabel, icon: 'ri-medal-2-fill',
+                        color: 'text-zinc-200', bg: 'from-zinc-500/20 to-slate-500/15',
+                        border: 'border-zinc-400/40',
+                        rangeText: `${cfg.silverMin}–${cfg.goldMin - 1} คน/เดือน`,
+                        multiplier: cfg.silverMultiplier,
+                        boxes: exclusiveBoxes.SILVER,
+                    },
+                    {
+                        key: 'GOLD', label: cfg.goldLabel, icon: 'ri-vip-crown-fill',
+                        color: 'text-yellow-300', bg: 'from-yellow-500/20 to-amber-500/15',
+                        border: 'border-yellow-400/40',
+                        rangeText: `${cfg.goldMin}+ คน/เดือน`,
+                        multiplier: cfg.goldMultiplier,
+                        boxes: exclusiveBoxes.GOLD,
+                    },
+                ];
+
+                const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+                let html = '';
+                tiers.forEach((t) => {
+                    const isCurrent = t.label === userTier;
+                    const mulDisplay = t.multiplier > 1 ? `x${Number(t.multiplier).toFixed(2).replace(/\.?0+$/, '')}` : 'x1';
+                    const mulPercent = t.multiplier > 1 ? `+${Math.round((t.multiplier - 1) * 100)}%` : '';
+                    let benefits = `
+                        <div class="flex items-start gap-2 text-[12px] text-zinc-200 mb-1.5">
+                            <i class="ri-coins-fill text-yellow-400 mt-0.5 flex-shrink-0"></i>
+                            <div><b>ตัวคูณแต้ม referral</b> ${mulDisplay} ${mulPercent ? `<span class="text-yellow-300">(${mulPercent})</span>` : ''}</div>
+                        </div>`;
+                    if (t.boxes.length > 0) {
+                        benefits += `
+                        <div class="flex items-start gap-2 text-[12px] text-zinc-200 mt-2">
+                            <i class="ri-gift-2-fill text-purple-300 mt-0.5 flex-shrink-0"></i>
+                            <div>
+                                <b>กล่องสุ่มเฉพาะระดับนี้</b>
+                                <ul class="mt-1 space-y-0.5 text-[11px] text-purple-100/90">
+                                    ${t.boxes.map(b => `<li>• ${escapeHtml(b.name)}</li>`).join('')}
+                                </ul>
+                            </div>
+                        </div>`;
+                    } else if (t.key !== 'BRONZE') {
+                        benefits += `
+                        <div class="flex items-start gap-2 text-[11px] text-zinc-500 mt-2">
+                            <i class="ri-gift-2-line mt-0.5 flex-shrink-0"></i>
+                            <div>ยังไม่มีกล่องสุ่มเฉพาะ</div>
+                        </div>`;
+                    }
+
+                    html += `
+                    <div class="rounded-2xl p-4 border ${t.border} bg-gradient-to-br ${t.bg} ${isCurrent ? 'ring-2 ring-yellow-400/50' : ''}">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <div class="flex items-center gap-2">
+                                <i class="${t.icon} text-2xl ${t.color}"></i>
+                                <div>
+                                    <div class="text-base font-bold text-white">${escapeHtml(t.label)}</div>
+                                    <div class="text-[10px] text-zinc-400">${t.rangeText}</div>
+                                </div>
+                            </div>
+                            ${isCurrent ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-yellow-400/20 text-yellow-300 font-bold border border-yellow-400/40">ระดับของคุณ</span>' : ''}
+                        </div>
+                        <div class="border-t border-white/10 pt-2.5 mt-1.5">
+                            ${benefits}
+                        </div>
+                    </div>`;
+                });
+
+                listEl.innerHTML = html;
+            } catch (e) {
+                console.error('openTierModal error:', e);
+                listEl.innerHTML = '<div class="text-center text-red-400 py-6">โหลดข้อมูลไม่สำเร็จ</div>';
+            }
+        }
+
+        function closeTierModal() {
+            const modal = document.getElementById('tier-modal');
+            const content = document.getElementById('tier-modal-content');
+            if (!modal) return;
+            document.body.classList.remove('no-scroll');
+            content.classList.add('translate-y-full');
+            modal.classList.add('opacity-0');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+            _tierModalOpen = false;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const m = document.getElementById('tier-modal');
+            m?.addEventListener('click', (e) => { if (e.target === m) closeTierModal(); });
+        });
 
         async function renderTier(monthCount) {
             const card = document.getElementById('tier-card');
