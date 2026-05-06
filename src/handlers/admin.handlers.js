@@ -418,6 +418,14 @@ export async function handleAdminCommand(ctx) {
                 await handleGrantMysteryBox(ctx, commandParts, adminUser, chatId);
                 break;
 
+            case "/shipprize":
+                await handleShipPrize(ctx, commandParts, adminUser, chatId);
+                break;
+
+            case "/prizes":
+                await handleListPendingPrizes(ctx, adminUser, chatId);
+                break;
+
             case "/start":
                 const welcomeMsg = `👋 สวัสดี ${adminUser}!\nบอทสำหรับแอดมินพร้อมใช้งาน\n\n` +
                 "<b>คำสั่งทั้งหมด:</b>\n" +
@@ -428,6 +436,8 @@ export async function handleAdminCommand(ctx) {
                 (role === "SuperAdmin" ? "👮‍♂️ /addadmin [ID] [Role] [Name]\n" : "") +
                 (role === "SuperAdmin" ? "📣 /notify [ข้อความ] (broadcast หาลูกค้า)\n" : "") +
                 "🎁 /grantbox [รหัสลูกค้า] [รหัสกล่อง]\n" +
+                "📦 /prizes (ดู shipment รอจัดส่ง)\n" +
+                "🚚 /shipprize [id] [เลขพัสดุ]\n" +
                 "👤 /new [ลูกค้าใหม่]\n" +
                 "✨ /refer [รหัสลูกค้าที่ถูกแนะนำ] [ยอดซื้อ]\n" +
                 "🎫 /coupon [รหัสลูกค้า] [รหัสคูปอง]\n" +
@@ -940,6 +950,72 @@ async function handleCouponUse(ctx, commandParts, adminUser, chatId) {
 
     } catch (error) {
         sendAdminReply(chatId, `❌ ${error.message}`);
+    }
+}
+
+/**
+ * /shipprize <shipmentId> [trackingNumber]  — mark shipment as shipped
+ */
+async function handleShipPrize(ctx, commandParts, adminUser, chatId) {
+    if (commandParts.length < 2) {
+        sendAdminReply(chatId,
+            "🚚 <b>วิธีใช้:</b> <code>/shipprize [shipment_id] [เลขพัสดุ]</code>\n\n" +
+            "ตัวอย่าง: <code>/shipprize 5 EE123456789TH</code>\n\n" +
+            "ดู shipment ที่รออยู่ใช้: <code>/prizes</code>"
+        );
+        return;
+    }
+    const shipmentId = parseInt(commandParts[1]);
+    const trackingNumber = commandParts.slice(2).join(' ').trim() || null;
+    if (!Number.isFinite(shipmentId)) {
+        sendAdminReply(chatId, '❌ shipment_id ต้องเป็นตัวเลข');
+        return;
+    }
+    try {
+        const result = await mysteryBoxService.markShipmentShipped({
+            shipmentId, trackingNumber, adminName: adminUser,
+        });
+        if (!result.success) {
+            const map = {
+                INVALID_INPUT: 'ข้อมูลไม่ครบ',
+                NOT_FOUND: 'ไม่พบ shipment',
+                INVALID_STATUS: 'shipment นี้ไม่ใช่สถานะ PENDING (อาจจัดส่งไปแล้ว)',
+            };
+            sendAdminReply(chatId, `❌ ${map[result.error] || result.error}`);
+            return;
+        }
+        sendAdminReply(chatId,
+            `✅ <b>Shipment #${shipmentId} จัดส่งแล้ว</b>\n` +
+            (trackingNumber ? `📦 เลขพัสดุ: <code>${trackingNumber}</code>\n` : '⚠️ ไม่มีเลขพัสดุ\n') +
+            `แจ้งลูกค้าเรียบร้อย`
+        );
+    } catch (e) {
+        console.error('handleShipPrize error:', e);
+        sendAdminReply(chatId, `❌ เกิดข้อผิดพลาด: ${e.message}`);
+    }
+}
+
+/**
+ * /prizes — ดู shipment ที่รออยู่
+ */
+async function handleListPendingPrizes(ctx, adminUser, chatId) {
+    try {
+        const shipments = await mysteryBoxService.listPendingShipments();
+        if (shipments.length === 0) {
+            sendAdminReply(chatId, '✅ ไม่มี shipment ที่รออยู่');
+            return;
+        }
+        let msg = `🎁 <b>คำขอจัดส่งของรางวัล (${shipments.length} รายการ)</b>\n\n`;
+        shipments.forEach((s) => {
+            const items = s.tickets.map(t => t.awardedPrize?.name || '—').join(', ');
+            msg += `📦 #${s.id} · ${s.customerId}\n`;
+            msg += `   ${s.tickets.length} ชิ้น: ${items}\n`;
+            msg += `   ค่าส่ง ฿${Number(s.shippingFeeSnapshot).toLocaleString('th-TH')}\n\n`;
+        });
+        msg += `ใช้: <code>/shipprize [id] [เลขพัสดุ]</code>`;
+        sendAdminReply(chatId, msg);
+    } catch (e) {
+        sendAdminReply(chatId, `❌ ${e.message}`);
     }
 }
 

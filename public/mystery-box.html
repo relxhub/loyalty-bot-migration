@@ -93,6 +93,20 @@
             </div>
         </div>
 
+        <!-- 🎁 ของรางวัลของฉัน (physical reward — รอจัดส่ง) -->
+        <div id="my-prizes-card" class="glass-card p-5 hidden">
+            <div class="flex items-center justify-between mb-3">
+                <div class="text-sm font-bold flex items-center gap-2 text-orange-200">
+                    <i class="ri-gift-line text-orange-400"></i> ของรางวัลของฉัน
+                </div>
+                <button id="prize-request-btn" onclick="openPrizeDeliveryModal()" class="hidden text-[11px] px-3 py-1.5 rounded-full bg-orange-500 hover:bg-orange-400 text-white font-bold active:scale-95 transition">
+                    <i class="ri-truck-line"></i> ขอจัดส่ง (<span id="prize-selected-count">0</span>)
+                </button>
+            </div>
+            <p class="text-[11px] text-zinc-400 mb-3">ของจริงที่คุณได้จาก Mystery Box — เลือกหลายชิ้นแล้วขอจัดส่งครั้งเดียวได้</p>
+            <div id="my-prizes-list" class="space-y-2"></div>
+        </div>
+
         <!-- Catalog: วิธีรับกล่อง + รายละเอียดของในกล่อง -->
         <div class="glass-card p-5">
             <div class="text-sm font-bold mb-1 flex items-center gap-2 text-purple-200">
@@ -108,19 +122,71 @@
     <!-- Reveal Modal -->
     <div id="reveal-modal" class="hidden fixed inset-0 z-[80] flex items-center justify-center bg-black/95 backdrop-blur-md p-6"></div>
 
-    <!-- Bottom nav (เหมือน dashboard) -->
+    <!-- 🚚 Prize Delivery Modal -->
+    <div id="delivery-modal" class="hidden fixed inset-0 z-[80] flex items-end justify-center bg-black/85 backdrop-blur-md opacity-0 transition-opacity duration-300">
+        <div id="delivery-modal-content" class="glass-card w-full max-w-md h-full flex flex-col transform translate-y-full transition-transform duration-300">
+            <div class="p-5 border-b border-white/10 flex justify-between items-center bg-black/20 flex-shrink-0">
+                <h3 class="text-lg font-bold flex items-center gap-2">
+                    <i class="ri-truck-line text-orange-400"></i> ขอจัดส่งของรางวัล
+                </h3>
+                <button onclick="closeDeliveryModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition">
+                    <i class="ri-close-line"></i>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                <!-- รายการของที่เลือก -->
+                <div class="mb-4">
+                    <div class="text-[11px] text-zinc-400 uppercase tracking-wider mb-2">ของรางวัลที่จะส่ง</div>
+                    <div id="delivery-items" class="space-y-1.5"></div>
+                </div>
+
+                <!-- เลือกที่อยู่จัดส่ง -->
+                <div class="mb-4">
+                    <div class="text-[11px] text-zinc-400 uppercase tracking-wider mb-2">เลือกที่อยู่จัดส่ง</div>
+                    <div id="delivery-addresses" class="space-y-2">
+                        <div class="text-center text-gray-500 py-3 text-sm animate-pulse">กำลังโหลด...</div>
+                    </div>
+                </div>
+
+                <!-- หมายเหตุ -->
+                <div class="mb-4">
+                    <div class="text-[11px] text-zinc-400 uppercase tracking-wider mb-2">หมายเหตุถึงแอดมิน (ถ้ามี)</div>
+                    <textarea id="delivery-note" rows="2" placeholder="เช่น ฝากห่อของขวัญ, ส่งวันธรรมดาเท่านั้น" class="w-full bg-black/30 border border-white/10 rounded-lg p-2 text-sm text-white placeholder-zinc-500 focus:border-orange-400 focus:outline-none"></textarea>
+                </div>
+
+                <!-- สรุปค่าส่ง -->
+                <div class="bg-orange-500/10 border border-orange-400/30 rounded-xl p-3 mb-4">
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-zinc-300">ค่าจัดส่ง</span>
+                        <span class="text-orange-300 font-bold">฿<span id="delivery-fee">—</span></span>
+                    </div>
+                    <p class="text-[10px] text-zinc-400 mt-1">แอดมินจะแจ้งวิธีชำระค่าส่งหลังยืนยัน</p>
+                </div>
+
+                <button id="delivery-submit-btn" onclick="submitDelivery()" class="w-full py-3 rounded-xl bg-gradient-to-r from-orange-500 to-pink-500 text-white font-bold active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="ri-check-line"></i> ยืนยันขอจัดส่ง
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom nav (เหมือน dashboard / referral) -->
     <div id="bottom-nav" class="fixed bottom-4 left-0 right-0 z-[70] mx-auto w-[calc(100%-2.5rem)] max-w-md bg-[#1E1E1E] shadow-xl rounded-full p-2 flex justify-around items-center">
-        <a href="home.html" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/4 py-1.5">
-            <i class="ri-home-4-line text-xl"></i><span>หน้าหลัก</span>
+        <a href="home.html" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/4 py-1.5 rounded-xl transition active:scale-95">
+            <i class="ri-home-4-line text-xl"></i>
+            <span data-i18n="nav.home">หน้าหลัก</span>
         </a>
-        <a href="products.html" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/4 py-1.5">
-            <i class="ri-shopping-cart-line text-xl"></i><span>เมนูสินค้า</span>
+        <a href="products.html?v=2" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/4 py-1.5 rounded-xl transition active:scale-95">
+            <i class="ri-shopping-cart-line text-xl"></i>
+            <span data-i18n="nav.products">เมนูสินค้า</span>
         </a>
-        <a href="referral.html" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/4 py-1.5">
-            <i class="ri-team-line text-xl"></i><span>แนะนำเพื่อน</span>
+        <a href="referral.html" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/4 py-1.5 rounded-xl transition active:scale-95">
+            <i class="ri-team-line text-xl"></i>
+            <span data-i18n="nav.referral">แนะนำเพื่อน</span>
         </a>
-        <a href="dashboard.html" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/4 py-1.5">
-            <i class="ri-id-card-line text-xl"></i><span>บัตรสมาชิก</span>
+        <a href="dashboard.html" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/4 py-1.5 rounded-xl transition active:scale-95">
+            <i class="ri-wallet-3-line text-xl"></i>
+            <span data-i18n="nav.dashboard">บัตรสมาชิก</span>
         </a>
     </div>
 
@@ -150,7 +216,7 @@
                     window.currentUser = _cached;
                     document.getElementById('loading-screen').classList.add('hidden');
                     document.getElementById('app-content').classList.remove('hidden');
-                    Promise.all([loadMyTickets(), loadCatalog()]);
+                    Promise.all([loadMyTickets(), loadCatalog(), loadMyPrizes()]);
                     // bg refresh
                     setTimeout(() => fetchAuthBg(), 250);
                     return;
@@ -175,7 +241,7 @@
                 document.getElementById('loading-screen').classList.add('hidden');
                 document.getElementById('app-content').classList.remove('hidden');
 
-                await Promise.all([loadMyTickets(), loadCatalog()]);
+                await Promise.all([loadMyTickets(), loadCatalog(), loadMyPrizes()]);
             } catch (e) {
                 console.error('init error:', e);
                 document.getElementById('loading-screen').innerHTML = '<p class="text-red-400">เกิดข้อผิดพลาด</p>';
@@ -365,6 +431,199 @@
                 list.innerHTML = '<div class="text-center text-red-400 py-4">โหลดไม่สำเร็จ</div>';
             }
         }
+
+        // ========== 🎁 MY PRIZES (physical reward) ==========
+        let _prizesCache = [];
+        let _selectedPrizeIds = new Set();
+
+        async function loadMyPrizes() {
+            const card = document.getElementById('my-prizes-card');
+            const list = document.getElementById('my-prizes-list');
+            if (!card || !list) return;
+
+            try {
+                const tgId = window.currentUser?.telegramUserId || tg.initDataUnsafe?.user?.id;
+                if (!tgId) return;
+                const res = await fetch(`/api/mystery-box/my-prizes/${tgId}`);
+                const data = await res.json();
+                if (!data.success || !data.prizes || data.prizes.length === 0) {
+                    card.classList.add('hidden');
+                    return;
+                }
+                _prizesCache = data.prizes;
+                _selectedPrizeIds.clear();
+                card.classList.remove('hidden');
+
+                let html = '';
+                data.prizes.forEach((p, idx) => {
+                    const status = p.deliveryStatus || 'OWNED';
+                    let statusBadge = '';
+                    if (status === 'OWNED') statusBadge = '<span class="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-400/40">📦 พร้อมขอส่ง</span>';
+                    else if (status === 'REQUESTED') statusBadge = '<span class="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-400/40">⏳ รอแอดมิน</span>';
+                    else if (status === 'SHIPPED') statusBadge = `<span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/40">🚚 จัดส่งแล้ว${p.trackingNumber ? ' · ' + _esc(p.trackingNumber) : ''}</span>`;
+                    else if (status === 'DELIVERED') statusBadge = '<span class="text-[10px] px-2 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-400/40">✅ ส่งถึงแล้ว</span>';
+
+                    const canSelect = status === 'OWNED';
+                    const img = p.prize?.imageUrl
+                        ? `<img src="${_esc(p.prize.imageUrl)}" class="w-12 h-12 rounded-lg object-cover flex-shrink-0">`
+                        : `<div class="w-12 h-12 rounded-lg bg-zinc-700 flex items-center justify-center text-xl flex-shrink-0">🎁</div>`;
+                    html += `
+                    <div class="bg-white/5 border border-white/10 rounded-xl p-3 ${canSelect ? 'cursor-pointer hover:bg-white/10' : ''}" ${canSelect ? `onclick="togglePrizeSelect(${p.id})"` : ''}>
+                        <div class="flex items-center gap-3">
+                            ${canSelect ? `<input type="checkbox" id="prize-cb-${p.id}" class="w-4 h-4 accent-orange-500 cursor-pointer flex-shrink-0" onclick="event.stopPropagation(); togglePrizeSelect(${p.id})">` : '<div class="w-4 h-4 flex-shrink-0"></div>'}
+                            ${img}
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm font-bold text-white truncate">${_esc(p.prize?.name || '—')}</div>
+                                <div class="text-[10px] text-zinc-400">${_esc(p.boxName || '')}</div>
+                                <div class="mt-1">${statusBadge}</div>
+                            </div>
+                        </div>
+                    </div>`;
+                });
+                list.innerHTML = html;
+                _updatePrizeSelectionUI();
+            } catch (e) {
+                console.error('loadMyPrizes error:', e);
+                card.classList.add('hidden');
+            }
+        }
+
+        function togglePrizeSelect(prizeId) {
+            if (_selectedPrizeIds.has(prizeId)) _selectedPrizeIds.delete(prizeId);
+            else _selectedPrizeIds.add(prizeId);
+            const cb = document.getElementById(`prize-cb-${prizeId}`);
+            if (cb) cb.checked = _selectedPrizeIds.has(prizeId);
+            _updatePrizeSelectionUI();
+        }
+
+        function _updatePrizeSelectionUI() {
+            const btn = document.getElementById('prize-request-btn');
+            const cnt = document.getElementById('prize-selected-count');
+            if (!btn || !cnt) return;
+            cnt.textContent = _selectedPrizeIds.size;
+            if (_selectedPrizeIds.size > 0) btn.classList.remove('hidden');
+            else btn.classList.add('hidden');
+        }
+
+        async function openPrizeDeliveryModal() {
+            if (_selectedPrizeIds.size === 0) return;
+            const modal = document.getElementById('delivery-modal');
+            const content = document.getElementById('delivery-modal-content');
+            const itemsEl = document.getElementById('delivery-items');
+            const addrEl = document.getElementById('delivery-addresses');
+            const feeEl = document.getElementById('delivery-fee');
+
+            // รายการของที่เลือก
+            const selected = _prizesCache.filter(p => _selectedPrizeIds.has(p.id));
+            itemsEl.innerHTML = selected.map(p => `
+                <div class="flex items-center gap-2 text-sm bg-white/5 rounded-lg p-2">
+                    <i class="ri-gift-fill text-orange-300"></i>
+                    <span class="text-white truncate">${_esc(p.prize?.name || '—')}</span>
+                </div>`).join('');
+
+            // โหลดที่อยู่
+            addrEl.innerHTML = '<div class="text-center text-gray-500 py-3 text-sm animate-pulse">กำลังโหลด...</div>';
+            // โหลด shipping fee
+            feeEl.textContent = '—';
+
+            document.body.classList.add('no-scroll');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('translate-y-full');
+            }, 10);
+
+            try {
+                const tgId = window.currentUser?.telegramUserId || tg.initDataUnsafe?.user?.id;
+                const [aRes, fRes] = await Promise.all([
+                    fetch(`/api/shipping-addresses/${tgId}`),
+                    fetch('/api/config/shipping'),
+                ]);
+                const aData = await aRes.json();
+                const fData = await fRes.json();
+                const fee = fData.shippingFee || 60;
+                feeEl.textContent = Number(fee).toLocaleString('th-TH', { minimumFractionDigits: 2 });
+
+                if (!Array.isArray(aData) || aData.length === 0) {
+                    addrEl.innerHTML = `<div class="text-center text-zinc-400 py-3 text-sm">ยังไม่มีที่อยู่จัดส่ง<br><a href="dashboard.html" class="text-orange-400 underline">เพิ่มที่อยู่ในหน้าบัตรสมาชิก</a></div>`;
+                    return;
+                }
+
+                // เลือกที่อยู่ default ก่อน
+                let defaultId = aData.find(a => a.isDefault)?.id || aData[0].id;
+                window._selectedAddressId = defaultId;
+
+                addrEl.innerHTML = aData.map(a => `
+                    <label class="block bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl p-3 cursor-pointer">
+                        <div class="flex items-start gap-2">
+                            <input type="radio" name="delivery-addr" value="${a.id}" ${a.id === defaultId ? 'checked' : ''} onchange="window._selectedAddressId=${a.id}" class="mt-1 accent-orange-500">
+                            <div class="flex-1 min-w-0 text-xs">
+                                <div class="font-bold text-white">${_esc(a.receiverName)} · ${_esc(a.phone)}</div>
+                                <div class="text-zinc-400 mt-0.5">${_esc(a.address)} ${_esc(a.subdistrict)} ${_esc(a.district)} ${_esc(a.province)} ${_esc(a.zipcode)}</div>
+                            </div>
+                        </div>
+                    </label>`).join('');
+            } catch (e) {
+                console.error('load addresses error:', e);
+                addrEl.innerHTML = '<div class="text-center text-red-400 py-3 text-sm">โหลดที่อยู่ไม่สำเร็จ</div>';
+            }
+        }
+
+        function closeDeliveryModal() {
+            const modal = document.getElementById('delivery-modal');
+            const content = document.getElementById('delivery-modal-content');
+            document.body.classList.remove('no-scroll');
+            content.classList.add('translate-y-full');
+            modal.classList.add('opacity-0');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        async function submitDelivery() {
+            if (_selectedPrizeIds.size === 0) return;
+            if (!window._selectedAddressId) {
+                alert('กรุณาเลือกที่อยู่จัดส่ง');
+                return;
+            }
+            const btn = document.getElementById('delivery-submit-btn');
+            btn.disabled = true;
+            btn.textContent = 'กำลังส่ง...';
+            const note = document.getElementById('delivery-note').value.trim();
+
+            try {
+                const res = await fetch('/api/mystery-box/request-delivery', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        initData: tg.initData,
+                        ticketIds: Array.from(_selectedPrizeIds),
+                        shippingAddressId: window._selectedAddressId,
+                        customerNote: note || null,
+                    }),
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    alert(data.error || 'ขอจัดส่งไม่สำเร็จ');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="ri-check-line"></i> ยืนยันขอจัดส่ง';
+                    return;
+                }
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch(e){}
+                alert(`ส่งคำขอแล้ว!\nค่าจัดส่ง ฿${Number(data.shippingFee).toLocaleString('th-TH', { minimumFractionDigits: 2 })}\nแอดมินจะติดต่อกลับเร็วๆ นี้`);
+                _selectedPrizeIds.clear();
+                closeDeliveryModal();
+                loadMyPrizes(); // refresh
+            } catch (e) {
+                alert('เกิดข้อผิดพลาด: ' + e.message);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="ri-check-line"></i> ยืนยันขอจัดส่ง';
+            }
+        }
+
+        // ปิดเมื่อกด backdrop
+        document.addEventListener('DOMContentLoaded', () => {
+            const m = document.getElementById('delivery-modal');
+            m?.addEventListener('click', (e) => { if (e.target === m) closeDeliveryModal(); });
+        });
 
         async function openTicket(ticketId) {
             try { tg.hapticFeedback?.impactOccurred?.('medium'); } catch(e) {}

@@ -232,6 +232,260 @@ export async function grantTickets({ customerId, event, eligibleAmount = null, r
     return { granted, skipped };
 }
 
+// ============================================================
+// 🚚 PRIZE DELIVERY — สำหรับ physical reward (ของจริงต้องส่งไปรษณีย์)
+// ============================================================
+
+/**
+ * รายการของรางวัลของลูกค้า แยกตาม deliveryStatus
+ * คืนเฉพาะ tickets ที่ OPENED + prize.isPhysicalReward=true
+ */
+export async function listMyPrizes(customerId) {
+    if (!customerId) return [];
+    const tickets = await prisma.mysteryBoxTicket.findMany({
+        where: {
+            customerId,
+            status: 'OPENED',
+            awardedPrize: { isPhysicalReward: true },
+        },
+        include: {
+            mysteryBox: { select: { id: true, name: true, nameEn: true } },
+            awardedPrize: true,
+            shipment: { select: { id: true, status: true, trackingNumber: true, shippedAt: true, deliveredAt: true } },
+        },
+        orderBy: [{ deliveryStatus: 'asc' }, { openedAt: 'desc' }],
+    });
+    return tickets.map((t) => ({
+        id: t.id,
+        boxName: t.mysteryBox?.name,
+        prize: t.awardedPrize ? {
+            id: t.awardedPrize.id,
+            name: t.awardedPrize.name,
+            description: t.awardedPrize.description,
+            imageUrl: t.awardedPrize.imageUrl,
+        } : null,
+        deliveryStatus: t.deliveryStatus || 'OWNED',
+        deliveryRequestedAt: t.deliveryRequestedAt,
+        shippedAt: t.shippedAt,
+        deliveredAt: t.deliveredAt,
+        trackingNumber: t.trackingNumber,
+        shipmentId: t.deliveryShipmentId,
+        shipment: t.shipment,
+        openedAt: t.openedAt,
+    }));
+}
+
+/**
+ * ลูกค้าขอจัดส่งของรางวัล (batch หลายชิ้น)
+ *
+ * @param {object} p
+ * @param {string} p.customerId
+ * @param {Array<number>} p.ticketIds  - id ของ MysteryBoxTicket ที่ต้องการขอส่ง
+ * @param {number} p.shippingAddressId
+ * @param {string} [p.customerNote]
+ * @returns {Promise<{success, shipmentId?, shippingFee?, error?}>}
+ */
+export async function requestPrizeDelivery({ customerId, ticketIds, shippingAddressId, customerNote }) {
+    if (!customerId || !Array.isArray(ticketIds) || ticketIds.length === 0 || !shippingAddressId) {
+        return { success: false, error: 'INVALID_INPUT' };
+    }
+    const ids = ticketIds.map(Number).filter(Number.isFinite);
+    if (ids.length === 0) return { success: false, error: 'NO_VALID_TICKETS' };
+
+    // verify ที่อยู่เป็นของลูกค้านี้
+    const addr = await prisma.shippingAddress.findUnique({ where: { id: parseInt(shippingAddressId) } });
+    if (!addr || addr.customerId !== customerId) {
+        return { success: false, error: 'INVALID_ADDRESS' };
+    }
+
+    // verify tickets ทุกใบเป็นของลูกค้า + status OWNED + prize physical
+    const tickets = await prisma.mysteryBoxTicket.findMany({
+        where: { id: { in: ids } },
+        include: { awardedPrize: { select: { isPhysicalReward: true, name: true } } },
+    });
+    for (const t of tickets) {
+        if (t.customerId !== customerId) return { success: false, error: 'NOT_OWNER' };
+        if (t.status !== 'OPENED') return { success: false, error: 'NOT_OPENED' };
+        if (!t.awardedPrize?.isPhysicalReward) return { success: false, error: 'NOT_PHYSICAL' };
+        if (t.deliveryStatus && t.deliveryStatus !== 'OWNED') {
+            return { success: false, error: 'ALREADY_REQUESTED' };
+        }
+    }
+    if (tickets.length !== ids.length) return { success: false, error: 'TICKETS_NOT_FOUND' };
+
+    // ค่าส่งจาก SystemConfig (ใช้ key 'shipping_fee' เดียวกับ checkout)
+    const cfgRow = await prisma.systemConfig.findUnique({ where: { key: 'shipping_fee' } });
+    const shippingFee = cfgRow ? parseFloat(cfgRow.value) : 60;
+
+    // สร้าง shipment + อัพเดท tickets ใน tx
+    const shipment = await prisma.$transaction(async (tx) => {
+        const sh = await tx.prizeShipment.create({
+            data: {
+                customerId,
+                shippingAddressId: parseInt(shippingAddressId),
+                shippingFeeSnapshot: shippingFee,
+                customerNote: customerNote || null,
+                status: 'PENDING',
+            },
+        });
+        await tx.mysteryBoxTicket.updateMany({
+            where: { id: { in: ids } },
+            data: {
+                deliveryStatus: 'REQUESTED',
+                deliveryRequestedAt: new Date(),
+                deliveryShipmentId: sh.id,
+                shippingAddressId: parseInt(shippingAddressId),
+                shippingFeeSnapshot: shippingFee,
+            },
+        });
+        return sh;
+    });
+
+    // Notif ลูกค้า — สรุป
+    try {
+        const totalItems = tickets.length;
+        const itemsList = tickets.map(t => `• ${t.awardedPrize.name}`).join('\n');
+        await notifyCustomer({
+            customerId,
+            kind: 'REWARD_COUPON_GRANTED', // reuse kind
+            title: '📦 รับคำขอจัดส่งของรางวัล',
+            body: `ขอส่ง ${totalItems} ชิ้น\nค่าส่ง ฿${shippingFee.toLocaleString('th-TH', { minimumFractionDigits: 2 })}\nรอแอดมินดำเนินการ`,
+            link: 'mystery-box.html',
+            payload: { shipmentId: shipment.id, ticketIds: ids },
+            entityKey: `prize-shipment-req:${shipment.id}`,
+            telegramText:
+                `📦 <b>รับคำขอจัดส่งของรางวัลแล้ว</b>\n\n` +
+                `ชิ้นที่ขอ:\n${itemsList}\n\n` +
+                `💰 ค่าส่ง: ฿${shippingFee.toLocaleString('th-TH', { minimumFractionDigits: 2 })}\n` +
+                `⏳ แอดมินจะติดต่อกลับเรื่องการชำระค่าส่งและจัดส่ง`,
+        });
+    } catch (e) { /* silent */ }
+
+    // Notif admin — broadcast ให้กลุ่ม
+    try {
+        await sendShipmentRequestToAdmin(shipment.id);
+    } catch (e) { console.error('[Shipment] notify admin failed:', e.message); }
+
+    return { success: true, shipmentId: shipment.id, shippingFee };
+}
+
+/**
+ * Admin: mark shipment as SHIPPED with tracking
+ */
+export async function markShipmentShipped({ shipmentId, trackingNumber, adminName }) {
+    if (!shipmentId) return { success: false, error: 'INVALID_INPUT' };
+    const sh = await prisma.prizeShipment.findUnique({
+        where: { id: parseInt(shipmentId) },
+        include: { tickets: { include: { awardedPrize: true, customer: { select: { telegramUserId: true } } } } },
+    });
+    if (!sh) return { success: false, error: 'NOT_FOUND' };
+    if (sh.status !== 'PENDING') return { success: false, error: 'INVALID_STATUS' };
+
+    const now = new Date();
+    await prisma.$transaction(async (tx) => {
+        await tx.prizeShipment.update({
+            where: { id: sh.id },
+            data: {
+                status: 'SHIPPED',
+                trackingNumber: trackingNumber || null,
+                shippedAt: now,
+                adminNote: adminName ? `Shipped by ${adminName}` : null,
+            },
+        });
+        await tx.mysteryBoxTicket.updateMany({
+            where: { deliveryShipmentId: sh.id },
+            data: {
+                deliveryStatus: 'SHIPPED',
+                shippedAt: now,
+                trackingNumber: trackingNumber || null,
+            },
+        });
+    });
+
+    // Notif ลูกค้า
+    try {
+        const items = sh.tickets.map(t => `• ${t.awardedPrize?.name || '—'}`).join('\n');
+        await notifyCustomer({
+            customerId: sh.customerId,
+            kind: 'ORDER_STATUS_CHANGED',
+            title: '🚚 ของรางวัลจัดส่งแล้ว!',
+            body: `${sh.tickets.length} ชิ้น\n${trackingNumber ? `เลขพัสดุ: ${trackingNumber}` : ''}`,
+            link: 'mystery-box.html',
+            payload: { shipmentId: sh.id, trackingNumber },
+            entityKey: `prize-shipment-shipped:${sh.id}`,
+            telegramText:
+                `🚚 <b>ของรางวัลจัดส่งแล้ว!</b>\n\n` +
+                items + `\n\n` +
+                (trackingNumber ? `📦 เลขพัสดุ: <code>${trackingNumber}</code>\n` : '') +
+                `ขอบคุณที่อุดหนุนค่ะ 🎉`,
+        });
+    } catch (e) { /* silent */ }
+
+    return { success: true, shipment: sh };
+}
+
+/**
+ * Admin: list pending shipments
+ */
+export async function listPendingShipments() {
+    return prisma.prizeShipment.findMany({
+        where: { status: 'PENDING' },
+        include: {
+            tickets: { include: { awardedPrize: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+    });
+}
+
+/**
+ * ส่ง notif ไปกลุ่ม admin เมื่อมีคำขอใหม่ — ใช้ adminBot ผ่าน fetch
+ */
+async function sendShipmentRequestToAdmin(shipmentId) {
+    const adminToken = process.env.ADMIN_BOT_TOKEN;
+    const groupId = process.env.ADMIN_GROUP_ID || process.env.SUPER_ADMIN_TELEGRAM_ID;
+    if (!adminToken || !groupId) return;
+
+    const sh = await prisma.prizeShipment.findUnique({
+        where: { id: shipmentId },
+        include: {
+            tickets: { include: { awardedPrize: true } },
+            // ไม่มี relation address ตรงๆ — ดึงเอง
+        },
+    });
+    if (!sh) return;
+
+    const addr = await prisma.shippingAddress.findUnique({ where: { id: sh.shippingAddressId } });
+    const cust = await prisma.customer.findUnique({ where: { customerId: sh.customerId } });
+
+    const itemsList = sh.tickets.map((t, i) => `${i + 1}. ${t.awardedPrize?.name || '—'}`).join('\n');
+    const addrText = addr ? `${addr.receiverName}\n${addr.phone}\n${addr.address} ${addr.subdistrict} ${addr.district} ${addr.province} ${addr.zipcode}` : '(ไม่พบที่อยู่)';
+
+    const message =
+        `📦 <b>คำขอจัดส่งของรางวัล Mystery Box</b>\n\n` +
+        `🆔 Shipment #${sh.id}\n` +
+        `👤 ลูกค้า: <code>${sh.customerId}</code>${cust?.firstName ? ` · ${cust.firstName} ${cust.lastName || ''}` : ''}\n\n` +
+        `🎁 <b>ของรางวัล (${sh.tickets.length} ชิ้น):</b>\n${itemsList}\n\n` +
+        `📍 <b>ที่อยู่จัดส่ง:</b>\n${addrText}\n\n` +
+        `💰 ค่าส่ง: ฿${Number(sh.shippingFeeSnapshot).toLocaleString('th-TH', { minimumFractionDigits: 2 })}\n` +
+        (sh.customerNote ? `\n📝 หมายเหตุลูกค้า: ${sh.customerNote}\n` : '') +
+        `\nใช้: <code>/shipprize ${sh.id} [เลขพัสดุ]</code> เพื่อ mark ส่งแล้ว`;
+
+    try {
+        const r = await fetch(`https://api.telegram.org/bot${adminToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: groupId, text: message, parse_mode: 'HTML' }),
+        });
+        const data = await r.json();
+        if (data.ok && data.result?.message_id) {
+            await prisma.prizeShipment.update({
+                where: { id: sh.id },
+                data: { adminGroupMsgId: data.result.message_id },
+            });
+        }
+    } catch (e) { console.error('[Shipment] admin send failed:', e.message); }
+}
+
 /**
  * Admin grant: มอบกล่องเจาะจง 1 กล่อง 1 ใบ ให้ลูกค้า
  * (ไม่เช็ค trigger / minPurchase / quotas — admin มีอำนาจเต็ม)

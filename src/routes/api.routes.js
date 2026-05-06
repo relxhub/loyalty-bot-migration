@@ -2677,6 +2677,58 @@ router.post('/mystery-box/:boxId/claim-channel', async (req, res) => {
     }
 });
 
+// 🎁 ของรางวัลของฉัน (physical) — สำหรับแท็บ "ของรางวัลของฉัน"
+router.get('/mystery-box/my-prizes/:telegramId', async (req, res) => {
+    try {
+        const customerId = await customerIdFromTelegramId(req.params.telegramId);
+        if (!customerId) return res.json({ success: true, prizes: [] });
+        const prizes = await mysteryBox.listMyPrizes(customerId);
+        res.json({ success: true, prizes });
+    } catch (e) {
+        console.error('My prizes error:', e);
+        res.status(500).json({ success: false, error: 'โหลดของรางวัลไม่สำเร็จ' });
+    }
+});
+
+// 🚚 ขอจัดส่งของรางวัล (batch)
+router.post('/mystery-box/request-delivery', async (req, res) => {
+    try {
+        const { initData, ticketIds, shippingAddressId, customerNote } = req.body || {};
+        if (!verifyTelegramWebAppData(initData)) {
+            return res.status(401).json({ success: false, error: 'Invalid Telegram Data' });
+        }
+        const urlParams = new URLSearchParams(initData);
+        const userData = JSON.parse(urlParams.get('user'));
+        const telegramId = userData.id.toString();
+        const customerId = await customerIdFromTelegramId(telegramId);
+        if (!customerId) return res.status(404).json({ success: false, error: 'ไม่พบลูกค้า' });
+
+        const result = await mysteryBox.requestPrizeDelivery({
+            customerId,
+            ticketIds,
+            shippingAddressId,
+            customerNote,
+        });
+        if (!result.success) {
+            const map = {
+                INVALID_INPUT: 'ข้อมูลไม่ครบ',
+                NO_VALID_TICKETS: 'ไม่มีของรางวัลที่ขอส่งได้',
+                INVALID_ADDRESS: 'ที่อยู่ไม่ถูกต้อง',
+                NOT_OWNER: 'ของรางวัลบางชิ้นไม่ใช่ของคุณ',
+                NOT_OPENED: 'ของรางวัลบางชิ้นยังไม่ได้เปิดกล่อง',
+                NOT_PHYSICAL: 'ของรางวัลบางชิ้นไม่ใช่ของจริง (เป็นคูปอง)',
+                ALREADY_REQUESTED: 'ของรางวัลบางชิ้นถูกขอส่งไปแล้ว',
+                TICKETS_NOT_FOUND: 'ไม่พบของรางวัลบางชิ้น',
+            };
+            return res.status(400).json({ success: false, error: map[result.error] || 'ขอจัดส่งไม่สำเร็จ' });
+        }
+        res.json(result);
+    } catch (e) {
+        console.error('Request delivery error:', e);
+        res.status(500).json({ success: false, error: 'ขอจัดส่งไม่สำเร็จ' });
+    }
+});
+
 // เปิดกล่อง
 router.post('/mystery-box/ticket/:ticketId/open', async (req, res) => {
     try {

@@ -735,15 +735,54 @@ model MysteryBoxTicket {
   // ถ้า prize ผูก rewardCouponId → เก็บ CustomerCoupon.id ที่สร้างให้
   awardedCustomerCouponId Int?
 
+  // Physical reward delivery (เฉพาะ prize ที่ isPhysicalReward=true)
+  // OWNED → ลูกค้าเปิดได้ของแล้ว ยังไม่ขอส่ง
+  // REQUESTED → ลูกค้ากด "ขอจัดส่ง" รอ admin
+  // SHIPPED → admin จัดส่งแล้ว มี trackingNumber
+  // DELIVERED → ส่งถึงแล้ว
+  deliveryStatus      String?   @default("OWNED")
+  shippingAddressId   Int? // อ้างอิง ShippingAddress.id ที่มีอยู่
+  shippingFeeSnapshot Decimal?  @db.Decimal(10, 2) // ค่าส่ง snapshot ตอนขอส่ง
+  deliveryRequestedAt DateTime?
+  deliveryShipmentId  Int? // group หลายชิ้นที่ขอส่งครั้งเดียว (= PrizeShipment.id)
+  shippedAt           DateTime?
+  trackingNumber      String?
+  deliveredAt         DateTime?
+  adminNote           String?   @db.Text
+
   createdAt DateTime @default(now())
 
   customer     Customer         @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
   mysteryBox   MysteryBox       @relation(fields: [mysteryBoxId], references: [id])
   awardedPrize MysteryBoxPrize? @relation(fields: [awardedPrizeId], references: [id])
+  shipment     PrizeShipment?   @relation(fields: [deliveryShipmentId], references: [id])
 
   @@index([customerId, status])
   @@index([customerId, mysteryBoxId])
   @@index([mysteryBoxId, sourceReferralId])
+  @@index([customerId, deliveryStatus])
+  @@index([deliveryShipmentId])
+}
+
+// 1 PrizeShipment = 1 รายการขอส่ง (ลูกค้ากดครั้งเดียว เลือกได้หลายของ)
+model PrizeShipment {
+  id                  Int      @id @default(autoincrement())
+  customerId          String
+  shippingAddressId   Int
+  shippingFeeSnapshot Decimal  @db.Decimal(10, 2)
+  customerNote        String?  @db.Text
+  status              String   @default("PENDING") // PENDING (รอ admin), SHIPPED, DELIVERED, CANCELLED
+  trackingNumber      String?
+  shippedAt           DateTime?
+  deliveredAt         DateTime?
+  adminNote           String?  @db.Text
+  adminGroupMsgId     Int? // message_id ของ admin notif (ใช้ broadcast edit เมื่อ admin จัดส่ง)
+  createdAt           DateTime @default(now())
+
+  tickets MysteryBoxTicket[]
+
+  @@index([customerId, status])
+  @@index([status, createdAt])
 }
 
 model Notification {
