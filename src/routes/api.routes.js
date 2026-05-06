@@ -1414,10 +1414,12 @@ router.get('/history/:telegramId', async (req, res) => {
 router.get('/referral/reward-coupons', async (req, res) => {
     try {
         const now = new Date();
+        // กรองเฉพาะ trigger ที่เกี่ยวกับการชวนเพื่อน — ตัด MYSTERY_BOX ออก
+        // (MYSTERY_BOX ออกได้เฉพาะเมื่อเปิดกล่องสุ่ม → ไม่ควรโชว์ในหน้าแนะนำเพื่อน)
         const coupons = await prisma.coupon.findMany({
             where: {
                 isActive: true,
-                rewardTrigger: { not: null },
+                rewardTrigger: 'REFEREE_FIRST_PURCHASE',
                 AND: [
                     { OR: [{ startDate: null }, { startDate: { lte: now } }] },
                     { OR: [{ endDate: null }, { endDate: { gte: now } }] },

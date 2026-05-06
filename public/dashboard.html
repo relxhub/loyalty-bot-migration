@@ -70,20 +70,45 @@
             100% { transform: translateX(100%) skewX(-12deg); }
         }
 
-        /* --- 🎁 Mystery Box animations --- */
-        @keyframes mystery-pulse {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(168,85,247,0.5); }
-            50% { box-shadow: 0 0 0 12px rgba(168,85,247,0); }
+        /* --- 🎁 Mystery Box banner — clean design --- */
+        .mbox-banner {
+            position: relative;
+            display: block;
+            overflow: hidden;
+            border-radius: 16px;
+            background: linear-gradient(135deg, #6d28d9 0%, #be185d 100%);
+            padding: 12px 16px;
+            color: white;
+            text-decoration: none;
+            box-shadow: 0 4px 20px -4px rgba(168,85,247,0.45);
+            transition: transform 0.15s ease;
         }
-        .mystery-spin {
+        .mbox-banner:active { transform: scale(0.98); }
+
+        /* shimmer overlay subtle */
+        .mbox-banner::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.18) 50%, transparent 70%);
+            transform: translateX(-100%);
+            animation: mbox-shimmer 3.5s ease-in-out infinite;
+            pointer-events: none;
+        }
+        @keyframes mbox-shimmer {
+            0%, 60% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        /* gentle scale pulse on the gift emoji */
+        .mbox-icon {
             display: inline-block;
-            animation: mystery-shake 0.6s ease-in-out infinite;
+            animation: mbox-bob 2.4s ease-in-out infinite;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
         }
-        @keyframes mystery-shake {
-            0%, 100% { transform: rotate(0deg) scale(1); }
-            25% { transform: rotate(-15deg) scale(1.1); }
-            50% { transform: rotate(0deg) scale(1.2); }
-            75% { transform: rotate(15deg) scale(1.1); }
+        @keyframes mbox-bob {
+            0%, 100% { transform: translateY(0) rotate(-3deg); }
+            50% { transform: translateY(-3px) rotate(3deg); }
         }
 
         ::-webkit-scrollbar { width: 0px; background: transparent; }
@@ -303,14 +328,14 @@
         </div>
 
         <!-- 🎁 Mystery Box Banner — โชว์เด่นบนสุด ถ้ามีกล่องที่ยังไม่เปิด -->
-        <a id="mystery-banner" href="mystery-box.html" class="hidden mt-2 mb-1 cursor-pointer rounded-2xl p-3.5 active:scale-[.98] transition" onclick="try { Telegram.WebApp.hapticFeedback.impactOccurred('medium'); } catch(e){}" style="background: linear-gradient(135deg, rgba(168,85,247,0.25), rgba(236,72,153,0.25)); border: 1px solid rgba(168,85,247,0.5); animation: mystery-pulse 2.5s ease-in-out infinite;">
-            <div class="flex items-center gap-3">
-                <div class="text-3xl">🎁</div>
+        <a id="mystery-banner" href="mystery-box.html" class="mbox-banner hidden mt-2 mb-1" onclick="try { Telegram.WebApp.hapticFeedback.impactOccurred('medium'); } catch(e){}">
+            <div class="relative flex items-center gap-3" style="z-index:2;">
+                <div class="mbox-icon text-2xl flex-shrink-0">🎁</div>
                 <div class="flex-1 min-w-0">
-                    <div class="font-bold text-white text-sm">มีกล่องสุ่ม <span id="mystery-banner-count" class="text-yellow-300">0</span> ใบ รอเปิด</div>
-                    <div class="text-[11px] text-purple-100 mt-0.5">แตะเพื่อเปิดและลุ้นรางวัลพิเศษ ✨</div>
+                    <div class="text-[13px] font-bold text-white leading-tight">มีกล่องสุ่ม <span id="mystery-banner-count" class="text-yellow-200">0</span> ใบรอเปิด</div>
+                    <div class="text-[10.5px] text-white/75 mt-0.5">แตะเพื่อลุ้นรางวัลพิเศษ ✨</div>
                 </div>
-                <i class="ri-arrow-right-s-line text-2xl text-white/70"></i>
+                <i class="ri-arrow-right-s-line text-xl text-white/80 flex-shrink-0"></i>
             </div>
         </a>
 
