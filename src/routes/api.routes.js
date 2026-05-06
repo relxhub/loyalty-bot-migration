@@ -2834,12 +2834,13 @@ async function authAdmin(req, allowedRoles = ['Admin', 'SuperAdmin', 'Owner']) {
 // All sections that can be permission-gated. Owner เห็นทุก section + 'admins'+'rbac'+'dashboard' เสมอ
 const RBAC_SECTIONS = [
     'orders', 'shipments', 'customers', 'coupons', 'mystery-boxes',
-    'products', 'categories', 'banners', 'campaigns',
-    'broadcast', 'audit', 'settings', 'ship-sync',
+    'products', 'stock-alert', 'categories', 'banners', 'campaigns',
+    'broadcast', 'audit', 'activity', 'settings', 'ship-sync',
+    'analytics', 'jobs',
 ];
 const RBAC_DEFAULT = {
-    Admin: ['orders', 'shipments', 'customers'],
-    SuperAdmin: ['orders', 'shipments', 'customers', 'coupons', 'mystery-boxes', 'products', 'categories', 'banners', 'campaigns', 'broadcast', 'audit', 'settings', 'ship-sync'],
+    Admin: ['orders', 'shipments', 'customers', 'stock-alert'],
+    SuperAdmin: ['orders', 'shipments', 'customers', 'coupons', 'mystery-boxes', 'products', 'stock-alert', 'categories', 'banners', 'campaigns', 'broadcast', 'audit', 'activity', 'settings', 'ship-sync', 'analytics', 'jobs'],
 };
 
 async function getRbacMatrix() {
@@ -3129,6 +3130,64 @@ router.get('/admin/orders', async (req, res) => {
     } catch (e) {
         console.error('admin orders list error:', e);
         res.status(500).json({ success: false, error: e.message || 'load failed' });
+    }
+});
+
+// GET /admin/orders/export — CSV ตาม filter
+// ⚠️ MUST come BEFORE /admin/orders/:id เพื่อกัน Express จับ :id="export" → 404
+router.get('/admin/orders/export', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const status = String(req.query.status || 'ALL').toUpperCase();
+        const since = req.query.since ? new Date(req.query.since) : null;
+        const where = {};
+        if (status === 'NEEDS_VERIFY') {
+            where.payment = { status: 'PENDING' };
+            where.status = { in: ['PENDING_PAYMENT', 'PAID'] };
+        } else if (status !== 'ALL') {
+            const validStatuses = ['PENDING_PAYMENT', 'PAID', 'PROCESSING', 'SHIPPED', 'CANCELLED'];
+            if (!validStatuses.includes(status)) return res.status(400).json({ success: false, error: 'invalid status: ' + status });
+            where.status = status;
+        }
+        if (since) where.createdAt = { gte: since };
+        if (a.admin.role === 'Admin') {
+            where.AND = [{ OR: [{ assignedAdminId: a.telegramId }, { assignedAdminId: null }] }];
+        }
+        const orders = await prisma.order.findMany({
+            where,
+            include: {
+                customer: { select: { customerId: true, firstName: true, lastName: true, phoneNumber: true } },
+                items: { include: { product: { select: { nameTh: true, nameEn: true } } } },
+                payment: { select: { amount: true, status: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 5000,
+        });
+        const headers = ['orderId','status','kind','createdAt','customerId','customerName','phone','totalAmount','paidAmount','paymentStatus','itemCount','items','billNumber','trackingNumber','assignedAdmin'];
+        const rows = orders.map(o => {
+            const itemList = o.items.map(it => `${it.product.nameTh || it.product.nameEn || '#'+it.productId}×${it.quantity}`).join('; ');
+            const cust = `${o.customer?.firstName||''} ${o.customer?.lastName||''}`.trim();
+            const cells = [
+                o.id, o.status, o.kind, o.createdAt.toISOString(),
+                o.customerId, cust, o.customer?.phoneNumber || '',
+                Number(o.totalAmount), o.payment ? Number(o.payment.amount) : '',
+                o.payment?.status || '', o.items.reduce((s,i)=>s+i.quantity,0),
+                itemList, o.billNumber || '', o.trackingNumber || '',
+                o.assignedAdminId || '',
+            ];
+            return cells.map(c => {
+                const s = String(c ?? '');
+                return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+            }).join(',');
+        });
+        const csv = '﻿' + [headers.join(','), ...rows].join('\n'); // BOM Excel TH
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="orders_${Date.now()}.csv"`);
+        res.send(csv);
+    } catch (e) {
+        console.error('export error:', e);
+        res.status(500).json({ success: false, error: e.message || 'export failed' });
     }
 });
 
@@ -4617,64 +4676,7 @@ router.post('/admin/products/bulk-price', async (req, res) => {
 });
 
 // GET /admin/orders/export — CSV ตาม filter
-router.get('/admin/orders/export', async (req, res) => {
-    const a = await authAdmin(req);
-    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
-    try {
-        const status = String(req.query.status || 'ALL').toUpperCase();
-        const since = req.query.since ? new Date(req.query.since) : null;
-        const where = {};
-        // รองรับ NEEDS_VERIFY แบบเดียวกับ /admin/orders
-        if (status === 'NEEDS_VERIFY') {
-            where.payment = { status: 'PENDING' };
-            where.status = { in: ['PENDING_PAYMENT', 'PAID'] };
-        } else if (status !== 'ALL') {
-            const validStatuses = ['PENDING_PAYMENT', 'PAID', 'PROCESSING', 'SHIPPED', 'CANCELLED'];
-            if (!validStatuses.includes(status)) return res.status(400).json({ success: false, error: 'invalid status: ' + status });
-            where.status = status;
-        }
-        if (since) where.createdAt = { gte: since };
-        // role-scoping ใช้ AND of OR เพื่อไม่ทับ where.OR ที่อาจมีจาก NEEDS_VERIFY
-        if (a.admin.role === 'Admin') {
-            where.AND = [{ OR: [{ assignedAdminId: a.telegramId }, { assignedAdminId: null }] }];
-        }
-        const orders = await prisma.order.findMany({
-            where,
-            include: {
-                customer: { select: { customerId: true, firstName: true, lastName: true, phoneNumber: true } },
-                items: { include: { product: { select: { nameTh: true, nameEn: true } } } },
-                payment: { select: { amount: true, status: true } },
-            },
-            orderBy: { createdAt: 'desc' },
-            take: 5000,
-        });
-        // CSV header
-        const headers = ['orderId','status','kind','createdAt','customerId','customerName','phone','totalAmount','paidAmount','paymentStatus','itemCount','items','billNumber','trackingNumber','assignedAdmin'];
-        const rows = orders.map(o => {
-            const itemList = o.items.map(it => `${it.product.nameTh || it.product.nameEn || '#'+it.productId}×${it.quantity}`).join('; ');
-            const cust = `${o.customer?.firstName||''} ${o.customer?.lastName||''}`.trim();
-            const cells = [
-                o.id, o.status, o.kind, o.createdAt.toISOString(),
-                o.customerId, cust, o.customer?.phoneNumber || '',
-                Number(o.totalAmount), o.payment ? Number(o.payment.amount) : '',
-                o.payment?.status || '', o.items.reduce((s,i)=>s+i.quantity,0),
-                itemList, o.billNumber || '', o.trackingNumber || '',
-                o.assignedAdminId || '',
-            ];
-            return cells.map(c => {
-                const s = String(c ?? '');
-                return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-            }).join(',');
-        });
-        const csv = '﻿' + [headers.join(','), ...rows].join('\n'); // BOM สำหรับ Excel TH
-        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-        res.setHeader('Content-Disposition', `attachment; filename="orders_${Date.now()}.csv"`);
-        res.send(csv);
-    } catch (e) {
-        console.error('export error:', e);
-        res.status(500).json({ success: false, error: e.message || 'export failed' });
-    }
-});
+// (moved /admin/orders/export ไปก่อน /admin/orders/:id เพื่อกัน Express match :id="export")
 
 // PATCH /admin/customers/:customerId/admin-note { adminNote }
 router.patch('/admin/customers/:customerId/admin-note', async (req, res) => {

@@ -85,9 +85,9 @@
                 <button id="menu-edit-toggle" onclick="toggleMenuEdit()" class="hidden w-10 h-10 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center" aria-label="จัดเรียงเมนู" title="จัดเรียงเมนู">
                     <i class="ri-edit-line text-base"></i>
                 </button>
-                <a href="home.html" class="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10" aria-label="ออกไปหน้าลูกค้า" title="ออกไปดูหน้าลูกค้า">
+                <button onclick="goPreviewCustomerUI()" class="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10" aria-label="ออกไปหน้าลูกค้า" title="ออกไปดูหน้าลูกค้า (preview)">
                     <i class="ri-logout-box-r-line text-lg"></i>
-                </a>
+                </button>
             </div>
         </div>
 
@@ -747,6 +747,16 @@
         let _editingCatId = null;
         let _catOptionsCache = [];
 
+        function goPreviewCustomerUI() {
+            // ใน Telegram WebApp: window.location ใช้ได้สำหรับ same-origin nav
+            // ส่ง initData ผ่าน hash เพื่อให้ home.html รู้ว่ามาจาก admin (กัน auth แตก)
+            try {
+                window.location.assign('home.html');
+            } catch (e) {
+                window.location.href = 'home.html';
+            }
+        }
+
         // ---------- View routing ----------
         const _viewScroll = {}; // viewName → scrollY ก่อนสลับออก
         let _currentView = 'home';
@@ -1005,13 +1015,17 @@
                 coupons: 'showView(\'coupons\')',
                 'mystery-boxes': 'showView(\'mystery-boxes\')',
                 products: 'showView(\'products\')',
+                'stock-alert': 'showView(\'stock-alert\')',
                 categories: 'showView(\'categories\')',
                 banners: 'showView(\'banners\')',
                 campaigns: 'showView(\'campaigns\')',
                 broadcast: 'showView(\'broadcast\')',
                 audit: 'showView(\'audit\')',
+                activity: 'showView(\'activity\')',
                 settings: 'showView(\'settings\')',
                 'ship-sync': 'showView(\'ship-sync\')',
+                analytics: 'showView(\'analytics\')',
+                jobs: 'showView(\'jobs\')',
             };
             document.querySelectorAll('#view-home button.menu-card').forEach(btn => {
                 const onclick = btn.getAttribute('onclick') || '';
@@ -3396,13 +3410,17 @@
             coupons: '🎫 คูปอง',
             'mystery-boxes': '🎁 Mystery Box',
             products: '🛍️ สินค้า',
+            'stock-alert': '⚠️ เตือนสต็อก',
             categories: '📂 หมวดหมู่',
             banners: '🎞️ Banner',
             campaigns: '📅 แคมเปญ',
             broadcast: '📣 Broadcast',
             audit: '📜 Audit Log',
+            activity: '📡 Activity Dashboard',
             settings: '⚙️ ตั้งค่าระบบ',
             'ship-sync': '📦 ซิงค์เลขพัสดุ (Sheet)',
+            analytics: '📈 Analytics',
+            jobs: '🤖 Jobs / Cron',
         };
 
         async function loadRbacMatrix() {
