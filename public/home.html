@@ -746,14 +746,21 @@
                 if (authRes.ok) {
                     const authData = await authRes.json();
                     document.getElementById('loading-screen').classList.add('hidden');
-                    
+
+                    // Redirect ผู้ที่มี role (Admin/SuperAdmin/Owner) ไปหน้า admin-app
+                    const role = authData?.customer?.role;
+                    if (role === 'Admin' || role === 'SuperAdmin' || role === 'Owner') {
+                        window.location.replace('admin-app.html');
+                        return;
+                    }
+
                     if (authData.isMember) {
                         window.customerData = authData.customer; // Store for notification logic
                         if (!authData.hasPhone) {
                             document.getElementById('phone-screen').classList.remove('hidden');
                             return; // Stop execution until they provide contact
                         }
-                        
+
                         sessionStorage.setItem('isLinked', 'true');
                         if (window.posthog) {
                             posthog.identify(authData.customer.telegramUserId || tg.initDataUnsafe?.user?.id?.toString(), {

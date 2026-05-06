@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0a0a0a">
+    <title>ONEHUB · Admin</title>
+    <link rel="icon" type="image/png" href="logo.png">
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+
+    <style>
+        :root { --bg:#0a0a0a; --secondary-bg:#161616; }
+        html, body { overscroll-behavior-y: none; }
+        body { background: var(--bg); color: white; font-family: 'Kanit', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .glass-card { background: var(--secondary-bg); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; }
+        ::-webkit-scrollbar { width: 0; background: transparent; }
+        .no-scroll { overflow: hidden; }
+        .role-badge { padding: 2px 10px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: .5px; }
+        .role-Owner { background: linear-gradient(90deg,#fbbf24,#f59e0b); color: #1a1a1a; }
+        .role-SuperAdmin { background: rgba(168,85,247,0.25); color: #d8b4fe; border: 1px solid rgba(168,85,247,0.5); }
+        .role-Admin { background: rgba(59,130,246,0.25); color: #93c5fd; border: 1px solid rgba(59,130,246,0.5); }
+        .item-fade-in { opacity: 0; animation: fu .35s ease-out forwards; }
+        @keyframes fu { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: translateY(0); } }
+        .status-pill { padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 600; }
+        .status-PENDING { background: rgba(234,179,8,0.2); color: #fde68a; }
+        .status-SHIPPED { background: rgba(34,197,94,0.2); color: #bbf7d0; }
+        .status-DELIVERED { background: rgba(59,130,246,0.2); color: #bfdbfe; }
+    </style>
+</head>
+<body class="p-4">
+    <div id="loading-screen" class="fixed inset-0 z-30 bg-black flex items-center justify-center">
+        <div class="text-center">
+            <div class="text-5xl mb-3">🛡️</div>
+            <p class="text-zinc-400" id="loading-text">กำลังตรวจสิทธิ์...</p>
+        </div>
+    </div>
+
+    <div id="forbidden" class="hidden fixed inset-0 z-30 bg-black flex flex-col items-center justify-center p-6 text-center">
+        <div class="text-6xl mb-4">🚫</div>
+        <h1 class="text-xl font-bold mb-2">ไม่มีสิทธิ์เข้าถึง</h1>
+        <p class="text-sm text-zinc-400 mb-6">หน้านี้สำหรับ Admin / SuperAdmin / Owner เท่านั้น</p>
+        <a href="home.html" class="px-6 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold">กลับหน้าหลัก</a>
+    </div>
+
+    <div id="app" class="hidden w-full max-w-md mx-auto pb-24">
+        <!-- Top bar -->
+        <div class="flex items-center justify-between mb-4 pt-2">
+            <div>
+                <div class="text-[10px] text-zinc-500 uppercase tracking-widest">Admin Console</div>
+                <div class="flex items-center gap-2 mt-0.5">
+                    <div class="text-base font-bold text-white" id="admin-name">—</div>
+                    <span id="admin-role" class="role-badge">—</span>
+                </div>
+            </div>
+            <a href="home.html" class="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10" aria-label="Back to app">
+                <i class="ri-logout-box-r-line text-lg"></i>
+            </a>
+        </div>
+
+        <!-- Section: Prize shipments -->
+        <div class="glass-card p-4 mb-3">
+            <div class="flex items-center justify-between mb-3">
+                <div class="font-bold text-white text-sm flex items-center gap-2">
+                    <i class="ri-truck-line text-orange-400"></i> จัดส่งของรางวัล Mystery Box
+                </div>
+                <div class="flex gap-1">
+                    <button data-status="PENDING" class="ship-tab status-pill status-PENDING">รอจัดส่ง <span data-count="PENDING">0</span></button>
+                    <button data-status="SHIPPED" class="ship-tab status-pill status-SHIPPED">จัดส่งแล้ว</button>
+                </div>
+            </div>
+            <div id="ship-list" class="space-y-2.5">
+                <div class="text-center text-zinc-500 py-6 animate-pulse">กำลังโหลด...</div>
+            </div>
+        </div>
+
+        <!-- Future sections (Phase 2+) -->
+        <div class="glass-card p-4 opacity-50">
+            <div class="text-xs text-zinc-500 mb-1">เร็วๆ นี้ (Phase 2)</div>
+            <div class="text-sm text-zinc-300">
+                🎁 จัดการ Mystery Box · 🎫 จัดการคูปอง · 👥 ค้นหา/แก้ไขลูกค้า
+            </div>
+        </div>
+    </div>
+
+    <!-- Ship Modal -->
+    <div id="ship-modal" class="hidden fixed inset-0 z-[80] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4">
+        <div class="glass-card w-full max-w-sm p-5">
+            <h3 class="text-base font-bold mb-1">ยืนยันจัดส่ง</h3>
+            <div class="text-xs text-zinc-400 mb-3">Shipment <span id="ship-modal-id" class="text-white font-mono">#</span></div>
+            <label class="text-xs text-zinc-300 block mb-1">เลขพัสดุ</label>
+            <input id="ship-modal-tracking" type="text" placeholder="เช่น EE123456789TH" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-sm text-white focus:border-orange-400 focus:outline-none mb-3">
+            <div class="flex gap-2">
+                <button onclick="closeShipModal()" class="flex-1 py-2.5 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white text-sm font-bold">ยกเลิก</button>
+                <button id="ship-modal-submit" onclick="submitShipModal()" class="flex-1 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-400 text-white text-sm font-bold disabled:opacity-50">ยืนยัน</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram?.WebApp;
+        try { tg?.ready(); tg?.expand(); } catch(e) {}
+
+        const _esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const _fmt = (n) => Number(n).toLocaleString('th-TH', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 });
+
+        let _currentTab = 'PENDING';
+        let _currentShipmentId = null;
+
+        async function init() {
+            try {
+                if (!tg?.initData) {
+                    document.getElementById('loading-text').innerHTML = '<span class="text-red-400">กรุณาเปิดผ่าน Telegram</span>';
+                    return;
+                }
+                // Check role
+                const meRes = await fetch('/api/admin/me', { headers: { 'X-Init-Data': tg.initData } });
+                if (meRes.status === 403 || meRes.status === 401) {
+                    document.getElementById('loading-screen').classList.add('hidden');
+                    document.getElementById('forbidden').classList.remove('hidden');
+                    return;
+                }
+                const me = await meRes.json();
+                if (!me.success) throw new Error(me.error || 'auth failed');
+
+                // Render top bar
+                document.getElementById('admin-name').textContent = me.name || me.telegramId;
+                const roleEl = document.getElementById('admin-role');
+                roleEl.textContent = me.role;
+                roleEl.classList.add(`role-${me.role}`);
+
+                document.getElementById('loading-screen').classList.add('hidden');
+                document.getElementById('app').classList.remove('hidden');
+
+                // tab handlers
+                document.querySelectorAll('.ship-tab').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        _currentTab = btn.dataset.status;
+                        loadShipments();
+                    });
+                });
+
+                await loadShipments();
+            } catch (e) {
+                console.error('init error:', e);
+                document.getElementById('loading-text').innerHTML = `<span class="text-red-400">${_esc(e.message)}</span>`;
+            }
+        }
+
+        async function loadShipments() {
+            const list = document.getElementById('ship-list');
+            list.innerHTML = '<div class="text-center text-zinc-500 py-6 animate-pulse">กำลังโหลด...</div>';
+            try {
+                const res = await fetch(`/api/admin/prize-shipments?status=${encodeURIComponent(_currentTab)}`, {
+                    headers: { 'X-Init-Data': tg.initData },
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'load failed');
+
+                if (!data.shipments || data.shipments.length === 0) {
+                    list.innerHTML = `<div class="text-center text-zinc-500 py-8 text-sm">ยังไม่มี shipment ${_currentTab === 'PENDING' ? 'ที่รอจัดส่ง' : ''}</div>`;
+                    document.querySelector('[data-count="PENDING"]').textContent = '0';
+                    return;
+                }
+
+                // PENDING count badge
+                if (_currentTab === 'PENDING') {
+                    document.querySelector('[data-count="PENDING"]').textContent = data.shipments.length;
+                }
+
+                let html = '';
+                data.shipments.forEach((sh, idx) => {
+                    const cust = sh.customer || {};
+                    const addr = sh.address || {};
+                    const orderId = sh.order?.id || '—';
+                    const orderStatus = sh.order?.status || '—';
+                    const prizesHtml = sh.prizes.map(p => `
+                        <div class="flex items-center gap-2 text-xs">
+                            ${p.imageUrl ? `<img src="${_esc(p.imageUrl)}" class="w-6 h-6 rounded object-cover">` : '<div class="w-6 h-6 rounded bg-zinc-700 flex items-center justify-center text-[10px]">🎁</div>'}
+                            <span class="text-zinc-200 truncate">${_esc(p.name)}</span>
+                        </div>`).join('');
+
+                    const action = sh.status === 'PENDING'
+                        ? `<button onclick="openShipModal(${sh.id})" class="w-full mt-3 py-2 rounded-lg bg-orange-500 hover:bg-orange-400 text-white text-xs font-bold active:scale-95">📦 ยืนยันจัดส่ง</button>`
+                        : `<div class="text-[11px] text-zinc-400 mt-2">เลขพัสดุ: <code class="text-zinc-200">${_esc(sh.trackingNumber || '—')}</code></div>`;
+
+                    html += `
+                    <div class="rounded-xl bg-white/5 border border-white/10 p-3 item-fade-in" style="animation-delay:${idx*40}ms">
+                        <div class="flex items-start justify-between gap-2 mb-2">
+                            <div class="flex-1 min-w-0">
+                                <div class="text-[10px] text-zinc-500">SH#${sh.id} · Order <code>${_esc(orderId)}</code></div>
+                                <div class="text-sm font-bold text-white">${_esc(cust.firstName || '')} ${_esc(cust.lastName || '')}</div>
+                                <div class="text-[11px] text-zinc-400">${_esc(cust.customerId || '—')}${cust.phoneNumber ? ' · ' + _esc(cust.phoneNumber) : ''}</div>
+                            </div>
+                            <span class="status-pill status-${sh.status}">${sh.status}</span>
+                        </div>
+                        <div class="space-y-1 mb-2 bg-black/20 rounded-lg p-2">
+                            ${prizesHtml}
+                        </div>
+                        <div class="text-[11px] text-zinc-300 leading-relaxed mb-1">
+                            <i class="ri-map-pin-line text-orange-300"></i>
+                            <b>${_esc(addr.receiverName || '—')}</b> · ${_esc(addr.phone || '')}
+                            <div class="text-zinc-400 ml-4">${_esc(addr.address || '')} ${_esc(addr.subdistrict || '')} ${_esc(addr.district || '')} ${_esc(addr.province || '')} ${_esc(addr.zipcode || '')}</div>
+                        </div>
+                        <div class="flex items-center justify-between text-[11px] text-zinc-400">
+                            <span>ค่าส่ง: ฿${_fmt(sh.shippingFee)}</span>
+                            <span>${new Date(sh.createdAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                        ${action}
+                    </div>`;
+                });
+                list.innerHTML = html;
+            } catch (e) {
+                console.error(e);
+                list.innerHTML = '<div class="text-center text-red-400 py-6">โหลดไม่สำเร็จ</div>';
+            }
+        }
+
+        function openShipModal(shipmentId) {
+            _currentShipmentId = shipmentId;
+            document.getElementById('ship-modal-id').textContent = '#' + shipmentId;
+            document.getElementById('ship-modal-tracking').value = '';
+            document.body.classList.add('no-scroll');
+            document.getElementById('ship-modal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('ship-modal-tracking').focus(), 50);
+        }
+
+        function closeShipModal() {
+            _currentShipmentId = null;
+            document.body.classList.remove('no-scroll');
+            document.getElementById('ship-modal').classList.add('hidden');
+        }
+
+        async function submitShipModal() {
+            if (!_currentShipmentId) return;
+            const tracking = document.getElementById('ship-modal-tracking').value.trim();
+            const btn = document.getElementById('ship-modal-submit');
+            btn.disabled = true;
+            btn.textContent = 'กำลังบันทึก...';
+            try {
+                const res = await fetch(`/api/admin/prize-shipments/${_currentShipmentId}/ship`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData, trackingNumber: tracking }),
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    alert(data.error || 'จัดส่งไม่สำเร็จ');
+                    btn.disabled = false; btn.textContent = 'ยืนยัน';
+                    return;
+                }
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch(e){}
+                closeShipModal();
+                await loadShipments();
+            } catch (e) {
+                alert('เกิดข้อผิดพลาด: ' + e.message);
+                btn.disabled = false; btn.textContent = 'ยืนยัน';
+            }
+        }
+
+        document.getElementById('ship-modal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeShipModal();
+        });
+
+        init();
+    </script>
+</body>
+</html>

@@ -16,6 +16,7 @@ datasource db {
 enum Role {
   SuperAdmin
   Admin
+  Owner
 }
 
 enum TransactionType {

@@ -2809,4 +2809,105 @@ router.post('/notifications/:telegramId/read-all', async (req, res) => {
     }
 });
 
+// ==================================================
+// 🛡️ ADMIN MINI APP (Phase 1 — Prize shipments management)
+// ==================================================
+
+// Auth helper: ตรวจ initData + role
+async function authAdmin(req, allowedRoles = ['Admin', 'SuperAdmin', 'Owner']) {
+    const initData = (req.body && req.body.initData) || req.headers['x-init-data'];
+    if (!verifyTelegramWebAppData(initData)) return { ok: false, status: 401, error: 'Invalid Telegram data' };
+    let telegramId;
+    try {
+        const userData = JSON.parse(new URLSearchParams(initData).get('user') || '{}');
+        telegramId = String(userData.id || '');
+    } catch (e) { return { ok: false, status: 400, error: 'Bad initData' }; }
+    if (!telegramId) return { ok: false, status: 400, error: 'No telegramId' };
+    const admin = await prisma.admin.findUnique({ where: { telegramId } });
+    if (!admin || !allowedRoles.includes(admin.role)) {
+        return { ok: false, status: 403, error: 'Forbidden — admin only' };
+    }
+    return { ok: true, telegramId, admin };
+}
+
+// GET /api/admin/me — ใช้ตรวจสิทธิ์ตอน admin-app load
+router.get('/admin/me', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    res.json({ success: true, telegramId: a.telegramId, role: a.admin.role, name: a.admin.name });
+});
+
+// GET /api/admin/prize-shipments — list ตามสถานะ
+router.get('/admin/prize-shipments', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const status = String(req.query.status || 'PENDING').toUpperCase();
+        const shipments = await prisma.prizeShipment.findMany({
+            where: status === 'ALL' ? {} : { status },
+            include: {
+                tickets: { include: { awardedPrize: { select: { id: true, name: true, imageUrl: true } } } },
+                order: { select: { id: true, status: true, totalAmount: true } },
+            },
+            orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
+            take: 100,
+        });
+        // attach address + customer info
+        const out = await Promise.all(shipments.map(async (sh) => {
+            const addr = await prisma.shippingAddress.findUnique({ where: { id: sh.shippingAddressId } });
+            const cust = await prisma.customer.findUnique({
+                where: { customerId: sh.customerId },
+                select: { customerId: true, firstName: true, lastName: true, telegramUserId: true, phoneNumber: true },
+            });
+            return {
+                id: sh.id,
+                status: sh.status,
+                shippingFee: Number(sh.shippingFeeSnapshot),
+                trackingNumber: sh.trackingNumber,
+                shippedAt: sh.shippedAt,
+                createdAt: sh.createdAt,
+                customer: cust,
+                address: addr,
+                order: sh.order ? { id: sh.order.id, status: sh.order.status, totalAmount: Number(sh.order.totalAmount) } : null,
+                prizes: sh.tickets.map(t => ({
+                    ticketId: t.id,
+                    name: t.awardedPrize?.name || '—',
+                    imageUrl: t.awardedPrize?.imageUrl,
+                })),
+            };
+        }));
+        res.json({ success: true, shipments: out });
+    } catch (e) {
+        console.error('admin prize shipments error:', e);
+        res.status(500).json({ success: false, error: 'load failed' });
+    }
+});
+
+// POST /api/admin/prize-shipments/:id/ship — mark as SHIPPED
+router.post('/admin/prize-shipments/:id/ship', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const shipmentId = parseInt(req.params.id);
+        const trackingNumber = (req.body?.trackingNumber || '').trim() || null;
+        const result = await mysteryBox.markShipmentShipped({
+            shipmentId,
+            trackingNumber,
+            adminName: a.admin.name || a.telegramId,
+        });
+        if (!result.success) {
+            const map = {
+                NOT_FOUND: 'ไม่พบ shipment',
+                INVALID_STATUS: 'ส่งไปแล้วหรือสถานะไม่ถูกต้อง',
+                INVALID_INPUT: 'ข้อมูลไม่ครบ',
+            };
+            return res.status(400).json({ success: false, error: map[result.error] || result.error });
+        }
+        res.json({ success: true });
+    } catch (e) {
+        console.error('admin ship error:', e);
+        res.status(500).json({ success: false, error: 'ship failed' });
+    }
+});
+
 export default router;
