@@ -3685,6 +3685,141 @@ function sanitizeProductPayload(b) {
     };
 }
 
+// ---------- ⚙️ SETTINGS ----------
+const KNOWN_CONFIG_KEYS = [
+    { key: 'shipping_fee', label: 'ค่าจัดส่ง (บาท)', type: 'number' },
+    { key: 'free_shipping_min', label: 'ส่งฟรีเมื่อยอดถึง (บาท)', type: 'number' },
+    { key: 'standardReferralPoints', label: 'แต้มชวนเพื่อนพื้นฐาน', type: 'number' },
+    { key: 'standardLinkBonus', label: 'แต้มผูกบัญชีพื้นฐาน', type: 'number' },
+    { key: 'expiryDaysNewMember', label: 'วันหมดอายุแต้มสมาชิกใหม่', type: 'number' },
+    { key: 'expiryDaysAddPoints', label: 'วันหมดอายุเมื่อเติมแต้ม', type: 'number' },
+    { key: 'expiryDaysReferralBonus', label: 'วันหมดอายุโบนัสชวนเพื่อน', type: 'number' },
+    { key: 'expiryDaysLinkAccount', label: 'วันหมดอายุโบนัสผูกบัญชี', type: 'number' },
+    { key: 'expiryDaysLimitMax', label: 'จำนวนวันหมดอายุสูงสุด', type: 'number' },
+    { key: 'tier_silver_min', label: 'จำนวนเพื่อนถึง Silver', type: 'number' },
+    { key: 'tier_gold_min', label: 'จำนวนเพื่อนถึง Gold', type: 'number' },
+    { key: 'tier_silver_multiplier', label: 'ตัวคูณแต้ม Silver', type: 'number' },
+    { key: 'tier_gold_multiplier', label: 'ตัวคูณแต้ม Gold', type: 'number' },
+    { key: 'minPurchaseForReferral', label: 'ยอดขั้นต่ำเพื่อนับ referral', type: 'number' },
+    { key: 'reviewPoints', label: 'แต้มจากการรีวิว', type: 'number' },
+    { key: 'orderBotUsername', label: 'Username บอทออเดอร์', type: 'text' },
+    { key: 'tracking_url_template', label: 'Template URL พัสดุ', type: 'text' },
+    { key: 'channelId', label: 'Channel ID (โพสต์ของรางวัล)', type: 'text' },
+    { key: 'expiryCutoffTime', label: 'เวลาตัดแต้มหมดอายุ (HH:mm)', type: 'text' },
+    { key: 'reminderNotificationTime', label: 'เวลาเตือนแต้มใกล้หมด (HH:mm)', type: 'text' },
+];
+
+router.get('/admin/system-config', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const rows = await prisma.systemConfig.findMany();
+        const map = Object.fromEntries(rows.map(r => [r.key, r.value]));
+        const items = KNOWN_CONFIG_KEYS.map(k => ({ ...k, value: map[k.key] ?? '' }));
+        // include any extra keys ใน DB ที่ไม่อยู่ใน known list
+        const knownSet = new Set(KNOWN_CONFIG_KEYS.map(k => k.key));
+        for (const r of rows) if (!knownSet.has(r.key)) items.push({ key: r.key, label: r.key, type: 'text', value: r.value });
+        res.json({ success: true, items });
+    } catch (e) { res.status(500).json({ success: false, error: 'load failed' }); }
+});
+
+router.patch('/admin/system-config', async (req, res) => {
+    const a = await authAdmin(req, ['Owner', 'SuperAdmin']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const updates = req.body?.updates;
+        if (!Array.isArray(updates)) return res.status(400).json({ success: false, error: 'updates ต้องเป็น array' });
+        for (const { key, value } of updates) {
+            if (!key) continue;
+            await prisma.systemConfig.upsert({
+                where: { key }, update: { value: String(value ?? '') },
+                create: { key, value: String(value ?? '') },
+            });
+        }
+        await prisma.adminAuditLog.create({ data: { adminName: a.admin?.name || a.telegramId, action: 'CONFIG_UPDATE', details: JSON.stringify({ count: updates.length, keys: updates.map(u => u.key) }) } });
+        res.json({ success: true, count: updates.length });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'update failed' }); }
+});
+
+router.get('/admin/store-setting', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        let s = await prisma.storeSetting.findUnique({ where: { id: 1 } });
+        if (!s) s = await prisma.storeSetting.create({ data: { id: 1 } });
+        res.json({ success: true, setting: s });
+    } catch (e) { res.status(500).json({ success: false, error: 'load failed' }); }
+});
+
+router.patch('/admin/store-setting', async (req, res) => {
+    const a = await authAdmin(req, ['Owner', 'SuperAdmin']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const b = req.body || {};
+        const data = {};
+        if (b.lowStockThreshold !== undefined) data.lowStockThreshold = parseInt(b.lowStockThreshold) || 0;
+        if (b.outOfStockThreshold !== undefined) data.outOfStockThreshold = parseInt(b.outOfStockThreshold) || 0;
+        if (b.orderExpiryMinutes !== undefined) data.orderExpiryMinutes = parseInt(b.orderExpiryMinutes) || 30;
+        await prisma.storeSetting.upsert({ where: { id: 1 }, update: data, create: { id: 1, ...data } });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'update failed' }); }
+});
+
+router.get('/admin/bank-accounts', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const accounts = await prisma.bankAccount.findMany({ orderBy: [{ isActive: 'desc' }, { id: 'asc' }] });
+        res.json({ success: true, accounts });
+    } catch (e) { res.status(500).json({ success: false, error: 'load failed' }); }
+});
+
+router.post('/admin/bank-accounts', async (req, res) => {
+    const a = await authAdmin(req, ['Owner', 'SuperAdmin']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const data = sanitizeBankPayload(req.body || {}, true);
+        const created = await prisma.bankAccount.create({ data });
+        res.json({ success: true, account: { id: created.id } });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'create failed' }); }
+});
+
+router.patch('/admin/bank-accounts/:id', async (req, res) => {
+    const a = await authAdmin(req, ['Owner', 'SuperAdmin']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const id = parseInt(req.params.id);
+        const data = sanitizeBankPayload(req.body || {}, false);
+        await prisma.bankAccount.update({ where: { id }, data });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'update failed' }); }
+});
+
+router.delete('/admin/bank-accounts/:id', async (req, res) => {
+    const a = await authAdmin(req, ['Owner', 'SuperAdmin']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        await prisma.bankAccount.delete({ where: { id: parseInt(req.params.id) } });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'delete failed' }); }
+});
+
+function sanitizeBankPayload(b, isCreate) {
+    const out = {
+        bankName: b.bankName ?? undefined,
+        accountName: b.accountName ?? undefined,
+        accountNumber: b.accountNumber ?? undefined,
+        promptPayId: b.promptPayId ?? undefined,
+        activeStartTime: b.activeStartTime || null,
+        activeEndTime: b.activeEndTime || null,
+        isActive: b.isActive !== false,
+    };
+    if (b.minAmount !== undefined) out.minAmount = b.minAmount === '' ? null : Number(b.minAmount);
+    if (b.maxAmount !== undefined) out.maxAmount = b.maxAmount === '' ? null : Number(b.maxAmount);
+    if (!isCreate) Object.keys(out).forEach(k => out[k] === undefined && delete out[k]);
+    return out;
+}
+
 // ---------- 📣 BROADCAST ----------
 // POST /admin/broadcast { title, body, link?, sendTelegram?, filter: 'all'|'bronze'|'silver'|'gold'|'new'|'inactive' }
 router.post('/admin/broadcast', async (req, res) => {

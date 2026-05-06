@@ -181,6 +181,15 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
+            <button onclick="showView('settings')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+                <div class="w-12 h-12 rounded-xl bg-slate-500/20 flex items-center justify-center text-2xl">⚙️</div>
+                <div class="flex-1">
+                    <div class="font-bold text-white text-sm">ตั้งค่าระบบ</div>
+                    <div class="text-[11px] text-zinc-400">ค่าส่ง · แต้ม · tier · บัญชีธนาคาร</div>
+                </div>
+                <i class="ri-arrow-right-s-line text-zinc-400"></i>
+            </button>
+
             <!-- Owner-only -->
             <button id="menu-admins" onclick="showView('admins')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden border-yellow-500/40">
                 <div class="w-12 h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center text-2xl">👨‍💼</div>
@@ -263,6 +272,31 @@
                 <button onclick="openCpnEdit()" class="text-xs px-3 py-1.5 rounded-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold"><i class="ri-add-line"></i> สร้างใหม่</button>
             </div>
             <div id="cpn-list" class="space-y-2"></div>
+        </div>
+
+        <!-- ⚙️ Settings view -->
+        <div id="view-settings" class="hidden">
+            <div class="font-bold text-sm mb-3 flex items-center gap-2"><i class="ri-settings-3-line text-slate-300"></i> ตั้งค่าระบบ</div>
+
+            <div class="flex gap-1.5 mb-3">
+                <button data-tab="config" class="set-tab text-xs px-3 py-1.5 rounded-full bg-slate-500/20 text-slate-200 border border-slate-500/40 font-bold">SystemConfig</button>
+                <button data-tab="store" class="set-tab text-xs px-3 py-1.5 rounded-full bg-white/5 text-zinc-400 border border-white/10">Store</button>
+                <button data-tab="bank" class="set-tab text-xs px-3 py-1.5 rounded-full bg-white/5 text-zinc-400 border border-white/10">บัญชีธนาคาร</button>
+            </div>
+
+            <div id="set-tab-config" class="set-section">
+                <div id="set-config-list" class="space-y-2"></div>
+                <button id="set-config-save" onclick="saveSystemConfig()" class="w-full py-2.5 rounded-xl bg-slate-500 hover:bg-slate-400 text-white font-bold text-sm mt-3">บันทึกการเปลี่ยนแปลง</button>
+            </div>
+
+            <div id="set-tab-store" class="set-section hidden">
+                <div id="set-store-form" class="glass-card p-4 space-y-3 text-sm"></div>
+            </div>
+
+            <div id="set-tab-bank" class="set-section hidden">
+                <div class="flex justify-end mb-2"><button onclick="openBkEdit()" class="text-xs px-3 py-1.5 rounded-full bg-slate-500 hover:bg-slate-400 text-white font-bold"><i class="ri-add-line"></i> เพิ่มบัญชี</button></div>
+                <div id="set-bank-list" class="space-y-2"></div>
+            </div>
         </div>
 
         <!-- 📣 Broadcast view -->
@@ -443,6 +477,11 @@
         <div id="ad-modal-content" class="glass-card w-full max-w-sm p-5 rounded-t-3xl sm:rounded-2xl"></div>
     </div>
 
+    <!-- 🏦 Bank Account Edit Modal -->
+    <div id="bk-modal" class="hidden fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-sm">
+        <div id="bk-modal-content" class="glass-card w-full max-w-md max-h-[92vh] overflow-y-auto p-5 rounded-t-3xl sm:rounded-2xl"></div>
+    </div>
+
     <!-- 🖼️ Slip Image Lightbox -->
     <div id="img-lightbox" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4" onclick="this.classList.add('hidden')">
         <img id="img-lightbox-src" src="" class="max-w-full max-h-full object-contain rounded-lg">
@@ -503,6 +542,7 @@
             else if (name === 'broadcast') { /* form already in DOM */ }
             else if (name === 'admins') loadAdminList();
             else if (name === 'audit') loadAuditLog();
+            else if (name === 'settings') loadSettings();
         }
         function goHome() { showView('home'); loadShipmentsBadge(); loadOrdersBadge(); }
 
@@ -668,6 +708,10 @@
             document.getElementById('bn-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeBnModal(); });
             document.getElementById('cm-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeCmModal(); });
             document.getElementById('ad-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeAdModal(); });
+            document.getElementById('bk-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeBkModal(); });
+            document.querySelectorAll('.set-tab').forEach(b => {
+                b.addEventListener('click', () => switchSettingsTab(b.dataset.tab));
+            });
             document.getElementById('prod-search').addEventListener('input', (e) => {
                 clearTimeout(_prodSearchDebounce);
                 _prodSearchDebounce = setTimeout(() => loadAdminProducts(), 300);
@@ -1654,6 +1698,176 @@
                     </div>`;
                 }).join('');
             } catch (e) { list.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`; }
+        }
+
+        // ---------- ⚙️ Settings ----------
+        function loadSettings() { switchSettingsTab('config'); }
+
+        function switchSettingsTab(tab) {
+            document.querySelectorAll('.set-tab').forEach(b => {
+                const active = b.dataset.tab === tab;
+                b.classList.toggle('bg-slate-500/20', active);
+                b.classList.toggle('text-slate-200', active);
+                b.classList.toggle('border-slate-500/40', active);
+                b.classList.toggle('font-bold', active);
+                b.classList.toggle('bg-white/5', !active);
+                b.classList.toggle('text-zinc-400', !active);
+                b.classList.toggle('border-white/10', !active);
+            });
+            document.querySelectorAll('.set-section').forEach(el => el.classList.add('hidden'));
+            document.getElementById('set-tab-' + tab).classList.remove('hidden');
+            if (tab === 'config') loadSysConfig();
+            else if (tab === 'store') loadStoreSetting();
+            else if (tab === 'bank') loadBankAccounts();
+        }
+
+        async function loadSysConfig() {
+            const list = document.getElementById('set-config-list');
+            list.innerHTML = '<div class="text-center text-zinc-500 py-6 animate-pulse">กำลังโหลด...</div>';
+            try {
+                const res = await fetch('/api/admin/system-config', { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'load failed');
+                window._cfgItems = data.items;
+                list.innerHTML = data.items.map(it => `
+                    <div class="bg-white/5 border border-white/10 rounded-lg p-2.5">
+                        <label class="text-[11px] text-zinc-400 block mb-1">${_esc(it.label)} <code class="text-[9px] text-zinc-600">${_esc(it.key)}</code></label>
+                        <input data-key="${_esc(it.key)}" type="${it.type==='number'?'number':'text'}" step="any" value="${_esc(it.value)}" class="cfg-input w-full bg-black/40 border border-white/10 rounded p-1.5 text-white text-sm">
+                    </div>`).join('');
+            } catch (e) { list.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`; }
+        }
+
+        async function saveSystemConfig() {
+            const updates = Array.from(document.querySelectorAll('.cfg-input')).map(el => ({ key: el.dataset.key, value: el.value }));
+            const btn = document.getElementById('set-config-save');
+            btn.disabled = true; const wasText = btn.textContent; btn.textContent = 'กำลังบันทึก...';
+            try {
+                const res = await fetch('/api/admin/system-config', {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ updates, initData: tg.initData }),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
+                alert(`✅ บันทึก ${data.count} รายการแล้ว (จะมีผลในรอบโหลด config ถัดไป)`);
+            } catch (e) { alert('error: '+e.message); }
+            finally { btn.disabled = false; btn.textContent = wasText; }
+        }
+
+        async function loadStoreSetting() {
+            const wrap = document.getElementById('set-store-form');
+            wrap.innerHTML = '<div class="text-center text-zinc-500 py-4 animate-pulse">กำลังโหลด...</div>';
+            try {
+                const res = await fetch('/api/admin/store-setting', { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'load failed');
+                const s = data.setting;
+                wrap.innerHTML = `
+                    <div><label class="text-[11px] text-zinc-400 block mb-1">เกณฑ์ stock ต่ำ (เตือนเตรียมเติม)</label><input id="ss-low" type="number" value="${s.lowStockThreshold}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    <div><label class="text-[11px] text-zinc-400 block mb-1">เกณฑ์ใกล้หมด (เตือน admin ด่วน)</label><input id="ss-out" type="number" value="${s.outOfStockThreshold}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    <div><label class="text-[11px] text-zinc-400 block mb-1">เวลาให้ลูกค้าชำระ (นาที, ก่อนยกเลิกออเดอร์)</label><input id="ss-exp" type="number" value="${s.orderExpiryMinutes}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    <div class="text-[10px] text-zinc-500">Admin ผู้รับออเดอร์ล่าสุด: <code>${_esc(s.lastAssignedAdminId||'—')}</code></div>
+                    <button onclick="saveStoreSetting()" class="w-full py-2.5 rounded-xl bg-slate-500 hover:bg-slate-400 text-white font-bold text-sm mt-2">บันทึก</button>`;
+            } catch (e) { wrap.innerHTML = `<div class="text-center text-red-400 py-4 text-sm">${_esc(e.message)}</div>`; }
+        }
+
+        async function saveStoreSetting() {
+            const v = (id) => document.getElementById(id)?.value;
+            try {
+                const res = await fetch('/api/admin/store-setting', {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ lowStockThreshold: v('ss-low'), outOfStockThreshold: v('ss-out'), orderExpiryMinutes: v('ss-exp'), initData: tg.initData }),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
+                alert('✅ บันทึกแล้ว');
+            } catch (e) { alert('error: '+e.message); }
+        }
+
+        let _editingBkId = null;
+        async function loadBankAccounts() {
+            const list = document.getElementById('set-bank-list');
+            list.innerHTML = '<div class="text-center text-zinc-500 py-6 animate-pulse">กำลังโหลด...</div>';
+            try {
+                const res = await fetch('/api/admin/bank-accounts', { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'load failed');
+                window._bkCache = data.accounts;
+                if (!data.accounts.length) { list.innerHTML = '<div class="text-center text-zinc-500 py-6 text-sm">ยังไม่มีบัญชี</div>'; return; }
+                list.innerHTML = data.accounts.map((b, idx) => `
+                    <div class="bg-white/5 border border-white/10 rounded-xl p-3 cursor-pointer hover:bg-white/10 item-fade-in" style="animation-delay:${idx*25}ms" onclick="openBkEdit(${b.id})">
+                        <div class="flex items-center justify-between mb-1">
+                            <div class="text-sm font-bold text-white truncate">${_esc(b.bankName)}</div>
+                            <span class="text-[10px] px-1.5 py-0.5 rounded ${b.isActive?'bg-emerald-500/20 text-emerald-300':'bg-zinc-500/30 text-zinc-300'}">${b.isActive?'Active':'Hidden'}</span>
+                        </div>
+                        <div class="text-[11px] text-zinc-400">${_esc(b.accountName)}</div>
+                        <div class="text-[11px] text-zinc-500"><code>${_esc(b.accountNumber)}</code> · PromptPay: <code>${_esc(b.promptPayId)}</code></div>
+                        ${(b.activeStartTime || b.activeEndTime) ? `<div class="text-[10px] text-zinc-600 mt-1">เปิดรับ ${_esc(b.activeStartTime||'00:00')}–${_esc(b.activeEndTime||'23:59')}</div>` : ''}
+                    </div>`).join('');
+            } catch (e) { list.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`; }
+        }
+
+        function openBkEdit(id) {
+            _editingBkId = id || null;
+            const isNew = !id;
+            const b = id ? (window._bkCache || []).find(x => x.id === id) || {} : {};
+            document.getElementById('bk-modal-content').innerHTML = `
+                <div class="flex items-start justify-between mb-3">
+                    <h3 class="text-base font-bold">${isNew?'➕ เพิ่มบัญชี':'✏️ แก้ไขบัญชี'}</h3>
+                    <button onclick="closeBkModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center"><i class="ri-close-line"></i></button>
+                </div>
+                <div class="space-y-3 text-sm">
+                    <div><label class="text-[11px] text-zinc-400 block mb-1">ธนาคาร *</label><input id="bk-bankName" type="text" value="${_esc(b.bankName||'')}" placeholder="ธนาคารกสิกรไทย" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    <div><label class="text-[11px] text-zinc-400 block mb-1">ชื่อบัญชี *</label><input id="bk-accountName" type="text" value="${_esc(b.accountName||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    <div><label class="text-[11px] text-zinc-400 block mb-1">เลขที่บัญชี *</label><input id="bk-accountNumber" type="text" value="${_esc(b.accountNumber||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    <div><label class="text-[11px] text-zinc-400 block mb-1">PromptPay ID (เบอร์/เลขผู้เสียภาษี) *</label><input id="bk-promptPayId" type="text" value="${_esc(b.promptPayId||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="text-[11px] text-zinc-400 block mb-1">ยอดต่ำสุดที่รับ ฿</label><input id="bk-min" type="number" step="0.01" value="${b.minAmount??0}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                        <div><label class="text-[11px] text-zinc-400 block mb-1">ยอดสูงสุดที่รับ ฿</label><input id="bk-max" type="number" step="0.01" value="${b.maxAmount??9999999}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="text-[11px] text-zinc-400 block mb-1">เริ่มรับ (HH:mm)</label><input id="bk-start" type="time" value="${_esc(b.activeStartTime||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                        <div><label class="text-[11px] text-zinc-400 block mb-1">สิ้นสุดรับ (HH:mm)</label><input id="bk-end" type="time" value="${_esc(b.activeEndTime||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    </div>
+                    <label class="flex items-center gap-2 pt-2 border-t border-white/10"><input id="bk-isActive" type="checkbox" ${(b.isActive!==false)?'checked':''} class="w-4 h-4 accent-slate-500"> Active</label>
+                </div>
+                <div class="mt-4 flex gap-2">
+                    ${!isNew ? `<button onclick="deleteBk()" class="px-3 py-2.5 rounded-xl bg-red-600/80 hover:bg-red-500 text-white"><i class="ri-delete-bin-line"></i></button>` : ''}
+                    <button onclick="closeBkModal()" class="flex-1 py-2.5 rounded-xl bg-zinc-700 text-white font-bold">ยกเลิก</button>
+                    <button onclick="saveBk()" class="flex-1 py-2.5 rounded-xl bg-slate-500 hover:bg-slate-400 text-white font-bold">${isNew?'เพิ่ม':'บันทึก'}</button>
+                </div>`;
+            document.body.classList.add('no-scroll');
+            document.getElementById('bk-modal').classList.remove('hidden');
+        }
+        function closeBkModal() { _editingBkId = null; document.body.classList.remove('no-scroll'); document.getElementById('bk-modal').classList.add('hidden'); }
+        async function saveBk() {
+            const v = (id) => document.getElementById(id)?.value;
+            const ck = (id) => document.getElementById(id)?.checked;
+            const body = {
+                bankName: v('bk-bankName'), accountName: v('bk-accountName'), accountNumber: v('bk-accountNumber'),
+                promptPayId: v('bk-promptPayId'),
+                minAmount: v('bk-min'), maxAmount: v('bk-max'),
+                activeStartTime: v('bk-start'), activeEndTime: v('bk-end'),
+                isActive: ck('bk-isActive'), initData: tg.initData,
+            };
+            try {
+                const url = _editingBkId ? `/api/admin/bank-accounts/${_editingBkId}` : '/api/admin/bank-accounts';
+                const method = _editingBkId ? 'PATCH' : 'POST';
+                const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                closeBkModal(); await loadBankAccounts();
+            } catch (e) { alert('error: '+e.message); }
+        }
+        async function deleteBk() {
+            if (!_editingBkId || !confirm('ลบบัญชีนี้?')) return;
+            try {
+                const res = await fetch(`/api/admin/bank-accounts/${_editingBkId}`, { method: 'DELETE', headers: {'Content-Type':'application/json', 'X-Init-Data': tg.initData}, body: JSON.stringify({initData: tg.initData}) });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                closeBkModal(); await loadBankAccounts();
+            } catch (e) { alert('error: '+e.message); }
         }
 
         // ---------- 📊 Owner Dashboard ----------
