@@ -3570,6 +3570,201 @@ router.get('/admin/dashboard/financial', async (req, res) => {
     }
 });
 
+// ---------- 🛍️ PRODUCTS ----------
+router.get('/admin/products', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const q = String(req.query.q || '').trim();
+        const where = q ? {
+            OR: [
+                { nameTh: { contains: q, mode: 'insensitive' } },
+                { nameEn: { contains: q, mode: 'insensitive' } },
+            ],
+        } : {};
+        const products = await prisma.product.findMany({
+            where,
+            include: { category: { select: { id: true, name: true } } },
+            orderBy: [{ status: 'asc' }, { id: 'desc' }],
+            take: 200,
+        });
+        res.json({ success: true, products: products.map(p => ({
+            id: p.id, nameTh: p.nameTh, nameEn: p.nameEn, imageUrl: p.imageUrl, status: p.status,
+            stockQuantity: p.stockQuantity, isNew: p.isNew, isHot: p.isHot,
+            allowCoupons: p.allowCoupons, nicotine: p.nicotine,
+            category: p.category,
+        })) });
+    } catch (e) {
+        console.error('admin products list error:', e);
+        res.status(500).json({ success: false, error: 'load failed' });
+    }
+});
+
+router.get('/admin/products/:id/detail', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const p = await prisma.product.findUnique({ where: { id: parseInt(req.params.id) } });
+        if (!p) return res.status(404).json({ success: false, error: 'ไม่พบสินค้า' });
+        res.json({ success: true, product: p });
+    } catch (e) {
+        res.status(500).json({ success: false, error: 'load failed' });
+    }
+});
+
+router.post('/admin/products', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const b = req.body || {};
+        if (!b.imageUrl || (!b.nameTh && !b.nameEn)) return res.status(400).json({ success: false, error: 'ต้องมี name + imageUrl' });
+        const data = sanitizeProductPayload(b);
+        const created = await prisma.product.create({ data });
+        res.json({ success: true, product: { id: created.id } });
+    } catch (e) {
+        console.error('admin product create error:', e);
+        res.status(500).json({ success: false, error: e.message || 'create failed' });
+    }
+});
+
+router.patch('/admin/products/:id', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const id = parseInt(req.params.id);
+        const exist = await prisma.product.findUnique({ where: { id } });
+        if (!exist) return res.status(404).json({ success: false, error: 'ไม่พบสินค้า' });
+        const data = sanitizeProductPayload(req.body || {});
+        const updated = await prisma.product.update({ where: { id }, data });
+        // realtime broadcast (เหมือน /products/:id/status)
+        try { req.app.get('socketio')?.emit('product_update', { id: updated.id, status: updated.status, stockQuantity: updated.stockQuantity }); } catch (e) {}
+        res.json({ success: true });
+    } catch (e) {
+        console.error('admin product update error:', e);
+        res.status(500).json({ success: false, error: e.message || 'update failed' });
+    }
+});
+
+router.delete('/admin/products/:id', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const id = parseInt(req.params.id);
+        const used = await prisma.orderItem.count({ where: { productId: id } });
+        if (used > 0) {
+            // soft delete via OUT_OF_STOCK + stock=0
+            await prisma.product.update({ where: { id }, data: { status: 'OUT_OF_STOCK', stockQuantity: 0 } });
+            return res.json({ success: true, softDeleted: true, used });
+        }
+        await prisma.product.delete({ where: { id } });
+        res.json({ success: true });
+    } catch (e) {
+        console.error('admin product delete error:', e);
+        res.status(500).json({ success: false, error: e.message || 'delete failed' });
+    }
+});
+
+function sanitizeProductPayload(b) {
+    const num = (v) => (v === '' || v == null ? null : Number(v));
+    const intOrNull = (v) => (v === '' || v == null ? null : parseInt(v));
+    return {
+        nameTh: b.nameTh ?? null, nameEn: b.nameEn ?? null,
+        tagline: b.tagline ?? null, taglineEn: b.taglineEn ?? null,
+        description: b.description ?? null, descriptionEn: b.descriptionEn ?? null,
+        imageUrl: b.imageUrl ?? undefined, flavorIconUrl: b.flavorIconUrl ?? null,
+        status: b.status === 'OUT_OF_STOCK' ? 'OUT_OF_STOCK' : 'IN_STOCK',
+        isNew: !!b.isNew, isHot: !!b.isHot,
+        stockQuantity: intOrNull(b.stockQuantity) ?? 0,
+        nicotine: intOrNull(b.nicotine),
+        coolnessLevel: intOrNull(b.coolnessLevel) ?? 0,
+        sweetnessLevel: intOrNull(b.sweetnessLevel) ?? 0,
+        flavorIntensityLevel: intOrNull(b.flavorIntensityLevel) ?? 0,
+        color: b.color ?? null, battery: b.battery ?? null, wattage: b.wattage ?? null,
+        allowCoupons: b.allowCoupons !== false,
+        categoryId: intOrNull(b.categoryId),
+    };
+}
+
+// ---------- 📂 CATEGORIES ----------
+router.get('/admin/categories', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const cats = await prisma.category.findMany({
+            include: { _count: { select: { products: true } } },
+            orderBy: [{ order: 'asc' }, { id: 'asc' }],
+        });
+        res.json({ success: true, categories: cats.map(c => ({
+            id: c.id, name: c.name, type: c.type, imageUrl: c.imageUrl, productIcon: c.productIcon,
+            order: c.order, price: Number(c.price), productCount: c._count.products,
+        })) });
+    } catch (e) {
+        res.status(500).json({ success: false, error: 'load failed' });
+    }
+});
+
+router.post('/admin/categories', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const b = req.body || {};
+        if (!b.name) return res.status(400).json({ success: false, error: 'ชื่อหมวดห้ามว่าง' });
+        const data = sanitizeCategoryPayload(b);
+        const created = await prisma.category.create({ data });
+        res.json({ success: true, category: { id: created.id } });
+    } catch (e) {
+        if (e.code === 'P2002') return res.status(400).json({ success: false, error: 'ชื่อหมวดซ้ำ' });
+        console.error('admin category create error:', e);
+        res.status(500).json({ success: false, error: e.message || 'create failed' });
+    }
+});
+
+router.patch('/admin/categories/:id', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const id = parseInt(req.params.id);
+        const exist = await prisma.category.findUnique({ where: { id } });
+        if (!exist) return res.status(404).json({ success: false, error: 'ไม่พบหมวด' });
+        const data = sanitizeCategoryPayload(req.body || {});
+        await prisma.category.update({ where: { id }, data });
+        res.json({ success: true });
+    } catch (e) {
+        if (e.code === 'P2002') return res.status(400).json({ success: false, error: 'ชื่อหมวดซ้ำ' });
+        console.error('admin category update error:', e);
+        res.status(500).json({ success: false, error: e.message || 'update failed' });
+    }
+});
+
+router.delete('/admin/categories/:id', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const id = parseInt(req.params.id);
+        const cnt = await prisma.product.count({ where: { categoryId: id } });
+        if (cnt > 0) return res.status(400).json({ success: false, error: `ลบไม่ได้ — มีสินค้า ${cnt} ชิ้นใช้หมวดนี้` });
+        await prisma.category.delete({ where: { id } });
+        res.json({ success: true });
+    } catch (e) {
+        console.error('admin category delete error:', e);
+        res.status(500).json({ success: false, error: e.message || 'delete failed' });
+    }
+});
+
+function sanitizeCategoryPayload(b) {
+    const num = (v) => (v === '' || v == null ? 0 : Number(v));
+    const intOrNull = (v) => (v === '' || v == null ? null : parseInt(v));
+    const allowedTypes = ['POD', 'DEVICE', 'DISPOSABLE'];
+    return {
+        name: b.name ?? undefined,
+        type: allowedTypes.includes(b.type) ? b.type : undefined,
+        imageUrl: b.imageUrl ?? null,
+        productIcon: b.productIcon ?? null,
+        order: intOrNull(b.order) ?? 0,
+        price: num(b.price),
+    };
+}
+
 // GET /admin/category-options — สำหรับเลือกใน coupon form (giftCategoryId / targetCategoryId)
 router.get('/admin/category-options', async (req, res) => {
     const a = await authAdmin(req);

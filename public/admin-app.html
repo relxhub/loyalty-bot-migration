@@ -127,6 +127,24 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
+            <button onclick="showView('products')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+                <div class="w-12 h-12 rounded-xl bg-pink-500/20 flex items-center justify-center text-2xl">🛍️</div>
+                <div class="flex-1">
+                    <div class="font-bold text-white text-sm">จัดการสินค้า</div>
+                    <div class="text-[11px] text-zinc-400">เพิ่ม/แก้ไข/ลบ + จัดสต็อก</div>
+                </div>
+                <i class="ri-arrow-right-s-line text-zinc-400"></i>
+            </button>
+
+            <button onclick="showView('categories')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+                <div class="w-12 h-12 rounded-xl bg-cyan-500/20 flex items-center justify-center text-2xl">📂</div>
+                <div class="flex-1">
+                    <div class="font-bold text-white text-sm">จัดการหมวดหมู่</div>
+                    <div class="text-[11px] text-zinc-400">หมวดสินค้า + รูป + ราคาฐาน</div>
+                </div>
+                <i class="ri-arrow-right-s-line text-zinc-400"></i>
+            </button>
+
             <!-- Owner-only: financial dashboard -->
             <button id="menu-dashboard" onclick="showView('dashboard')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden border-yellow-500/40">
                 <div class="w-12 h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center text-2xl">📊</div>
@@ -202,6 +220,25 @@
             <div id="cpn-list" class="space-y-2"></div>
         </div>
 
+        <!-- 🛍️ Products view -->
+        <div id="view-products" class="hidden">
+            <div class="flex items-center justify-between mb-3">
+                <div class="font-bold text-sm flex items-center gap-2"><i class="ri-shopping-bag-line text-pink-400"></i> สินค้าทั้งหมด</div>
+                <button onclick="openProdEdit()" class="text-xs px-3 py-1.5 rounded-full bg-pink-500 hover:bg-pink-400 text-white font-bold"><i class="ri-add-line"></i> สร้างใหม่</button>
+            </div>
+            <input id="prod-search" type="text" placeholder="ค้นหาสินค้า..." class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-sm text-white placeholder-zinc-500 focus:border-pink-400 focus:outline-none mb-2">
+            <div id="prod-list" class="space-y-2"></div>
+        </div>
+
+        <!-- 📂 Categories view -->
+        <div id="view-categories" class="hidden">
+            <div class="flex items-center justify-between mb-3">
+                <div class="font-bold text-sm flex items-center gap-2"><i class="ri-folder-line text-cyan-400"></i> หมวดหมู่ทั้งหมด</div>
+                <button onclick="openCatEdit()" class="text-xs px-3 py-1.5 rounded-full bg-cyan-500 hover:bg-cyan-400 text-black font-bold"><i class="ri-add-line"></i> สร้างใหม่</button>
+            </div>
+            <div id="cat-list" class="space-y-2"></div>
+        </div>
+
         <!-- 🎁 Mystery Boxes view -->
         <div id="view-mystery-boxes" class="hidden">
             <div class="flex items-center justify-between mb-3">
@@ -255,6 +292,16 @@
         <div id="ord-modal-content" class="glass-card w-full max-w-md max-h-[95vh] overflow-y-auto p-4 rounded-t-3xl sm:rounded-2xl"></div>
     </div>
 
+    <!-- 🛍️ Product Edit Modal -->
+    <div id="prod-modal" class="hidden fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-sm">
+        <div id="prod-modal-content" class="glass-card w-full max-w-md max-h-[92vh] overflow-y-auto p-5 rounded-t-3xl sm:rounded-2xl"></div>
+    </div>
+
+    <!-- 📂 Category Edit Modal -->
+    <div id="cat-modal" class="hidden fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-sm">
+        <div id="cat-modal-content" class="glass-card w-full max-w-sm p-5 rounded-t-3xl sm:rounded-2xl"></div>
+    </div>
+
     <!-- 🖼️ Slip Image Lightbox -->
     <div id="img-lightbox" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4" onclick="this.classList.add('hidden')">
         <img id="img-lightbox-src" src="" class="max-w-full max-h-full object-contain rounded-lg">
@@ -291,6 +338,10 @@
         let _searchDebounce = null;
         let _currentOrdTab = 'NEEDS_VERIFY';
         let _ordSearchDebounce = null;
+        let _prodSearchDebounce = null;
+        let _editingProdId = null;
+        let _editingCatId = null;
+        let _catOptionsCache = [];
 
         // ---------- View routing ----------
         function showView(name) {
@@ -304,6 +355,8 @@
             else if (name === 'mystery-boxes') loadMysteryBoxes();
             else if (name === 'dashboard') loadDashboard();
             else if (name === 'orders') loadOrders();
+            else if (name === 'products') loadAdminProducts();
+            else if (name === 'categories') loadAdminCategories();
         }
         function goHome() { showView('home'); loadShipmentsBadge(); loadOrdersBadge(); }
 
@@ -461,6 +514,12 @@
             document.getElementById('prize-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closePrizeModal(); });
             document.getElementById('cpn-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeCpnModal(); });
             document.getElementById('ord-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeOrdModal(); });
+            document.getElementById('prod-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeProdModal(); });
+            document.getElementById('cat-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeCatModal(); });
+            document.getElementById('prod-search').addEventListener('input', (e) => {
+                clearTimeout(_prodSearchDebounce);
+                _prodSearchDebounce = setTimeout(() => loadAdminProducts(), 300);
+            });
         });
 
         // ---------- 👥 Customers ----------
@@ -884,6 +943,283 @@
             const v = document.getElementById('ord-track-input').value.trim();
             if (!v) return alert('ใส่เลขพัสดุก่อน');
             ordAction('set-tracking', { trackingNumber: v }, 'ใส่เลขพัสดุนี้และเปลี่ยนสถานะเป็น "จัดส่งแล้ว"?');
+        }
+
+        // ---------- 🛍️ Products ----------
+        async function loadAdminProducts() {
+            const list = document.getElementById('prod-list');
+            list.innerHTML = '<div class="text-center text-zinc-500 py-6 animate-pulse">กำลังโหลด...</div>';
+            const q = document.getElementById('prod-search').value.trim();
+            try {
+                const res = await fetch(`/api/admin/products${q ? '?q=' + encodeURIComponent(q) : ''}`, { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'load failed');
+                window._prodCache = data.products;
+                if (!data.products.length) { list.innerHTML = '<div class="text-center text-zinc-500 py-6 text-sm">ไม่มีสินค้า</div>'; return; }
+                list.innerHTML = data.products.map((p, idx) => {
+                    const isOut = p.status === 'OUT_OF_STOCK';
+                    const tags = [];
+                    if (p.isHot) tags.push('<span class="text-[9px] px-1 py-0.5 rounded bg-red-500/20 text-red-300">HOT</span>');
+                    if (p.isNew) tags.push('<span class="text-[9px] px-1 py-0.5 rounded bg-blue-500/20 text-blue-300">NEW</span>');
+                    if (!p.allowCoupons) tags.push('<span class="text-[9px] px-1 py-0.5 rounded bg-zinc-500/20 text-zinc-300">no-coupon</span>');
+                    return `
+                    <div class="bg-white/5 border border-white/10 rounded-xl p-2.5 flex items-center gap-2.5 cursor-pointer hover:bg-white/10 item-fade-in" style="animation-delay:${idx*20}ms" onclick="openProdEdit(${p.id})">
+                        <img src="${_esc(p.imageUrl)}" class="w-12 h-12 rounded object-cover ${isOut?'opacity-40':''}">
+                        <div class="flex-1 min-w-0">
+                            <div class="text-xs font-bold text-white truncate">${_esc(p.nameTh || p.nameEn || '—')}</div>
+                            <div class="text-[10px] text-zinc-500">${_esc(p.category?.name||'ไม่มีหมวด')} · stock ${p.stockQuantity}</div>
+                            <div class="flex flex-wrap gap-1 mt-0.5">${tags.join('')}</div>
+                        </div>
+                        <label class="switch flex-shrink-0" onclick="event.stopPropagation()">
+                            <input type="checkbox" ${!isOut?'checked':''} onchange="toggleProdStock(${p.id}, this)">
+                            <span class="slider"></span>
+                        </label>
+                    </div>`;
+                }).join('');
+            } catch (e) { list.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`; }
+        }
+
+        async function toggleProdStock(id, cb) {
+            cb.disabled = true;
+            try {
+                const res = await fetch(`/api/admin/products/${id}`, {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: cb.checked ? 'IN_STOCK' : 'OUT_OF_STOCK', initData: tg.initData }),
+                });
+                const data = await res.json();
+                if (!data.success) { cb.checked = !cb.checked; alert(data.error||'ไม่สำเร็จ'); }
+                else { try { tg.hapticFeedback?.impactOccurred?.('light'); } catch (e) {} }
+            } catch (e) { cb.checked = !cb.checked; alert('error: '+e.message); }
+            finally { cb.disabled = false; }
+        }
+
+        async function openProdEdit(id) {
+            _editingProdId = id || null;
+            const isNew = !id;
+            // โหลด categories ถ้ายังไม่มี
+            if (!_catOptionsCache.length) {
+                try {
+                    const r = await fetch('/api/admin/category-options', { headers: { 'X-Init-Data': tg.initData } });
+                    const d = await r.json();
+                    if (d.success) _catOptionsCache = d.categories || [];
+                } catch (e) {}
+            }
+            let p = {};
+            if (!isNew) {
+                try {
+                    const r = await fetch(`/api/admin/products/${id}/detail`, { headers: { 'X-Init-Data': tg.initData } });
+                    const d = await r.json();
+                    if (d.success) p = d.product;
+                } catch (e) {}
+            }
+            const catOpts = ['<option value="">— ไม่กำหนด —</option>',
+                ..._catOptionsCache.map(c => `<option value="${c.id}" ${Number(p.categoryId)===c.id?'selected':''}>${_esc(c.name)}</option>`)
+            ].join('');
+            const html = `
+                <div class="flex items-start justify-between mb-3">
+                    <h3 class="text-base font-bold">${isNew?'➕ สร้างสินค้าใหม่':'✏️ แก้ไข ' + _esc(p.nameTh||p.nameEn||'')}</h3>
+                    <button onclick="closeProdModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center"><i class="ri-close-line"></i></button>
+                </div>
+                <div class="space-y-3 text-sm">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="text-[11px] text-zinc-400 block mb-1">ชื่อ TH *</label><input id="pd-nameTh" type="text" value="${_esc(p.nameTh||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                        <div><label class="text-[11px] text-zinc-400 block mb-1">ชื่อ EN</label><input id="pd-nameEn" type="text" value="${_esc(p.nameEn||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    </div>
+                    <div><label class="text-[11px] text-zinc-400 block mb-1">URL รูป *</label><input id="pd-imageUrl" type="text" value="${_esc(p.imageUrl||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    <div><label class="text-[11px] text-zinc-400 block mb-1">หมวด</label><select id="pd-categoryId" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">${catOpts}</select></div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="text-[11px] text-zinc-400 block mb-1">tagline TH</label><input id="pd-tagline" type="text" value="${_esc(p.tagline||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                        <div><label class="text-[11px] text-zinc-400 block mb-1">tagline EN</label><input id="pd-taglineEn" type="text" value="${_esc(p.taglineEn||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="text-[11px] text-zinc-400 block mb-1">stock</label><input id="pd-stockQuantity" type="number" value="${p.stockQuantity??0}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                        <div><label class="text-[11px] text-zinc-400 block mb-1">นิโคติน %</label><input id="pd-nicotine" type="number" value="${p.nicotine??''}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div><label class="text-[10px] text-zinc-400 block mb-1">cool 0-5</label><input id="pd-coolnessLevel" type="number" min="0" max="5" value="${p.coolnessLevel??0}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                        <div><label class="text-[10px] text-zinc-400 block mb-1">sweet 0-5</label><input id="pd-sweetnessLevel" type="number" min="0" max="5" value="${p.sweetnessLevel??0}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                        <div><label class="text-[10px] text-zinc-400 block mb-1">flavor 0-5</label><input id="pd-flavorIntensityLevel" type="number" min="0" max="5" value="${p.flavorIntensityLevel??0}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div><label class="text-[10px] text-zinc-400 block mb-1">color</label><input id="pd-color" type="text" value="${_esc(p.color||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                        <div><label class="text-[10px] text-zinc-400 block mb-1">battery</label><input id="pd-battery" type="text" value="${_esc(p.battery||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                        <div><label class="text-[10px] text-zinc-400 block mb-1">wattage</label><input id="pd-wattage" type="text" value="${_esc(p.wattage||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    </div>
+                    <div class="flex flex-wrap gap-3 pt-2 border-t border-white/10">
+                        <label class="flex items-center gap-2"><input id="pd-status" type="checkbox" ${(p.status!=='OUT_OF_STOCK')?'checked':''} class="w-4 h-4 accent-pink-500"> มีสินค้า</label>
+                        <label class="flex items-center gap-2"><input id="pd-isNew" type="checkbox" ${p.isNew?'checked':''} class="w-4 h-4 accent-pink-500"> NEW</label>
+                        <label class="flex items-center gap-2"><input id="pd-isHot" type="checkbox" ${p.isHot?'checked':''} class="w-4 h-4 accent-pink-500"> HOT</label>
+                        <label class="flex items-center gap-2"><input id="pd-allowCoupons" type="checkbox" ${(p.allowCoupons!==false)?'checked':''} class="w-4 h-4 accent-pink-500"> ใช้คูปองได้</label>
+                    </div>
+                </div>
+                <div class="mt-4 flex gap-2">
+                    ${!isNew ? `<button onclick="deleteProd()" class="px-3 py-2.5 rounded-xl bg-red-600/80 hover:bg-red-500 text-white"><i class="ri-delete-bin-line"></i></button>` : ''}
+                    <button onclick="closeProdModal()" class="flex-1 py-2.5 rounded-xl bg-zinc-700 text-white font-bold">ยกเลิก</button>
+                    <button id="pd-save-btn" onclick="saveProd()" class="flex-1 py-2.5 rounded-xl bg-pink-500 hover:bg-pink-400 text-white font-bold">${isNew?'สร้าง':'บันทึก'}</button>
+                </div>`;
+            document.getElementById('prod-modal-content').innerHTML = html;
+            document.body.classList.add('no-scroll');
+            document.getElementById('prod-modal').classList.remove('hidden');
+        }
+
+        function closeProdModal() {
+            _editingProdId = null;
+            document.body.classList.remove('no-scroll');
+            document.getElementById('prod-modal').classList.add('hidden');
+        }
+
+        async function saveProd() {
+            const btn = document.getElementById('pd-save-btn');
+            btn.disabled = true; const wasText = btn.textContent; btn.textContent = 'กำลังบันทึก...';
+            const v = (id) => document.getElementById(id)?.value;
+            const ck = (id) => document.getElementById(id)?.checked;
+            const body = {
+                nameTh: v('pd-nameTh'), nameEn: v('pd-nameEn'),
+                tagline: v('pd-tagline'), taglineEn: v('pd-taglineEn'),
+                imageUrl: v('pd-imageUrl'), categoryId: v('pd-categoryId'),
+                stockQuantity: v('pd-stockQuantity'), nicotine: v('pd-nicotine'),
+                coolnessLevel: v('pd-coolnessLevel'), sweetnessLevel: v('pd-sweetnessLevel'), flavorIntensityLevel: v('pd-flavorIntensityLevel'),
+                color: v('pd-color'), battery: v('pd-battery'), wattage: v('pd-wattage'),
+                status: ck('pd-status') ? 'IN_STOCK' : 'OUT_OF_STOCK',
+                isNew: ck('pd-isNew'), isHot: ck('pd-isHot'),
+                allowCoupons: ck('pd-allowCoupons'),
+                initData: tg.initData,
+            };
+            try {
+                const url = _editingProdId ? `/api/admin/products/${_editingProdId}` : '/api/admin/products';
+                const method = _editingProdId ? 'PATCH' : 'POST';
+                const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); btn.disabled=false; btn.textContent=wasText; return; }
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
+                closeProdModal();
+                await loadAdminProducts();
+            } catch (e) { alert('error: '+e.message); btn.disabled=false; btn.textContent=wasText; }
+        }
+
+        async function deleteProd() {
+            if (!_editingProdId) return;
+            if (!confirm('ลบสินค้า?\n(ถ้าเคยขายแล้ว จะถูกตั้ง OUT_OF_STOCK แทน)')) return;
+            try {
+                const res = await fetch(`/api/admin/products/${_editingProdId}`, {
+                    method: 'DELETE', headers: {'Content-Type':'application/json', 'X-Init-Data': tg.initData},
+                    body: JSON.stringify({ initData: tg.initData }),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                if (data.softDeleted) alert('Soft-deleted (เคยขายแล้ว ' + data.used + ' ครั้ง)');
+                closeProdModal();
+                await loadAdminProducts();
+            } catch (e) { alert('error: '+e.message); }
+        }
+
+        // ---------- 📂 Categories ----------
+        async function loadAdminCategories() {
+            const list = document.getElementById('cat-list');
+            list.innerHTML = '<div class="text-center text-zinc-500 py-6 animate-pulse">กำลังโหลด...</div>';
+            try {
+                const res = await fetch('/api/admin/categories', { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'load failed');
+                _catOptionsCache = data.categories.map(c => ({ id: c.id, name: c.name })); // refresh cache for product modal
+                window._catFullCache = data.categories;
+                if (!data.categories.length) { list.innerHTML = '<div class="text-center text-zinc-500 py-6 text-sm">ไม่มีหมวด</div>'; return; }
+                list.innerHTML = data.categories.map((c, idx) => `
+                    <div class="bg-white/5 border border-white/10 rounded-xl p-3 flex items-center gap-3 cursor-pointer hover:bg-white/10 item-fade-in" style="animation-delay:${idx*25}ms" onclick="openCatEdit(${c.id})">
+                        ${c.imageUrl ? `<img src="${_esc(c.imageUrl)}" class="w-10 h-10 rounded object-cover">` : '<div class="w-10 h-10 rounded bg-cyan-500/20 flex items-center justify-center text-base">📂</div>'}
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-bold text-white truncate">${_esc(c.name)}</div>
+                            <div class="text-[10px] text-zinc-500">${c.type} · ลำดับ ${c.order} · ราคาฐาน ฿${_fmt(c.price)} · สินค้า ${c.productCount}</div>
+                        </div>
+                        <i class="ri-arrow-right-s-line text-zinc-500"></i>
+                    </div>`).join('');
+            } catch (e) { list.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`; }
+        }
+
+        function openCatEdit(id) {
+            _editingCatId = id || null;
+            const isNew = !id;
+            const c = id ? (window._catFullCache || []).find(x => x.id === id) || {} : {};
+            // ถ้ายังไม่มี full cache ให้ fetch ใหม่ก่อน
+            if (id && !c.name) {
+                fetch('/api/admin/categories', { headers: {'X-Init-Data': tg.initData} })
+                    .then(r => r.json()).then(d => {
+                        if (d.success) { window._catFullCache = d.categories; openCatEdit(id); }
+                    });
+                return;
+            }
+            const html = `
+                <div class="flex items-start justify-between mb-3">
+                    <h3 class="text-base font-bold">${isNew?'➕ สร้างหมวดใหม่':'✏️ แก้ไข ' + _esc(c.name||'')}</h3>
+                    <button onclick="closeCatModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center"><i class="ri-close-line"></i></button>
+                </div>
+                <div class="space-y-3 text-sm">
+                    <div><label class="text-[11px] text-zinc-400 block mb-1">ชื่อหมวด *</label><input id="ct-name" type="text" value="${_esc(c.name||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    <div><label class="text-[11px] text-zinc-400 block mb-1">ประเภท</label>
+                        <select id="ct-type" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                            ${['POD','DEVICE','DISPOSABLE'].map(t => `<option value="${t}" ${(c.type||'POD')===t?'selected':''}>${t}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div><label class="text-[11px] text-zinc-400 block mb-1">URL รูปหมวด</label><input id="ct-imageUrl" type="text" value="${_esc(c.imageUrl||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    <div><label class="text-[11px] text-zinc-400 block mb-1">URL ไอคอนสินค้าตัวแทน (fly-to-cart)</label><input id="ct-productIcon" type="text" value="${_esc(c.productIcon||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="text-[11px] text-zinc-400 block mb-1">ลำดับแสดงผล</label><input id="ct-order" type="number" value="${c.order??0}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                        <div><label class="text-[11px] text-zinc-400 block mb-1">ราคาฐาน ฿</label><input id="ct-price" type="number" step="0.01" value="${c.price??0}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    </div>
+                </div>
+                <div class="mt-4 flex gap-2">
+                    ${!isNew ? `<button onclick="deleteCat()" class="px-3 py-2.5 rounded-xl bg-red-600/80 hover:bg-red-500 text-white"><i class="ri-delete-bin-line"></i></button>` : ''}
+                    <button onclick="closeCatModal()" class="flex-1 py-2.5 rounded-xl bg-zinc-700 text-white font-bold">ยกเลิก</button>
+                    <button id="ct-save-btn" onclick="saveCat()" class="flex-1 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold">${isNew?'สร้าง':'บันทึก'}</button>
+                </div>`;
+            document.getElementById('cat-modal-content').innerHTML = html;
+            document.body.classList.add('no-scroll');
+            document.getElementById('cat-modal').classList.remove('hidden');
+        }
+
+        function closeCatModal() {
+            _editingCatId = null;
+            document.body.classList.remove('no-scroll');
+            document.getElementById('cat-modal').classList.add('hidden');
+        }
+
+        async function saveCat() {
+            const btn = document.getElementById('ct-save-btn');
+            btn.disabled = true; const wasText = btn.textContent; btn.textContent = 'กำลังบันทึก...';
+            const v = (id) => document.getElementById(id)?.value;
+            const body = {
+                name: v('ct-name'), type: v('ct-type'),
+                imageUrl: v('ct-imageUrl'), productIcon: v('ct-productIcon'),
+                order: v('ct-order'), price: v('ct-price'),
+                initData: tg.initData,
+            };
+            try {
+                const url = _editingCatId ? `/api/admin/categories/${_editingCatId}` : '/api/admin/categories';
+                const method = _editingCatId ? 'PATCH' : 'POST';
+                const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); btn.disabled=false; btn.textContent=wasText; return; }
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
+                window._catFullCache = null; // invalidate
+                closeCatModal();
+                await loadAdminCategories();
+            } catch (e) { alert('error: '+e.message); btn.disabled=false; btn.textContent=wasText; }
+        }
+
+        async function deleteCat() {
+            if (!_editingCatId) return;
+            if (!confirm('ลบหมวดนี้?')) return;
+            try {
+                const res = await fetch(`/api/admin/categories/${_editingCatId}`, {
+                    method: 'DELETE', headers: {'Content-Type':'application/json', 'X-Init-Data': tg.initData},
+                    body: JSON.stringify({ initData: tg.initData }),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                window._catFullCache = null;
+                closeCatModal();
+                await loadAdminCategories();
+            } catch (e) { alert('error: '+e.message); }
         }
 
         // ---------- 📊 Owner Dashboard ----------
