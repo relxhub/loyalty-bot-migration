@@ -176,6 +176,11 @@ export async function validateCouponForCart(customerId, couponId, cartItems, tot
         throw new Error('ไม่พบคูปองนี้ในกระเป๋าของคุณ');
     }
 
+    // 0. กล่องสุ่มที่ยังไม่ได้เปิด — ใช้ไม่ได้
+    if (customerCoupon.isMysteryBoxLocked) {
+        throw new Error('กล่องสุ่มยังไม่ได้เปิด — กรุณาเปิดกล่องในหน้า "คูปองของฉัน" ก่อน');
+    }
+
     const { coupon } = customerCoupon;
     const now = new Date();
 
@@ -322,6 +327,9 @@ export async function getBestCoupon(customerId, cartItems, totalAmount) {
     for (const item of availableCoupons) {
         const { coupon } = item;
         let currentSaving = 0;
+
+        // 0a. กล่องสุ่มที่ยังไม่ได้เปิด — ใช้ไม่ได้
+        if (item.isMysteryBoxLocked) continue;
 
         // 0. ตรวจสอบวันเริ่มใช้งาน (เพราะ getCustomerCoupons ดึงอันที่ยังไม่เริ่มมาด้วย)
         if (coupon.validFrom && new Date(coupon.validFrom) > now) continue;
@@ -686,6 +694,7 @@ export async function grantRewardCoupons({ event, referrerId, refereeId, eligibl
                             expiryDate,
                             sourceReferralId: referralRowId,
                             sourceEvent: event,
+                            isMysteryBoxLocked: !!coupon.isMysteryBox,
                         },
                     });
 
@@ -749,6 +758,8 @@ async function sendRewardCouponNotif({ coupon, recipientId, recipientRole, refer
         maximumFractionDigits: 2
     });
 
+    const isMystery = !!coupon.isMysteryBox;
+
     let rewardLabel = '';
     if (coupon.type === 'GIFT') {
         const qty = coupon.giftQty && coupon.giftQty > 1 ? ` x${coupon.giftQty}` : '';
@@ -759,26 +770,42 @@ async function sendRewardCouponNotif({ coupon, recipientId, recipientRole, refer
         rewardLabel = `ลด ฿${fmt(coupon.value)}`;
     }
 
-    const title = '🎁 ได้รับคูปองพิเศษ!';
+    // Mystery Box → ปกปิดของรางวัล ให้ลูกค้าตื่นเต้นเปิดเอง
+    const title = isMystery ? '🎁 ได้รับกล่องสุ่มพิเศษ!' : '🎁 ได้รับคูปองพิเศษ!';
     let body;
-    if (recipientRole === 'REFERRER') {
-        body = `เพื่อนของคุณ (${refereeId}) ซื้อครั้งแรกสำเร็จแล้ว\nคุณได้รับ: ${coupon.name} (${rewardLabel})`;
-    } else if (recipientRole === 'REFEREE') {
-        body = `ขอบคุณที่สมัครผ่านลิงก์ของ ${referrerId}\nคุณได้รับ: ${coupon.name} (${rewardLabel})`;
+    if (isMystery) {
+        if (recipientRole === 'REFERRER') {
+            body = `เพื่อนของคุณ (${refereeId}) ซื้อครั้งแรกสำเร็จแล้ว\nคุณได้รับ "กล่องสุ่ม" — เปิดใน "คูปองของฉัน" เพื่อลุ้นรางวัล`;
+        } else if (recipientRole === 'REFEREE') {
+            body = `ขอบคุณที่สมัครผ่านลิงก์ของ ${referrerId}\nคุณได้รับ "กล่องสุ่ม" — เปิดใน "คูปองของฉัน" เพื่อลุ้นรางวัล`;
+        } else {
+            body = `คุณได้รับ "กล่องสุ่ม" — เปิดใน "คูปองของฉัน" เพื่อลุ้นรางวัล`;
+        }
     } else {
-        body = `คุณได้รับ: ${coupon.name} (${rewardLabel})`;
-    }
-    if (coupon.validityDays) {
-        body += `\nใช้ภายใน ${coupon.validityDays} วันหลังได้รับ`;
+        if (recipientRole === 'REFERRER') {
+            body = `เพื่อนของคุณ (${refereeId}) ซื้อครั้งแรกสำเร็จแล้ว\nคุณได้รับ: ${coupon.name} (${rewardLabel})`;
+        } else if (recipientRole === 'REFEREE') {
+            body = `ขอบคุณที่สมัครผ่านลิงก์ของ ${referrerId}\nคุณได้รับ: ${coupon.name} (${rewardLabel})`;
+        } else {
+            body = `คุณได้รับ: ${coupon.name} (${rewardLabel})`;
+        }
+        if (coupon.validityDays) {
+            body += `\nใช้ภายใน ${coupon.validityDays} วันหลังได้รับ`;
+        }
     }
 
-    const telegramText =
-        `🎁 <b>ได้รับคูปองพิเศษ!</b>\n\n` +
-        (recipientRole === 'REFERRER'
-            ? `เพื่อนของคุณ (<code>${refereeId}</code>) ซื้อครั้งแรกสำเร็จแล้ว\n`
-            : `ขอบคุณที่สมัครผ่านลิงก์ของ <code>${referrerId}</code>\n`) +
-        `\n<b>${escapeHtml(coupon.name)}</b>\n${escapeHtml(rewardLabel)}\n` +
-        (coupon.validityDays ? `\n⏱ ใช้ภายใน ${coupon.validityDays} วัน` : '');
+    const telegramText = isMystery
+        ? `🎁 <b>ได้รับกล่องสุ่มพิเศษ!</b>\n\n` +
+          (recipientRole === 'REFERRER'
+              ? `เพื่อนของคุณ (<code>${refereeId}</code>) ซื้อครั้งแรกสำเร็จแล้ว\n\n`
+              : `ขอบคุณที่สมัครผ่านลิงก์ของ <code>${referrerId}</code>\n\n`) +
+          `📦 เปิดที่ "คูปองของฉัน" เพื่อลุ้นรางวัลพิเศษ ✨`
+        : `🎁 <b>ได้รับคูปองพิเศษ!</b>\n\n` +
+          (recipientRole === 'REFERRER'
+              ? `เพื่อนของคุณ (<code>${refereeId}</code>) ซื้อครั้งแรกสำเร็จแล้ว\n`
+              : `ขอบคุณที่สมัครผ่านลิงก์ของ <code>${referrerId}</code>\n`) +
+          `\n<b>${escapeHtml(coupon.name)}</b>\n${escapeHtml(rewardLabel)}\n` +
+          (coupon.validityDays ? `\n⏱ ใช้ภายใน ${coupon.validityDays} วัน` : '');
 
     await notifyCustomer({
         customerId: recipientId,
@@ -786,7 +813,7 @@ async function sendRewardCouponNotif({ coupon, recipientId, recipientRole, refer
         title,
         body,
         link: 'dashboard.html',
-        payload: { couponId: coupon.id, role: recipientRole, referralRowId },
+        payload: { couponId: coupon.id, role: recipientRole, referralRowId, mystery: isMystery },
         entityKey: `coupon:${coupon.id}:ref:${referralRowId || 'na'}:role:${recipientRole}`,
         telegramText,
     });

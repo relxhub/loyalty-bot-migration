@@ -512,6 +512,25 @@
             </div>
         </div>
 
+        <!-- 🏆 Tier Streak (Bronze/Silver/Gold ตามจำนวนเพื่อนที่ชวนสำเร็จเดือนนี้) -->
+        <div id="tier-card" class="glass-card p-5 hidden">
+            <div class="flex items-center justify-between mb-3">
+                <div class="font-semibold text-sm flex items-center gap-2">
+                    <i id="tier-icon" class="ri-medal-fill text-2xl"></i>
+                    <span><span data-i18n="referral.tier_label">ระดับนักชวน</span> · <span id="tier-name" class="font-bold">Bronze</span></span>
+                </div>
+                <span id="tier-count-badge" class="text-[10px] px-2 py-0.5 rounded-full bg-white/10">0 เดือนนี้</span>
+            </div>
+            <p id="tier-tagline" class="text-[11px] text-zinc-400 mb-3"></p>
+            <div class="mb-1.5 flex items-center justify-between text-[11px]">
+                <span class="text-zinc-300"><span data-i18n="referral.tier_progress_label">อีก</span> <span id="tier-remaining">3</span> <span data-i18n="referral.unit_people">คน</span> <span data-i18n="referral.tier_to_next">เพื่อขึ้นระดับถัดไป</span></span>
+                <span id="tier-progress-pct" class="font-bold">0%</span>
+            </div>
+            <div class="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+                <div id="tier-progress-fill" class="h-full bg-gradient-to-r from-yellow-400 to-orange-500 transition-all duration-500" style="width:0%"></div>
+            </div>
+        </div>
+
         <!-- 🎁 Reward Coupons Box (dynamic — โชว์เฉพาะถ้ามีคูปองตั้งค่าไว้) -->
         <div id="reward-coupons-box" class="glass-card p-5 hidden">
             <div class="flex justify-between items-center mb-4">
@@ -801,9 +820,11 @@
 
         function renderUser(user) {
             // 1. Invite Link
+            // ใช้ startapp= → เปิด mini app ตรงๆ (ไม่ส่ง /start เข้าบอท)
+            // (handler /start เก่ายังอยู่ใน customer.handlers.js เผื่อมีคนใช้ลิงก์เก่า)
             const botUsername = getConfig('orderBotUsername', 'YOUR_ORDER_BOT_USERNAME_HERE');
             const userId = user.customerId || 'UNKNOWN';
-            const inviteLink = `https://t.me/${botUsername}?start=ref_${userId}`;
+            const inviteLink = `https://t.me/${botUsername}?startapp=ref_${userId}`;
             document.getElementById('invite-link').value = inviteLink;
 
             // 2. Stats
@@ -815,6 +836,9 @@
             document.getElementById('referral-total-month').innerText = monthRefs.toLocaleString();
             document.getElementById('referral-base-points').innerText = `+${basePts}`;
             document.getElementById('referral-list-count').innerText = `${totalRefs.toLocaleString()} คน`;
+
+            // Tier streak
+            renderTier(monthRefs);
 
             // 3. Mission Box (v2)
             const missionBox = document.getElementById('mission-box');
@@ -868,6 +892,41 @@
                     window._missionCountdownTimer = null;
                 }
             }
+        }
+
+        // ========== 🏆 TIER STREAK ==========
+        // ระดับขึ้นกับ "จำนวนเพื่อนที่ชวนสำเร็จในเดือนนี้"
+        // Bronze 0-2, Silver 3-5, Gold 6+
+        function computeTier(monthCount) {
+            const n = parseInt(monthCount) || 0;
+            if (n >= 6) {
+                return { name: 'Gold', icon: 'ri-vip-crown-fill', color: 'text-yellow-300', tagline: 'ระดับสูงสุด — ขอบคุณที่เป็นกองหนุนของร้าน 🏆', current: n, nextThreshold: null, remaining: 0, pct: 100 };
+            }
+            if (n >= 3) {
+                const remaining = 6 - n;
+                return { name: 'Silver', icon: 'ri-medal-2-fill', color: 'text-zinc-300', tagline: 'อีก ' + remaining + ' คน ขึ้น Gold', current: n, nextThreshold: 6, remaining, pct: Math.round(((n - 3) / 3) * 100) };
+            }
+            const remaining = 3 - n;
+            return { name: 'Bronze', icon: 'ri-medal-fill', color: 'text-orange-400', tagline: 'อีก ' + remaining + ' คน ขึ้น Silver', current: n, nextThreshold: 3, remaining, pct: Math.round((n / 3) * 100) };
+        }
+
+        function renderTier(monthCount) {
+            const card = document.getElementById('tier-card');
+            if (!card) return;
+            const t = computeTier(monthCount);
+            const lang = window.appConfig?.lang || 'th';
+            document.getElementById('tier-icon').className = `${t.icon} text-2xl ${t.color}`;
+            document.getElementById('tier-name').textContent = t.name;
+            document.getElementById('tier-tagline').textContent = lang === 'en'
+                ? (t.nextThreshold ? `${t.remaining} more friend${t.remaining === 1 ? '' : 's'} to reach next tier` : 'Top tier — thanks for being our biggest supporter 🏆')
+                : t.tagline;
+            document.getElementById('tier-count-badge').textContent = lang === 'en'
+                ? `${t.current} this month`
+                : `${t.current} เดือนนี้`;
+            document.getElementById('tier-remaining').textContent = t.remaining;
+            document.getElementById('tier-progress-pct').textContent = t.pct + '%';
+            document.getElementById('tier-progress-fill').style.width = t.pct + '%';
+            card.classList.remove('hidden');
         }
 
         // Format countdown to a target date — returns Thai-language compact form

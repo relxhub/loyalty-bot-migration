@@ -1885,6 +1885,7 @@ router.get('/coupons', async (req, res) => {
                 isActive: true,
                 pointsCost: null, // เฉพาะคูปองที่ไม่ต้องใช้แต้มแลก
                 isAutoAssign: false, // ซ่อนคูปองที่ตั้งให้แจกอัตโนมัติ
+                rewardTrigger: null, // ซ่อนคูปองที่ตั้งเป็น reward (จะไปแจกผ่าน event เท่านั้น)
                 OR: [
                     { endDate: null },
                     { endDate: { gt: now } } // ยังไม่หมดเขตแจก
@@ -1948,6 +1949,7 @@ router.get('/coupons/redeemable', async (req, res) => {
                 isActive: true,
                 pointsCost: { gt: 0 }, // เฉพาะคูปองที่ต้องใช้แต้มแลก
                 isAutoAssign: false, // ซ่อนคูปองที่ตั้งให้แจกอัตโนมัติ
+                rewardTrigger: null, // ซ่อนคูปองที่ตั้งเป็น reward (จะไปแจกผ่าน event เท่านั้น)
                 OR: [
                     { endDate: null },
                     { endDate: { gt: now } } // ยังไม่หมดเขตแจก
@@ -2033,6 +2035,49 @@ router.post('/coupons/redeem', async (req, res) => {
 /**
  * ดึงคูปองส่วนตัวของลูกค้า
  */
+// 🎁 เปิดกล่องสุ่ม (Mystery Box) — ปลดล็อก isMysteryBoxLocked แล้วคืนรายละเอียดคูปอง
+router.post('/coupons/my/:customerCouponId/open-mystery', async (req, res) => {
+    try {
+        const { customerCouponId } = req.params;
+        const { initData } = req.body;
+        if (!verifyTelegramWebAppData(initData)) {
+            return res.status(401).json({ success: false, error: 'Invalid Telegram Data' });
+        }
+        const urlParams = new URLSearchParams(initData);
+        const userData = JSON.parse(urlParams.get('user'));
+        const telegramId = userData.id.toString();
+
+        const user = await prisma.customer.findUnique({
+            where: { telegramUserId: telegramId },
+            select: { customerId: true },
+        });
+        if (!user) return res.status(404).json({ success: false, error: 'ไม่พบลูกค้า' });
+
+        const cc = await prisma.customerCoupon.findUnique({
+            where: { id: parseInt(customerCouponId) },
+            include: { coupon: true },
+        });
+        if (!cc) return res.status(404).json({ success: false, error: 'ไม่พบคูปอง' });
+        if (cc.customerId !== user.customerId) {
+            return res.status(403).json({ success: false, error: 'คูปองนี้ไม่ใช่ของคุณ' });
+        }
+        if (!cc.isMysteryBoxLocked) {
+            // เปิดไปแล้ว — คืน coupon ตรงๆ ให้ frontend อัพเดทเฉยๆ
+            return res.json({ success: true, alreadyOpened: true, coupon: cc.coupon, customerCoupon: cc });
+        }
+
+        const updated = await prisma.customerCoupon.update({
+            where: { id: cc.id },
+            data: { isMysteryBoxLocked: false },
+            include: { coupon: true },
+        });
+        res.json({ success: true, alreadyOpened: false, coupon: updated.coupon, customerCoupon: updated });
+    } catch (e) {
+        console.error('Open mystery box error:', e);
+        res.status(500).json({ success: false, error: 'เปิดกล่องไม่สำเร็จ' });
+    }
+});
+
 router.get('/coupons/my/:telegramId', async (req, res) => {
     try {
         const { telegramId } = req.params;
@@ -2367,6 +2412,7 @@ router.get('/coupons/count', async (req, res) => {
                 isActive: true,
                 pointsCost: null,
                 isAutoAssign: false,
+                rewardTrigger: null,
                 OR: [{ validUntil: null }, { validUntil: { gt: now } }]
             }
         });
@@ -2376,6 +2422,7 @@ router.get('/coupons/count', async (req, res) => {
                 isActive: true,
                 pointsCost: { gt: 0 },
                 isAutoAssign: false,
+                rewardTrigger: null,
                 OR: [{ validUntil: null }, { validUntil: { gt: now } }]
             }
         });
