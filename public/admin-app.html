@@ -1185,9 +1185,28 @@
                     </div>`;
             } catch (e) { content.innerHTML = '<div class="text-center text-red-400 py-6">เกิดข้อผิดพลาด</div>'; }
         }
+        // เปิด customer modal จาก order detail — ซ้อนทับ ord-modal โดยไม่ปิด ord
+        // กดปิด customer → ord-modal ยังเปิดอยู่ใต้ → กลับมาดูออเดอร์เดิมได้ทันที
+        function openCustModalFromOrd(customerId, orderId) {
+            const cust = document.getElementById('cust-modal');
+            cust.classList.remove('z-[80]');
+            cust.classList.add('z-[90]'); // ซ้อนทับ ord-modal (z-80)
+            window._returnToOrdAfterCust = orderId; // marker
+            openCustModal(customerId);
+        }
         function closeCustModal() {
-            document.body.classList.remove('no-scroll');
-            document.getElementById('cust-modal').classList.add('hidden');
+            const returnOrd = window._returnToOrdAfterCust;
+            const cust = document.getElementById('cust-modal');
+            cust.classList.add('hidden');
+            // คืนค่า z-index เดิม + ถ้ามาจาก order → ไม่ต้อง remove no-scroll (เพราะ ord-modal ยังเปิด)
+            if (returnOrd) {
+                cust.classList.remove('z-[90]');
+                cust.classList.add('z-[80]');
+                window._returnToOrdAfterCust = null;
+                // ord-modal ยังเปิดอยู่ → ไม่ต้องทำอะไรเพิ่ม
+            } else {
+                document.body.classList.remove('no-scroll');
+            }
         }
         async function loadCustAnalytics(customerId) {
             const wrap = document.getElementById('cust-analytics');
@@ -1748,7 +1767,7 @@
                         <div class="text-xs text-white truncate">${_esc((o.customer.firstName||'') + ' ' + (o.customer.lastName||'')).trim() || '—'}</div>
                         <div class="text-[10px] text-zinc-500"><code>${_esc(o.customer.customerId)}</code> · ${_esc(o.customer.phoneNumber||'—')} · ${_fmt(o.customer.points)} แต้ม</div>
                     </div>
-                    <button onclick="closeOrdModal(); openCustModal('${_esc(o.customer.customerId)}')" class="text-[10px] px-2 py-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/40">ดูลูกค้า</button>
+                    <button onclick="openCustModalFromOrd('${_esc(o.customer.customerId)}', '${_esc(o.id)}')" class="text-[10px] px-2 py-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/40">ดูลูกค้า</button>
                 </div>` : '';
 
             const audit = o.audit?.length ? `
@@ -2081,7 +2100,8 @@
                             <input type="number" min="0" placeholder="${isSetMode ? p.stockQuantity : '0'}" data-pid="${p.id}" data-cur="${p.stockQuantity}"
                                 class="bs-input w-20 bg-black/40 border border-${inputColor}-500/40 rounded p-1.5 text-${inputColor}-200 text-xs text-center"
                                 ${isSetMode ? `value="${p.stockQuantity}"` : ''}
-                                oninput="onBulkInput(this)">
+                                oninput="onBulkInput(this)"
+                                onkeydown="onBulkKeydown(event, this)">
                         </div>
                     `).join('')}
                 </div>
@@ -2115,6 +2135,24 @@
             if (v > cur) {
                 input.value = cur;
                 try { tg.hapticFeedback?.notificationOccurred?.('warning'); } catch (e) {}
+            }
+        }
+
+        // Enter ในช่อง bulk-stock → ไป focus ช่องถัดไป
+        function onBulkKeydown(e, input) {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            const inputs = Array.from(document.querySelectorAll('.bs-input'));
+            const idx = inputs.indexOf(input);
+            if (idx === -1) return;
+            // หา input ถัดไป (วน loop)
+            const next = inputs[idx + 1];
+            if (next) {
+                next.focus();
+                next.select();
+                next.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            } else {
+                input.blur(); // ปิด keyboard ถ้าเป็นตัวสุดท้าย
             }
         }
 
