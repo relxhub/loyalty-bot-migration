@@ -17,9 +17,9 @@ import { notifyCustomer } from './notification-center.service.js';
 
 /**
  * รายการกล่อง active สำหรับ catalog page
- * รวม prizes ที่ active ในแต่ละกล่อง
+ * - ถ้าส่ง customerId มา จะใส่ claimedCount + remaining ของลูกค้าให้ด้วย
  */
-export async function listActiveBoxes() {
+export async function listActiveBoxes(customerId = null) {
     const now = new Date();
     const boxes = await prisma.mysteryBox.findMany({
         where: {
@@ -38,7 +38,28 @@ export async function listActiveBoxes() {
         orderBy: { createdAt: 'desc' },
     });
 
-    return boxes.map(shapeBoxForClient);
+    // ถ้ามี customerId — query ticket count ต่อ box แบบ batch
+    let claimedMap = {};
+    if (customerId && boxes.length > 0) {
+        try {
+            const counts = await prisma.mysteryBoxTicket.groupBy({
+                by: ['mysteryBoxId'],
+                where: { customerId, mysteryBoxId: { in: boxes.map(b => b.id) } },
+                _count: { _all: true },
+            });
+            for (const c of counts) claimedMap[c.mysteryBoxId] = c._count._all;
+        } catch (e) {
+            console.error('[MysteryBox] claimed count failed:', e.message);
+        }
+    }
+
+    return boxes.map((b) => {
+        const shaped = shapeBoxForClient(b);
+        const claimed = claimedMap[b.id] || 0;
+        shaped.userClaimedCount = claimed;
+        shaped.userRemaining = b.maxPerUser != null ? Math.max(0, b.maxPerUser - claimed) : null;
+        return shaped;
+    });
 }
 
 /**
@@ -99,8 +120,9 @@ export async function grantTickets({ customerId, event, eligibleAmount = null, r
     if (boxes.length === 0) return { granted, skipped };
 
     for (const box of boxes) {
-        // เงื่อนไขยอดเงิน (เฉพาะ REFEREE_FIRST_PURCHASE)
-        if (event === 'REFEREE_FIRST_PURCHASE') {
+        // เงื่อนไขยอดเงิน — ใช้กับ REFEREE_FIRST_PURCHASE (ยอดออเดอร์)
+        // และ PURCHASE_MILESTONE (ยอดสะสม lifetime)
+        if (event === 'REFEREE_FIRST_PURCHASE' || event === 'PURCHASE_MILESTONE') {
             const amt = Number(eligibleAmount) || 0;
             if (box.minPurchaseAmount != null && amt < Number(box.minPurchaseAmount)) {
                 skipped.push({ boxId: box.id, reason: 'BELOW_MIN' });

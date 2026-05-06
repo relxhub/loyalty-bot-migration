@@ -1088,6 +1088,25 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
             });
         } catch (e) { /* silent */ }
 
+        // 5.45 Mystery Box: PURCHASE_MILESTONE — เช็คยอดสะสม lifetime ของลูกค้า
+        // (best-effort — ไม่กระทบ flow ออเดอร์)
+        try {
+            const lifetime = await prisma.order.aggregate({
+                where: {
+                    customerId: order.customerId,
+                    status: { in: ['PAID', 'PROCESSING', 'SHIPPED'] },
+                },
+                _sum: { totalAmount: true },
+            });
+            const totalSpend = Number(lifetime._sum.totalAmount) || 0;
+            await mysteryBox.grantTickets({
+                customerId: order.customerId,
+                event: 'PURCHASE_MILESTONE',
+                eligibleAmount: totalSpend, // grantTickets ใช้ minPurchaseAmount/maxPurchaseAmount เป็นเงื่อนไข
+                metadata: { orderId: order.id, lifetimeSpend: totalSpend },
+            });
+        } catch (e) { /* silent */ }
+
         // 5.5 Auto-Complete Referral if applicable
         let referralMsg = '';
         try {
@@ -2534,9 +2553,14 @@ router.post('/notifications/:telegramId/:id/read', async (req, res) => {
 // ==================================================
 
 // Catalog: รายการกล่องที่ active + prize pool พร้อม %
+// รับ ?telegramId=... เพื่อใส่ user-specific claimed count
 router.get('/mystery-box/catalog', async (req, res) => {
     try {
-        const boxes = await mysteryBox.listActiveBoxes();
+        let customerId = null;
+        if (req.query.telegramId) {
+            customerId = await customerIdFromTelegramId(req.query.telegramId);
+        }
+        const boxes = await mysteryBox.listActiveBoxes(customerId);
         res.json({ success: true, boxes });
     } catch (e) {
         console.error('Mystery box catalog error:', e);

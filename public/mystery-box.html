@@ -43,9 +43,18 @@
         }
         .bounce-in { animation: bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
 
-        @keyframes confetti {
-            0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
-            100% { transform: translateY(120vh) rotate(720deg); opacity: 0; }
+        @keyframes confetti-fall {
+            0% { transform: translateY(-30px) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+        }
+        .confetti-piece {
+            position: fixed;
+            top: 0;
+            font-size: 22px;
+            pointer-events: none;
+            z-index: 100;
+            animation: confetti-fall 3s linear forwards;
+            will-change: transform, opacity;
         }
 
         .item-fade-in { opacity: 0; animation: fadeUp 0.4s ease-out forwards; }
@@ -224,7 +233,8 @@
         async function loadCatalog() {
             const list = document.getElementById('catalog-list');
             try {
-                const res = await fetch('/api/mystery-box/catalog');
+                const tgId = window.currentUser?.telegramUserId || tg.initDataUnsafe?.user?.id;
+                const res = await fetch(`/api/mystery-box/catalog?telegramId=${encodeURIComponent(tgId || '')}`);
                 const data = await res.json();
                 if (!data.success) throw new Error('load failed');
 
@@ -249,6 +259,21 @@
                         ? `รับ ${box.ticketsPerEvent} สิทธิ์/ครั้ง`
                         : `รับ 1 สิทธิ์/ครั้ง`;
                     const maxInfo = box.maxPerUser ? ` · เพดาน ${box.maxPerUser} ครั้ง/คน` : '';
+
+                    // User progress (claimed/maxPerUser)
+                    let progressBadge = '';
+                    if (typeof box.userClaimedCount === 'number' && box.userClaimedCount > 0) {
+                        if (box.maxPerUser) {
+                            const reached = box.userRemaining === 0;
+                            const cls = reached ? 'bg-green-500/20 text-green-300 border-green-500/30' : 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+                            const txt = reached
+                                ? `✓ รับครบแล้ว (${box.userClaimedCount}/${box.maxPerUser})`
+                                : `คุณรับไปแล้ว ${box.userClaimedCount}/${box.maxPerUser}`;
+                            progressBadge = `<div class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full border ${cls} mt-1">${_esc(txt)}</div>`;
+                        } else {
+                            progressBadge = `<div class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 mt-1">คุณรับไปแล้ว ${box.userClaimedCount} ครั้ง</div>`;
+                        }
+                    }
 
                     const boxImg = box.imageUrl
                         ? `<img src="${_esc(box.imageUrl)}" alt="" class="w-16 h-16 rounded-xl object-cover flex-shrink-0">`
@@ -294,6 +319,7 @@
                                     <i class="ri-check-line mt-0.5 flex-shrink-0"></i><span>${_esc(conditionText)}</span>
                                 </div>
                                 <div class="text-[10px] text-zinc-500 mt-0.5">${ticketsInfo}${maxInfo}</div>
+                                ${progressBadge}
                             </div>
                         </div>
                         ${prizesHtml}
@@ -374,6 +400,7 @@
             }
             if (state === 'reveal' && opts.prize) {
                 const p = opts.prize;
+                fireConfetti();
                 const prizeImg = p.imageUrl
                     ? `<img src="${_esc(p.imageUrl)}" alt="" class="w-32 h-32 rounded-2xl object-cover mx-auto mb-4 border-2 border-yellow-400/30">`
                     : `<div class="text-7xl mb-4">🎉</div>`;
@@ -396,7 +423,26 @@
             modal.classList.add('hidden');
             modal.innerHTML = '';
             document.body.classList.remove('no-scroll');
+            // ลบ confetti ที่ค้างอยู่
+            document.querySelectorAll('.confetti-piece').forEach(el => el.remove());
             loadMyTickets(); // refresh list
+            loadCatalog(); // refresh catalog progress
+        }
+
+        function fireConfetti() {
+            const emojis = ['🎉', '🎊', '⭐', '✨', '🎁', '💛', '💜'];
+            const N = 35;
+            for (let i = 0; i < N; i++) {
+                const el = document.createElement('div');
+                el.className = 'confetti-piece';
+                el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+                el.style.left = Math.random() * 100 + 'vw';
+                el.style.animationDelay = Math.random() * 0.6 + 's';
+                el.style.animationDuration = (2.2 + Math.random() * 1.5) + 's';
+                document.body.appendChild(el);
+                // cleanup หลัง animation จบ
+                setTimeout(() => el.remove(), 4500);
+            }
         }
 
         document.getElementById('reveal-modal').addEventListener('click', function(e) {
