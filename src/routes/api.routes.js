@@ -3873,8 +3873,19 @@ router.get('/admin/dashboard/financial', async (req, res) => {
     try {
         const period = (req.query.period || '30').toString();
         const categoryId = req.query.categoryId ? parseInt(req.query.categoryId) : null;
-        const since = period === 'all' ? null : new Date(Date.now() - parseInt(period) * 86400000);
-        const dateFilter = since ? { createdAt: { gte: since } } : {};
+        // Custom date range — มี priority สูงกว่า period preset
+        let since = null, until = null;
+        if (req.query.startDate) since = new Date(req.query.startDate);
+        if (req.query.endDate) {
+            until = new Date(req.query.endDate);
+            until.setHours(23, 59, 59, 999); // include the end day
+        }
+        if (!since && !until) {
+            since = period === 'all' ? null : new Date(Date.now() - parseInt(period) * 86400000);
+        }
+        const dateFilter = {};
+        if (since) dateFilter.createdAt = { ...(dateFilter.createdAt || {}), gte: since };
+        if (until) dateFilter.createdAt = { ...(dateFilter.createdAt || {}), lte: until };
         const paidStatuses = ['PAID', 'PROCESSING', 'SHIPPED'];
 
         // revenue (PRODUCT only — PRIZE_DELIVERY คือค่าส่ง ไม่ใช่ยอดขาย)
@@ -3994,25 +4005,31 @@ router.get('/admin/dashboard/financial', async (req, res) => {
         });
         const statusBreak = statusBreakdown.map(s => ({ status: s.status, count: s._count._all, totalAmount: Number(s._sum.totalAmount || 0) }));
 
-        // ⭐ NEW: daily revenue trend (period last N days, fallback 30)
-        const trendDays = period === 'all' ? 30 : Math.min(parseInt(period) || 30, 90);
-        const trendSince = new Date(Date.now() - trendDays * 86400000);
+        // ⭐ NEW: daily revenue trend — ครอบคลุมช่วงที่เลือก (since→until)
+        // ถ้าใช้ preset period: เริ่มจาก N วันก่อนถึงวันนี้
+        // ถ้าใช้ custom: เริ่มจาก startDate ถึง endDate (clamp 365 วัน)
+        let trendStart = since || new Date(Date.now() - (period === 'all' ? 30 : parseInt(period) || 30) * 86400000);
+        const trendEnd = until || new Date();
+        const maxTrendDays = 365;
+        const trendDays = Math.min(maxTrendDays, Math.max(1, Math.ceil((trendEnd - trendStart) / 86400000) + 1));
+        // ถ้า range ใหญ่เกิน clamp → ปรับ trendStart
+        if ((trendEnd - trendStart) / 86400000 > maxTrendDays) trendStart = new Date(trendEnd.getTime() - (maxTrendDays - 1) * 86400000);
+
         const dailyRows = await prisma.$queryRaw`
             SELECT DATE("createdAt" AT TIME ZONE 'Asia/Bangkok') AS day,
                    SUM("totalAmount") AS revenue,
                    COUNT(*) AS orders
             FROM "Order"
             WHERE "kind" = 'PRODUCT' AND "status" IN ('PAID','PROCESSING','SHIPPED')
-              AND "createdAt" >= ${trendSince}
+              AND "createdAt" >= ${trendStart} AND "createdAt" <= ${trendEnd}
             GROUP BY DATE("createdAt" AT TIME ZONE 'Asia/Bangkok')
             ORDER BY day ASC
         `;
-        // fill missing days with 0
         const trendMap = new Map();
         for (const r of dailyRows) trendMap.set(new Date(r.day).toISOString().slice(0, 10), { revenue: Number(r.revenue), orders: Number(r.orders) });
         const trend = [];
-        for (let i = trendDays - 1; i >= 0; i--) {
-            const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+        for (let i = 0; i < trendDays; i++) {
+            const d = new Date(trendStart.getTime() + i * 86400000).toISOString().slice(0, 10);
             const m = trendMap.get(d) || { revenue: 0, orders: 0 };
             trend.push({ date: d, revenue: m.revenue, orders: m.orders });
         }
@@ -4050,7 +4067,7 @@ router.get('/admin/dashboard/financial', async (req, res) => {
                 repeatStats: { totalUnique, repeat, repeatRate },
                 healthStats: { totalOrders: totalAllStatus, cancelled, cancelRate, overpaidRefunded },
                 allCategories: allCategoriesMeta,
-                filter: { categoryId, period },
+                filter: { categoryId, period, startDate: since?.toISOString() || null, endDate: until?.toISOString() || null },
             },
         });
     } catch (e) {
