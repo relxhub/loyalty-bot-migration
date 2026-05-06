@@ -748,10 +748,20 @@
                     document.getElementById('loading-screen').classList.add('hidden');
 
                     // Redirect ผู้ที่มี role (Admin/SuperAdmin/Owner) ไปหน้า admin-app
+                    // ยกเว้น ?preview=1 (admin กดปุ่ม preview UI จาก console เพื่อดูหน้าลูกค้า)
                     const role = authData?.customer?.role;
-                    if (role === 'Admin' || role === 'SuperAdmin' || role === 'Owner') {
+                    const isPreview = new URLSearchParams(window.location.search).get('preview') === '1';
+                    if (!isPreview && (role === 'Admin' || role === 'SuperAdmin' || role === 'Owner')) {
                         window.location.replace('admin-app.html');
                         return;
+                    }
+                    if (isPreview && (role === 'Admin' || role === 'SuperAdmin' || role === 'Owner')) {
+                        // แสดงปุ่มลอย "กลับ admin console" เพื่อกลับได้สะดวก
+                        const back = document.createElement('a');
+                        back.href = 'admin-app.html';
+                        back.className = 'fixed top-3 right-3 z-[200] bg-yellow-500 text-black text-xs font-bold px-3 py-1.5 rounded-full shadow-lg';
+                        back.innerHTML = '← กลับ Admin Console';
+                        document.body.appendChild(back);
                     }
 
                     if (authData.isMember) {

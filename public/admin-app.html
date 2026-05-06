@@ -748,12 +748,12 @@
         let _catOptionsCache = [];
 
         function goPreviewCustomerUI() {
-            // ใน Telegram WebApp: window.location ใช้ได้สำหรับ same-origin nav
-            // ส่ง initData ผ่าน hash เพื่อให้ home.html รู้ว่ามาจาก admin (กัน auth แตก)
+            // home.html มี auto-redirect ส่ง admin role กลับมา admin-app
+            // ใช้ ?preview=1 บอก home ให้ skip redirect + แสดงปุ่มกลับ admin console
             try {
-                window.location.assign('home.html');
+                window.location.assign('home.html?preview=1');
             } catch (e) {
-                window.location.href = 'home.html';
+                window.location.href = 'home.html?preview=1';
             }
         }
 
