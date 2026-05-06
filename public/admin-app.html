@@ -251,6 +251,15 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
+            <button id="menu-jobs" onclick="showView('jobs')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden">
+                <div class="w-12 h-12 rounded-xl bg-lime-500/20 flex items-center justify-center text-2xl">🤖</div>
+                <div class="flex-1">
+                    <div class="font-bold text-white text-sm">งาน Auto / Cron <span class="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/30 text-purple-300 font-bold ml-1">SuperAdmin+</span></div>
+                    <div class="text-[11px] text-zinc-400">Daily digest · Birthday · Win-back (manual trigger)</div>
+                </div>
+                <i class="ri-arrow-right-s-line text-zinc-400"></i>
+            </button>
+
             <button id="menu-rbac" onclick="showView('rbac')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden border-yellow-500/40">
                 <div class="w-12 h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center text-2xl">🔐</div>
                 <div class="flex-1">
@@ -302,6 +311,35 @@
                 </select>
             </div>
             <div id="dash-content"><div class="text-center text-zinc-500 py-8 animate-pulse">กำลังโหลด...</div></div>
+        </div>
+
+        <!-- 🤖 Jobs view -->
+        <div id="view-jobs" class="hidden">
+            <div class="font-bold text-sm mb-3 flex items-center gap-2"><i class="ri-robot-line text-lime-400"></i> งาน Auto / Cron</div>
+            <div class="text-[11px] text-zinc-400 mb-3">งานที่รัน auto ทุกวัน — กดปุ่มเพื่อ trigger รันทันทีได้</div>
+
+            <div class="space-y-2">
+                <div class="glass-card p-3">
+                    <div class="text-sm font-bold text-white mb-1">📰 Daily Digest</div>
+                    <div class="text-[11px] text-zinc-400 mb-2">สรุป KPI 24 ชม. ส่งเข้า admin group · auto: <code>09:00</code></div>
+                    <button onclick="triggerJob('daily-digest', this)" class="w-full py-2 rounded-lg bg-lime-500 hover:bg-lime-400 text-black text-xs font-bold">▶️ Run Now</button>
+                </div>
+                <div class="glass-card p-3">
+                    <div class="text-sm font-bold text-white mb-1">🎂 Birthday Coupon</div>
+                    <div class="text-[11px] text-zinc-400 mb-2">แจกคูปองวันเกิด · auto: <code>08:00</code><br>ตั้ง <code>birthday_coupon_id</code> ใน SystemConfig</div>
+                    <button onclick="triggerJob('birthday', this)" class="w-full py-2 rounded-lg bg-pink-500 hover:bg-pink-400 text-white text-xs font-bold">▶️ Run Now</button>
+                </div>
+                <div class="glass-card p-3">
+                    <div class="text-sm font-bold text-white mb-1">💌 Win-back Inactive</div>
+                    <div class="text-[11px] text-zinc-400 mb-2">แจ้งลูกค้า inactive 30+ วัน · auto: <code>10:00</code><br>ตั้ง <code>winback_coupon_id</code> ใน SystemConfig (optional)</div>
+                    <button onclick="triggerJob('winback', this)" class="w-full py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white text-xs font-bold">▶️ Run Now</button>
+                </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-white/10">
+                <div class="text-[11px] text-zinc-500">⚙️ ตั้งค่า coupon ID ที่จะใช้: ไปที่ Settings → SystemConfig แล้วเพิ่ม key:<br>
+                <code>birthday_coupon_id</code> = รหัสคูปอง<br><code>winback_coupon_id</code> = รหัสคูปอง</div>
+            </div>
         </div>
 
         <!-- 📈 Analytics view -->
@@ -695,6 +733,23 @@
             else if (name === 'shifts') loadShiftsTable();
             else if (name === 'stock-alert') loadStockAlert();
             else if (name === 'analytics') loadAnalytics('heatmap');
+            else if (name === 'jobs') { /* static view */ }
+        }
+        async function triggerJob(jobName, btn) {
+            if (!confirm(`รัน job "${jobName}" ตอนนี้?`)) return;
+            const wasText = btn.textContent;
+            btn.disabled = true; btn.textContent = '⏳ กำลังรัน...';
+            try {
+                const res = await fetch(`/api/admin/jobs/${jobName}`, {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ initData: tg.initData }),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
+                showToast(`✅ ${jobName} triggered`);
+            } catch (e) { alert('error: '+e.message); }
+            finally { btn.disabled = false; btn.textContent = wasText; }
         }
 
         // ซ่อนเมนูที่ไม่อยู่ใน permissions ของ role ปัจจุบัน
@@ -761,6 +816,7 @@
                 }
                 if (me.role === 'SuperAdmin' || me.role === 'Owner') {
                     document.getElementById('menu-shifts').classList.remove('hidden');
+                    document.getElementById('menu-jobs').classList.remove('hidden');
                 }
                 applyRbacToMenu();
                 document.getElementById('loading-screen').classList.add('hidden');

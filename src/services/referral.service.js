@@ -257,12 +257,19 @@ const completeReferral = async (refereeId, purchaseAmount, orderId = null) => {
       }
     });
 
+    // ตรวจ tier promotion (ก่อน vs หลัง — newCount = referrerMonthCount + 1)
+    const newMonthCount = referrerMonthCount + 1;
+    let promotedTo = null;
+    if (referrerMonthCount < silverMin && newMonthCount >= silverMin && newMonthCount < goldMin) promotedTo = 'Silver';
+    else if (referrerMonthCount < goldMin && newMonthCount >= goldMin) promotedTo = 'Gold';
+
     return {
       success: true,
       message: `การแนะนำสำเร็จ! ผู้แนะนำ ${referral.referrerId} ได้รับ ${totalPointsToAdd} แต้ม${tierMessage}${milestoneMessage}`,
       bonus: totalPointsToAdd,
       referralId: referral.id,
       referrerId: referral.referrerId,
+      promotedTo,
     };
   });
 
@@ -285,6 +292,22 @@ const completeReferral = async (refereeId, purchaseAmount, orderId = null) => {
     });
   } catch (e) {
     console.error('[Referral] notify referrer failed:', e.message);
+  }
+
+  // 🏆 Tier promotion notif
+  if (txResult.promotedTo) {
+    try {
+      const emoji = txResult.promotedTo === 'Gold' ? '🥇' : '🥈';
+      await notifyCustomer({
+        customerId: txResult.referrerId,
+        kind: 'POINTS_EARNED',
+        title: `${emoji} เลื่อนระดับเป็น ${txResult.promotedTo}!`,
+        body: `ยินดีด้วย! เดือนนี้คุณชวนเพื่อนสำเร็จครบเกณฑ์ ${txResult.promotedTo} แล้ว — รับตัวคูณแต้มพิเศษทุกการแนะนำต่อจากนี้`,
+        link: 'referral.html',
+        entityKey: `tier-promo:${txResult.referrerId}:${new Date().getFullYear()}-${new Date().getMonth()+1}:${txResult.promotedTo}`,
+        telegramText: `${emoji} <b>เลื่อนระดับเป็น ${txResult.promotedTo}!</b>\n\nเดือนนี้คุณชวนเพื่อนสำเร็จครบเกณฑ์แล้ว รับตัวคูณแต้มพิเศษ`,
+      });
+    } catch (e) { console.error('[Referral] tier promo notify failed:', e.message); }
   }
 
   // หลัง tx สำเร็จ → ลองมอบ reward coupon (best-effort, ไม่กระทบสถานะ referral)

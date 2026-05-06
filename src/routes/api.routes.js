@@ -4058,6 +4058,71 @@ router.delete('/admin/products/:id', async (req, res) => {
     }
 });
 
+// ---------- 🤖 ENGAGEMENT JOBS (manual trigger) ----------
+import { runDailyDigestJob, runBirthdayCouponJob, runWinBackJob, notifyWishlistOnRestock } from '../jobs/engagement.job.js';
+
+router.post('/admin/jobs/daily-digest', async (req, res) => {
+    const a = await authAdmin(req, ['SuperAdmin', 'Owner']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    runDailyDigestJob().catch(() => {});
+    res.json({ success: true, message: 'triggered (running async)' });
+});
+router.post('/admin/jobs/birthday', async (req, res) => {
+    const a = await authAdmin(req, ['SuperAdmin', 'Owner']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    runBirthdayCouponJob().catch(() => {});
+    res.json({ success: true, message: 'triggered (running async)' });
+});
+router.post('/admin/jobs/winback', async (req, res) => {
+    const a = await authAdmin(req, ['SuperAdmin', 'Owner']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    runWinBackJob().catch(() => {});
+    res.json({ success: true, message: 'triggered (running async)' });
+});
+
+// ---------- 📦 WISHLIST (customer-facing) ----------
+router.post('/wishlist/toggle', async (req, res) => {
+    try {
+        const initData = req.body?.initData;
+        if (!verifyTelegramWebAppData(initData)) return res.status(401).json({ success: false, error: 'Invalid Telegram data' });
+        const userData = JSON.parse(new URLSearchParams(initData).get('user') || '{}');
+        const tgId = String(userData.id || '');
+        const cust = await prisma.customer.findUnique({ where: { telegramUserId: tgId }, select: { customerId: true } });
+        if (!cust) return res.status(404).json({ success: false, error: 'ไม่พบลูกค้า' });
+        const productId = parseInt(req.body?.productId);
+        if (!productId) return res.status(400).json({ success: false, error: 'productId ห้ามว่าง' });
+        const exist = await prisma.wishlist.findUnique({ where: { customerId_productId: { customerId: cust.customerId, productId } } });
+        if (exist) {
+            await prisma.wishlist.delete({ where: { id: exist.id } });
+            return res.json({ success: true, in: false });
+        }
+        await prisma.wishlist.create({ data: { customerId: cust.customerId, productId } });
+        res.json({ success: true, in: true });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'failed' }); }
+});
+
+router.get('/wishlist', async (req, res) => {
+    try {
+        const initData = req.query.initData;
+        if (!verifyTelegramWebAppData(initData)) return res.status(401).json({ success: false, error: 'Invalid' });
+        const userData = JSON.parse(new URLSearchParams(initData).get('user') || '{}');
+        const tgId = String(userData.id || '');
+        const cust = await prisma.customer.findUnique({ where: { telegramUserId: tgId }, select: { customerId: true } });
+        if (!cust) return res.json({ success: true, items: [] });
+        const wishes = await prisma.wishlist.findMany({
+            where: { customerId: cust.customerId },
+            orderBy: { createdAt: 'desc' },
+        });
+        const productIds = wishes.map(w => w.productId);
+        const products = productIds.length ? await prisma.product.findMany({
+            where: { id: { in: productIds } },
+            select: { id: true, nameTh: true, nameEn: true, imageUrl: true, status: true, stockQuantity: true },
+        }) : [];
+        const pMap = Object.fromEntries(products.map(p => [p.id, p]));
+        res.json({ success: true, items: wishes.map(w => ({ id: w.id, productId: w.productId, product: pMap[w.productId], notifiedAt: w.notifiedAt, createdAt: w.createdAt })) });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'failed' }); }
+});
+
 // ---------- 📊 ANALYTICS ----------
 
 // GET /admin/analytics/customer/:customerId — drill-down: LTV + RFM + orders + prizes + referrals
@@ -4453,6 +4518,15 @@ router.post('/admin/products/bulk-stock', async (req, res) => {
             const io = req.app.get('socketio');
             if (io) for (const ch of changes) io.emit('product_update', { id: ch.id, stockQuantity: ch.after });
         } catch (e) {}
+        // wishlist notify — สำหรับสินค้าที่เพิ่ง restock (before=0, after>0)
+        const restocked = changes.filter(c => c.before === 0 && c.after > 0);
+        if (restocked.length) {
+            (async () => {
+                for (const ch of restocked) {
+                    try { await notifyWishlistOnRestock(ch.id); } catch (e) {}
+                }
+            })();
+        }
         res.json({ success: true, mode, changes });
     } catch (e) {
         console.error('admin bulk-stock error:', e);

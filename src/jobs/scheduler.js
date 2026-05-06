@@ -3,6 +3,7 @@
 import cron from 'node-cron';
 import { getConfig } from '../config/config.js';
 import { runPointExpiryJob, runReminderJob, runCouponExpiryJob, runOrderExpiryJob, runCouponExpiringWarningJob } from './expiry.job.js';
+import { runDailyDigestJob, runBirthdayCouponJob, runWinBackJob } from './engagement.job.js';
 
 export function runScheduler(timezone) {
     // ดึงค่าจาก Config
@@ -53,6 +54,15 @@ export function runScheduler(timezone) {
             scheduled: true,
             timezone: timezone
         });
+
+        // 📰 Daily digest — 09:00 ทุกวัน → ส่งสรุปไป admin group
+        cron.schedule('0 9 * * *', runDailyDigestJob, { scheduled: true, timezone });
+
+        // 🎂 Birthday coupon — 08:00 ทุกวัน
+        cron.schedule('0 8 * * *', runBirthdayCouponJob, { scheduled: true, timezone });
+
+        // 🔄 Win-back inactive customers — 10:00 ทุกวัน
+        cron.schedule('0 10 * * *', runWinBackJob, { scheduled: true, timezone });
 
         console.log(`✅ Cron Jobs scheduled successfully.`);
     } catch (error) {
