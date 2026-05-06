@@ -1435,10 +1435,6 @@
                         <div class="text-[10px] text-zinc-500">${_esc(p.category?.name||'ไม่มีหมวด')} · stock ${p.stockQuantity}</div>
                         <div class="flex flex-wrap gap-1 mt-0.5">${tags.join('')}</div>
                     </div>
-                    <label class="switch flex-shrink-0" onclick="event.stopPropagation()">
-                        <input type="checkbox" ${!isOut?'checked':''} onchange="toggleProdStock(${p.id}, this)">
-                        <span class="slider"></span>
-                    </label>
                 </div>`;
             }).join('');
         }
@@ -1457,20 +1453,6 @@
                 renderProdCatChips();
                 renderProdList();
             } catch (e) { list.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`; }
-        }
-
-        async function toggleProdStock(id, cb) {
-            cb.disabled = true;
-            try {
-                const res = await fetch(`/api/admin/products/${id}`, {
-                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status: cb.checked ? 'IN_STOCK' : 'OUT_OF_STOCK', initData: tg.initData }),
-                });
-                const data = await res.json();
-                if (!data.success) { cb.checked = !cb.checked; alert(data.error||'ไม่สำเร็จ'); }
-                else { try { tg.hapticFeedback?.impactOccurred?.('light'); } catch (e) {} }
-            } catch (e) { cb.checked = !cb.checked; alert('error: '+e.message); }
-            finally { cb.disabled = false; }
         }
 
         async function openProdEdit(id) {
