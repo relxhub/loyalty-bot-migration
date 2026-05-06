@@ -81,18 +81,20 @@
                     </div>
                 </div>
             </div>
-            <a href="home.html" class="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10" aria-label="Exit">
-                <i class="ri-logout-box-r-line text-lg"></i>
-            </a>
+            <div class="flex items-center gap-1.5">
+                <button id="menu-edit-toggle" onclick="toggleMenuEdit()" class="hidden w-10 h-10 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center" aria-label="จัดเรียงเมนู" title="จัดเรียงเมนู">
+                    <i class="ri-edit-line text-base"></i>
+                </button>
+                <a href="home.html" class="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10" aria-label="ออกไปหน้าลูกค้า" title="ออกไปดูหน้าลูกค้า">
+                    <i class="ri-logout-box-r-line text-lg"></i>
+                </a>
+            </div>
         </div>
 
         <!-- HOME view -->
         <div id="view-home" class="space-y-3">
             <input id="global-search" type="text" placeholder="🔍 ค้นหาทุกอย่าง: ออเดอร์ / ลูกค้า / สินค้า / คูปอง..." class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-sm text-white placeholder-zinc-500 focus:border-emerald-400 focus:outline-none mb-2">
             <div id="global-search-results" class="hidden glass-card p-3 mb-2 max-h-80 overflow-y-auto"></div>
-            <div class="flex justify-end -mt-1">
-                <button id="menu-edit-toggle" onclick="toggleMenuEdit()" class="text-[10px] px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 border border-white/10"><i class="ri-edit-line"></i> จัดเรียงเมนู</button>
-            </div>
             <div id="menu-edit-bar" class="hidden flex items-center justify-between bg-emerald-500/10 border border-emerald-500/40 rounded-xl p-2 text-xs">
                 <span class="text-emerald-300 font-bold">↕ ลากเลื่อนหรือกด ↑/↓ เพื่อจัดเรียง</span>
                 <div class="flex gap-1.5">
@@ -741,6 +743,10 @@
             document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
             document.getElementById('view-' + name).classList.remove('hidden');
             document.getElementById('back-btn').classList.toggle('hidden', name === 'home');
+            // ปุ่มจัดเรียงเมนู — แสดงเฉพาะ home view + ออกจาก edit mode ถ้าสลับ view
+            const editBtn = document.getElementById('menu-edit-toggle');
+            if (editBtn) editBtn.classList.toggle('hidden', name !== 'home');
+            if (name !== 'home' && document.body.classList.contains('menu-edit')) toggleMenuEdit();
             _currentView = name;
             // 2) restore scroll — รอ frame เพื่อให้ view show ก่อน, แล้ว retry หลัง data load (200ms+500ms)
             const targetY = _viewScroll[name] || 0;
@@ -797,7 +803,10 @@
             document.body.classList.toggle('menu-edit', on);
             document.getElementById('menu-edit-bar').classList.toggle('hidden', !on);
             const btn = document.getElementById('menu-edit-toggle');
-            btn.innerHTML = on ? '<i class="ri-close-line"></i> ยกเลิก' : '<i class="ri-edit-line"></i> จัดเรียงเมนู';
+            btn.innerHTML = on ? '<i class="ri-close-line text-base"></i>' : '<i class="ri-edit-line text-base"></i>';
+            btn.classList.toggle('bg-emerald-500/30', on);
+            btn.classList.toggle('text-emerald-300', on);
+            btn.title = on ? 'ยกเลิก' : 'จัดเรียงเมนู';
             if (on) {
                 // เพิ่ม arrows ทุกการ์ด (ที่ยังไม่มี)
                 getHomeMenuButtons().forEach(b => {
