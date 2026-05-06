@@ -3685,6 +3685,123 @@ function sanitizeProductPayload(b) {
     };
 }
 
+// ---------- 🎞️ BANNERS ----------
+router.get('/admin/banners', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const banners = await prisma.banner.findMany({ orderBy: [{ order: 'asc' }, { id: 'asc' }] });
+        res.json({ success: true, banners });
+    } catch (e) { res.status(500).json({ success: false, error: 'load failed' }); }
+});
+
+router.post('/admin/banners', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const b = req.body || {};
+        if (!b.imageUrl) return res.status(400).json({ success: false, error: 'imageUrl ห้ามว่าง' });
+        const created = await prisma.banner.create({ data: {
+            imageUrl: b.imageUrl, linkUrl: b.linkUrl || null,
+            isActive: b.isActive !== false, order: parseInt(b.order) || 0,
+        }});
+        res.json({ success: true, banner: { id: created.id } });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'create failed' }); }
+});
+
+router.patch('/admin/banners/:id', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const id = parseInt(req.params.id);
+        const exist = await prisma.banner.findUnique({ where: { id } });
+        if (!exist) return res.status(404).json({ success: false, error: 'ไม่พบ banner' });
+        const b = req.body || {};
+        await prisma.banner.update({ where: { id }, data: {
+            imageUrl: b.imageUrl ?? exist.imageUrl,
+            linkUrl: b.linkUrl !== undefined ? (b.linkUrl || null) : exist.linkUrl,
+            isActive: b.isActive !== undefined ? !!b.isActive : exist.isActive,
+            order: b.order !== undefined ? parseInt(b.order) || 0 : exist.order,
+        }});
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'update failed' }); }
+});
+
+router.delete('/admin/banners/:id', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        await prisma.banner.delete({ where: { id: parseInt(req.params.id) } });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'delete failed' }); }
+});
+
+// ---------- 📅 CAMPAIGNS ----------
+router.get('/admin/campaigns', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const camps = await prisma.campaign.findMany({ orderBy: [{ isActive: 'desc' }, { startDate: 'desc' }] });
+        res.json({ success: true, campaigns: camps });
+    } catch (e) { res.status(500).json({ success: false, error: 'load failed' }); }
+});
+
+router.post('/admin/campaigns', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const b = req.body || {};
+        if (!b.name || !b.startDate || !b.endDate) return res.status(400).json({ success: false, error: 'name/startDate/endDate ห้ามว่าง' });
+        const created = await prisma.campaign.create({ data: sanitizeCampaignPayload(b, true) });
+        res.json({ success: true, campaign: { id: created.id } });
+    } catch (e) {
+        if (e.code === 'P2002') return res.status(400).json({ success: false, error: 'ชื่อแคมเปญซ้ำ' });
+        res.status(500).json({ success: false, error: e.message || 'create failed' });
+    }
+});
+
+router.patch('/admin/campaigns/:id', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const id = parseInt(req.params.id);
+        const exist = await prisma.campaign.findUnique({ where: { id } });
+        if (!exist) return res.status(404).json({ success: false, error: 'ไม่พบ campaign' });
+        await prisma.campaign.update({ where: { id }, data: sanitizeCampaignPayload(req.body || {}, false) });
+        res.json({ success: true });
+    } catch (e) {
+        if (e.code === 'P2002') return res.status(400).json({ success: false, error: 'ชื่อแคมเปญซ้ำ' });
+        res.status(500).json({ success: false, error: e.message || 'update failed' });
+    }
+});
+
+router.delete('/admin/campaigns/:id', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        await prisma.campaign.delete({ where: { id: parseInt(req.params.id) } });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'delete failed' }); }
+});
+
+function sanitizeCampaignPayload(b, isCreate) {
+    const intOrNull = (v, d) => (v === '' || v == null ? d : parseInt(v));
+    const dt = (v) => v ? new Date(v) : null;
+    const out = {
+        name: b.name ?? undefined,
+        startDate: dt(b.startDate) ?? undefined,
+        endDate: dt(b.endDate) ?? undefined,
+        baseReferral: intOrNull(b.baseReferral, isCreate ? 50 : undefined),
+        milestoneTarget: intOrNull(b.milestoneTarget, isCreate ? 0 : undefined),
+        milestoneBonus: intOrNull(b.milestoneBonus, isCreate ? 0 : undefined),
+        linkBonus: intOrNull(b.linkBonus, isCreate ? 50 : undefined),
+        isActive: b.isActive !== false,
+    };
+    // strip undefined for patch
+    Object.keys(out).forEach(k => out[k] === undefined && delete out[k]);
+    return out;
+}
+
 // ---------- 📂 CATEGORIES ----------
 router.get('/admin/categories', async (req, res) => {
     const a = await authAdmin(req);

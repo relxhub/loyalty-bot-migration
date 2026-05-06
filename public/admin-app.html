@@ -145,6 +145,24 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
+            <button onclick="showView('banners')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+                <div class="w-12 h-12 rounded-xl bg-indigo-500/20 flex items-center justify-center text-2xl">🎞️</div>
+                <div class="flex-1">
+                    <div class="font-bold text-white text-sm">จัดการ Banner</div>
+                    <div class="text-[11px] text-zinc-400">หน้าหลัก slider</div>
+                </div>
+                <i class="ri-arrow-right-s-line text-zinc-400"></i>
+            </button>
+
+            <button onclick="showView('campaigns')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+                <div class="w-12 h-12 rounded-xl bg-rose-500/20 flex items-center justify-center text-2xl">📅</div>
+                <div class="flex-1">
+                    <div class="font-bold text-white text-sm">จัดการแคมเปญ</div>
+                    <div class="text-[11px] text-zinc-400">แต้มชวนเพื่อน + milestone</div>
+                </div>
+                <i class="ri-arrow-right-s-line text-zinc-400"></i>
+            </button>
+
             <!-- Owner-only: financial dashboard -->
             <button id="menu-dashboard" onclick="showView('dashboard')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden border-yellow-500/40">
                 <div class="w-12 h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center text-2xl">📊</div>
@@ -218,6 +236,24 @@
                 <button onclick="openCpnEdit()" class="text-xs px-3 py-1.5 rounded-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold"><i class="ri-add-line"></i> สร้างใหม่</button>
             </div>
             <div id="cpn-list" class="space-y-2"></div>
+        </div>
+
+        <!-- 🎞️ Banners view -->
+        <div id="view-banners" class="hidden">
+            <div class="flex items-center justify-between mb-3">
+                <div class="font-bold text-sm flex items-center gap-2"><i class="ri-image-line text-indigo-400"></i> Banner ทั้งหมด</div>
+                <button onclick="openBnEdit()" class="text-xs px-3 py-1.5 rounded-full bg-indigo-500 hover:bg-indigo-400 text-white font-bold"><i class="ri-add-line"></i> สร้างใหม่</button>
+            </div>
+            <div id="bn-list" class="space-y-2"></div>
+        </div>
+
+        <!-- 📅 Campaigns view -->
+        <div id="view-campaigns" class="hidden">
+            <div class="flex items-center justify-between mb-3">
+                <div class="font-bold text-sm flex items-center gap-2"><i class="ri-calendar-event-line text-rose-400"></i> แคมเปญทั้งหมด</div>
+                <button onclick="openCmEdit()" class="text-xs px-3 py-1.5 rounded-full bg-rose-500 hover:bg-rose-400 text-white font-bold"><i class="ri-add-line"></i> สร้างใหม่</button>
+            </div>
+            <div id="cm-list" class="space-y-2"></div>
         </div>
 
         <!-- 🛍️ Products view -->
@@ -302,6 +338,16 @@
         <div id="cat-modal-content" class="glass-card w-full max-w-sm p-5 rounded-t-3xl sm:rounded-2xl"></div>
     </div>
 
+    <!-- 🎞️ Banner Edit Modal -->
+    <div id="bn-modal" class="hidden fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-sm">
+        <div id="bn-modal-content" class="glass-card w-full max-w-sm p-5 rounded-t-3xl sm:rounded-2xl"></div>
+    </div>
+
+    <!-- 📅 Campaign Edit Modal -->
+    <div id="cm-modal" class="hidden fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-sm">
+        <div id="cm-modal-content" class="glass-card w-full max-w-md max-h-[92vh] overflow-y-auto p-5 rounded-t-3xl sm:rounded-2xl"></div>
+    </div>
+
     <!-- 🖼️ Slip Image Lightbox -->
     <div id="img-lightbox" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4" onclick="this.classList.add('hidden')">
         <img id="img-lightbox-src" src="" class="max-w-full max-h-full object-contain rounded-lg">
@@ -357,6 +403,8 @@
             else if (name === 'orders') loadOrders();
             else if (name === 'products') loadAdminProducts();
             else if (name === 'categories') loadAdminCategories();
+            else if (name === 'banners') loadAdminBanners();
+            else if (name === 'campaigns') loadAdminCampaigns();
         }
         function goHome() { showView('home'); loadShipmentsBadge(); loadOrdersBadge(); }
 
@@ -516,6 +564,8 @@
             document.getElementById('ord-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeOrdModal(); });
             document.getElementById('prod-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeProdModal(); });
             document.getElementById('cat-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeCatModal(); });
+            document.getElementById('bn-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeBnModal(); });
+            document.getElementById('cm-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeCmModal(); });
             document.getElementById('prod-search').addEventListener('input', (e) => {
                 clearTimeout(_prodSearchDebounce);
                 _prodSearchDebounce = setTimeout(() => loadAdminProducts(), 300);
@@ -1219,6 +1269,161 @@
                 window._catFullCache = null;
                 closeCatModal();
                 await loadAdminCategories();
+            } catch (e) { alert('error: '+e.message); }
+        }
+
+        // ---------- 🎞️ Banners ----------
+        let _editingBnId = null;
+        async function loadAdminBanners() {
+            const list = document.getElementById('bn-list');
+            list.innerHTML = '<div class="text-center text-zinc-500 py-6 animate-pulse">กำลังโหลด...</div>';
+            try {
+                const res = await fetch('/api/admin/banners', { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'load failed');
+                window._bnCache = data.banners;
+                if (!data.banners.length) { list.innerHTML = '<div class="text-center text-zinc-500 py-6 text-sm">ยังไม่มี banner</div>'; return; }
+                list.innerHTML = data.banners.map((b, idx) => `
+                    <div class="bg-white/5 border border-white/10 rounded-xl p-2 cursor-pointer hover:bg-white/10 item-fade-in" style="animation-delay:${idx*25}ms" onclick="openBnEdit(${b.id})">
+                        <img src="${_esc(b.imageUrl)}" class="w-full h-24 object-cover rounded-lg ${b.isActive?'':'opacity-40 grayscale'}">
+                        <div class="flex items-center justify-between mt-2 px-1">
+                            <div class="text-[11px] text-zinc-400">ลำดับ ${b.order} ${b.linkUrl?'· มีลิงก์':''}</div>
+                            <span class="text-[10px] px-1.5 py-0.5 rounded ${b.isActive?'bg-emerald-500/20 text-emerald-300':'bg-zinc-500/30 text-zinc-300'}">${b.isActive?'Active':'Hidden'}</span>
+                        </div>
+                    </div>`).join('');
+            } catch (e) { list.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`; }
+        }
+
+        function openBnEdit(id) {
+            _editingBnId = id || null;
+            const isNew = !id;
+            const b = id ? (window._bnCache || []).find(x => x.id === id) || {} : {};
+            document.getElementById('bn-modal-content').innerHTML = `
+                <div class="flex items-start justify-between mb-3">
+                    <h3 class="text-base font-bold">${isNew?'➕ Banner ใหม่':'✏️ แก้ไข Banner'}</h3>
+                    <button onclick="closeBnModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center"><i class="ri-close-line"></i></button>
+                </div>
+                <div class="space-y-3 text-sm">
+                    <div><label class="text-[11px] text-zinc-400 block mb-1">URL รูป *</label><input id="bn-imageUrl" type="text" value="${_esc(b.imageUrl||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    <div><label class="text-[11px] text-zinc-400 block mb-1">URL ปลายทาง (optional)</label><input id="bn-linkUrl" type="text" value="${_esc(b.linkUrl||'')}" placeholder="เช่น products.html?cat=1" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    <div><label class="text-[11px] text-zinc-400 block mb-1">ลำดับ</label><input id="bn-order" type="number" value="${b.order??0}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    <label class="flex items-center gap-2"><input id="bn-isActive" type="checkbox" ${(b.isActive!==false)?'checked':''} class="w-4 h-4 accent-indigo-500"> Active</label>
+                </div>
+                <div class="mt-4 flex gap-2">
+                    ${!isNew ? `<button onclick="deleteBn()" class="px-3 py-2.5 rounded-xl bg-red-600/80 hover:bg-red-500 text-white"><i class="ri-delete-bin-line"></i></button>` : ''}
+                    <button onclick="closeBnModal()" class="flex-1 py-2.5 rounded-xl bg-zinc-700 text-white font-bold">ยกเลิก</button>
+                    <button onclick="saveBn()" class="flex-1 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-bold">${isNew?'สร้าง':'บันทึก'}</button>
+                </div>`;
+            document.body.classList.add('no-scroll');
+            document.getElementById('bn-modal').classList.remove('hidden');
+        }
+        function closeBnModal() { _editingBnId = null; document.body.classList.remove('no-scroll'); document.getElementById('bn-modal').classList.add('hidden'); }
+        async function saveBn() {
+            const v = (id) => document.getElementById(id)?.value;
+            const ck = (id) => document.getElementById(id)?.checked;
+            const body = { imageUrl: v('bn-imageUrl'), linkUrl: v('bn-linkUrl'), order: v('bn-order'), isActive: ck('bn-isActive'), initData: tg.initData };
+            try {
+                const url = _editingBnId ? `/api/admin/banners/${_editingBnId}` : '/api/admin/banners';
+                const method = _editingBnId ? 'PATCH' : 'POST';
+                const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                closeBnModal(); await loadAdminBanners();
+            } catch (e) { alert('error: '+e.message); }
+        }
+        async function deleteBn() {
+            if (!_editingBnId || !confirm('ลบ banner นี้?')) return;
+            try {
+                const res = await fetch(`/api/admin/banners/${_editingBnId}`, { method: 'DELETE', headers: {'Content-Type':'application/json', 'X-Init-Data': tg.initData}, body: JSON.stringify({initData: tg.initData}) });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                closeBnModal(); await loadAdminBanners();
+            } catch (e) { alert('error: '+e.message); }
+        }
+
+        // ---------- 📅 Campaigns ----------
+        let _editingCmId = null;
+        async function loadAdminCampaigns() {
+            const list = document.getElementById('cm-list');
+            list.innerHTML = '<div class="text-center text-zinc-500 py-6 animate-pulse">กำลังโหลด...</div>';
+            try {
+                const res = await fetch('/api/admin/campaigns', { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'load failed');
+                window._cmCache = data.campaigns;
+                if (!data.campaigns.length) { list.innerHTML = '<div class="text-center text-zinc-500 py-6 text-sm">ยังไม่มีแคมเปญ</div>'; return; }
+                list.innerHTML = data.campaigns.map((c, idx) => `
+                    <div class="bg-white/5 border border-white/10 rounded-xl p-3 cursor-pointer hover:bg-white/10 item-fade-in" style="animation-delay:${idx*25}ms" onclick="openCmEdit(${c.id})">
+                        <div class="flex items-center justify-between gap-2 mb-1">
+                            <div class="text-sm font-bold text-white truncate">${_esc(c.name)}</div>
+                            <span class="text-[10px] px-1.5 py-0.5 rounded ${c.isActive?'bg-emerald-500/20 text-emerald-300':'bg-zinc-500/30 text-zinc-300'}">${c.isActive?'Active':'Hidden'}</span>
+                        </div>
+                        <div class="text-[10px] text-zinc-500">${_date(c.startDate)} → ${_date(c.endDate)}</div>
+                        <div class="text-[10px] text-zinc-400 mt-1">ชวนละ ${c.baseReferral} แต้ม · ผูก ${c.linkBonus} แต้ม${c.milestoneTarget?` · ครบ ${c.milestoneTarget} = +${c.milestoneBonus}`:''}</div>
+                    </div>`).join('');
+            } catch (e) { list.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`; }
+        }
+
+        function openCmEdit(id) {
+            _editingCmId = id || null;
+            const isNew = !id;
+            const c = id ? (window._cmCache || []).find(x => x.id === id) || {} : {};
+            const dtVal = (v) => v ? new Date(v).toISOString().slice(0,16) : '';
+            document.getElementById('cm-modal-content').innerHTML = `
+                <div class="flex items-start justify-between mb-3">
+                    <h3 class="text-base font-bold">${isNew?'➕ แคมเปญใหม่':'✏️ แก้ไข ' + _esc(c.name||'')}</h3>
+                    <button onclick="closeCmModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center"><i class="ri-close-line"></i></button>
+                </div>
+                <div class="space-y-3 text-sm">
+                    <div><label class="text-[11px] text-zinc-400 block mb-1">ชื่อแคมเปญ * (ห้ามซ้ำ)</label><input id="cm-name" type="text" value="${_esc(c.name||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="text-[11px] text-zinc-400 block mb-1">เริ่ม *</label><input id="cm-startDate" type="datetime-local" value="${dtVal(c.startDate)}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                        <div><label class="text-[11px] text-zinc-400 block mb-1">จบ *</label><input id="cm-endDate" type="datetime-local" value="${dtVal(c.endDate)}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="text-[11px] text-zinc-400 block mb-1">แต้มต่อการชวน 1 คน</label><input id="cm-baseReferral" type="number" value="${c.baseReferral??50}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                        <div><label class="text-[11px] text-zinc-400 block mb-1">แต้มผูกบัญชี</label><input id="cm-linkBonus" type="number" value="${c.linkBonus??50}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="text-[11px] text-zinc-400 block mb-1">milestone (ครบกี่คน)</label><input id="cm-milestoneTarget" type="number" value="${c.milestoneTarget??0}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                        <div><label class="text-[11px] text-zinc-400 block mb-1">โบนัส milestone</label><input id="cm-milestoneBonus" type="number" value="${c.milestoneBonus??0}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
+                    </div>
+                    <label class="flex items-center gap-2"><input id="cm-isActive" type="checkbox" ${(c.isActive!==false)?'checked':''} class="w-4 h-4 accent-rose-500"> Active</label>
+                </div>
+                <div class="mt-4 flex gap-2">
+                    ${!isNew ? `<button onclick="deleteCm()" class="px-3 py-2.5 rounded-xl bg-red-600/80 hover:bg-red-500 text-white"><i class="ri-delete-bin-line"></i></button>` : ''}
+                    <button onclick="closeCmModal()" class="flex-1 py-2.5 rounded-xl bg-zinc-700 text-white font-bold">ยกเลิก</button>
+                    <button onclick="saveCm()" class="flex-1 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-bold">${isNew?'สร้าง':'บันทึก'}</button>
+                </div>`;
+            document.body.classList.add('no-scroll');
+            document.getElementById('cm-modal').classList.remove('hidden');
+        }
+        function closeCmModal() { _editingCmId = null; document.body.classList.remove('no-scroll'); document.getElementById('cm-modal').classList.add('hidden'); }
+        async function saveCm() {
+            const v = (id) => document.getElementById(id)?.value;
+            const ck = (id) => document.getElementById(id)?.checked;
+            const body = {
+                name: v('cm-name'), startDate: v('cm-startDate'), endDate: v('cm-endDate'),
+                baseReferral: v('cm-baseReferral'), linkBonus: v('cm-linkBonus'),
+                milestoneTarget: v('cm-milestoneTarget'), milestoneBonus: v('cm-milestoneBonus'),
+                isActive: ck('cm-isActive'), initData: tg.initData,
+            };
+            try {
+                const url = _editingCmId ? `/api/admin/campaigns/${_editingCmId}` : '/api/admin/campaigns';
+                const method = _editingCmId ? 'PATCH' : 'POST';
+                const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                closeCmModal(); await loadAdminCampaigns();
+            } catch (e) { alert('error: '+e.message); }
+        }
+        async function deleteCm() {
+            if (!_editingCmId || !confirm('ลบแคมเปญนี้?')) return;
+            try {
+                const res = await fetch(`/api/admin/campaigns/${_editingCmId}`, { method: 'DELETE', headers: {'Content-Type':'application/json', 'X-Init-Data': tg.initData}, body: JSON.stringify({initData: tg.initData}) });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                closeCmModal(); await loadAdminCampaigns();
             } catch (e) { alert('error: '+e.message); }
         }
 
