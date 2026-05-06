@@ -118,13 +118,18 @@ router.post('/auth', async (req, res) => {
                     customer = await getCustomerByTelegramId(telegramId);
                 } catch (e) {
                     console.error("Failed to create pending referral during auto-signup:", e);
-                    customer = await createCustomer({
-                        telegramId: telegramId,
-                        firstName: userData.first_name || '',
-                        lastName: userData.last_name || '',
-                        username: userData.username || '',
-                        referrerId: referrerId
-                    }, "AUTO_SIGNUP");
+                    // ⚠️ FIX: customer อาจถูกสร้างไปแล้วก่อน tx fail (เพราะ createCustomer
+                    // รัน OUTSIDE tx) — ต้อง re-check ก่อน เพื่อกัน P2002 unique violation
+                    customer = await getCustomerByTelegramId(telegramId);
+                    if (!customer) {
+                        customer = await createCustomer({
+                            telegramId: telegramId,
+                            firstName: userData.first_name || '',
+                            lastName: userData.last_name || '',
+                            username: userData.username || '',
+                            referrerId: referrerId
+                        }, "AUTO_SIGNUP");
+                    }
                 }
             } else {
                 customer = await createCustomer({
@@ -136,6 +141,12 @@ router.post('/auth', async (req, res) => {
                 }, "AUTO_SIGNUP");
             }
             isNewCustomer = true;
+
+            // Safety: ถ้าหา/สร้างไม่ได้จริงๆ → คืน 500 ที่มีข้อความชัดเจน
+            if (!customer) {
+                console.error(`[Auto-Signup] FATAL: customer null after creation for tg ${telegramId}`);
+                return res.status(500).json({ error: 'ไม่สามารถสร้างบัญชีลูกค้าใหม่ได้ กรุณาลองใหม่' });
+            }
         }
         const hasPhone = !!customer.phoneNumber;
 
