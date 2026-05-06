@@ -1052,6 +1052,7 @@
                     <div class="text-[11px] text-orange-200">โอนคืนแล้วกดยืนยันด้านล่าง</div>
                 </div>` : '';
 
+            const canEditItems = o.kind === 'PRODUCT' && o.status !== 'CANCELLED' && o.status !== 'SHIPPED';
             const items = o.items.map(it => `
                 <div class="flex items-center gap-2 py-1.5 border-b border-white/5 last:border-0">
                     ${it.product.imageUrl ? `<img src="${_esc(it.product.imageUrl)}" class="w-10 h-10 rounded object-cover">` : '<div class="w-10 h-10 rounded bg-zinc-700"></div>'}
@@ -1060,6 +1061,7 @@
                         <div class="text-[10px] text-zinc-500">${_esc(it.product.category?.name || '')} · ฿${_fmt(it.priceAtPurchase)} × ${it.quantity}</div>
                     </div>
                     <div class="text-xs text-emerald-300 whitespace-nowrap">฿${_fmt(it.priceAtPurchase * it.quantity)}</div>
+                    ${canEditItems ? `<button onclick="ordRemoveItem(${it.id}, '${_esc(it.product.name).replace(/'/g, "&#39;")}')" class="text-zinc-500 hover:text-red-400 text-base ml-1"><i class="ri-close-circle-line"></i></button>` : ''}
                 </div>`).join('');
 
             const addr = o.address;
@@ -1132,6 +1134,16 @@
                     </div>
                     ${o.billNumber ? `<div class="text-[11px]"><span class="text-zinc-500">เลขบิล:</span> <code class="text-blue-300">${_esc(o.billNumber)}</code></div>` : ''}
                     ${o.trackingNumber ? `<div class="text-[11px]"><span class="text-zinc-500">เลขพัสดุ:</span> <code class="text-emerald-300">${_esc(o.trackingNumber)}</code></div>` : ''}
+                    ${o.refundSlipUrl ? `
+                        <div>
+                            <div class="text-[10px] text-zinc-500 font-bold mb-1">💸 สลิปคืนเงิน</div>
+                            <img src="${_esc(o.refundSlipUrl)}" onclick="document.getElementById('img-lightbox-src').src='${_esc(o.refundSlipUrl)}'; document.getElementById('img-lightbox').classList.remove('hidden')" class="w-full max-h-48 object-contain rounded-lg cursor-zoom-in bg-black/40">
+                        </div>` : ''}
+                    <div>
+                        <div class="text-[10px] text-zinc-500 font-bold mb-1">📝 หมายเหตุ admin (ภายใน)</div>
+                        <textarea id="ord-note-input" rows="2" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white text-xs" placeholder="ลูกค้าจะไม่เห็นข้อความนี้">${_esc(o.adminNote || '')}</textarea>
+                        <button onclick="ordSetNote()" class="mt-1 text-[11px] px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 text-white">บันทึกหมายเหตุ</button>
+                    </div>
                     ${audit}
                 </div>
 
@@ -1181,6 +1193,15 @@
             if (['PENDING_PAYMENT','PAID','PROCESSING'].includes(o.status)) {
                 blocks.push(`<button onclick="ordCancel()" class="w-full py-2 rounded-xl bg-red-600/80 hover:bg-red-500 text-white text-xs"><i class="ri-delete-bin-line"></i> ยกเลิกออเดอร์${o.status==='PAID'||o.status==='PROCESSING'?' + คืนสต็อก':''}</button>`);
             }
+            // Refund slip upload — เปิดให้ตลอด ยกเว้น PRZ และ SHIPPED (ออเดอร์ส่งแล้ว ไม่ควร refund)
+            if (o.kind !== 'PRIZE_DELIVERY' && o.status !== 'SHIPPED') {
+                blocks.push(`
+                    <label class="block">
+                        <input type="file" accept="image/*" onchange="ordUploadRefundSlip(this.files[0])" class="hidden">
+                        <span class="block w-full py-2 rounded-xl bg-orange-500/80 hover:bg-orange-500 text-white text-xs text-center cursor-pointer"><i class="ri-image-add-line"></i> ${o.refundSlipUrl ? 'เปลี่ยน' : 'แนบ'}สลิปโอนเงินคืน</span>
+                    </label>
+                `);
+            }
             if (!blocks.length) blocks.push(`<div class="text-center text-zinc-500 text-xs py-2">ไม่มี action สำหรับสถานะนี้</div>`);
             return blocks.join('');
         }
@@ -1215,6 +1236,46 @@
             const v = document.getElementById('ord-track-input').value.trim();
             if (!v) return alert('ใส่เลขพัสดุก่อน');
             ordAction('set-tracking', { trackingNumber: v }, 'ใส่เลขพัสดุนี้และเปลี่ยนสถานะเป็น "จัดส่งแล้ว"?');
+        }
+
+        function ordSetNote() {
+            const v = document.getElementById('ord-note-input').value;
+            ordAction('note', { adminNote: v });
+        }
+
+        function ordRemoveItem(itemId, name) {
+            if (!confirm(`ลบ "${name}" ออกจากออเดอร์?\n(จะคืนสต็อกอัตโนมัติ ถ้าหมดทุก item ออเดอร์จะถูกยกเลิก)`)) return;
+            (async () => {
+                try {
+                    const res = await fetch(`/api/admin/orders/${encodeURIComponent(_currentOrdId)}/items/${itemId}`, {
+                        method: 'DELETE', headers: {'Content-Type':'application/json', 'X-Init-Data': tg.initData},
+                        body: JSON.stringify({ initData: tg.initData }),
+                    });
+                    const data = await res.json();
+                    if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                    if (data.cancelled) alert('สินค้าหมด ออเดอร์ถูกยกเลิกอัตโนมัติ');
+                    try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
+                    await openOrdDetail(_currentOrdId);
+                    loadOrders();
+                } catch (e) { alert('error: '+e.message); }
+            })();
+        }
+
+        async function ordUploadRefundSlip(file) {
+            if (!file) return;
+            if (!confirm('อัปโหลดสลิปคืนเงินสำหรับออเดอร์นี้?\n(จะแจ้งลูกค้าผ่านบอท)')) return;
+            try {
+                const fd = new FormData();
+                fd.append('file', file);
+                const res = await fetch(`/api/admin/orders/${encodeURIComponent(_currentOrdId)}/refund-slip`, {
+                    method: 'POST', headers: { 'X-Init-Data': tg.initData },
+                    body: fd,
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'อัปโหลดล้มเหลว'); return; }
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
+                await openOrdDetail(_currentOrdId);
+            } catch (e) { alert('error: '+e.message); }
         }
 
         // ---------- 🛍️ Products ----------

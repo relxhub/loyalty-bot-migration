@@ -564,6 +564,9 @@ model Order {
   // Over-paid refund tracking — ตั้งเวลาเมื่อ admin กดยืนยันคืนเงินส่วนเกินแล้ว (null = ยังไม่ได้คืน)
   overPaidRefundedAt DateTime?
 
+  // หมายเหตุภายในจาก admin (ไม่แสดงให้ลูกค้าเห็น)
+  adminNote String? @db.Text
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

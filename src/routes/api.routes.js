@@ -8,6 +8,7 @@ import { getCustomerByTelegramId, updateCustomer, countCampaignReferralsByTag, c
 import { countMonthlyReferrals } from '../services/referral.service.js';
 import * as referralService from '../services/referral.service.js';
 import { sendOrderPaidAdminNotification } from '../services/order-notification.service.js';
+import { sendNotificationToCustomer } from '../services/notification.service.js';
 import { recordAdminMessage } from '../services/admin-message.service.js';
 import * as notifCenter from '../services/notification-center.service.js';
 import * as mysteryBox from '../services/mystery-box.service.js';
@@ -3281,6 +3282,133 @@ router.post('/admin/orders/:id/set-tracking', async (req, res) => {
     } catch (e) {
         console.error('admin set-tracking error:', e);
         res.status(500).json({ success: false, error: e.message || 'set tracking failed' });
+    }
+});
+
+// PATCH /admin/orders/:id/note { adminNote }
+router.patch('/admin/orders/:id/note', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const order = await prisma.order.findUnique({ where: { id: req.params.id }, select: { id: true, customerId: true } });
+        if (!order) return res.status(404).json({ success: false, error: 'ไม่พบออเดอร์' });
+        const note = (req.body?.adminNote ?? '').toString();
+        await prisma.order.update({ where: { id: order.id }, data: { adminNote: note || null } });
+        await prisma.adminAuditLog.create({
+            data: { adminName: a.admin?.name || a.telegramId, action: 'ORDER_NOTE',
+                targetId: order.customerId, details: JSON.stringify({ orderId: order.id, len: note.length }) },
+        });
+        res.json({ success: true });
+    } catch (e) {
+        console.error('admin order note error:', e);
+        res.status(500).json({ success: false, error: e.message || 'note failed' });
+    }
+});
+
+// DELETE /admin/orders/:id/items/:itemId — ลบ item ออกจากออเดอร์ + คืนสต็อก
+// ถ้าออเดอร์ไม่เหลือ item เลย → CANCELLED (คืนคูปองด้วย)
+router.delete('/admin/orders/:id/items/:itemId', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const itemId = parseInt(req.params.itemId);
+        const order = await prisma.order.findUnique({
+            where: { id: req.params.id },
+            include: { items: true, customer: true },
+        });
+        if (!order) return res.status(404).json({ success: false, error: 'ไม่พบออเดอร์' });
+        if (order.kind !== 'PRODUCT') return res.status(400).json({ success: false, error: 'แก้ไขได้เฉพาะ PRODUCT order' });
+        if (order.status === 'CANCELLED' || order.status === 'SHIPPED') {
+            return res.status(400).json({ success: false, error: 'สถานะไม่อนุญาตให้แก้ไขสินค้า' });
+        }
+        const target = order.items.find(it => it.id === itemId);
+        if (!target) return res.status(404).json({ success: false, error: 'ไม่พบ item' });
+
+        let cancelled = false;
+        await prisma.$transaction(async (tx) => {
+            await tx.orderItem.delete({ where: { id: itemId } });
+            await tx.product.update({ where: { id: target.productId }, data: { stockQuantity: { increment: target.quantity } } });
+            const remaining = order.items.filter(it => it.id !== itemId);
+            if (remaining.length === 0) {
+                await tx.order.update({ where: { id: order.id }, data: { status: 'CANCELLED' } });
+                if (order.appliedCouponId) {
+                    const cc = await tx.customerCoupon.findFirst({ where: { customerId: order.customerId, couponId: order.appliedCouponId } });
+                    if (cc && cc.status === 'USED') {
+                        await tx.customerCoupon.update({ where: { id: cc.id }, data: { status: 'AVAILABLE', usedAt: null } });
+                    }
+                }
+                cancelled = true;
+            } else {
+                // อัปเดต subtotal/totalAmount แบบประมาณ — recalc จาก remaining items
+                const newSubtotal = remaining.reduce((s, it) => s + Number(it.priceAtPurchase) * it.quantity, 0);
+                const shippingFee = order.shippingFee != null ? Number(order.shippingFee) : 0;
+                const discount = Number(order.discountAmount || 0);
+                const newTotal = Math.max(0, newSubtotal + shippingFee - discount);
+                await tx.order.update({ where: { id: order.id }, data: { subtotal: newSubtotal, totalAmount: newTotal } });
+            }
+            await tx.adminAuditLog.create({
+                data: { adminName: a.admin?.name || a.telegramId, action: 'ORDER_REMOVE_ITEM',
+                    targetId: order.customerId, details: JSON.stringify({ orderId: order.id, productId: target.productId, qty: target.quantity, cancelled }) },
+            });
+        });
+        if (cancelled) {
+            try { await notifCenter.notifyOrderStatusChanged({ orderId: order.id, customerId: order.customerId, status: 'CANCELLED', note: 'สินค้าถูกลบทั้งหมด' }); } catch (e) {}
+        }
+        res.json({ success: true, cancelled });
+    } catch (e) {
+        console.error('admin order remove-item error:', e);
+        res.status(500).json({ success: false, error: e.message || 'remove failed' });
+    }
+});
+
+// POST /admin/orders/:id/refund-slip (multipart 'file') — แอดมินอัปสลิปคืนเงิน → upload Telegram → save /api/images/<file_id>
+router.post('/admin/orders/:id/refund-slip', upload.single('file'), async (req, res) => {
+    // initData อาจมาทาง body หรือ header (multipart ต้องใช้ header)
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        if (!req.file) return res.status(400).json({ success: false, error: 'ไม่มีรูปแนบมา' });
+        const order = await prisma.order.findUnique({ where: { id: req.params.id }, include: { customer: true } });
+        if (!order) return res.status(404).json({ success: false, error: 'ไม่พบออเดอร์' });
+
+        // 1) upload ไปที่ Telegram admin group เพื่อให้ได้ file_id
+        const adminToken = process.env.ADMIN_BOT_TOKEN;
+        const targetChatId = process.env.ADMIN_GROUP_ID || process.env.SUPER_ADMIN_TELEGRAM_ID;
+        if (!adminToken || !targetChatId) return res.status(500).json({ success: false, error: 'ไม่ได้ตั้งค่า ADMIN_BOT_TOKEN/ADMIN_GROUP_ID' });
+
+        const FormData = (await import('form-data')).default;
+        const fd = new FormData();
+        fd.append('chat_id', targetChatId);
+        fd.append('caption', `💸 สลิปคืนเงินออเดอร์ #${order.id}\nโดย admin: ${a.admin?.name || a.telegramId}`);
+        fd.append('photo', req.file.buffer, { filename: req.file.originalname || 'refund.jpg', contentType: req.file.mimetype });
+        const tgRes = await fetch(`https://api.telegram.org/bot${adminToken}/sendPhoto`, { method: 'POST', body: fd, headers: fd.getHeaders() });
+        const tgData = await tgRes.json();
+        if (!tgData.ok) {
+            console.error('Telegram sendPhoto error:', tgData);
+            return res.status(500).json({ success: false, error: 'ส่งรูปไป Telegram ไม่สำเร็จ' });
+        }
+        const photos = tgData.result?.photo || [];
+        const fileId = photos[photos.length - 1]?.file_id;
+        if (!fileId) return res.status(500).json({ success: false, error: 'ไม่ได้ file_id จาก Telegram' });
+        const refundSlipUrl = `/api/images/${fileId}`;
+
+        await prisma.order.update({ where: { id: order.id }, data: { refundSlipUrl } });
+        await prisma.adminAuditLog.create({
+            data: { adminName: a.admin?.name || a.telegramId, action: 'ORDER_REFUND_SLIP',
+                targetId: order.customerId, details: JSON.stringify({ orderId: order.id, fileId }) },
+        });
+
+        // แจ้งลูกค้า
+        if (order.customer?.telegramUserId) {
+            try {
+                const msg = `💸 <b>แอดมินได้โอนเงินคืนแล้ว</b>\n\nออเดอร์ <b>#${order.id}</b> มีสลิปการโอนคืน กรุณาเช็คในแชทบอทเพื่อดูสลิป`;
+                await sendNotificationToCustomer(order.customer.telegramUserId, msg);
+            } catch (e) {}
+        }
+        res.json({ success: true, refundSlipUrl });
+    } catch (e) {
+        console.error('admin refund-slip error:', e);
+        res.status(500).json({ success: false, error: e.message || 'upload failed' });
     }
 });
 
