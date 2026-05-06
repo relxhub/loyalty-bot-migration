@@ -649,6 +649,12 @@ enum MysteryBoxTrigger {
   REVIEW_PRODUCT // รีวิวสินค้าครั้งแรก
 }
 
+enum MysteryBoxRequiredTier {
+  NONE // ทุกคนได้
+  SILVER // ผู้รับต้องเป็น Silver+ (ชวน ≥ tier_silver_min คนเดือนนี้)
+  GOLD // ผู้รับต้องเป็น Gold (ชวน ≥ tier_gold_min คนเดือนนี้)
+}
+
 model MysteryBox {
   id            String  @id // เช่น 'MB_FRIEND_INVITE'
   name          String
@@ -669,9 +675,10 @@ model MysteryBox {
   // เพดานต่อ user ตลอด lifetime ของ box (null = ไม่จำกัด)
   maxPerUser Int?
 
-  // เงื่อนไข tier — ผู้รับต้องมี referral สำเร็จในเดือนนี้ ≥ ค่านี้ถึงจะได้กล่อง
-  // null = ไม่จำกัด (ทุกคน), 3 = Silver+, 6 = Gold (ตาม tier_silver_min/gold_min)
-  requiredTierMin Int?
+  // เงื่อนไข tier — ผู้รับต้องมี tier นี้ขึ้นไปถึงจะได้กล่อง
+  // เลือกใน Prisma Studio → dropdown: NONE / SILVER / GOLD
+  // ค่า threshold อ้างอิง SystemConfig (tier_silver_min, tier_gold_min)
+  requiredTier MysteryBoxRequiredTier @default(NONE)
 
   isActive  Boolean   @default(true)
   startDate DateTime?

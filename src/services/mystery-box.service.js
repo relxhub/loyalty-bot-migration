@@ -14,6 +14,14 @@
 
 import { prisma } from '../db.js';
 import { notifyCustomer } from './notification-center.service.js';
+import { getConfig } from '../config/config.js';
+
+// แปลง MysteryBoxRequiredTier enum → จำนวนเพื่อนขั้นต่ำที่ต้องชวนเดือนนี้
+function tierEnumToMinCount(requiredTier) {
+    if (requiredTier === 'GOLD') return parseInt(getConfig('tier_gold_min')) || 6;
+    if (requiredTier === 'SILVER') return parseInt(getConfig('tier_silver_min')) || 3;
+    return 0; // NONE หรือไม่ตั้ง = ไม่จำกัด
+}
 
 /**
  * รายการกล่อง active สำหรับ catalog page
@@ -134,8 +142,9 @@ export async function grantTickets({ customerId, event, eligibleAmount = null, r
             }
         }
 
-        // เงื่อนไข tier — ผู้รับต้องมี referrals สำเร็จในเดือนนี้ ≥ requiredTierMin
-        if (box.requiredTierMin != null && box.requiredTierMin > 0) {
+        // เงื่อนไข tier — แปลง enum เป็นจำนวนเพื่อนขั้นต่ำ แล้วเทียบกับเดือนนี้
+        const minCountRequired = tierEnumToMinCount(box.requiredTier);
+        if (minCountRequired > 0) {
             const m = new Date();
             const startOfMonth = new Date(m.getFullYear(), m.getMonth(), 1);
             const endOfMonth = new Date(m.getFullYear(), m.getMonth() + 1, 0, 23, 59, 59, 999);
@@ -146,8 +155,8 @@ export async function grantTickets({ customerId, event, eligibleAmount = null, r
                     completedAt: { gte: startOfMonth, lte: endOfMonth },
                 },
             });
-            if (monthCount < box.requiredTierMin) {
-                skipped.push({ boxId: box.id, reason: 'TIER_TOO_LOW', userMonthCount: monthCount, requiredTierMin: box.requiredTierMin });
+            if (monthCount < minCountRequired) {
+                skipped.push({ boxId: box.id, reason: 'TIER_TOO_LOW', userMonthCount: monthCount, requiredTier: box.requiredTier, minCountRequired });
                 continue;
             }
         }
@@ -377,7 +386,7 @@ function shapeBoxForClient(box) {
         maxPurchaseAmount: box.maxPurchaseAmount != null ? Number(box.maxPurchaseAmount) : null,
         ticketsPerEvent: box.ticketsPerEvent,
         maxPerUser: box.maxPerUser,
-        requiredTierMin: box.requiredTierMin,
+        requiredTier: box.requiredTier, // 'NONE' | 'SILVER' | 'GOLD'
         endDate: box.endDate,
         prizes: (box.prizes || []).map((p) => ({
             ...shapePrizeForClient(p),

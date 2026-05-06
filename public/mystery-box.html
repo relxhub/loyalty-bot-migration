@@ -289,9 +289,9 @@
                         ? `รับ ${box.ticketsPerEvent} สิทธิ์/ครั้ง`
                         : `รับ 1 สิทธิ์/ครั้ง`;
                     const maxInfo = box.maxPerUser ? ` · เพดาน ${box.maxPerUser} ครั้ง/คน` : '';
-                    const tierInfo = (box.requiredTierMin && box.requiredTierMin > 0)
-                        ? ` · เฉพาะผู้ชวนเพื่อนเดือนนี้ ≥ ${box.requiredTierMin} คน`
-                        : '';
+                    let tierInfo = '';
+                    if (box.requiredTier === 'GOLD') tierInfo = ' · เฉพาะ Gold';
+                    else if (box.requiredTier === 'SILVER') tierInfo = ' · เฉพาะ Silver+';
 
                     // User progress (claimed/maxPerUser)
                     let progressBadge = '';
