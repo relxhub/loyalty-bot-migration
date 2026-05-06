@@ -77,6 +77,10 @@ import { setAdminBotInstance, setOrderBotInstance, sendAlertToSuperAdmin } from 
 setAdminBotInstance(adminBot);
 setOrderBotInstance(customerBot);
 
+// Inject socket.io into notification-center service (for real-time push to mini app)
+import { setSocketIo as setNotifSocketIo } from './src/services/notification-center.service.js';
+setNotifSocketIo(io);
+
 // Best-effort Telegram alert if BYPASS is on in prod
 if (__bypassOn && __isRailway) {
     sendAlertToSuperAdmin(

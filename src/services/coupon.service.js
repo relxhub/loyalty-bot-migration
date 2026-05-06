@@ -1,4 +1,5 @@
 import { prisma } from '../db.js';
+import { notifyCustomer } from './notification-center.service.js';
 
 /**
  * ลูกค้ากดเก็บคูปอง (First Come, First Served)
@@ -628,6 +629,7 @@ export async function grantRewardCoupons({ event, referrerId, refereeId, eligibl
     if (coupons.length === 0) return { granted, skipped };
 
     const amount = Number(eligibleAmount) || 0;
+    const toNotify = []; // { coupon, recipient } เก็บไว้แจ้งเตือนหลัง tx ทั้งหมดเสร็จ
 
     for (const coupon of coupons) {
         // 1) check amount range
@@ -702,6 +704,7 @@ export async function grantRewardCoupons({ event, referrerId, refereeId, eligibl
                         recipientId: rcp.id,
                         recipientRole: rcp.role,
                     });
+                    toNotify.push({ coupon, recipient: rcp });
                 });
             } catch (e) {
                 if (String(e.message).includes('QUOTA_RACE')) {
@@ -717,5 +720,81 @@ export async function grantRewardCoupons({ event, referrerId, refereeId, eligibl
     if (granted.length > 0) {
         console.log(`[RewardCoupon] event=${event} granted=${granted.length} skipped=${skipped.length}`);
     }
+
+    // ส่งแจ้งเตือนหลัง tx ทั้งหมดเสร็จ — best-effort, ไม่กระทบ result
+    for (const t of toNotify) {
+        try {
+            await sendRewardCouponNotif({
+                coupon: t.coupon,
+                recipientId: t.recipient.id,
+                recipientRole: t.recipient.role,
+                referrerId,
+                refereeId,
+                referralRowId,
+            });
+        } catch (e) {
+            console.error('[RewardCoupon] notify failed:', e.message);
+        }
+    }
+
     return { granted, skipped };
+}
+
+/**
+ * แจ้งเตือนเมื่อได้รับ reward coupon — สร้าง in-app notif + ส่ง Telegram chat
+ */
+async function sendRewardCouponNotif({ coupon, recipientId, recipientRole, referrerId, refereeId, referralRowId }) {
+    const fmt = (n) => Number(n).toLocaleString('th-TH', {
+        minimumFractionDigits: n % 1 ? 2 : 0,
+        maximumFractionDigits: 2
+    });
+
+    let rewardLabel = '';
+    if (coupon.type === 'GIFT') {
+        const qty = coupon.giftQty && coupon.giftQty > 1 ? ` x${coupon.giftQty}` : '';
+        rewardLabel = `รับฟรี${qty}`;
+    } else if (coupon.type === 'DISCOUNT_PERCENT') {
+        rewardLabel = `ลด ${fmt(coupon.value)}%`;
+    } else if (coupon.type === 'DISCOUNT_FLAT') {
+        rewardLabel = `ลด ฿${fmt(coupon.value)}`;
+    }
+
+    const title = '🎁 ได้รับคูปองพิเศษ!';
+    let body;
+    if (recipientRole === 'REFERRER') {
+        body = `เพื่อนของคุณ (${refereeId}) ซื้อครั้งแรกสำเร็จแล้ว\nคุณได้รับ: ${coupon.name} (${rewardLabel})`;
+    } else if (recipientRole === 'REFEREE') {
+        body = `ขอบคุณที่สมัครผ่านลิงก์ของ ${referrerId}\nคุณได้รับ: ${coupon.name} (${rewardLabel})`;
+    } else {
+        body = `คุณได้รับ: ${coupon.name} (${rewardLabel})`;
+    }
+    if (coupon.validityDays) {
+        body += `\nใช้ภายใน ${coupon.validityDays} วันหลังได้รับ`;
+    }
+
+    const telegramText =
+        `🎁 <b>ได้รับคูปองพิเศษ!</b>\n\n` +
+        (recipientRole === 'REFERRER'
+            ? `เพื่อนของคุณ (<code>${refereeId}</code>) ซื้อครั้งแรกสำเร็จแล้ว\n`
+            : `ขอบคุณที่สมัครผ่านลิงก์ของ <code>${referrerId}</code>\n`) +
+        `\n<b>${escapeHtml(coupon.name)}</b>\n${escapeHtml(rewardLabel)}\n` +
+        (coupon.validityDays ? `\n⏱ ใช้ภายใน ${coupon.validityDays} วัน` : '');
+
+    await notifyCustomer({
+        customerId: recipientId,
+        kind: 'REWARD_COUPON_GRANTED',
+        title,
+        body,
+        link: 'dashboard.html',
+        payload: { couponId: coupon.id, role: recipientRole, referralRowId },
+        entityKey: `coupon:${coupon.id}:ref:${referralRowId || 'na'}:role:${recipientRole}`,
+        telegramText,
+    });
+}
+
+function escapeHtml(s) {
+    return String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
 }

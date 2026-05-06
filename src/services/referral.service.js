@@ -2,6 +2,7 @@ import { prisma } from '../db.js';
 import * as customerService from './customer.service.js';
 import * as campaignService from './campaign.service.js';
 import * as couponService from './coupon.service.js';
+import { notifyCustomer } from './notification-center.service.js';
 import { getConfig } from '../config/config.js';
 import { addDays } from '../utils/date.utils.js';
 
@@ -232,6 +233,25 @@ const completeReferral = async (refereeId, purchaseAmount, orderId = null) => {
   });
 
   if (!txResult || !txResult.success) return txResult;
+
+  // หลัง tx สำเร็จ → แจ้งเตือนผู้แนะนำว่าได้รับแต้ม (in-app + Telegram)
+  try {
+    await notifyCustomer({
+      customerId: txResult.referrerId,
+      kind: 'POINTS_EARNED',
+      title: '⭐ ได้รับแต้มจากการแนะนำเพื่อน',
+      body: `เพื่อนของคุณ (${refereeId}) ซื้อครั้งแรกสำเร็จ\nคุณได้รับ ${txResult.bonus} แต้ม`,
+      link: 'dashboard.html',
+      payload: { refereeId, bonus: txResult.bonus, referralRowId: txResult.referralId },
+      entityKey: `referral-bonus:${txResult.referralId}`,
+      telegramText:
+        `⭐ <b>ได้รับแต้มจากการแนะนำเพื่อน!</b>\n\n` +
+        `เพื่อนของคุณ (<code>${refereeId}</code>) ซื้อครั้งแรกสำเร็จ\n` +
+        `คุณได้รับ <b>+${txResult.bonus} แต้ม</b> 🎉`,
+    });
+  } catch (e) {
+    console.error('[Referral] notify referrer failed:', e.message);
+  }
 
   // หลัง tx สำเร็จ → ลองมอบ reward coupon (best-effort, ไม่กระทบสถานะ referral)
   let rewardSuffix = '';

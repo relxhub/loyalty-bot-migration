@@ -102,6 +102,8 @@
     "referral.see_details": "ดูรายละเอียด",
     "referral.rewards_title": "โปรพิเศษเมื่อชวนเพื่อน",
     "referral.rewards_subtitle": "เมื่อเพื่อนของคุณซื้อตามเงื่อนไข — รับคูปองเข้ากระเป๋าทันที",
+    "dashboard.notifications": "การแจ้งเตือน",
+    "dashboard.mark_all_read": "อ่านทั้งหมด",
     "referral.friends_referred": "เพื่อนที่คุณแนะนำ",
     "referral.total_earned": "รวมแต้มที่ได้รับ",
     "referral.analyzing": "กำลังวิเคราะห์ข้อมูล...",

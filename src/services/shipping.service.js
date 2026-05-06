@@ -3,6 +3,7 @@ import fetch from 'node-fetch';
 import csvParser from 'csv-parser';
 import { Readable } from 'stream';
 import { sendNotificationToCustomer } from './notification.service.js';
+import { notifyOrderStatusChanged } from './notification-center.service.js';
 
 /**
  * Parses a Google Sheets URL to download and sync shipping tracking numbers.
@@ -136,6 +137,16 @@ export async function syncShippingFromGoogleSheet(sheetUrl) {
                             trackingNumber: trackingNumbersStr
                         }
                     });
+
+                    // In-app notif (best-effort) — Telegram ส่งด้านล่างอยู่แล้ว
+                    try {
+                        await notifyOrderStatusChanged({
+                            orderId: order.id,
+                            customerId: order.customerId,
+                            status: 'SHIPPED',
+                            note: `เลขพัสดุ: ${trackingNumbersStr}`,
+                        });
+                    } catch (e) { /* silent */ }
                     
                     // Construct tracking links for notification
                     const trackers = Array.from(trackings);

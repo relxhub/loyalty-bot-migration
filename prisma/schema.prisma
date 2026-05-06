@@ -110,6 +110,7 @@ model Customer {
   cart              Cart? // Relation to Cart
   favorites         Favorite[] // Relation to Favorites
   orders            Order[] // Relation to Orders
+  notifications     Notification[] // Relation to in-app notifications
 
   @@index([verificationCode])
   @@index([referrerId])
@@ -622,4 +623,34 @@ model AdminMessage {
 
   @@index([orderId, kind])
   @@index([orderId])
+}
+
+// ---------------------------------------------------------
+// IN-APP NOTIFICATION (กระดิ่งบน mini app)
+// ---------------------------------------------------------
+enum NotificationKind {
+  REWARD_COUPON_GRANTED // ได้รับคูปองจาก referral / ภารกิจ
+  ORDER_STATUS_CHANGED // ออเดอร์เปลี่ยนสถานะ (PAID / SHIPPED / CANCELLED)
+  POINTS_EARNED // ได้รับแต้มก้อนใหญ่ (referral bonus / milestone)
+  COUPON_EXPIRING_SOON // คูปองใกล้หมดอายุ (cron แจ้งล่วงหน้า 3 วัน)
+  ADMIN_BROADCAST // ประกาศจากแอดมิน
+}
+
+model Notification {
+  id         Int              @id @default(autoincrement())
+  customerId String
+  kind       NotificationKind
+  title      String
+  body       String           @db.Text
+  link       String? // path ใน mini app เช่น "dashboard.html#coupons"
+  payload    String?          @db.Text // JSON metadata (couponId, orderId, ...)
+  entityKey  String? // กันแจ้งซ้ำ ใช้คู่กับ kind+customerId เป็น unique
+  readAt     DateTime?
+  createdAt  DateTime         @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
+
+  @@unique([customerId, kind, entityKey])
+  @@index([customerId, readAt])
+  @@index([customerId, createdAt])
 }

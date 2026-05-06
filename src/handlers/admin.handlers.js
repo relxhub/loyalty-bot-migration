@@ -13,6 +13,7 @@ import * as couponService from '../services/coupon.service.js';
 import * as shippingService from '../services/shipping.service.js';
 import { sendOrderPaidAdminNotification } from '../services/order-notification.service.js';
 import { broadcastEditAdminMessages } from '../services/admin-message.service.js';
+import * as notifCenter from '../services/notification-center.service.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -50,12 +51,25 @@ export async function handleAdminCommand(ctx) {
                     // Update Database (save bill number)
                     await prisma.order.update({
                         where: { id: orderId },
-                        data: { 
+                        data: {
                             billNumber: billNumber,
                             status: 'PROCESSING', // Status after PAID but before SHIPPED
                             updatedAt: new Date()
                         }
                     });
+
+                    // In-app notif: order PROCESSING (best-effort)
+                    try {
+                        const _ord = await prisma.order.findUnique({ where: { id: orderId }, select: { customerId: true } });
+                        if (_ord?.customerId) {
+                            await notifCenter.notifyOrderStatusChanged({
+                                orderId,
+                                customerId: _ord.customerId,
+                                status: 'PROCESSING',
+                                note: `เลขบิล: ${billNumber}`,
+                            });
+                        }
+                    } catch (e) { /* silent */ }
 
                     // Reconstruct order message for updates
                     let message = '';
@@ -391,6 +405,14 @@ export async function handleAdminCommand(ctx) {
                 await handleAddPoints(ctx, commandParts, adminUser, chatId);
                 break;
 
+            case "/notify":
+                if (role !== "SuperAdmin") {
+                    sendAdminReply(chatId, "⛔️ คำสั่งนี้สำหรับ SuperAdmin เท่านั้น");
+                    break;
+                }
+                await handleNotifyBroadcast(ctx, text, adminUser, chatId);
+                break;
+
             case "/start":
                 const welcomeMsg = `👋 สวัสดี ${adminUser}!\nบอทสำหรับแอดมินพร้อมใช้งาน\n\n` +
                 "<b>คำสั่งทั้งหมด:</b>\n" +
@@ -399,8 +421,9 @@ export async function handleAdminCommand(ctx) {
                 `↩️ /undo (ยกเลิกคำสั่งล่าสุด)\n` +
                 (role === "SuperAdmin" ? "🪙 /add [รหัสลูกค้า] [แต้ม]\n" : "") +
                 (role === "SuperAdmin" ? "👮‍♂️ /addadmin [ID] [Role] [Name]\n" : "") +
+                (role === "SuperAdmin" ? "📣 /notify [ข้อความ] (broadcast หาลูกค้า)\n" : "") +
                 "👤 /new [ลูกค้าใหม่]\n" +
-                "✨ /refer [รหัสลูกค้าที่ถูกแนะนำ] [ยอดซื้อ]\n" + 
+                "✨ /refer [รหัสลูกค้าที่ถูกแนะนำ] [ยอดซื้อ]\n" +
                 "🎫 /coupon [รหัสลูกค้า] [รหัสคูปอง]\n" +
                 "↩️ /uncoupon [รหัสลูกค้า] [รหัสคูปอง]";
                 sendAdminReply(chatId, welcomeMsg);
@@ -914,6 +937,53 @@ async function handleCouponUse(ctx, commandParts, adminUser, chatId) {
     }
 }
 
+/**
+ * /notify <message...>  — broadcast in-app notification + Telegram ให้ลูกค้าทุกคน
+ * SuperAdmin only
+ */
+async function handleNotifyBroadcast(ctx, fullText, adminUser, chatId) {
+    try {
+        // ตัด "/notify " ออก (รวม case ที่ไม่มี space เลย)
+        const message = fullText.replace(/^\/notify(\s+|$)/i, '').trim();
+        if (!message) {
+            sendAdminReply(chatId,
+                "📣 <b>วิธีใช้:</b> <code>/notify ข้อความที่จะส่ง</code>\n\n" +
+                "ตัวอย่าง:\n<code>/notify ร้านปิดวันที่ 12-13 พ.ค. ขออภัยในความไม่สะดวก</code>\n\n" +
+                "บรรทัดแรกจะกลายเป็นหัวข้อ บรรทัดที่เหลือจะเป็นเนื้อหา"
+            );
+            return;
+        }
+
+        // บรรทัดแรก = title, ที่เหลือ = body (ถ้ามีบรรทัดเดียว ใช้บรรทัดเดียวเป็นทั้ง title และ body)
+        const lines = message.split('\n');
+        const title = lines[0].slice(0, 80);
+        const body = lines.length > 1 ? lines.slice(1).join('\n').trim() : message;
+
+        sendAdminReply(chatId, `⏳ กำลังส่ง broadcast ให้ลูกค้า...`);
+
+        const broadcastId = `bcast-${Date.now()}-${Math.floor(Math.random() * 9999)}`;
+        const result = await notifCenter.broadcastNotification({
+            kind: 'ADMIN_BROADCAST',
+            title,
+            body,
+            broadcastId,
+            link: 'dashboard.html',
+            sendTelegram: true,
+            payload: { sentBy: adminUser, ts: Date.now() },
+        });
+
+        sendAdminReply(chatId,
+            `✅ <b>Broadcast เสร็จสิ้น</b>\n\n` +
+            `📨 ในแอป: ${result.created} ราย\n` +
+            `💬 Telegram: ${result.telegramSent} ราย\n` +
+            `🆔 Broadcast ID: <code>${broadcastId}</code>`
+        );
+    } catch (e) {
+        console.error('handleNotifyBroadcast error:', e);
+        sendAdminReply(chatId, `❌ broadcast ล้มเหลว: ${e.message}`);
+    }
+}
+
 async function handleCouponRestore(ctx, commandParts, adminUser, chatId) {
     const customerId = commandParts[1]?.toUpperCase();
     const couponId = commandParts[2]?.toUpperCase();
@@ -1066,6 +1136,12 @@ export async function handleAdminCallback(ctx) {
             if (order.customer && order.customer.telegramUserId) {
                 await sendNotificationToCustomer(order.customer.telegramUserId, `❌ <b>ออเดอร์ของคุณถูกยกเลิก</b>\n\nออเดอร์ <b>#${order.id}</b> ถูกยกเลิกโดยเจ้าหน้าที่\nหากมีข้อสงสัยกรุณาติดต่อแอดมินครับ`);
             }
+            try {
+                await notifCenter.notifyOrderStatusChanged({
+                    orderId, customerId: order.customerId, status: 'CANCELLED',
+                    note: 'ยกเลิกโดยเจ้าหน้าที่',
+                });
+            } catch (e) { /* silent */ }
         }
         else if (data && data.startsWith('edit_items_')) {
             const orderId = data.replace('edit_items_', '');
@@ -1141,6 +1217,12 @@ export async function handleAdminCallback(ctx) {
                 if (order.customer && order.customer.telegramUserId) {
                     await sendNotificationToCustomer(order.customer.telegramUserId, `❌ <b>ออเดอร์ของคุณถูกยกเลิก</b>\n\nออเดอร์ <b>#${order.id}</b> ถูกยกเลิกโดยเจ้าหน้าที่เนื่องจากสินค้าหมด\nหากมีข้อสงสัยกรุณาติดต่อแอดมินครับ`);
                 }
+                try {
+                    await notifCenter.notifyOrderStatusChanged({
+                        orderId, customerId: order.customerId, status: 'CANCELLED',
+                        note: 'สินค้าทั้งหมดถูกลบโดยเจ้าหน้าที่',
+                    });
+                } catch (e) { /* silent */ }
             } else {
                 keyboard.push([{ text: "🔙 กลับ", callback_data: `manage_order_${orderId}` }]);
                 await ctx.editMessageReplyMarkup({ inline_keyboard: keyboard });
@@ -1225,6 +1307,15 @@ export async function handleAdminCallback(ctx) {
                         },
                     });
                 });
+
+                // In-app notif: PAID (best-effort) — Telegram ส่งโดย sendNotificationToCustomer ด้านล่างอยู่แล้ว
+                try {
+                    await notifCenter.notifyOrderStatusChanged({
+                        orderId,
+                        customerId: order.customerId,
+                        status: 'PAID',
+                    });
+                } catch (e) { /* silent */ }
 
                 // Try to complete referral (best-effort) + capture message
                 let referralMsg = '';
@@ -1352,6 +1443,16 @@ export async function handleAdminCallback(ctx) {
                         },
                     });
                 });
+
+                // In-app notif: CANCELLED (best-effort)
+                try {
+                    await notifCenter.notifyOrderStatusChanged({
+                        orderId,
+                        customerId: order.customerId,
+                        status: 'CANCELLED',
+                        note: 'ยอดสลิปไม่ตรงกับยอดที่ต้องชำระ',
+                    });
+                } catch (e) { /* silent */ }
 
                 if (order.customer?.telegramUserId) {
                     let custMsg = `❌ <b>ออเดอร์ถูกยกเลิก</b>\n\nออเดอร์ <b>#${order.id}</b> ถูกยกเลิกเนื่องจากยอดสลิปไม่ตรงกับยอดที่ต้องชำระ`;

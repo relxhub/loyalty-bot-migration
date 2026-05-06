@@ -9,6 +9,7 @@ import { countMonthlyReferrals } from '../services/referral.service.js';
 import * as referralService from '../services/referral.service.js';
 import { sendOrderPaidAdminNotification } from '../services/order-notification.service.js';
 import { recordAdminMessage } from '../services/admin-message.service.js';
+import * as notifCenter from '../services/notification-center.service.js';
 import { getProductPageData } from '../services/product.service.js';
 import * as couponService from '../services/coupon.service.js';
 import * as shippingService from '../services/shipping.service.js';
@@ -628,6 +629,16 @@ router.post('/orders/:orderId/cancel', async (req, res) => {
             data: { status: 'CANCELLED' }
         });
 
+        // In-app notif (ลูกค้าเป็นคนกดเอง — ไม่ส่ง Telegram ซ้ำ)
+        try {
+            await notifCenter.notifyOrderStatusChanged({
+                orderId,
+                customerId: customer.customerId,
+                status: 'CANCELLED',
+                note: 'คุณยกเลิกออเดอร์นี้',
+            });
+        } catch (e) { /* silent */ }
+
         res.json({ success: true });
     } catch (error) {
         console.error("Cancel Order Error:", error);
@@ -1065,6 +1076,16 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                 }
             }
         });
+
+        // 5.4 In-app notif: order PAID (best-effort)
+        try {
+            await notifCenter.notifyOrderStatusChanged({
+                orderId: order.id,
+                customerId: order.customerId,
+                status: 'PAID',
+                note: `ยอดชำระ ฿${parseFloat(slipAmount).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            });
+        } catch (e) { /* silent */ }
 
         // 5.5 Auto-Complete Referral if applicable
         let referralMsg = '';
@@ -2402,6 +2423,80 @@ router.get('/images/:fileId', async (req, res) => {
     } catch (e) {
         console.error('Error proxying telegram image:', e);
         res.status(500).send('Error loading image');
+    }
+});
+
+// ==================================================
+// 🔔 IN-APP NOTIFICATIONS
+// ==================================================
+// Helper: หา customer จาก telegramId แล้วคืน customerId — null ถ้าไม่เจอ
+async function customerIdFromTelegramId(telegramId) {
+    if (!telegramId) return null;
+    const c = await prisma.customer.findUnique({
+        where: { telegramUserId: String(telegramId) },
+        select: { customerId: true },
+    });
+    return c?.customerId || null;
+}
+
+// 1. รายการ notification ของลูกค้า + unread count
+router.get('/notifications/:telegramId', async (req, res) => {
+    try {
+        const { telegramId } = req.params;
+        const limit = parseInt(req.query.limit) || 30;
+        const customerId = await customerIdFromTelegramId(telegramId);
+        if (!customerId) return res.json({ success: true, items: [], unread: 0 });
+
+        const [items, unread] = await Promise.all([
+            notifCenter.listNotifications(customerId, { limit }),
+            notifCenter.getUnreadCount(customerId),
+        ]);
+        res.json({ success: true, items, unread });
+    } catch (e) {
+        console.error('Notifications list error:', e);
+        res.status(500).json({ success: false, error: 'โหลด notifications ไม่สำเร็จ' });
+    }
+});
+
+// 2. unread count อย่างเดียว (สำหรับ badge polling fallback / เปิดแอป)
+router.get('/notifications/:telegramId/unread-count', async (req, res) => {
+    try {
+        const { telegramId } = req.params;
+        const customerId = await customerIdFromTelegramId(telegramId);
+        if (!customerId) return res.json({ success: true, unread: 0 });
+        const unread = await notifCenter.getUnreadCount(customerId);
+        res.json({ success: true, unread });
+    } catch (e) {
+        console.error('Unread count error:', e);
+        res.status(500).json({ success: false, error: 'ดึง unread count ไม่สำเร็จ' });
+    }
+});
+
+// 3. Mark notification ตัวเดียวว่าอ่านแล้ว
+router.post('/notifications/:telegramId/:id/read', async (req, res) => {
+    try {
+        const { telegramId, id } = req.params;
+        const customerId = await customerIdFromTelegramId(telegramId);
+        if (!customerId) return res.status(404).json({ success: false, error: 'ไม่พบลูกค้า' });
+        const row = await notifCenter.markRead(customerId, id);
+        res.json({ success: !!row });
+    } catch (e) {
+        console.error('Mark read error:', e);
+        res.status(500).json({ success: false, error: 'mark read ไม่สำเร็จ' });
+    }
+});
+
+// 4. Mark ทั้งหมดเป็นอ่านแล้ว
+router.post('/notifications/:telegramId/read-all', async (req, res) => {
+    try {
+        const { telegramId } = req.params;
+        const customerId = await customerIdFromTelegramId(telegramId);
+        if (!customerId) return res.status(404).json({ success: false, error: 'ไม่พบลูกค้า' });
+        const count = await notifCenter.markAllRead(customerId);
+        res.json({ success: true, count });
+    } catch (e) {
+        console.error('Mark all read error:', e);
+        res.status(500).json({ success: false, error: 'mark all read ไม่สำเร็จ' });
     }
 });
 

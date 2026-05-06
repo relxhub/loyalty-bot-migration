@@ -2,6 +2,7 @@
 
 import { prisma } from '../db.js';
 import { sendNotificationToCustomer } from '../services/notification.service.js';
+import { notifyOrderStatusChanged, notifyCustomer } from '../services/notification-center.service.js';
 
 // ⭐️ ฟังก์ชันตัดแต้มหมดอายุ (แก้ไขใหม่: เพิ่ม Log ละเอียด)
 export async function runPointExpiryJob() {
@@ -112,6 +113,68 @@ export async function runReminderJob() {
 }
 
 /**
+ * แจ้งเตือนล่วงหน้า 3 วันก่อนคูปองหมดอายุ
+ * - รันวันละครั้ง (default 09:00 Bangkok)
+ * - หาเฉพาะ AVAILABLE + expiryDate ในช่วง [now+2.5d, now+3.5d]
+ * - กันแจ้งซ้ำผ่าน entityKey ใน Notification (unique constraint)
+ */
+export async function runCouponExpiringWarningJob() {
+    try {
+        const now = new Date();
+        const lowerBound = new Date(now.getTime() + 2.5 * 24 * 60 * 60 * 1000);
+        const upperBound = new Date(now.getTime() + 3.5 * 24 * 60 * 60 * 1000);
+
+        const expiring = await prisma.customerCoupon.findMany({
+            where: {
+                status: 'AVAILABLE',
+                expiryDate: { gte: lowerBound, lte: upperBound },
+            },
+            include: {
+                coupon: { select: { id: true, name: true, type: true, value: true, giftQty: true } },
+            },
+        });
+
+        if (expiring.length === 0) {
+            console.log('[CouponExpiringWarning] 💡 ไม่มีคูปองใกล้หมดอายุในช่วง 3 วัน');
+            return;
+        }
+
+        console.log(`[CouponExpiringWarning] 🔔 Found ${expiring.length} expiring coupons → notifying...`);
+
+        let notified = 0;
+        for (const cc of expiring) {
+            try {
+                const expiryStr = cc.expiryDate
+                    ? new Date(cc.expiryDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
+                    : '';
+                const c = cc.coupon;
+                let rewardLabel = '';
+                if (c.type === 'GIFT') rewardLabel = `รับฟรี${c.giftQty && c.giftQty > 1 ? ` x${c.giftQty}` : ''}`;
+                else if (c.type === 'DISCOUNT_PERCENT') rewardLabel = `ลด ${Number(c.value)}%`;
+                else if (c.type === 'DISCOUNT_FLAT') rewardLabel = `ลด ฿${Number(c.value)}`;
+
+                await notifyCustomer({
+                    customerId: cc.customerId,
+                    kind: 'COUPON_EXPIRING_SOON',
+                    title: '⏰ คูปองใกล้หมดอายุ',
+                    body: `${c.name}${rewardLabel ? ` (${rewardLabel})` : ''}\nหมดอายุ ${expiryStr}`,
+                    link: 'dashboard.html',
+                    payload: { customerCouponId: cc.id, couponId: c.id },
+                    entityKey: `cc:${cc.id}:warn3d`,
+                });
+                notified += 1;
+            } catch (e) {
+                console.error(`[CouponExpiringWarning] notify failed for cc=${cc.id}:`, e.message);
+            }
+        }
+
+        console.log(`[CouponExpiringWarning] ✅ notified=${notified}/${expiring.length}`);
+    } catch (e) {
+        console.error('[CouponExpiringWarning] error:', e);
+    }
+}
+
+/**
  * E-commerce: Auto-cancel pending orders that have exceeded their expiry time.
  */
 export async function runOrderExpiryJob() {
@@ -128,7 +191,7 @@ export async function runOrderExpiryJob() {
                 createdAt: { lt: cutoffTime },
                 mismatchLocked: false, // skip orders awaiting admin top-up confirmation (no expiry)
             },
-            select: { id: true }
+            select: { id: true, customerId: true }
         });
 
         if (expiredOrders.length === 0) return; // Silent return
@@ -137,12 +200,12 @@ export async function runOrderExpiryJob() {
 
         await prisma.$transaction(async (tx) => {
             const orderIds = expiredOrders.map(o => o.id);
-            
+
             await tx.order.updateMany({
                 where: { id: { in: orderIds } },
                 data: { status: 'CANCELLED' }
             });
-            
+
             await tx.systemLog.create({
                 data: {
                     level: 'INFO',
@@ -151,9 +214,21 @@ export async function runOrderExpiryJob() {
                     message: `Auto-cancelled ${orderIds.length} expired orders: ${orderIds.join(', ')}`
                 }
             });
-            
+
             console.log(`[OrderExpiryJob] ✅ Successfully cancelled orders: ${orderIds.join(', ')}`);
         });
+
+        // In-app notif หลัง tx (best-effort)
+        for (const o of expiredOrders) {
+            try {
+                await notifyOrderStatusChanged({
+                    orderId: o.id,
+                    customerId: o.customerId,
+                    status: 'CANCELLED',
+                    note: 'หมดเวลาชำระเงิน — ออเดอร์ถูกยกเลิกอัตโนมัติ',
+                });
+            } catch (e) { /* silent */ }
+        }
 
     } catch (error) {
          console.error(`[OrderExpiryJob] ❌ Error cancelling expired orders:`, error);
