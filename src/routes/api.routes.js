@@ -4058,6 +4058,171 @@ router.delete('/admin/products/:id', async (req, res) => {
     }
 });
 
+// GET /admin/stock-alert — สินค้าที่ stock < threshold
+router.get('/admin/stock-alert', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const setting = await prisma.storeSetting.findUnique({ where: { id: 1 } });
+        const lowT = setting?.lowStockThreshold ?? 50;
+        const outT = setting?.outOfStockThreshold ?? 20;
+        const products = await prisma.product.findMany({
+            where: { stockQuantity: { lte: lowT }, status: 'IN_STOCK' },
+            include: { category: { select: { id: true, name: true } } },
+            orderBy: { stockQuantity: 'asc' },
+        });
+        const out = products.map(p => ({
+            id: p.id, nameTh: p.nameTh, nameEn: p.nameEn, imageUrl: p.imageUrl,
+            stockQuantity: p.stockQuantity, category: p.category,
+            level: p.stockQuantity <= outT ? 'critical' : 'low',
+        }));
+        res.json({ success: true, lowThreshold: lowT, outThreshold: outT, products: out });
+    } catch (e) { res.status(500).json({ success: false, error: 'load failed' }); }
+});
+
+// POST /admin/products/bulk-price { mode: 'pct'|'flat', value, categoryId? }
+router.post('/admin/products/bulk-price', async (req, res) => {
+    const a = await authAdmin(req, ['SuperAdmin', 'Owner']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const mode = String(req.body?.mode || ''); // 'pct' (เปอร์เซ็นต์), 'flat' (เพิ่ม/ลดบาท), 'set' (ปรับเป็นค่าเดียวกัน)
+        const value = Number(req.body?.value);
+        const categoryId = req.body?.categoryId ? parseInt(req.body.categoryId) : null;
+        if (!['pct', 'flat', 'set'].includes(mode)) return res.status(400).json({ success: false, error: 'mode ต้อง pct/flat/set' });
+        if (isNaN(value)) return res.status(400).json({ success: false, error: 'value ไม่ถูกต้อง' });
+        if (!categoryId) return res.status(400).json({ success: false, error: 'ระบุ categoryId (Product schema ไม่มีราคารายตัว — ราคาฐานอยู่ที่ Category)' });
+        const cat = await prisma.category.findUnique({ where: { id: categoryId } });
+        if (!cat) return res.status(404).json({ success: false, error: 'ไม่พบหมวด' });
+        const before = Number(cat.price);
+        let after;
+        if (mode === 'pct') after = Math.max(0, Math.round((before * (1 + value / 100)) * 100) / 100);
+        else if (mode === 'flat') after = Math.max(0, Math.round((before + value) * 100) / 100);
+        else after = Math.max(0, Math.round(value * 100) / 100);
+        await prisma.category.update({ where: { id: categoryId }, data: { price: after } });
+        await prisma.adminAuditLog.create({
+            data: { adminName: a.admin?.name || a.telegramId, action: 'BULK_PRICE_' + mode.toUpperCase(),
+                details: JSON.stringify({ categoryId, categoryName: cat.name, mode, value, before, after }) },
+        });
+        res.json({ success: true, before, after, categoryName: cat.name });
+    } catch (e) {
+        console.error('bulk-price error:', e);
+        res.status(500).json({ success: false, error: e.message || 'failed' });
+    }
+});
+
+// GET /admin/orders/export — CSV ตาม filter
+router.get('/admin/orders/export', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const status = String(req.query.status || 'ALL').toUpperCase();
+        const since = req.query.since ? new Date(req.query.since) : null;
+        const where = {};
+        if (status !== 'ALL') where.status = status;
+        if (since) where.createdAt = { gte: since };
+        if (a.admin.role === 'Admin') where.OR = [{ assignedAdminId: a.telegramId }, { assignedAdminId: null }];
+        const orders = await prisma.order.findMany({
+            where,
+            include: {
+                customer: { select: { customerId: true, firstName: true, lastName: true, phoneNumber: true } },
+                items: { include: { product: { select: { nameTh: true, nameEn: true } } } },
+                payment: { select: { amount: true, status: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 5000,
+        });
+        // CSV header
+        const headers = ['orderId','status','kind','createdAt','customerId','customerName','phone','totalAmount','paidAmount','paymentStatus','itemCount','items','billNumber','trackingNumber','assignedAdmin'];
+        const rows = orders.map(o => {
+            const itemList = o.items.map(it => `${it.product.nameTh || it.product.nameEn || '#'+it.productId}×${it.quantity}`).join('; ');
+            const cust = `${o.customer?.firstName||''} ${o.customer?.lastName||''}`.trim();
+            const cells = [
+                o.id, o.status, o.kind, o.createdAt.toISOString(),
+                o.customerId, cust, o.customer?.phoneNumber || '',
+                Number(o.totalAmount), o.payment ? Number(o.payment.amount) : '',
+                o.payment?.status || '', o.items.reduce((s,i)=>s+i.quantity,0),
+                itemList, o.billNumber || '', o.trackingNumber || '',
+                o.assignedAdminId || '',
+            ];
+            return cells.map(c => {
+                const s = String(c ?? '');
+                return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+            }).join(',');
+        });
+        const csv = '﻿' + [headers.join(','), ...rows].join('\n'); // BOM สำหรับ Excel TH
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="orders_${Date.now()}.csv"`);
+        res.send(csv);
+    } catch (e) {
+        console.error('export error:', e);
+        res.status(500).json({ success: false, error: e.message || 'export failed' });
+    }
+});
+
+// PATCH /admin/customers/:customerId/admin-note { adminNote }
+router.patch('/admin/customers/:customerId/admin-note', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const cust = await prisma.customer.findUnique({ where: { customerId: req.params.customerId } });
+        if (!cust) return res.status(404).json({ success: false, error: 'ไม่พบลูกค้า' });
+        const note = (req.body?.adminNote ?? '').toString();
+        await prisma.customer.update({ where: { customerId: cust.customerId }, data: { adminNote: note || null } });
+        await prisma.adminAuditLog.create({
+            data: { adminName: a.admin?.name || a.telegramId, action: 'CUSTOMER_NOTE',
+                targetId: cust.customerId, details: JSON.stringify({ len: note.length }) },
+        });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'failed' }); }
+});
+
+// GET /admin/global-search?q= — ค้นหาทุก entity (orders/customers/products/coupons)
+router.get('/admin/global-search', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const q = String(req.query.q || '').trim();
+        if (q.length < 2) return res.json({ success: true, orders: [], customers: [], products: [], coupons: [] });
+        const [orders, customers, products, coupons] = await Promise.all([
+            prisma.order.findMany({
+                where: { OR: [{ id: { contains: q, mode: 'insensitive' } }, { customerId: { contains: q, mode: 'insensitive' } }] },
+                select: { id: true, status: true, totalAmount: true, customerId: true }, take: 10,
+            }),
+            prisma.customer.findMany({
+                where: { isDeleted: false, OR: [
+                    { customerId: { contains: q, mode: 'insensitive' } },
+                    { phoneNumber: { contains: q } },
+                    { firstName: { contains: q, mode: 'insensitive' } },
+                    { lastName: { contains: q, mode: 'insensitive' } },
+                ]},
+                select: { customerId: true, firstName: true, lastName: true, phoneNumber: true, points: true }, take: 10,
+            }),
+            prisma.product.findMany({
+                where: { OR: [
+                    { nameTh: { contains: q, mode: 'insensitive' } },
+                    { nameEn: { contains: q, mode: 'insensitive' } },
+                ]},
+                select: { id: true, nameTh: true, nameEn: true, stockQuantity: true, status: true }, take: 10,
+            }),
+            prisma.coupon.findMany({
+                where: { OR: [
+                    { id: { contains: q, mode: 'insensitive' } },
+                    { name: { contains: q, mode: 'insensitive' } },
+                ]},
+                select: { id: true, name: true, isActive: true }, take: 10,
+            }),
+        ]);
+        res.json({
+            success: true,
+            orders: orders.map(o => ({ ...o, totalAmount: Number(o.totalAmount) })),
+            customers, products, coupons,
+        });
+    } catch (e) {
+        console.error('global-search error:', e);
+        res.status(500).json({ success: false, error: e.message || 'search failed' });
+    }
+});
+
 // POST /admin/products/bulk-stock { mode: 'add'|'sub'|'set', adjustments: [{id, value}] }
 router.post('/admin/products/bulk-stock', async (req, res) => {
     const a = await authAdmin(req);

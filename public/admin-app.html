@@ -82,6 +82,9 @@
 
         <!-- HOME view -->
         <div id="view-home" class="space-y-3">
+            <input id="global-search" type="text" placeholder="🔍 ค้นหาทุกอย่าง: ออเดอร์ / ลูกค้า / สินค้า / คูปอง..." class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-sm text-white placeholder-zinc-500 focus:border-emerald-400 focus:outline-none mb-2">
+            <div id="global-search-results" class="hidden glass-card p-3 mb-2 max-h-80 overflow-y-auto"></div>
+
             <button onclick="showView('orders')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
                 <div class="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center text-2xl">🛒</div>
                 <div class="flex-1">
@@ -135,6 +138,16 @@
                     <div class="font-bold text-white text-sm">จัดการสินค้า</div>
                     <div class="text-[11px] text-zinc-400">เพิ่ม/แก้ไข/ลบ + จัดสต็อก</div>
                 </div>
+                <i class="ri-arrow-right-s-line text-zinc-400"></i>
+            </button>
+
+            <button onclick="showView('stock-alert')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+                <div class="w-12 h-12 rounded-xl bg-red-500/20 flex items-center justify-center text-2xl">⚠️</div>
+                <div class="flex-1">
+                    <div class="font-bold text-white text-sm">เตือนสต็อกใกล้หมด</div>
+                    <div class="text-[11px] text-zinc-400">รายการสินค้าที่ stock ต่ำกว่าเกณฑ์</div>
+                </div>
+                <span id="badge-stock-alert" class="hidden text-[10px] bg-red-500 text-white rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center font-bold">0</span>
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
@@ -282,10 +295,19 @@
             <div id="dash-content"><div class="text-center text-zinc-500 py-8 animate-pulse">กำลังโหลด...</div></div>
         </div>
 
+        <!-- ⚠️ Stock Alert view -->
+        <div id="view-stock-alert" class="hidden">
+            <div class="font-bold text-sm mb-3 flex items-center gap-2"><i class="ri-error-warning-line text-red-400"></i> เตือนสต็อกใกล้หมด</div>
+            <div id="stock-alert-content"></div>
+        </div>
+
         <!-- 🛒 Orders view -->
         <div id="view-orders" class="hidden">
-            <div class="font-bold text-sm mb-2 flex items-center gap-2">
-                <i class="ri-shopping-cart-line text-emerald-400"></i> จัดการออเดอร์
+            <div class="flex items-center justify-between mb-2">
+                <div class="font-bold text-sm flex items-center gap-2">
+                    <i class="ri-shopping-cart-line text-emerald-400"></i> จัดการออเดอร์
+                </div>
+                <button onclick="exportOrdersCsv()" class="text-xs px-3 py-1.5 rounded-full bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 border border-emerald-500/40 font-bold"><i class="ri-file-download-line"></i> Export CSV</button>
             </div>
             <input id="ord-search" type="text" placeholder="ค้นหา: รหัสออเดอร์ / ลูกค้า / เบอร์ / ชื่อ" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-sm text-white placeholder-zinc-500 focus:border-emerald-400 focus:outline-none mb-2">
             <div class="flex gap-1.5 overflow-x-auto pb-2 mb-1 -mx-1 px-1 scrollbar-hide">
@@ -473,6 +495,7 @@
                 <div class="font-bold text-sm flex items-center gap-2"><i class="ri-folder-line text-cyan-400"></i> หมวดหมู่ทั้งหมด</div>
                 <button onclick="openCatEdit()" class="text-xs px-3 py-1.5 rounded-full bg-cyan-500 hover:bg-cyan-400 text-black font-bold"><i class="ri-add-line"></i> สร้างใหม่</button>
             </div>
+            <div class="text-[10px] text-zinc-500 mb-2">💡 คลิกที่ราคาฐานในแต่ละหมวดเพื่อปรับแบบ bulk (เปอร์เซ็นต์/บาท)</div>
             <div id="cat-list" class="space-y-2"></div>
         </div>
 
@@ -610,6 +633,7 @@
         let _searchDebounce = null;
         let _currentOrdTab = 'NEEDS_VERIFY';
         let _ordSearchDebounce = null;
+        let _globalSearchDebounce = null;
         let _prodSearchDebounce = null;
         let _editingProdId = null;
         let _editingCatId = null;
@@ -649,6 +673,7 @@
             else if (name === 'rbac') loadRbacMatrix();
             else if (name === 'ship-sync') { document.getElementById('ss-result').innerHTML = ''; }
             else if (name === 'shifts') loadShiftsTable();
+            else if (name === 'stock-alert') loadStockAlert();
         }
 
         // ซ่อนเมนูที่ไม่อยู่ใน permissions ของ role ปัจจุบัน
@@ -738,9 +763,15 @@
                     _searchDebounce = setTimeout(() => searchCustomers(e.target.value), 350);
                 });
 
+                document.getElementById('global-search').addEventListener('input', (e) => {
+                    clearTimeout(_globalSearchDebounce);
+                    _globalSearchDebounce = setTimeout(() => runGlobalSearch(e.target.value), 300);
+                });
+
                 showView('home');
                 loadShipmentsBadge();
                 loadOrdersBadge();
+                loadStockAlertBadge();
                 initRealtimeSocket();
             } catch (e) {
                 console.error('init error:', e);
@@ -937,7 +968,12 @@
                             <div class="text-base font-bold text-green-400">${s.completedReferrals || 0}</div><div class="text-[10px] text-zinc-500">ชวน</div>
                         </div>
                     </div>
-                    <div class="text-[10px] text-zinc-500 mb-3">หมดอายุแต้ม: ${_date(c.expiryDate)} · เริ่มสมัคร: ${_date(c.joinDate)}</div>
+                    <div class="text-[10px] text-zinc-500 mb-3">หมดอายุแต้ม: ${_date(c.expiryDate)} · เริ่มสมัคร: ${_date(c.joinDate)}${c.birthDate ? ' · 🎂 วันเกิด: ' + _date(c.birthDate) : ''}</div>
+                    <div class="mb-3">
+                        <div class="text-[10px] text-zinc-400 uppercase tracking-wider mb-1">📝 หมายเหตุ admin (ลูกค้าไม่เห็น)</div>
+                        <textarea id="cust-admin-note" rows="2" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white text-xs" placeholder="เช่น 'ลูกค้าหิวด่วน' / 'พิเศษ'">${_esc(c.adminNote || '')}</textarea>
+                        <button onclick="saveCustNote('${_esc(c.customerId)}')" class="mt-1 text-[11px] px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 text-white">บันทึกหมายเหตุ</button>
+                    </div>
                     <button onclick="openAdjModal('${_esc(c.customerId)}')" class="w-full py-2.5 rounded-xl bg-blue-500 hover:bg-blue-400 text-white text-sm font-bold mb-4">
                         <i class="ri-coin-line"></i> ปรับแต้ม
                     </button>
@@ -954,6 +990,19 @@
         function closeCustModal() {
             document.body.classList.remove('no-scroll');
             document.getElementById('cust-modal').classList.add('hidden');
+        }
+        async function saveCustNote(customerId) {
+            const v = document.getElementById('cust-admin-note').value;
+            try {
+                const res = await fetch(`/api/admin/customers/${encodeURIComponent(customerId)}/admin-note`, {
+                    method: 'PATCH', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ adminNote: v, initData: tg.initData }),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
+                showToast('💾 บันทึกหมายเหตุแล้ว');
+            } catch (e) { alert('error: '+e.message); }
         }
         function openAdjModal(customerId) {
             _currentAdjCustId = customerId;
@@ -986,6 +1035,119 @@
                 closeAdjModal();
                 openCustModal(id); // refresh
             } catch (e) { alert('error: '+e.message); btn.disabled=false; btn.textContent='บันทึก'; }
+        }
+
+        // ---------- 🔍 Global Search ----------
+        async function runGlobalSearch(q) {
+            const wrap = document.getElementById('global-search-results');
+            q = (q || '').trim();
+            if (q.length < 2) { wrap.classList.add('hidden'); wrap.innerHTML = ''; return; }
+            wrap.classList.remove('hidden');
+            wrap.innerHTML = '<div class="text-center text-zinc-500 py-3 text-xs animate-pulse">กำลังค้นหา...</div>';
+            try {
+                const res = await fetch('/api/admin/global-search?q=' + encodeURIComponent(q), { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error);
+                const sec = (label, items, render) => items.length ? `<div class="mb-3"><div class="text-[10px] text-zinc-500 font-bold mb-1">${label} (${items.length})</div>${items.map(render).join('')}</div>` : '';
+                wrap.innerHTML =
+                    sec('🛒 ออเดอร์', data.orders, o => `<div class="text-xs py-1 cursor-pointer hover:text-emerald-300" onclick="closeGlobalSearch();showView('orders');setTimeout(()=>openOrdDetail('${_esc(o.id)}'),300)"><code>#${_esc(o.id)}</code> · ${_esc(o.status)} · ฿${_fmt(o.totalAmount)}</div>`) +
+                    sec('👥 ลูกค้า', data.customers, c => `<div class="text-xs py-1 cursor-pointer hover:text-blue-300" onclick="closeGlobalSearch();showView('customers');setTimeout(()=>openCustModal('${_esc(c.customerId)}'),300)"><code>${_esc(c.customerId)}</code> · ${_esc((c.firstName||'')+' '+(c.lastName||''))} · ${_esc(c.phoneNumber||'')}</div>`) +
+                    sec('🛍️ สินค้า', data.products, p => `<div class="text-xs py-1 cursor-pointer hover:text-pink-300" onclick="closeGlobalSearch();showView('products');setTimeout(()=>openProdEdit(${p.id}),300)">${_esc(p.nameTh||p.nameEn)} · stock ${p.stockQuantity} · ${p.status}</div>`) +
+                    sec('🎫 คูปอง', data.coupons, c => `<div class="text-xs py-1 cursor-pointer hover:text-yellow-300" onclick="closeGlobalSearch();showView('coupons');setTimeout(()=>openCpnEdit('${_esc(c.id)}'),300)">${_esc(c.name)} · <code>${_esc(c.id)}</code> · ${c.isActive?'Active':'Hidden'}</div>`) ||
+                    '<div class="text-center text-zinc-500 py-3 text-xs">ไม่พบ</div>';
+            } catch (e) { wrap.innerHTML = `<div class="text-center text-red-400 py-3 text-xs">${_esc(e.message||'error')}</div>`; }
+        }
+        function closeGlobalSearch() {
+            document.getElementById('global-search').value = '';
+            document.getElementById('global-search-results').classList.add('hidden');
+            document.getElementById('global-search-results').innerHTML = '';
+        }
+
+        // ---------- ⚠️ Stock Alert ----------
+        async function loadStockAlertBadge() {
+            try {
+                const res = await fetch('/api/admin/stock-alert', { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (data.success) {
+                    const n = data.products?.length || 0;
+                    const badge = document.getElementById('badge-stock-alert');
+                    if (n > 0) { badge.textContent = n > 99 ? '99+' : n; badge.classList.remove('hidden'); }
+                    else badge.classList.add('hidden');
+                }
+            } catch (e) {}
+        }
+        async function loadStockAlert() {
+            const wrap = document.getElementById('stock-alert-content');
+            wrap.innerHTML = '<div class="text-center text-zinc-500 py-6 animate-pulse">กำลังโหลด...</div>';
+            try {
+                const res = await fetch('/api/admin/stock-alert', { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error);
+                if (!data.products.length) {
+                    wrap.innerHTML = `<div class="rounded-xl p-4 bg-emerald-500/10 border border-emerald-500/40 text-center">
+                        <div class="text-2xl mb-1">✅</div>
+                        <div class="text-sm font-bold text-emerald-300">สต็อกของทุกสินค้ายังเพียงพอ</div>
+                        <div class="text-[10px] text-zinc-400 mt-1">เกณฑ์เตือน: ≤${data.lowThreshold} · เกณฑ์ด่วน: ≤${data.outThreshold}</div>
+                    </div>`;
+                    return;
+                }
+                const critCnt = data.products.filter(p => p.level === 'critical').length;
+                wrap.innerHTML = `
+                    <div class="text-[11px] text-zinc-400 mb-2">เกณฑ์เตือน: ≤${data.lowThreshold} · ด่วน: ≤${data.outThreshold} · พบ <span class="text-red-300 font-bold">${critCnt} ด่วน</span> + <span class="text-orange-300">${data.products.length-critCnt} ใกล้หมด</span></div>
+                    ${data.products.map(p => `
+                        <div class="bg-white/5 border ${p.level==='critical'?'border-red-500/40':'border-orange-500/40'} rounded-xl p-2.5 flex items-center gap-2.5 mb-2 cursor-pointer hover:bg-white/10" onclick="showView('products');setTimeout(()=>openProdEdit(${p.id}),300)">
+                            ${p.imageUrl ? `<img src="${_esc(p.imageUrl)}" class="w-10 h-10 rounded object-cover">` : '<div class="w-10 h-10 rounded bg-zinc-700"></div>'}
+                            <div class="flex-1 min-w-0">
+                                <div class="text-xs text-white truncate">${_esc(p.nameTh || p.nameEn)}</div>
+                                <div class="text-[10px] text-zinc-500">${_esc(p.category?.name||'ไม่มีหมวด')}</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-base font-bold ${p.level==='critical'?'text-red-300':'text-orange-300'}">${p.stockQuantity}</div>
+                                <div class="text-[9px] text-zinc-500">${p.level === 'critical' ? '⚠️ ด่วน' : 'ใกล้หมด'}</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                `;
+            } catch (e) { wrap.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`; }
+        }
+
+        // ---------- 📥 Order Export ----------
+        async function exportOrdersCsv() {
+            try {
+                const status = _currentOrdTab || 'ALL';
+                const res = await fetch(`/api/admin/orders/export?status=${status}`, { headers: { 'X-Init-Data': tg.initData } });
+                if (!res.ok) { alert('export ไม่สำเร็จ'); return; }
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = `orders_${status}_${Date.now()}.csv`;
+                document.body.appendChild(a); a.click(); a.remove();
+                URL.revokeObjectURL(url);
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
+            } catch (e) { alert('error: '+e.message); }
+        }
+
+        // ---------- 💰 Bulk Price (per category) ----------
+        function openBulkPrice(catId, catName, currentPrice) {
+            if (!confirm(`ปรับราคาฐานหมวด "${catName}" (ปัจจุบัน ฿${currentPrice})?\n(จะกระทบสินค้าทั้งหมดในหมวดนี้)`)) return;
+            const mode = prompt('เลือก mode:\n  pct = เปอร์เซ็นต์ (เช่น 5 = ขึ้น 5%, -10 = ลด 10%)\n  flat = บาท (เช่น 20 = +฿20, -50 = -฿50)\n  set = กำหนดเป็นค่าเดียวกันเลย\n\nพิมพ์: pct / flat / set');
+            if (!mode || !['pct','flat','set'].includes(mode)) return;
+            const valStr = prompt(`ใส่ value สำหรับ mode ${mode}:`);
+            if (valStr == null) return;
+            const value = Number(valStr);
+            if (isNaN(value)) return alert('ไม่ใช่ตัวเลข');
+            (async () => {
+                try {
+                    const res = await fetch('/api/admin/products/bulk-price', {
+                        method: 'POST', headers: {'Content-Type':'application/json'},
+                        body: JSON.stringify({ categoryId: catId, mode, value, initData: tg.initData }),
+                    });
+                    const data = await res.json();
+                    if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                    alert(`✅ ${data.categoryName}: ฿${data.before} → ฿${data.after}`);
+                    await loadAdminCategories();
+                } catch (e) { alert('error: '+e.message); }
+            })();
         }
 
         // ---------- 🔌 Realtime socket ----------
@@ -1730,13 +1892,13 @@
                 window._catFullCache = data.categories;
                 if (!data.categories.length) { list.innerHTML = '<div class="text-center text-zinc-500 py-6 text-sm">ไม่มีหมวด</div>'; return; }
                 list.innerHTML = data.categories.map((c, idx) => `
-                    <div class="bg-white/5 border border-white/10 rounded-xl p-3 flex items-center gap-3 cursor-pointer hover:bg-white/10 item-fade-in" style="animation-delay:${idx*25}ms" onclick="openCatEdit(${c.id})">
+                    <div class="bg-white/5 border border-white/10 rounded-xl p-3 flex items-center gap-3 item-fade-in" style="animation-delay:${idx*25}ms">
                         ${c.imageUrl ? `<img src="${_esc(c.imageUrl)}" class="w-10 h-10 rounded object-cover">` : '<div class="w-10 h-10 rounded bg-cyan-500/20 flex items-center justify-center text-base">📂</div>'}
-                        <div class="flex-1 min-w-0">
+                        <div class="flex-1 min-w-0 cursor-pointer" onclick="openCatEdit(${c.id})">
                             <div class="text-sm font-bold text-white truncate">${_esc(c.name)}</div>
-                            <div class="text-[10px] text-zinc-500">${c.type} · ลำดับ ${c.order} · ราคาฐาน ฿${_fmt(c.price)} · สินค้า ${c.productCount}</div>
+                            <div class="text-[10px] text-zinc-500">${c.type} · ลำดับ ${c.order} · สินค้า ${c.productCount}</div>
                         </div>
-                        <i class="ri-arrow-right-s-line text-zinc-500"></i>
+                        <button onclick="event.stopPropagation();openBulkPrice(${c.id}, '${_esc(c.name).replace(/'/g, '&#39;')}', ${Number(c.price)})" class="text-[11px] px-2.5 py-1 rounded-full bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 border border-emerald-500/40 font-bold whitespace-nowrap">฿${_fmt(c.price)}</button>
                     </div>`).join('');
             } catch (e) { list.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`; }
         }
