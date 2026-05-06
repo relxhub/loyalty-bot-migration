@@ -1589,31 +1589,36 @@
 
                 if (!data.items || data.items.length === 0) {
                     list.innerHTML = `<div class="flex flex-col items-center justify-center h-full text-gray-500 opacity-60"><i class="ri-notification-off-line text-6xl mb-4"></i><p>ยังไม่มีการแจ้งเตือน</p></div>`;
-                } else {
-                    let html = '';
-                    data.items.forEach((n, idx) => {
-                        const ic = _notifIcon(n.kind);
-                        const unreadStyle = n.readAt ? '' : 'border-l-4 border-l-yellow-400';
-                        html += `
-                        <div class="bg-white/5 p-3 rounded-xl border border-white/10 ${unreadStyle} list-item-animate cursor-pointer" style="animation-delay: ${idx * 50}ms" onclick="onClickNotif(${n.id}, ${JSON.stringify(n.link || '').replace(/"/g, '&quot;')})">
-                            <div class="flex items-start gap-3">
-                                <div class="w-9 h-9 rounded-full ${ic.bg} ${ic.color} flex items-center justify-center flex-shrink-0">
-                                    <i class="${ic.icon}"></i>
-                                </div>
-                                <div class="flex-1 min-w-0">
-                                    <div class="flex items-start justify-between gap-2 mb-0.5">
-                                        <span class="text-sm font-semibold text-white truncate">${_escapeNotifHtml(n.title)}</span>
-                                        ${n.readAt ? '' : '<span class="w-2 h-2 rounded-full bg-yellow-400 flex-shrink-0 mt-1.5"></span>'}
-                                    </div>
-                                    <p class="text-xs text-zinc-300 leading-relaxed whitespace-pre-line">${_escapeNotifHtml(n.body)}</p>
-                                    <div class="text-[10px] text-zinc-500 mt-1.5">${_formatRelativeTime(n.createdAt)}</div>
-                                </div>
-                            </div>
-                        </div>`;
-                    });
-                    list.innerHTML = html;
+                    setNotifBadge(0);
+                    return;
                 }
-                setNotifBadge(data.unread || 0);
+
+                let html = '';
+                data.items.forEach((n, idx) => {
+                    const ic = _notifIcon(n.kind);
+                    // เปิด modal = อ่านแล้วทุกใบ → ไม่ต้องโชว์ unread style ในรายการ
+                    html += `
+                    <div class="bg-white/5 p-3 rounded-xl border border-white/10 list-item-animate cursor-pointer" style="animation-delay: ${idx * 50}ms" onclick="onClickNotif(${n.id}, ${JSON.stringify(n.link || '').replace(/"/g, '&quot;')})">
+                        <div class="flex items-start gap-3">
+                            <div class="w-9 h-9 rounded-full ${ic.bg} ${ic.color} flex items-center justify-center flex-shrink-0">
+                                <i class="${ic.icon}"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm font-semibold text-white truncate mb-0.5">${_escapeNotifHtml(n.title)}</div>
+                                <p class="text-xs text-zinc-300 leading-relaxed whitespace-pre-line">${_escapeNotifHtml(n.body)}</p>
+                                <div class="text-[10px] text-zinc-500 mt-1.5">${_formatRelativeTime(n.createdAt)}</div>
+                            </div>
+                        </div>
+                    </div>`;
+                });
+                list.innerHTML = html;
+
+                // เปิด modal = ถือว่า "อ่านแล้ว" ทันที → optimistic UI: badge หาย
+                if (data.unread > 0) {
+                    setNotifBadge(0);
+                    // ส่ง mark-all-read ไป backend แบบ async ไม่ต้องรอ
+                    fetch(`/api/notifications/${tgId}/read-all`, { method: 'POST' }).catch(() => {});
+                }
             } catch (e) {
                 console.error('openNotifModal error:', e);
                 list.innerHTML = '<div class="text-center text-red-400 mt-10">เกิดข้อผิดพลาดในการโหลด</div>';
@@ -1631,12 +1636,8 @@
         }
 
         async function onClickNotif(id, link) {
+            // เปิด modal mark-all-read ไปแล้ว แค่ navigate ถ้ามี link
             try {
-                const tgId = _getTelegramId();
-                if (tgId) {
-                    fetch(`/api/notifications/${tgId}/${id}/read`, { method: 'POST' }).catch(() => {});
-                }
-                refreshUnreadCount();
                 if (link && typeof link === 'string' && link.length > 0) {
                     closeNotifModal();
                     setTimeout(() => { window.location.href = link; }, 320);

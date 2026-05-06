@@ -221,11 +221,14 @@ const completeReferral = async (refereeId, purchaseAmount, orderId = null) => {
       }
     });
 
-    // 7. Fallback: Ensure referee's Customer record has referrerId set (for backwards compatibility)
+    // 7. Fallback: Ensure referee's Customer record has referrerId set + ใส่ activeCampaignTag
+    // (campaign tag จำเป็นสำหรับ countCampaignReferralsByTag — ไม่งั้นกล่องแคมเปญจะนับเป็น 0)
+    const campaignTag = activeCampaign?.name || null;
     await tx.customer.update({
       where: { customerId: refereeId },
       data: {
-        referrerId: referral.referrerId
+        referrerId: referral.referrerId,
+        ...(campaignTag ? { activeCampaignTag: campaignTag } : {}),
       }
     });
 
