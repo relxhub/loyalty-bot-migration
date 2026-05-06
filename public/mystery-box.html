@@ -544,25 +544,48 @@
                 const fee = fData.shippingFee || 60;
                 feeEl.textContent = Number(fee).toLocaleString('th-TH', { minimumFractionDigits: 2 });
 
-                if (!Array.isArray(aData) || aData.length === 0) {
-                    addrEl.innerHTML = `<div class="text-center text-zinc-400 py-3 text-sm">ยังไม่มีที่อยู่จัดส่ง<br><a href="dashboard.html" class="text-orange-400 underline">เพิ่มที่อยู่ในหน้าบัตรสมาชิก</a></div>`;
+                // API คืน { success, addresses } — ใช้สมุดที่อยู่ตัวเดียวกับหน้าตะกร้า
+                const addresses = (aData && aData.success && Array.isArray(aData.addresses)) ? aData.addresses : [];
+
+                if (addresses.length === 0) {
+                    addrEl.innerHTML = `
+                        <div class="text-center text-zinc-400 py-4 text-sm bg-white/5 rounded-xl border border-white/10">
+                            <i class="ri-map-pin-line text-2xl mb-1.5 block text-zinc-500"></i>
+                            <div class="mb-2">ยังไม่มีที่อยู่จัดส่ง</div>
+                            <a href="products.html" class="inline-flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-400/40 hover:bg-orange-500/30 transition">
+                                <i class="ri-add-line"></i> ไปเพิ่มที่อยู่ในตะกร้าสินค้า
+                            </a>
+                        </div>`;
+                    document.getElementById('delivery-submit-btn').disabled = true;
                     return;
                 }
 
-                // เลือกที่อยู่ default ก่อน
-                let defaultId = aData.find(a => a.isDefault)?.id || aData[0].id;
+                // เลือกที่อยู่ default ก่อน (ใช้ logic เดียวกับ cart: lastSelected → default → ตัวแรก)
+                let defaultId = addresses.find(a => a.isDefault)?.id || addresses[0].id;
+                try {
+                    const lastSel = parseInt(localStorage.getItem('lastSelectedAddressId'));
+                    if (lastSel && addresses.some(a => a.id === lastSel)) defaultId = lastSel;
+                } catch (e) {}
                 window._selectedAddressId = defaultId;
 
-                addrEl.innerHTML = aData.map(a => `
+                addrEl.innerHTML = addresses.map(a => `
                     <label class="block bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl p-3 cursor-pointer">
                         <div class="flex items-start gap-2">
                             <input type="radio" name="delivery-addr" value="${a.id}" ${a.id === defaultId ? 'checked' : ''} onchange="window._selectedAddressId=${a.id}" class="mt-1 accent-orange-500">
                             <div class="flex-1 min-w-0 text-xs">
-                                <div class="font-bold text-white">${_esc(a.receiverName)} · ${_esc(a.phone)}</div>
+                                <div class="font-bold text-white flex items-center gap-1.5">
+                                    ${_esc(a.name || a.receiverName)}
+                                    ${a.isDefault ? '<span class="text-[9px] bg-zinc-700 text-zinc-300 px-1.5 py-0.5 rounded">หลัก</span>' : ''}
+                                </div>
+                                <div class="text-zinc-300 mt-0.5">${_esc(a.receiverName)} · ${_esc(a.phone)}</div>
                                 <div class="text-zinc-400 mt-0.5">${_esc(a.address)} ${_esc(a.subdistrict)} ${_esc(a.district)} ${_esc(a.province)} ${_esc(a.zipcode)}</div>
                             </div>
                         </div>
-                    </label>`).join('');
+                    </label>`).join('') + `
+                    <a href="products.html" class="block text-center text-[11px] text-zinc-400 hover:text-orange-300 py-2">
+                        <i class="ri-add-line"></i> จัดการสมุดที่อยู่ในตะกร้าสินค้า
+                    </a>`;
+                document.getElementById('delivery-submit-btn').disabled = false;
             } catch (e) {
                 console.error('load addresses error:', e);
                 addrEl.innerHTML = '<div class="text-center text-red-400 py-3 text-sm">โหลดที่อยู่ไม่สำเร็จ</div>';
