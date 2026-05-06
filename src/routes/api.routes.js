@@ -2877,11 +2877,30 @@ router.get('/admin/me', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
     const permissions = await getPermissionsFor(a.admin.role, a.admin.customRoleName);
+    let menuOrder = null;
+    try { menuOrder = a.admin.menuOrder ? JSON.parse(a.admin.menuOrder) : null; } catch (e) {}
     res.json({
         success: true, telegramId: a.telegramId, role: a.admin.role, name: a.admin.name,
         customRoleName: a.admin.customRoleName || null,
         permissions, allSections: RBAC_SECTIONS,
+        menuOrder,
     });
+});
+
+// PATCH /admin/me/menu-order { order: ['orders','customers',...] } — บันทึกลำดับเมนูของตัวเอง
+router.patch('/admin/me/menu-order', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const order = req.body?.order;
+        if (order !== null && !Array.isArray(order)) return res.status(400).json({ success: false, error: 'order ต้องเป็น array หรือ null' });
+        const cleaned = order ? order.filter(x => typeof x === 'string').slice(0, 50) : null;
+        await prisma.admin.update({
+            where: { telegramId: a.telegramId },
+            data: { menuOrder: cleaned ? JSON.stringify(cleaned) : null },
+        });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'failed' }); }
 });
 
 // GET /api/admin/rbac-matrix — Owner only

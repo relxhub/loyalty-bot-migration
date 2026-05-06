@@ -42,6 +42,12 @@
         .switch input:checked + .slider:before { transform: translateX(16px); }
         .menu-card { transition: transform 0.15s ease, background 0.2s; }
         .menu-card:active { transform: scale(0.97); }
+        body.menu-edit .menu-card { pointer-events: none; opacity: 0.85; }
+        body.menu-edit .menu-card-arrows { pointer-events: auto; }
+        .menu-card-arrows { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); display: none; flex-direction: column; gap: 4px; z-index: 5; }
+        body.menu-edit .menu-card-arrows { display: flex; }
+        .menu-card-arrows button { width: 26px; height: 26px; border-radius: 6px; background: rgba(34,197,94,0.25); color: #fff; font-size: 12px; line-height: 1; pointer-events: auto; }
+        .menu-card-wrap { position: relative; }
     </style>
 </head>
 <body class="p-4">
@@ -84,8 +90,18 @@
         <div id="view-home" class="space-y-3">
             <input id="global-search" type="text" placeholder="🔍 ค้นหาทุกอย่าง: ออเดอร์ / ลูกค้า / สินค้า / คูปอง..." class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-sm text-white placeholder-zinc-500 focus:border-emerald-400 focus:outline-none mb-2">
             <div id="global-search-results" class="hidden glass-card p-3 mb-2 max-h-80 overflow-y-auto"></div>
+            <div class="flex justify-end -mt-1">
+                <button id="menu-edit-toggle" onclick="toggleMenuEdit()" class="text-[10px] px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 border border-white/10"><i class="ri-edit-line"></i> จัดเรียงเมนู</button>
+            </div>
+            <div id="menu-edit-bar" class="hidden flex items-center justify-between bg-emerald-500/10 border border-emerald-500/40 rounded-xl p-2 text-xs">
+                <span class="text-emerald-300 font-bold">↕ ลากเลื่อนหรือกด ↑/↓ เพื่อจัดเรียง</span>
+                <div class="flex gap-1.5">
+                    <button onclick="resetMenuOrder()" class="px-2 py-1 rounded bg-white/10 text-zinc-300 text-[10px]">รีเซ็ต</button>
+                    <button onclick="saveMenuOrder()" class="px-3 py-1 rounded bg-emerald-500 text-white font-bold text-[10px]">บันทึก</button>
+                </div>
+            </div>
 
-            <button onclick="showView('orders')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+            <button data-menu-key="orders" onclick="showView('orders')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
                 <div class="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center text-2xl">🛒</div>
                 <div class="flex-1">
                     <div class="font-bold text-white text-sm">จัดการออเดอร์</div>
@@ -95,7 +111,7 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
-            <button onclick="showView('shipments')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+            <button data-menu-key="shipments" onclick="showView('shipments')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
                 <div class="w-12 h-12 rounded-xl bg-orange-500/20 flex items-center justify-center text-2xl">📦</div>
                 <div class="flex-1">
                     <div class="font-bold text-white text-sm">จัดส่งของรางวัล</div>
@@ -105,7 +121,7 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
-            <button onclick="showView('customers')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+            <button data-menu-key="customers" onclick="showView('customers')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
                 <div class="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center text-2xl">👥</div>
                 <div class="flex-1">
                     <div class="font-bold text-white text-sm">ค้นหา / แก้ไขลูกค้า</div>
@@ -114,7 +130,7 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
-            <button onclick="showView('coupons')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+            <button data-menu-key="coupons" onclick="showView('coupons')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
                 <div class="w-12 h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center text-2xl">🎫</div>
                 <div class="flex-1">
                     <div class="font-bold text-white text-sm">จัดการคูปอง</div>
@@ -123,7 +139,7 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
-            <button onclick="showView('mystery-boxes')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+            <button data-menu-key="mystery-boxes" onclick="showView('mystery-boxes')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
                 <div class="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center text-2xl">🎁</div>
                 <div class="flex-1">
                     <div class="font-bold text-white text-sm">จัดการ Mystery Box</div>
@@ -132,7 +148,7 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
-            <button onclick="showView('products')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+            <button data-menu-key="products" onclick="showView('products')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
                 <div class="w-12 h-12 rounded-xl bg-pink-500/20 flex items-center justify-center text-2xl">🛍️</div>
                 <div class="flex-1">
                     <div class="font-bold text-white text-sm">จัดการสินค้า</div>
@@ -141,7 +157,7 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
-            <button onclick="showView('stock-alert')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+            <button data-menu-key="stock-alert" onclick="showView('stock-alert')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
                 <div class="w-12 h-12 rounded-xl bg-red-500/20 flex items-center justify-center text-2xl">⚠️</div>
                 <div class="flex-1">
                     <div class="font-bold text-white text-sm">เตือนสต็อกใกล้หมด</div>
@@ -151,7 +167,7 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
-            <button onclick="showView('categories')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+            <button data-menu-key="categories" onclick="showView('categories')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
                 <div class="w-12 h-12 rounded-xl bg-cyan-500/20 flex items-center justify-center text-2xl">📂</div>
                 <div class="flex-1">
                     <div class="font-bold text-white text-sm">จัดการหมวดหมู่</div>
@@ -160,7 +176,7 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
-            <button onclick="showView('banners')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+            <button data-menu-key="banners" onclick="showView('banners')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
                 <div class="w-12 h-12 rounded-xl bg-indigo-500/20 flex items-center justify-center text-2xl">🎞️</div>
                 <div class="flex-1">
                     <div class="font-bold text-white text-sm">จัดการ Banner</div>
@@ -169,7 +185,7 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
-            <button onclick="showView('campaigns')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+            <button data-menu-key="campaigns" onclick="showView('campaigns')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
                 <div class="w-12 h-12 rounded-xl bg-rose-500/20 flex items-center justify-center text-2xl">📅</div>
                 <div class="flex-1">
                     <div class="font-bold text-white text-sm">จัดการแคมเปญ</div>
@@ -178,7 +194,7 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
-            <button onclick="showView('broadcast')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+            <button data-menu-key="broadcast" onclick="showView('broadcast')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
                 <div class="w-12 h-12 rounded-xl bg-fuchsia-500/20 flex items-center justify-center text-2xl">📣</div>
                 <div class="flex-1">
                     <div class="font-bold text-white text-sm">ส่งข่าวสาร (Broadcast)</div>
@@ -187,7 +203,7 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
-            <button onclick="showView('audit')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+            <button data-menu-key="audit" onclick="showView('audit')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
                 <div class="w-12 h-12 rounded-xl bg-zinc-500/20 flex items-center justify-center text-2xl">📜</div>
                 <div class="flex-1">
                     <div class="font-bold text-white text-sm">Audit Log</div>
@@ -196,7 +212,7 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
-            <button onclick="showView('settings')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+            <button data-menu-key="settings" onclick="showView('settings')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
                 <div class="w-12 h-12 rounded-xl bg-slate-500/20 flex items-center justify-center text-2xl">⚙️</div>
                 <div class="flex-1">
                     <div class="font-bold text-white text-sm">ตั้งค่าระบบ</div>
@@ -205,7 +221,7 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
-            <button onclick="showView('ship-sync')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+            <button data-menu-key="ship-sync" onclick="showView('ship-sync')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
                 <div class="w-12 h-12 rounded-xl bg-teal-500/20 flex items-center justify-center text-2xl">📦</div>
                 <div class="flex-1">
                     <div class="font-bold text-white text-sm">ซิงค์เลขพัสดุจาก Google Sheet <span class="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/30 text-purple-300 font-bold ml-1">SuperAdmin</span></div>
@@ -214,7 +230,7 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
-            <button id="menu-shifts" onclick="showView('shifts')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden">
+            <button id="menu-shifts" data-menu-key="shifts" onclick="showView('shifts')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden">
                 <div class="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center text-2xl">🕐</div>
                 <div class="flex-1">
                     <div class="font-bold text-white text-sm">กะทำงานแอดมิน <span class="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/30 text-purple-300 font-bold ml-1">SuperAdmin+</span></div>
@@ -224,7 +240,7 @@
             </button>
 
             <!-- Owner-only -->
-            <button id="menu-admins" onclick="showView('admins')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden border-yellow-500/40">
+            <button id="menu-admins" data-menu-key="admins" onclick="showView('admins')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden border-yellow-500/40">
                 <div class="w-12 h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center text-2xl">👨‍💼</div>
                 <div class="flex-1">
                     <div class="font-bold text-white text-sm">จัดการ Admin <span class="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/30 text-yellow-300 font-bold ml-1">Owner</span></div>
@@ -233,7 +249,7 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
-            <button id="menu-dashboard" onclick="showView('dashboard')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden border-yellow-500/40">
+            <button id="menu-dashboard" data-menu-key="dashboard" onclick="showView('dashboard')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden border-yellow-500/40">
                 <div class="w-12 h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center text-2xl">📊</div>
                 <div class="flex-1">
                     <div class="font-bold text-white text-sm">Financial Dashboard <span class="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/30 text-yellow-300 font-bold ml-1">Owner</span></div>
@@ -242,7 +258,7 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
-            <button onclick="showView('analytics')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+            <button data-menu-key="analytics" onclick="showView('analytics')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
                 <div class="w-12 h-12 rounded-xl bg-violet-500/20 flex items-center justify-center text-2xl">📈</div>
                 <div class="flex-1">
                     <div class="font-bold text-white text-sm">Analytics</div>
@@ -251,7 +267,7 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
-            <button id="menu-jobs" onclick="showView('jobs')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden">
+            <button id="menu-jobs" data-menu-key="jobs" onclick="showView('jobs')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden">
                 <div class="w-12 h-12 rounded-xl bg-lime-500/20 flex items-center justify-center text-2xl">🤖</div>
                 <div class="flex-1">
                     <div class="font-bold text-white text-sm">งาน Auto / Cron <span class="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/30 text-purple-300 font-bold ml-1">SuperAdmin+</span></div>
@@ -260,7 +276,7 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
-            <button onclick="showView('activity')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+            <button data-menu-key="activity" onclick="showView('activity')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
                 <div class="w-12 h-12 rounded-xl bg-sky-500/20 flex items-center justify-center text-2xl">📡</div>
                 <div class="flex-1">
                     <div class="font-bold text-white text-sm">Activity Dashboard</div>
@@ -269,7 +285,7 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
-            <button id="menu-rbac" onclick="showView('rbac')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden border-yellow-500/40">
+            <button id="menu-rbac" data-menu-key="rbac" onclick="showView('rbac')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden border-yellow-500/40">
                 <div class="w-12 h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center text-2xl">🔐</div>
                 <div class="flex-1">
                     <div class="font-bold text-white text-sm">สิทธิ์การเข้าถึง <span class="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/30 text-yellow-300 font-bold ml-1">Owner</span></div>
@@ -754,6 +770,96 @@
             else if (name === 'jobs') { /* static view */ }
             else if (name === 'activity') loadActivityDashboard();
         }
+        // ---------- 🔀 Home Menu Reorder ----------
+        function getHomeMenuButtons() {
+            return Array.from(document.querySelectorAll('#view-home button.menu-card[data-menu-key]'));
+        }
+
+        function applyMenuOrder() {
+            const order = window._myMenuOrder;
+            if (!Array.isArray(order) || !order.length) return;
+            const home = document.getElementById('view-home');
+            const buttons = getHomeMenuButtons();
+            const map = new Map(buttons.map(b => [b.dataset.menuKey, b]));
+            // append ตามลำดับใน order; ที่เหลือ (key ใหม่ที่ไม่อยู่ใน order) ต่อท้าย
+            const used = new Set();
+            for (const key of order) {
+                const btn = map.get(key);
+                if (btn) { home.appendChild(btn); used.add(key); }
+            }
+            for (const btn of buttons) {
+                if (!used.has(btn.dataset.menuKey)) home.appendChild(btn);
+            }
+        }
+
+        function toggleMenuEdit() {
+            const on = !document.body.classList.contains('menu-edit');
+            document.body.classList.toggle('menu-edit', on);
+            document.getElementById('menu-edit-bar').classList.toggle('hidden', !on);
+            const btn = document.getElementById('menu-edit-toggle');
+            btn.innerHTML = on ? '<i class="ri-close-line"></i> ยกเลิก' : '<i class="ri-edit-line"></i> จัดเรียงเมนู';
+            if (on) {
+                // เพิ่ม arrows ทุกการ์ด (ที่ยังไม่มี)
+                getHomeMenuButtons().forEach(b => {
+                    if (b.querySelector('.menu-card-arrows')) return;
+                    b.style.position = 'relative';
+                    const arrows = document.createElement('div');
+                    arrows.className = 'menu-card-arrows';
+                    arrows.innerHTML = `
+                        <button onclick="event.stopPropagation();moveMenuItem(this,-1)" title="ขึ้น">▲</button>
+                        <button onclick="event.stopPropagation();moveMenuItem(this,1)" title="ลง">▼</button>
+                    `;
+                    b.appendChild(arrows);
+                });
+            } else {
+                // ออก edit mode → ลบ arrows
+                document.querySelectorAll('.menu-card-arrows').forEach(a => a.remove());
+            }
+        }
+
+        function moveMenuItem(arrowBtn, dir) {
+            const card = arrowBtn.closest('button.menu-card');
+            if (!card) return;
+            const home = document.getElementById('view-home');
+            const visibleCards = getHomeMenuButtons().filter(b => !b.classList.contains('hidden'));
+            const idx = visibleCards.indexOf(card);
+            const target = visibleCards[idx + dir];
+            if (!target) return;
+            if (dir < 0) home.insertBefore(card, target);
+            else home.insertBefore(target, card);
+            try { tg.hapticFeedback?.impactOccurred?.('light'); } catch (e) {}
+        }
+
+        async function saveMenuOrder() {
+            const order = getHomeMenuButtons().map(b => b.dataset.menuKey);
+            try {
+                const res = await fetch('/api/admin/me/menu-order', {
+                    method: 'PATCH', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ order, initData: tg.initData }),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                window._myMenuOrder = order;
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
+                showToast('💾 บันทึกลำดับเมนูแล้ว');
+                toggleMenuEdit();
+            } catch (e) { alert('error: '+e.message); }
+        }
+
+        async function resetMenuOrder() {
+            if (!confirm('รีเซ็ตลำดับเมนูเป็นค่าเริ่มต้น?')) return;
+            try {
+                const res = await fetch('/api/admin/me/menu-order', {
+                    method: 'PATCH', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ order: null, initData: tg.initData }),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                alert('✅ รีเซ็ตแล้ว — refresh เพื่อดูผล');
+                location.reload();
+            } catch (e) { alert('error: '+e.message); }
+        }
+
         // ---------- 📡 Activity Dashboard ----------
         async function loadActivityDashboard() {
             const wrap = document.getElementById('activity-content');
@@ -918,6 +1024,7 @@
                 window._adminRole = me.role;
                 window._myPermissions = me.permissions || [];
                 window._allSections = me.allSections || [];
+                window._myMenuOrder = me.menuOrder || null;
                 if (me.customRoleName) {
                     const cr = document.getElementById('admin-custom-role');
                     cr.textContent = '🛡️ ' + me.customRoleName;
@@ -934,6 +1041,7 @@
                     document.getElementById('menu-jobs').classList.remove('hidden');
                 }
                 applyRbacToMenu();
+                applyMenuOrder();
                 document.getElementById('loading-screen').classList.add('hidden');
                 document.getElementById('app').classList.remove('hidden');
 

@@ -272,6 +272,10 @@ model Admin {
   // (custom role definitions เก็บใน SystemConfig key='rbac_matrix' → custom: { name: [sections] })
   customRoleName String?
 
+  // ลำดับเมนูในหน้า home ที่ admin คนนี้จัดเอง — JSON array ของ menu key
+  // null = ใช้ default ตาม HTML
+  menuOrder String? @db.Text
+
   adminShifts AdminShift[]
 }
 
