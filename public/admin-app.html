@@ -1051,7 +1051,13 @@
                 });
                 // order tabs + search
                 document.querySelectorAll('.ord-tab').forEach(btn => {
-                    btn.addEventListener('click', () => { _currentOrdTab = btn.dataset.status; updateOrdTabUI(); loadOrders(); });
+                    btn.addEventListener('click', () => {
+                        _currentOrdTab = btn.dataset.status;
+                        updateOrdTabUI();
+                        loadOrders();
+                        // เลื่อน tab ที่ active เข้ามาตรงกลางจอ
+                        try { btn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); } catch (e) {}
+                    });
                 });
                 document.getElementById('ord-search').addEventListener('input', (e) => {
                     clearTimeout(_ordSearchDebounce);
@@ -1637,7 +1643,11 @@
             try {
                 const status = _currentOrdTab || 'ALL';
                 const res = await fetch(`/api/admin/orders/export?status=${status}`, { headers: { 'X-Init-Data': tg.initData } });
-                if (!res.ok) { alert('export ไม่สำเร็จ'); return; }
+                if (!res.ok) {
+                    let msg = 'export ไม่สำเร็จ (' + res.status + ')';
+                    try { const j = await res.json(); if (j.error) msg += ': ' + j.error; } catch (e) {}
+                    alert(msg); return;
+                }
                 const blob = await res.blob();
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -1645,6 +1655,7 @@
                 document.body.appendChild(a); a.click(); a.remove();
                 URL.revokeObjectURL(url);
                 try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
+                showToast('💾 ดาวน์โหลด CSV แล้ว');
             } catch (e) { alert('error: '+e.message); }
         }
 

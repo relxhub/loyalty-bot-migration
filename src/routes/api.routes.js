@@ -4531,9 +4531,20 @@ router.get('/admin/orders/export', async (req, res) => {
         const status = String(req.query.status || 'ALL').toUpperCase();
         const since = req.query.since ? new Date(req.query.since) : null;
         const where = {};
-        if (status !== 'ALL') where.status = status;
+        // รองรับ NEEDS_VERIFY แบบเดียวกับ /admin/orders
+        if (status === 'NEEDS_VERIFY') {
+            where.payment = { status: 'PENDING' };
+            where.status = { in: ['PENDING_PAYMENT', 'PAID'] };
+        } else if (status !== 'ALL') {
+            const validStatuses = ['PENDING_PAYMENT', 'PAID', 'PROCESSING', 'SHIPPED', 'CANCELLED'];
+            if (!validStatuses.includes(status)) return res.status(400).json({ success: false, error: 'invalid status: ' + status });
+            where.status = status;
+        }
         if (since) where.createdAt = { gte: since };
-        if (a.admin.role === 'Admin') where.OR = [{ assignedAdminId: a.telegramId }, { assignedAdminId: null }];
+        // role-scoping ใช้ AND of OR เพื่อไม่ทับ where.OR ที่อาจมีจาก NEEDS_VERIFY
+        if (a.admin.role === 'Admin') {
+            where.AND = [{ OR: [{ assignedAdminId: a.telegramId }, { assignedAdminId: null }] }];
+        }
         const orders = await prisma.order.findMany({
             where,
             include: {
