@@ -2,7 +2,7 @@ import express from 'express';
 import crypto from 'crypto';
 import { prisma } from '../db.js';
 import { getActiveCampaign } from '../services/campaign.service.js';
-import { getConfig } from '../config/config.js';
+import { getConfig, loadConfig } from '../config/config.js';
 import { addDays, formatToBangkok } from '../utils/date.utils.js';
 import { getCustomerByTelegramId, updateCustomer, countCampaignReferralsByTag, createCustomer } from '../services/customer.service.js';
 import { countMonthlyReferrals } from '../services/referral.service.js';
@@ -3896,6 +3896,8 @@ router.post('/admin/shipping/sync-sheet', async (req, res) => {
 
 // ---------- ⚙️ SETTINGS ----------
 const KNOWN_CONFIG_KEYS = [
+    { key: 'store_is_open', label: '🚪 เปิดร้าน (true/false)', type: 'text' },
+    { key: 'store_closed_message', label: '🚪 ข้อความหน้าปิดร้าน', type: 'text' },
     { key: 'shipping_fee', label: 'ค่าจัดส่ง (บาท)', type: 'number' },
     { key: 'free_shipping_min', label: 'ส่งฟรีเมื่อยอดถึง (บาท)', type: 'number' },
     { key: 'standardReferralPoints', label: 'แต้มชวนเพื่อนพื้นฐาน', type: 'number' },
@@ -3946,8 +3948,16 @@ router.patch('/admin/system-config', async (req, res) => {
             });
         }
         await prisma.adminAuditLog.create({ data: { adminName: a.admin?.name || a.telegramId, action: 'CONFIG_UPDATE', details: JSON.stringify({ count: updates.length, keys: updates.map(u => u.key) }) } });
+        // hot-reload cache so changes take effect immediately (no server restart)
+        try { await loadConfig(); } catch (e) { console.error('config hot-reload failed:', e); }
         res.json({ success: true, count: updates.length });
     } catch (e) { res.status(500).json({ success: false, error: e.message || 'update failed' }); }
+});
+
+// Public: GET /store-status (ลูกค้าใช้)
+router.get('/store-status', async (req, res) => {
+    const isOpen = String(getConfig('store_is_open', 'true')).toLowerCase() !== 'false';
+    res.json({ success: true, isOpen, closedMessage: getConfig('store_closed_message', '') || '' });
 });
 
 router.get('/admin/store-setting', async (req, res) => {

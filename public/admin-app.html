@@ -1886,7 +1886,7 @@
                 const data = await res.json();
                 if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
                 try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
-                alert(`✅ บันทึก ${data.count} รายการแล้ว (จะมีผลในรอบโหลด config ถัดไป)`);
+                alert(`✅ บันทึก ${data.count} รายการแล้ว — มีผลทันที (hot-reload)`);
             } catch (e) { alert('error: '+e.message); }
             finally { btn.disabled = false; btn.textContent = wasText; }
         }
@@ -1895,17 +1895,68 @@
             const wrap = document.getElementById('set-store-form');
             wrap.innerHTML = '<div class="text-center text-zinc-500 py-4 animate-pulse">กำลังโหลด...</div>';
             try {
-                const res = await fetch('/api/admin/store-setting', { headers: { 'X-Init-Data': tg.initData } });
+                const [res, statusRes] = await Promise.all([
+                    fetch('/api/admin/store-setting', { headers: { 'X-Init-Data': tg.initData } }),
+                    fetch('/api/store-status'),
+                ]);
                 const data = await res.json();
+                const status = await statusRes.json();
                 if (!data.success) throw new Error(data.error || 'load failed');
                 const s = data.setting;
+                const isOpen = !!status.isOpen;
                 wrap.innerHTML = `
+                    <div class="rounded-lg p-3 ${isOpen?'bg-emerald-500/10 border border-emerald-500/40':'bg-red-500/10 border border-red-500/40'}">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="text-sm font-bold ${isOpen?'text-emerald-300':'text-red-300'}">${isOpen?'🚪 ร้านเปิดอยู่':'🚪 ร้านปิดอยู่'}</div>
+                                <div class="text-[10px] text-zinc-400 mt-0.5">ลูกค้าจะ${isOpen?'สั่งซื้อได้ปกติ':'เห็นข้อความแจ้งร้านปิด'}</div>
+                            </div>
+                            <label class="switch flex-shrink-0">
+                                <input id="ss-isopen" type="checkbox" ${isOpen?'checked':''} onchange="toggleStoreOpen(this)">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="mt-2">
+                            <label class="text-[10px] text-zinc-400 block mb-1">ข้อความหน้าปิดร้าน</label>
+                            <textarea id="ss-closedmsg" rows="2" class="w-full bg-black/40 border border-white/10 rounded p-2 text-white text-xs" placeholder="ร้านปิดชั่วคราว...">${_esc(status.closedMessage||'')}</textarea>
+                            <button onclick="saveClosedMessage()" class="mt-1 text-[10px] px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white">บันทึกข้อความ</button>
+                        </div>
+                    </div>
+                    <div class="pt-3 border-t border-white/10"></div>
                     <div><label class="text-[11px] text-zinc-400 block mb-1">เกณฑ์ stock ต่ำ (เตือนเตรียมเติม)</label><input id="ss-low" type="number" value="${s.lowStockThreshold}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
                     <div><label class="text-[11px] text-zinc-400 block mb-1">เกณฑ์ใกล้หมด (เตือน admin ด่วน)</label><input id="ss-out" type="number" value="${s.outOfStockThreshold}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
                     <div><label class="text-[11px] text-zinc-400 block mb-1">เวลาให้ลูกค้าชำระ (นาที, ก่อนยกเลิกออเดอร์)</label><input id="ss-exp" type="number" value="${s.orderExpiryMinutes}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white"></div>
                     <div class="text-[10px] text-zinc-500">Admin ผู้รับออเดอร์ล่าสุด: <code>${_esc(s.lastAssignedAdminId||'—')}</code></div>
-                    <button onclick="saveStoreSetting()" class="w-full py-2.5 rounded-xl bg-slate-500 hover:bg-slate-400 text-white font-bold text-sm mt-2">บันทึก</button>`;
+                    <button onclick="saveStoreSetting()" class="w-full py-2.5 rounded-xl bg-slate-500 hover:bg-slate-400 text-white font-bold text-sm mt-2">บันทึก stock/expiry</button>`;
             } catch (e) { wrap.innerHTML = `<div class="text-center text-red-400 py-4 text-sm">${_esc(e.message)}</div>`; }
+        }
+
+        async function toggleStoreOpen(cb) {
+            cb.disabled = true;
+            try {
+                const res = await fetch('/api/admin/system-config', {
+                    method: 'PATCH', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ updates: [{ key: 'store_is_open', value: cb.checked ? 'true' : 'false' }], initData: tg.initData }),
+                });
+                const data = await res.json();
+                if (!data.success) { cb.checked = !cb.checked; alert(data.error||'ไม่สำเร็จ'); }
+                else { try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {} loadStoreSetting(); }
+            } catch (e) { cb.checked = !cb.checked; alert('error: '+e.message); }
+            finally { cb.disabled = false; }
+        }
+
+        async function saveClosedMessage() {
+            const v = document.getElementById('ss-closedmsg').value;
+            try {
+                const res = await fetch('/api/admin/system-config', {
+                    method: 'PATCH', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ updates: [{ key: 'store_closed_message', value: v }], initData: tg.initData }),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
+                alert('✅ บันทึกข้อความแล้ว');
+            } catch (e) { alert('error: '+e.message); }
         }
 
         async function saveStoreSetting() {
