@@ -2964,15 +2964,24 @@ router.get('/admin/orders', async (req, res) => {
         } else if (status !== 'ALL') {
             where.status = status;
         }
+        // role-based scope (Admin = ตัวเอง+orphan, SuperAdmin/Owner = ทั้งหมด) + search ใช้ AND ของ ORs
+        const ands = [];
+        if (a.admin.role === 'Admin') {
+            ands.push({ OR: [
+                { assignedAdminId: a.telegramId },
+                { assignedAdminId: null }, // ยังไม่ assign (PENDING_PAYMENT/orphan) — ทุก admin เห็นได้
+            ]});
+        }
         if (q) {
-            where.OR = [
+            ands.push({ OR: [
                 { id: { contains: q, mode: 'insensitive' } },
                 { customerId: { contains: q, mode: 'insensitive' } },
                 { customer: { phoneNumber: { contains: q } } },
                 { customer: { firstName: { contains: q, mode: 'insensitive' } } },
                 { customer: { lastName: { contains: q, mode: 'insensitive' } } },
-            ];
+            ]});
         }
+        if (ands.length) where.AND = ands;
         const orders = await prisma.order.findMany({
             where,
             include: {
@@ -2983,6 +2992,13 @@ router.get('/admin/orders', async (req, res) => {
             orderBy: { createdAt: 'desc' },
             take,
         });
+        // map assignedAdminId → name สำหรับแสดง (SuperAdmin/Owner เท่านั้น)
+        const assignedIds = [...new Set(orders.map(o => o.assignedAdminId).filter(Boolean))];
+        const assignedAdmins = assignedIds.length ? await prisma.admin.findMany({
+            where: { telegramId: { in: assignedIds } },
+            select: { telegramId: true, name: true },
+        }) : [];
+        const adminNameMap = Object.fromEntries(assignedAdmins.map(x => [x.telegramId, x.name]));
         const out = orders.map(o => ({
             id: o.id,
             kind: o.kind,
@@ -2995,6 +3011,8 @@ router.get('/admin/orders', async (req, res) => {
             overPaidRefundedAt: o.overPaidRefundedAt,
             billNumber: o.billNumber,
             trackingNumber: o.trackingNumber,
+            assignedAdminId: o.assignedAdminId,
+            assignedAdminName: o.assignedAdminId ? (adminNameMap[o.assignedAdminId] || null) : null,
             createdAt: o.createdAt,
             updatedAt: o.updatedAt,
             itemCount: o.items.reduce((s, i) => s + i.quantity, 0),
@@ -3011,11 +3029,14 @@ router.get('/admin/orders', async (req, res) => {
         // counts สำหรับ tab badges (in-flight statuses เท่านั้น เพื่อไม่ให้ช้า)
         const counts = {};
         const statusesForBadge = ['NEEDS_VERIFY', 'PENDING_PAYMENT', 'PAID', 'PROCESSING'];
+        const scopeWhere = a.admin.role === 'Admin' ? {
+            OR: [{ assignedAdminId: a.telegramId }, { assignedAdminId: null }],
+        } : {};
         await Promise.all(statusesForBadge.map(async (s) => {
             if (s === 'NEEDS_VERIFY') {
-                counts[s] = await prisma.order.count({ where: { payment: { status: 'PENDING' }, status: { in: ['PENDING_PAYMENT', 'PAID'] } } });
+                counts[s] = await prisma.order.count({ where: { ...scopeWhere, payment: { status: 'PENDING' }, status: { in: ['PENDING_PAYMENT', 'PAID'] } } });
             } else {
-                counts[s] = await prisma.order.count({ where: { status: s } });
+                counts[s] = await prisma.order.count({ where: { ...scopeWhere, status: s } });
             }
         }));
         res.json({ success: true, orders: out, counts });
@@ -3030,6 +3051,13 @@ router.get('/admin/orders/:id', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
     try {
+        // ถ้า Admin role + order มี assignedAdminId ที่ไม่ใช่ตน → block
+        if (a.admin.role === 'Admin') {
+            const meta = await prisma.order.findUnique({ where: { id: req.params.id }, select: { assignedAdminId: true } });
+            if (meta?.assignedAdminId && meta.assignedAdminId !== a.telegramId) {
+                return res.status(403).json({ success: false, error: 'ออเดอร์นี้ไม่ได้อยู่ในความดูแลของคุณ' });
+            }
+        }
         const order = await prisma.order.findUnique({
             where: { id: req.params.id },
             include: {

@@ -567,6 +567,10 @@ model Order {
   // หมายเหตุภายในจาก admin (ไม่แสดงให้ลูกค้าเห็น)
   adminNote String? @db.Text
 
+  // admin ที่ถูก round-robin assign ให้ดูแลออเดอร์นี้ (ตอน sendOrderPaidAdminNotification)
+  // null = ยังไม่ได้ assign (ออเดอร์ที่ยังไม่ชำระ + ออเดอร์เก่าก่อน migration)
+  assignedAdminId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -578,6 +582,7 @@ model Order {
   @@index([customerId])
   @@index([status])
   @@index([kind])
+  @@index([assignedAdminId])
 }
 
 model OrderItem {

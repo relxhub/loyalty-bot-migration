@@ -201,6 +201,13 @@ export async function sendOrderPaidAdminNotification(orderId, options = {}) {
             where: { id: 1 },
             data: { lastAssignedAdminId: activeAdminId },
         });
+        // บันทึก assignedAdminId ลงในออเดอร์ — ใช้ filter scope ของ Admin role
+        try {
+            await prisma.order.update({
+                where: { id: order.id },
+                data: { assignedAdminId: activeAdminId },
+            });
+        } catch (e) { console.error('[ORDER-NOTIF] save assignedAdminId failed:', e.message); }
     }
     message += `\n👨‍💼 <b>แอดมินผู้รับผิดชอบ:</b> ${activeAdminName}`;
 

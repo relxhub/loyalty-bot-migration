@@ -1036,7 +1036,7 @@
                         </div>
                         <div class="text-[11px] text-zinc-400 truncate">${cust} ${phone}</div>
                         <div class="flex items-center justify-between mt-1">
-                            <div class="text-[10px] text-zinc-500">${o.itemCount} ชิ้น · ${_dt(o.createdAt)}</div>
+                            <div class="text-[10px] text-zinc-500">${o.itemCount} ชิ้น · ${_dt(o.createdAt)}${o.assignedAdminName && window._adminRole !== 'Admin' ? ` · 👨 <span class="text-blue-300">${_esc(o.assignedAdminName)}</span>` : ''}</div>
                             ${o.billNumber ? `<div class="text-[10px] text-blue-300">📦 ${_esc(o.billNumber)}</div>` : ''}
                         </div>
                     </div>`;
