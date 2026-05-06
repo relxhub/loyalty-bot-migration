@@ -12,6 +12,9 @@ let injectedIo = null;
 export function setSocketIo(io) {
     injectedIo = io;
 }
+export function emitSocket(event, payload) {
+    try { injectedIo?.emit(event, payload); } catch (e) {}
+}
 
 const VALID_KINDS = new Set([
     'REWARD_COUPON_GRANTED',

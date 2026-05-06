@@ -404,6 +404,9 @@ router.post('/orders/checkout', async (req, res) => {
             return newOrder;
         });
 
+        // realtime: บอก admin ว่ามีออเดอร์ใหม่ (PENDING_PAYMENT) — แสดงในแท็บ "รอชำระ"
+        try { req.app.get('socketio')?.emit('order_update', { id: result.id, status: 'PENDING_PAYMENT', ts: Date.now() }); } catch (e) {}
+
         res.json({ success: true, orderId: result.id });
 
     } catch (error) {
@@ -677,6 +680,9 @@ router.post('/orders/:orderId/cancel', async (req, res) => {
                 note: 'คุณยกเลิกออเดอร์นี้',
             });
         } catch (e) { /* silent */ }
+
+        // realtime: admin list refresh
+        try { req.app.get('socketio')?.emit('order_update', { id: orderId, status: 'CANCELLED', ts: Date.now() }); } catch (e) {}
 
         res.json({ success: true });
     } catch (error) {
@@ -1078,6 +1084,9 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                     `ขาดอีก: ฿${fmtTh(Math.abs(diff))}\n\n` +
                     `ลูกค้า: ${order.customerId}`;
 
+                // realtime: under-paid lock — แจ้ง admin ทันที (ออเดอร์เปลี่ยนเป็น mismatchLocked)
+                try { req.app.get('socketio')?.emit('order_update', { id: orderId, status: 'PENDING_PAYMENT', mismatchLocked: true, ts: Date.now() }); } catch (e) {}
+
                 return res.status(409).json({
                     success: false,
                     mismatch: true,
@@ -1242,6 +1251,9 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
             lockUpload: overPaidDiff >= 0.01, // for over-paid: also lock the page (refund-pending UI)
             slipUrl: slipData.data.url,
         });
+
+        // realtime: emit หลังลูกค้าชำระสำเร็จ → admin list refresh ทันที (PENDING_PAYMENT → PAID)
+        try { req.app.get('socketio')?.emit('order_update', { id: orderId, status: 'PAID', ts: Date.now() }); } catch (e) {}
 
     } catch (error) {
         console.error("Verify Slip Error:", error);

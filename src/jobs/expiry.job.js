@@ -219,6 +219,7 @@ export async function runOrderExpiryJob() {
         });
 
         // In-app notif หลัง tx (best-effort)
+        const { emitSocket } = await import('../services/notification-center.service.js');
         for (const o of expiredOrders) {
             try {
                 await notifyOrderStatusChanged({
@@ -228,6 +229,8 @@ export async function runOrderExpiryJob() {
                     note: 'หมดเวลาชำระเงิน — ออเดอร์ถูกยกเลิกอัตโนมัติ',
                 });
             } catch (e) { /* silent */ }
+            // realtime: admin list refresh
+            emitSocket('order_update', { id: o.id, status: 'CANCELLED', ts: Date.now() });
         }
 
     } catch (error) {
