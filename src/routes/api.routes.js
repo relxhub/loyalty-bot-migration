@@ -2883,6 +2883,88 @@ router.get('/admin/prize-shipments', async (req, res) => {
     }
 });
 
+// ---------- 📦 ORDERS ----------
+// GET /admin/orders?status=...&q=...&kind=PRODUCT|PRIZE_DELIVERY|ALL
+// status: ALL | PENDING_PAYMENT | NEEDS_VERIFY | PAID | PROCESSING | SHIPPED | CANCELLED
+//   "NEEDS_VERIFY" = status PAID + payment.status PENDING (สลิปอัปแล้วยังไม่อนุมัติ)
+router.get('/admin/orders', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const status = String(req.query.status || 'NEEDS_VERIFY').toUpperCase();
+        const kind = String(req.query.kind || 'ALL').toUpperCase();
+        const q = String(req.query.q || '').trim();
+        const take = Math.min(parseInt(req.query.take) || 50, 200);
+
+        const where = {};
+        if (kind !== 'ALL') where.kind = kind;
+        if (status === 'NEEDS_VERIFY') {
+            where.payment = { status: 'PENDING' };
+            where.status = { in: ['PENDING_PAYMENT', 'PAID'] };
+        } else if (status !== 'ALL') {
+            where.status = status;
+        }
+        if (q) {
+            where.OR = [
+                { id: { contains: q, mode: 'insensitive' } },
+                { customerId: { contains: q, mode: 'insensitive' } },
+                { customer: { phoneNumber: { contains: q } } },
+                { customer: { firstName: { contains: q, mode: 'insensitive' } } },
+                { customer: { lastName: { contains: q, mode: 'insensitive' } } },
+            ];
+        }
+        const orders = await prisma.order.findMany({
+            where,
+            include: {
+                customer: { select: { customerId: true, firstName: true, lastName: true, phoneNumber: true } },
+                payment: { select: { status: true, amount: true, slipUrl: true, verifiedAt: true, createdAt: true } },
+                items: { select: { quantity: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            take,
+        });
+        const out = orders.map(o => ({
+            id: o.id,
+            kind: o.kind,
+            status: o.status,
+            totalAmount: Number(o.totalAmount),
+            subtotal: o.subtotal != null ? Number(o.subtotal) : null,
+            shippingFee: o.shippingFee != null ? Number(o.shippingFee) : null,
+            discountAmount: Number(o.discountAmount || 0),
+            mismatchLocked: o.mismatchLocked,
+            overPaidRefundedAt: o.overPaidRefundedAt,
+            billNumber: o.billNumber,
+            trackingNumber: o.trackingNumber,
+            createdAt: o.createdAt,
+            updatedAt: o.updatedAt,
+            itemCount: o.items.reduce((s, i) => s + i.quantity, 0),
+            customer: o.customer,
+            payment: o.payment ? {
+                status: o.payment.status,
+                amount: Number(o.payment.amount),
+                hasSlip: !!o.payment.slipUrl,
+                verifiedAt: o.payment.verifiedAt,
+                createdAt: o.payment.createdAt,
+            } : null,
+        }));
+
+        // counts สำหรับ tab badges (in-flight statuses เท่านั้น เพื่อไม่ให้ช้า)
+        const counts = {};
+        const statusesForBadge = ['NEEDS_VERIFY', 'PENDING_PAYMENT', 'PAID', 'PROCESSING'];
+        await Promise.all(statusesForBadge.map(async (s) => {
+            if (s === 'NEEDS_VERIFY') {
+                counts[s] = await prisma.order.count({ where: { payment: { status: 'PENDING' }, status: { in: ['PENDING_PAYMENT', 'PAID'] } } });
+            } else {
+                counts[s] = await prisma.order.count({ where: { status: s } });
+            }
+        }));
+        res.json({ success: true, orders: out, counts });
+    } catch (e) {
+        console.error('admin orders list error:', e);
+        res.status(500).json({ success: false, error: e.message || 'load failed' });
+    }
+});
+
 // ---------- 👥 CUSTOMERS ----------
 // GET /admin/customers/search?q=... — by customerId / phone / firstName / lastName / username
 router.get('/admin/customers/search', async (req, res) => {

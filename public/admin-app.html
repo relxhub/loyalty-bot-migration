@@ -18,6 +18,8 @@
         body { background: var(--bg); color: white; font-family: 'Kanit', sans-serif; -webkit-tap-highlight-color: transparent; }
         .glass-card { background: var(--secondary-bg); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; }
         ::-webkit-scrollbar { width: 0; background: transparent; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         .no-scroll { overflow: hidden; }
         .role-badge { padding: 2px 10px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: .5px; }
         .role-Owner { background: linear-gradient(90deg,#fbbf24,#f59e0b); color: #1a1a1a; }
@@ -78,6 +80,16 @@
 
         <!-- HOME view -->
         <div id="view-home" class="space-y-3">
+            <button onclick="showView('orders')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+                <div class="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center text-2xl">🛒</div>
+                <div class="flex-1">
+                    <div class="font-bold text-white text-sm">จัดการออเดอร์</div>
+                    <div class="text-[11px] text-zinc-400">ตรวจสลิป · ใส่บิล · จัดส่ง</div>
+                </div>
+                <span id="badge-orders" class="hidden text-[10px] bg-red-500 text-white rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center font-bold">0</span>
+                <i class="ri-arrow-right-s-line text-zinc-400"></i>
+            </button>
+
             <button onclick="showView('shipments')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
                 <div class="w-12 h-12 rounded-xl bg-orange-500/20 flex items-center justify-center text-2xl">📦</div>
                 <div class="flex-1">
@@ -138,6 +150,24 @@
                 </select>
             </div>
             <div id="dash-content"><div class="text-center text-zinc-500 py-8 animate-pulse">กำลังโหลด...</div></div>
+        </div>
+
+        <!-- 🛒 Orders view -->
+        <div id="view-orders" class="hidden">
+            <div class="font-bold text-sm mb-2 flex items-center gap-2">
+                <i class="ri-shopping-cart-line text-emerald-400"></i> จัดการออเดอร์
+            </div>
+            <input id="ord-search" type="text" placeholder="ค้นหา: รหัสออเดอร์ / ลูกค้า / เบอร์ / ชื่อ" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-sm text-white placeholder-zinc-500 focus:border-emerald-400 focus:outline-none mb-2">
+            <div class="flex gap-1.5 overflow-x-auto pb-2 mb-1 -mx-1 px-1 scrollbar-hide">
+                <button data-status="NEEDS_VERIFY" class="ord-tab whitespace-nowrap text-xs px-3 py-1.5 rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 font-bold">รอตรวจ <span data-count="NEEDS_VERIFY">0</span></button>
+                <button data-status="PENDING_PAYMENT" class="ord-tab whitespace-nowrap text-xs px-3 py-1.5 rounded-full bg-white/5 text-zinc-400 border border-white/10">รอชำระ <span data-count="PENDING_PAYMENT">0</span></button>
+                <button data-status="PAID" class="ord-tab whitespace-nowrap text-xs px-3 py-1.5 rounded-full bg-white/5 text-zinc-400 border border-white/10">ชำระแล้ว <span data-count="PAID">0</span></button>
+                <button data-status="PROCESSING" class="ord-tab whitespace-nowrap text-xs px-3 py-1.5 rounded-full bg-white/5 text-zinc-400 border border-white/10">กำลังเตรียม <span data-count="PROCESSING">0</span></button>
+                <button data-status="SHIPPED" class="ord-tab whitespace-nowrap text-xs px-3 py-1.5 rounded-full bg-white/5 text-zinc-400 border border-white/10">ส่งแล้ว</button>
+                <button data-status="CANCELLED" class="ord-tab whitespace-nowrap text-xs px-3 py-1.5 rounded-full bg-white/5 text-zinc-400 border border-white/10">ยกเลิก</button>
+                <button data-status="ALL" class="ord-tab whitespace-nowrap text-xs px-3 py-1.5 rounded-full bg-white/5 text-zinc-400 border border-white/10">ทั้งหมด</button>
+            </div>
+            <div id="ord-list" class="space-y-2"></div>
         </div>
 
         <!-- 📦 Shipments view -->
@@ -243,11 +273,14 @@
         const _esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
         const _fmt = (n) => Number(n).toLocaleString('th-TH', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 });
         const _date = (s) => s ? new Date(s).toLocaleDateString('th-TH', { day:'numeric', month:'short', year:'2-digit' }) : '—';
+        const _dt = (s) => s ? new Date(s).toLocaleString('th-TH', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : '—';
 
         let _currentTab = 'PENDING';
         let _currentShipmentId = null;
         let _currentAdjCustId = null;
         let _searchDebounce = null;
+        let _currentOrdTab = 'NEEDS_VERIFY';
+        let _ordSearchDebounce = null;
 
         // ---------- View routing ----------
         function showView(name) {
@@ -260,8 +293,9 @@
             else if (name === 'coupons') loadCoupons();
             else if (name === 'mystery-boxes') loadMysteryBoxes();
             else if (name === 'dashboard') loadDashboard();
+            else if (name === 'orders') loadOrders();
         }
-        function goHome() { showView('home'); loadShipmentsBadge(); }
+        function goHome() { showView('home'); loadShipmentsBadge(); loadOrdersBadge(); }
 
         // ---------- INIT ----------
         async function init() {
@@ -291,6 +325,14 @@
                 document.querySelectorAll('.ship-tab').forEach(btn => {
                     btn.addEventListener('click', () => { _currentTab = btn.dataset.status; loadShipments(); });
                 });
+                // order tabs + search
+                document.querySelectorAll('.ord-tab').forEach(btn => {
+                    btn.addEventListener('click', () => { _currentOrdTab = btn.dataset.status; updateOrdTabUI(); loadOrders(); });
+                });
+                document.getElementById('ord-search').addEventListener('input', (e) => {
+                    clearTimeout(_ordSearchDebounce);
+                    _ordSearchDebounce = setTimeout(() => loadOrders(), 350);
+                });
                 // customer search debounce
                 document.getElementById('cust-search').addEventListener('input', (e) => {
                     clearTimeout(_searchDebounce);
@@ -299,6 +341,7 @@
 
                 showView('home');
                 loadShipmentsBadge();
+                loadOrdersBadge();
             } catch (e) {
                 console.error('init error:', e);
                 document.getElementById('loading-text').innerHTML = `<span class="text-red-400">${_esc(e.message)}</span>`;
@@ -526,6 +569,104 @@
                 closeAdjModal();
                 openCustModal(id); // refresh
             } catch (e) { alert('error: '+e.message); btn.disabled=false; btn.textContent='บันทึก'; }
+        }
+
+        // ---------- 🛒 Orders ----------
+        function updateOrdTabUI() {
+            document.querySelectorAll('.ord-tab').forEach(b => {
+                const active = b.dataset.status === _currentOrdTab;
+                b.classList.toggle('bg-yellow-500/20', active && _currentOrdTab === 'NEEDS_VERIFY');
+                b.classList.toggle('text-yellow-300', active && _currentOrdTab === 'NEEDS_VERIFY');
+                b.classList.toggle('border-yellow-500/40', active && _currentOrdTab === 'NEEDS_VERIFY');
+                b.classList.toggle('bg-emerald-500/20', active && _currentOrdTab !== 'NEEDS_VERIFY');
+                b.classList.toggle('text-emerald-300', active && _currentOrdTab !== 'NEEDS_VERIFY');
+                b.classList.toggle('border-emerald-500/40', active && _currentOrdTab !== 'NEEDS_VERIFY');
+                b.classList.toggle('bg-white/5', !active);
+                b.classList.toggle('text-zinc-400', !active);
+                b.classList.toggle('border-white/10', !active);
+                b.classList.toggle('font-bold', active);
+            });
+        }
+
+        async function loadOrdersBadge() {
+            try {
+                const res = await fetch('/api/admin/orders?status=NEEDS_VERIFY&take=1', { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (data.success) {
+                    const n = data.counts?.NEEDS_VERIFY || 0;
+                    const badge = document.getElementById('badge-orders');
+                    if (n > 0) { badge.textContent = n > 99 ? '99+' : n; badge.classList.remove('hidden'); }
+                    else badge.classList.add('hidden');
+                }
+            } catch (e) {}
+        }
+
+        async function loadOrders() {
+            const list = document.getElementById('ord-list');
+            list.innerHTML = '<div class="text-center text-zinc-500 py-6 animate-pulse">กำลังโหลด...</div>';
+            const q = document.getElementById('ord-search').value.trim();
+            try {
+                const url = `/api/admin/orders?status=${encodeURIComponent(_currentOrdTab)}${q ? '&q=' + encodeURIComponent(q) : ''}`;
+                const res = await fetch(url, { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'load failed');
+                // อัปเดต counts บน tabs
+                Object.entries(data.counts || {}).forEach(([s, n]) => {
+                    document.querySelectorAll(`[data-count="${s}"]`).forEach(el => el.textContent = n > 99 ? '99+' : n);
+                });
+                window._ordCache = data.orders;
+                if (!data.orders.length) {
+                    list.innerHTML = '<div class="text-center text-zinc-500 py-8 text-sm">ไม่มีออเดอร์ในหมวดนี้</div>';
+                    return;
+                }
+                list.innerHTML = data.orders.map((o, idx) => {
+                    const cust = o.customer ? `${_esc(o.customer.firstName||'')} ${_esc(o.customer.lastName||'')}`.trim() || _esc(o.customer.customerId) : '—';
+                    const phone = o.customer?.phoneNumber ? `· ${_esc(o.customer.phoneNumber)}` : '';
+                    const statusTag = orderStatusTag(o);
+                    const kindTag = o.kind === 'PRIZE_DELIVERY' ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300">PRZ</span>' : '';
+                    const mismatchTag = o.mismatchLocked ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-300">⚠ ยอดไม่ตรง</span>' : '';
+                    const overpaidTag = (o.payment && o.payment.amount > o.totalAmount && !o.overPaidRefundedAt) ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300">เกินยอด</span>' : '';
+                    return `
+                    <div class="bg-white/5 border border-white/10 rounded-xl p-3 item-fade-in cursor-pointer hover:bg-white/10" style="animation-delay:${idx*25}ms" onclick="openOrdDetail('${_esc(o.id)}')">
+                        <div class="flex items-center justify-between gap-2 mb-1">
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <code class="text-xs text-white font-bold">#${_esc(o.id)}</code>
+                                ${kindTag}
+                                ${statusTag}
+                                ${mismatchTag}
+                                ${overpaidTag}
+                            </div>
+                            <div class="text-sm font-bold text-emerald-300 whitespace-nowrap">฿${_fmt(o.totalAmount)}</div>
+                        </div>
+                        <div class="text-[11px] text-zinc-400 truncate">${cust} ${phone}</div>
+                        <div class="flex items-center justify-between mt-1">
+                            <div class="text-[10px] text-zinc-500">${o.itemCount} ชิ้น · ${_dt(o.createdAt)}</div>
+                            ${o.billNumber ? `<div class="text-[10px] text-blue-300">📦 ${_esc(o.billNumber)}</div>` : ''}
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch (e) {
+                list.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`;
+            }
+        }
+
+        function orderStatusTag(o) {
+            const isNeedsVerify = o.payment?.status === 'PENDING' && (o.status === 'PENDING_PAYMENT' || o.status === 'PAID');
+            if (isNeedsVerify) return '<span class="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300">รอตรวจสลิป</span>';
+            const map = {
+                PENDING_PAYMENT: ['bg-zinc-500/20 text-zinc-300', 'รอชำระ'],
+                PAID: ['bg-blue-500/20 text-blue-300', 'ชำระแล้ว'],
+                PROCESSING: ['bg-cyan-500/20 text-cyan-300', 'กำลังเตรียม'],
+                SHIPPED: ['bg-emerald-500/20 text-emerald-300', 'จัดส่งแล้ว'],
+                CANCELLED: ['bg-red-500/20 text-red-300', 'ยกเลิก'],
+            };
+            const [cls, label] = map[o.status] || ['bg-white/5 text-white', o.status];
+            return `<span class="text-[9px] px-1.5 py-0.5 rounded ${cls}">${label}</span>`;
+        }
+
+        function openOrdDetail(orderId) {
+            // Phase 3.1B จะ implement detail modal
+            alert('Detail modal: ' + orderId + '\n(Phase 3.1B กำลังทำ)');
         }
 
         // ---------- 📊 Owner Dashboard ----------
