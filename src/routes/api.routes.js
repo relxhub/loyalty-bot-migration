@@ -4256,6 +4256,76 @@ router.delete('/admin/admins/:telegramId', async (req, res) => {
     } catch (e) { res.status(500).json({ success: false, error: e.message || 'delete failed' }); }
 });
 
+// ---------- 🕐 ADMIN SHIFTS (SuperAdmin/Owner) ----------
+// GET /admin/shifts — list ทุก admin + ตารางสัปดาห์
+router.get('/admin/shifts', async (req, res) => {
+    const a = await authAdmin(req, ['SuperAdmin', 'Owner']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const admins = await prisma.admin.findMany({
+            orderBy: { role: 'asc' },
+            include: { adminShifts: true },
+        });
+        const out = admins.map(ad => ({
+            telegramId: ad.telegramId, name: ad.name, role: ad.role,
+            shifts: ad.adminShifts.map(s => ({
+                id: s.id, dayOfWeek: s.dayOfWeek,
+                shift1Start: s.shift1Start, shift1End: s.shift1End,
+                shift2Start: s.shift2Start, shift2End: s.shift2End,
+                shift3Start: s.shift3Start, shift3End: s.shift3End,
+            })),
+        }));
+        res.json({ success: true, admins: out });
+    } catch (e) {
+        console.error('admin shifts list error:', e);
+        res.status(500).json({ success: false, error: 'load failed' });
+    }
+});
+
+// PUT /admin/shifts/:telegramId/:dayOfWeek — upsert 1 row (วัน × admin)
+router.put('/admin/shifts/:telegramId/:dayOfWeek', async (req, res) => {
+    const a = await authAdmin(req, ['SuperAdmin', 'Owner']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const tgId = req.params.telegramId;
+        const day = parseInt(req.params.dayOfWeek);
+        if (isNaN(day) || day < 0 || day > 6) return res.status(400).json({ success: false, error: 'dayOfWeek ต้อง 0-6' });
+        const exist = await prisma.admin.findUnique({ where: { telegramId: tgId } });
+        if (!exist) return res.status(404).json({ success: false, error: 'ไม่พบ admin' });
+        const b = req.body || {};
+        const data = {
+            shift1Start: b.shift1Start || null, shift1End: b.shift1End || null,
+            shift2Start: b.shift2Start || null, shift2End: b.shift2End || null,
+            shift3Start: b.shift3Start || null, shift3End: b.shift3End || null,
+        };
+        await prisma.adminShift.upsert({
+            where: { adminTelegramId_dayOfWeek: { adminTelegramId: tgId, dayOfWeek: day } },
+            update: data,
+            create: { adminTelegramId: tgId, dayOfWeek: day, ...data },
+        });
+        await prisma.adminAuditLog.create({
+            data: { adminName: a.admin?.name || a.telegramId, action: 'SHIFT_UPDATE',
+                details: JSON.stringify({ targetTelegramId: tgId, dayOfWeek: day, ...data }) },
+        });
+        res.json({ success: true });
+    } catch (e) {
+        console.error('admin shift upsert error:', e);
+        res.status(500).json({ success: false, error: e.message || 'update failed' });
+    }
+});
+
+// DELETE /admin/shifts/:telegramId/:dayOfWeek — clear ทั้งวัน
+router.delete('/admin/shifts/:telegramId/:dayOfWeek', async (req, res) => {
+    const a = await authAdmin(req, ['SuperAdmin', 'Owner']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const tgId = req.params.telegramId;
+        const day = parseInt(req.params.dayOfWeek);
+        await prisma.adminShift.deleteMany({ where: { adminTelegramId: tgId, dayOfWeek: day } });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'delete failed' }); }
+});
+
 // ---------- 📜 AUDIT LOG ----------
 router.get('/admin/audit-log', async (req, res) => {
     const a = await authAdmin(req);

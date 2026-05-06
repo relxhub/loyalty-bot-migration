@@ -210,6 +210,15 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
+            <button id="menu-shifts" onclick="showView('shifts')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden">
+                <div class="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center text-2xl">🕐</div>
+                <div class="flex-1">
+                    <div class="font-bold text-white text-sm">กะทำงานแอดมิน <span class="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/30 text-purple-300 font-bold ml-1">SuperAdmin+</span></div>
+                    <div class="text-[11px] text-zinc-400">ตารางเวร 7 วัน × 3 ช่วงเวลา · กำหนดผู้รับ order</div>
+                </div>
+                <i class="ri-arrow-right-s-line text-zinc-400"></i>
+            </button>
+
             <button id="menu-dashboard" onclick="showView('dashboard')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden border-yellow-500/40">
                 <div class="w-12 h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center text-2xl">📊</div>
                 <div class="flex-1">
@@ -227,6 +236,13 @@
                 </div>
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
+        </div>
+
+        <!-- 🕐 Shifts view -->
+        <div id="view-shifts" class="hidden">
+            <div class="font-bold text-sm mb-3 flex items-center gap-2"><i class="ri-time-line text-amber-400"></i> กะทำงานแอดมิน</div>
+            <div class="text-[11px] text-zinc-400 mb-3">คลิกแต่ละช่อง "วัน × admin" เพื่อตั้งช่วงเวลา 3 กะ · ปัจจุบันใช้สำหรับ <span class="text-amber-300">round-robin assign ออเดอร์</span></div>
+            <div id="shifts-table" class="overflow-x-auto"></div>
         </div>
 
         <!-- 🔐 RBAC view (Owner only) -->
@@ -525,6 +541,11 @@
         <div id="bk-modal-content" class="glass-card w-full max-w-md max-h-[92vh] overflow-y-auto p-5 rounded-t-3xl sm:rounded-2xl"></div>
     </div>
 
+    <!-- 🕐 Shift Edit Modal -->
+    <div id="sh-modal" class="hidden fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-sm">
+        <div id="sh-modal-content" class="glass-card w-full max-w-sm p-5 rounded-t-3xl sm:rounded-2xl"></div>
+    </div>
+
     <!-- 🖼️ Slip Image Lightbox -->
     <div id="img-lightbox" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4" onclick="this.classList.add('hidden')">
         <img id="img-lightbox-src" src="" class="max-w-full max-h-full object-contain rounded-lg">
@@ -599,6 +620,7 @@
             else if (name === 'settings') loadSettings();
             else if (name === 'rbac') loadRbacMatrix();
             else if (name === 'ship-sync') { document.getElementById('ss-result').innerHTML = ''; }
+            else if (name === 'shifts') loadShiftsTable();
         }
 
         // ซ่อนเมนูที่ไม่อยู่ใน permissions ของ role ปัจจุบัน
@@ -657,6 +679,9 @@
                     document.getElementById('menu-dashboard').classList.remove('hidden');
                     document.getElementById('menu-admins').classList.remove('hidden');
                     document.getElementById('menu-rbac').classList.remove('hidden');
+                }
+                if (me.role === 'SuperAdmin' || me.role === 'Owner') {
+                    document.getElementById('menu-shifts').classList.remove('hidden');
                 }
                 applyRbacToMenu();
                 document.getElementById('loading-screen').classList.add('hidden');
@@ -799,6 +824,7 @@
             document.getElementById('cm-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeCmModal(); });
             document.getElementById('ad-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeAdModal(); });
             document.getElementById('bk-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeBkModal(); });
+            document.getElementById('sh-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeShModal(); });
             document.querySelectorAll('.set-tab').forEach(b => {
                 b.addEventListener('click', () => switchSettingsTab(b.dataset.tab));
             });
@@ -2198,6 +2224,121 @@
             } catch (e) {
                 result.innerHTML = `<div class="text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg p-3">❌ ${_esc(e.message)}</div>`;
             } finally { btn.disabled = false; btn.textContent = wasText; }
+        }
+
+        // ---------- 🕐 Admin Shifts ----------
+        const _DAY_LABELS = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+        const _DAY_LABELS_FULL = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัส', 'ศุกร์', 'เสาร์'];
+        let _editingShift = null; // { telegramId, dayOfWeek, current }
+
+        async function loadShiftsTable() {
+            const wrap = document.getElementById('shifts-table');
+            wrap.innerHTML = '<div class="text-center text-zinc-500 py-6 animate-pulse">กำลังโหลด...</div>';
+            try {
+                const res = await fetch('/api/admin/shifts', { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'load failed');
+                window._shiftsCache = data.admins;
+                if (!data.admins.length) { wrap.innerHTML = '<div class="text-center text-zinc-500 py-6 text-sm">ไม่มี admin</div>'; return; }
+
+                const headerRow = `<tr class="text-zinc-500 text-[10px] sticky top-0 bg-[#0a0a0a]">
+                    <th class="text-left p-1.5 sticky left-0 bg-[#0a0a0a] z-10">Admin</th>
+                    ${_DAY_LABELS.map(d => `<th class="p-1.5 text-center font-normal min-w-[60px]">${d}</th>`).join('')}
+                </tr>`;
+
+                const cellRender = (ad, dow) => {
+                    const sh = (ad.shifts || []).find(s => s.dayOfWeek === dow);
+                    if (!sh || (!sh.shift1Start && !sh.shift2Start && !sh.shift3Start)) {
+                        return `<button onclick="openShEdit('${_esc(ad.telegramId)}', ${dow})" class="w-full h-full text-[10px] text-zinc-600 hover:text-amber-300 hover:bg-white/5 rounded p-1">+</button>`;
+                    }
+                    const slots = [
+                        sh.shift1Start && sh.shift1End ? `${sh.shift1Start}-${sh.shift1End}` : '',
+                        sh.shift2Start && sh.shift2End ? `${sh.shift2Start}-${sh.shift2End}` : '',
+                        sh.shift3Start && sh.shift3End ? `${sh.shift3Start}-${sh.shift3End}` : '',
+                    ].filter(Boolean);
+                    return `<button onclick="openShEdit('${_esc(ad.telegramId)}', ${dow})" class="w-full h-full text-[9px] text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 rounded p-1 leading-tight">${slots.map(s=>`<div>${s}</div>`).join('')}</button>`;
+                };
+
+                const rows = data.admins.map(ad => `
+                    <tr class="border-t border-white/10">
+                        <td class="p-1.5 sticky left-0 bg-[#0a0a0a]">
+                            <div class="text-xs text-white truncate max-w-[100px]">${_esc(ad.name||'(no name)')}</div>
+                            <div class="text-[9px] text-zinc-500"><code>${_esc(ad.telegramId)}</code></div>
+                        </td>
+                        ${[0,1,2,3,4,5,6].map(dow => `<td class="p-0.5 align-top">${cellRender(ad, dow)}</td>`).join('')}
+                    </tr>`).join('');
+
+                wrap.innerHTML = `<table class="w-full text-xs border-collapse"><thead>${headerRow}</thead><tbody>${rows}</tbody></table>`;
+            } catch (e) { wrap.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`; }
+        }
+
+        function openShEdit(telegramId, dayOfWeek) {
+            const ad = (window._shiftsCache || []).find(x => x.telegramId === telegramId);
+            const cur = (ad?.shifts || []).find(s => s.dayOfWeek === dayOfWeek) || {};
+            _editingShift = { telegramId, dayOfWeek, current: cur };
+            document.getElementById('sh-modal-content').innerHTML = `
+                <div class="flex items-start justify-between mb-3">
+                    <div>
+                        <h3 class="text-base font-bold">${_esc(ad?.name||'')}</h3>
+                        <div class="text-[10px] text-zinc-500">วัน${_DAY_LABELS_FULL[dayOfWeek]}</div>
+                    </div>
+                    <button onclick="closeShModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center"><i class="ri-close-line"></i></button>
+                </div>
+                <div class="space-y-3 text-sm">
+                    ${[1,2,3].map(n => `
+                        <div>
+                            <label class="text-[11px] text-zinc-400 block mb-1">กะ ${n}</label>
+                            <div class="flex items-center gap-2">
+                                <input id="sh-shift${n}Start" type="time" value="${_esc(cur['shift'+n+'Start']||'')}" class="flex-1 bg-black/40 border border-white/10 rounded p-2 text-white">
+                                <span class="text-zinc-500">→</span>
+                                <input id="sh-shift${n}End" type="time" value="${_esc(cur['shift'+n+'End']||'')}" class="flex-1 bg-black/40 border border-white/10 rounded p-2 text-white">
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="mt-4 flex gap-2">
+                    <button onclick="deleteShift()" class="px-3 py-2.5 rounded-xl bg-red-600/80 hover:bg-red-500 text-white"><i class="ri-delete-bin-line"></i></button>
+                    <button onclick="closeShModal()" class="flex-1 py-2.5 rounded-xl bg-zinc-700 text-white font-bold">ยกเลิก</button>
+                    <button onclick="saveShift()" class="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold">บันทึก</button>
+                </div>`;
+            document.body.classList.add('no-scroll');
+            document.getElementById('sh-modal').classList.remove('hidden');
+        }
+
+        function closeShModal() { _editingShift = null; document.body.classList.remove('no-scroll'); document.getElementById('sh-modal').classList.add('hidden'); }
+
+        async function saveShift() {
+            if (!_editingShift) return;
+            const v = (id) => document.getElementById(id)?.value;
+            const body = {
+                shift1Start: v('sh-shift1Start'), shift1End: v('sh-shift1End'),
+                shift2Start: v('sh-shift2Start'), shift2End: v('sh-shift2End'),
+                shift3Start: v('sh-shift3Start'), shift3End: v('sh-shift3End'),
+                initData: tg.initData,
+            };
+            try {
+                const res = await fetch(`/api/admin/shifts/${encodeURIComponent(_editingShift.telegramId)}/${_editingShift.dayOfWeek}`, {
+                    method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
+                closeShModal(); await loadShiftsTable();
+            } catch (e) { alert('error: '+e.message); }
+        }
+
+        async function deleteShift() {
+            if (!_editingShift) return;
+            if (!confirm(`ลบกะวัน${_DAY_LABELS_FULL[_editingShift.dayOfWeek]}?`)) return;
+            try {
+                const res = await fetch(`/api/admin/shifts/${encodeURIComponent(_editingShift.telegramId)}/${_editingShift.dayOfWeek}`, {
+                    method: 'DELETE', headers: {'Content-Type':'application/json', 'X-Init-Data': tg.initData},
+                    body: JSON.stringify({initData: tg.initData}),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                closeShModal(); await loadShiftsTable();
+            } catch (e) { alert('error: '+e.message); }
         }
 
         // ---------- 🔐 RBAC matrix (Owner) ----------
