@@ -104,6 +104,9 @@ async function startServer() {
     if (!PUBLIC_URL) throw new Error("PUBLIC_URL is missing from config or .env");
 
     // 2. Express Setup
+    // Railway/Heroku/Vercel ใช้ reverse proxy ส่ง X-Forwarded-For → ต้องบอก Express ให้ trust 1 hop
+    // ถ้าไม่ตั้ง: express-rate-limit จะ throw ValidationError ทุก request → API ค้างไม่ตอบ
+    app.set('trust proxy', 1);
     app.use(express.json());
     app.use(express.static(path.join(__dirname, 'public')));
     app.set('socketio', io); // Store io in app
