@@ -541,7 +541,8 @@
                 ]);
                 const aData = await aRes.json();
                 const fData = await fRes.json();
-                const fee = fData.shippingFee || 60;
+                // ใช้ ?? แทน || เพื่อรองรับค่า 0 (ค่าส่งฟรี)
+                const fee = (fData.shippingFee != null && Number.isFinite(Number(fData.shippingFee))) ? Number(fData.shippingFee) : 60;
                 feeEl.textContent = Number(fee).toLocaleString('th-TH', { minimumFractionDigits: 2 });
 
                 // API คืน { success, addresses } — ใช้สมุดที่อยู่ตัวเดียวกับหน้าตะกร้า
@@ -552,8 +553,8 @@
                         <div class="text-center text-zinc-400 py-4 text-sm bg-white/5 rounded-xl border border-white/10">
                             <i class="ri-map-pin-line text-2xl mb-1.5 block text-zinc-500"></i>
                             <div class="mb-2">ยังไม่มีที่อยู่จัดส่ง</div>
-                            <a href="products.html" class="inline-flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-400/40 hover:bg-orange-500/30 transition">
-                                <i class="ri-add-line"></i> ไปเพิ่มที่อยู่ในตะกร้าสินค้า
+                            <a href="products.html?openAddressBook=1" class="inline-flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-400/40 hover:bg-orange-500/30 transition">
+                                <i class="ri-add-line"></i> จัดการที่อยู่จัดส่ง
                             </a>
                         </div>`;
                     document.getElementById('delivery-submit-btn').disabled = true;
@@ -582,8 +583,8 @@
                             </div>
                         </div>
                     </label>`).join('') + `
-                    <a href="products.html" class="block text-center text-[11px] text-zinc-400 hover:text-orange-300 py-2">
-                        <i class="ri-add-line"></i> จัดการสมุดที่อยู่ในตะกร้าสินค้า
+                    <a href="products.html?openAddressBook=1" class="block text-center text-[11px] text-zinc-400 hover:text-orange-300 py-2">
+                        <i class="ri-add-line"></i> จัดการที่อยู่จัดส่ง
                     </a>`;
                 document.getElementById('delivery-submit-btn').disabled = false;
             } catch (e) {

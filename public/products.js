@@ -854,6 +854,16 @@
             document.getElementById('app-container').classList.remove('hidden');
             renderSkeletons();
 
+            // Auto-open address book ถ้ามาจากปุ่ม "จัดการที่อยู่จัดส่ง" (เช่นจากหน้ากล่องสุ่ม)
+            try {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('openAddressBook') === '1') {
+                    setTimeout(() => {
+                        try { window.openAddressSelection?.(); } catch (e) {}
+                    }, 400);
+                }
+            } catch (e) { /* silent */ }
+
             // --- Search Bar (toggle + debounced filter) ---
             const searchToggleBtn = document.getElementById('search-toggle-btn');
             const searchBarContainer = document.getElementById('search-bar-container');
