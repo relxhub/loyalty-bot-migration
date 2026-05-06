@@ -685,6 +685,34 @@ router.post('/orders/:orderId/cancel', async (req, res) => {
     }
 });
 
+// Helper: upload slip image to Telegram → return /api/images/<file_id> URL
+// ใช้ใน /verify-slip เพื่อให้ admin ดูรูปสลิปได้แม้ใน BYPASS_SLIPOK mode (SlipOK URL ว่าง)
+async function uploadSlipToTelegram(file) {
+    if (!file || !file.buffer) return '';
+    const adminToken = process.env.ADMIN_BOT_TOKEN;
+    const targetChatId = process.env.ADMIN_GROUP_ID || process.env.SUPER_ADMIN_TELEGRAM_ID;
+    if (!adminToken || !targetChatId) {
+        console.warn('[uploadSlipToTelegram] ADMIN_BOT_TOKEN/ADMIN_GROUP_ID missing');
+        return '';
+    }
+    try {
+        const FormData = (await import('form-data')).default;
+        const fd = new FormData();
+        fd.append('chat_id', targetChatId);
+        fd.append('disable_notification', 'true'); // ส่งเงียบ — ไม่กวน admin (notif หลักจะมาทีหลัง)
+        fd.append('photo', file.buffer, { filename: file.originalname || 'slip.jpg', contentType: file.mimetype || 'image/jpeg' });
+        const r = await fetch(`https://api.telegram.org/bot${adminToken}/sendPhoto`, { method: 'POST', body: fd, headers: fd.getHeaders() });
+        const d = await r.json();
+        if (!d.ok) { console.error('[uploadSlipToTelegram] Telegram error:', d); return ''; }
+        const photos = d.result?.photo || [];
+        const fileId = photos[photos.length - 1]?.file_id;
+        return fileId ? `/api/images/${fileId}` : '';
+    } catch (e) {
+        console.error('[uploadSlipToTelegram] error:', e.message);
+        return '';
+    }
+}
+
 // SLIPOK Integration
 router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, res) => {
     try {
@@ -696,6 +724,8 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
         }
 
         const file = files[0];
+        // upload สลิปไป Telegram ทันที (ทำขนานกับ SlipOK call) → ใช้ลิงก์นี้ใน Payment.slipUrl
+        const tgSlipUrlPromise = uploadSlipToTelegram(file);
 
         // 1. Get Order
         const order = await prisma.order.findUnique({
@@ -926,6 +956,7 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                 }
 
                 // Lock + reserve stock/coupon + Payment(PENDING) — all in one transaction
+                const slipUrlForDb = (await tgSlipUrlPromise) || slipData?.data?.url || '';
                 try {
                     await prisma.$transaction(async (tx) => {
                         await tx.order.update({
@@ -937,7 +968,7 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                                 orderId: order.id,
                                 amount: actual,
                                 status: 'PENDING',
-                                slipUrl: slipData?.data?.url || '',
+                                slipUrl: slipUrlForDb,
                                 slipOkTransactionId: slipTransRef,
                                 payload: JSON.stringify({ ...slipData.data, mismatchUnder: true, expected, actual, diff }),
                             },
@@ -1077,12 +1108,13 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
             });
 
             // B. Create Payment Record
+            const slipUrlForDb = (await tgSlipUrlPromise) || slipData.data.url || '';
             await tx.payment.create({
                 data: {
                     orderId: order.id,
                     amount: parseFloat(slipAmount),
                     status: 'VERIFIED',
-                    slipUrl: slipData.data.url || '',
+                    slipUrl: slipUrlForDb,
                     slipOkTransactionId: slipTransRef,
                     payload: JSON.stringify(slipData.data),
                     verifiedAt: new Date()
