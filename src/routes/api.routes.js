@@ -3110,6 +3110,18 @@ router.get('/admin/orders/:id', async (req, res) => {
     }
 });
 
+// helper: emit realtime event เมื่อออเดอร์ถูกแก้
+function emitOrderUpdate(req, orderId, newStatus = null) {
+    try {
+        req.app.get('socketio')?.emit('order_update', { id: orderId, status: newStatus, ts: Date.now() });
+    } catch (e) {}
+}
+function emitShipmentUpdate(req, shipmentId, newStatus = null) {
+    try {
+        req.app.get('socketio')?.emit('shipment_update', { id: shipmentId, status: newStatus, ts: Date.now() });
+    } catch (e) {}
+}
+
 // POST /admin/orders/:id/approve — เห็นยอด under-paid + ยืนยันว่ารับ top-up จากลูกค้าแล้ว
 router.post('/admin/orders/:id/approve', async (req, res) => {
     const a = await authAdmin(req);
@@ -3148,6 +3160,7 @@ router.post('/admin/orders/:id/approve', async (req, res) => {
             await stripAdminMessageButtons(order.id, ['MISMATCH_UNDER', 'NEW_ORDER']);
             await notifyAdminOrderActionFromMiniApp({ orderId: order.id, action: '✅ อนุมัติสลิป (รับยอดเต็ม)', byAdmin: a.admin?.name || a.telegramId, kindFilter: ['MISMATCH_UNDER', 'NEW_ORDER'] });
         } catch (e) {}
+        emitOrderUpdate(req, order.id, 'PAID');
         res.json({ success: true });
     } catch (e) {
         console.error('admin order approve error:', e);
@@ -3206,6 +3219,7 @@ router.post('/admin/orders/:id/reject', async (req, res) => {
                 extra: paidAmount > 0 ? `⚠️ ลูกค้าโอนมาแล้ว ฿${paidAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })} — กรุณา refund` : '',
             });
         } catch (e) {}
+        emitOrderUpdate(req, order.id, 'CANCELLED');
         res.json({ success: true, paidAmount });
     } catch (e) {
         console.error('admin order reject error:', e);
@@ -3240,6 +3254,7 @@ router.post('/admin/orders/:id/confirm-overpaid-refund', async (req, res) => {
                 extra: `จ่ายเกิน ฿${diff.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`,
             });
         } catch (e) {}
+        emitOrderUpdate(req, order.id);
         res.json({ success: true, diff });
     } catch (e) {
         console.error('admin overpaid refund error:', e);
@@ -3280,6 +3295,7 @@ router.post('/admin/orders/:id/set-bill', async (req, res) => {
                 extra: `บิล: <code>${billNumber}</code>`,
             });
         } catch (e) {}
+        emitOrderUpdate(req, order.id, 'PROCESSING');
         res.json({ success: true });
     } catch (e) {
         console.error('admin set-bill error:', e);
@@ -3315,6 +3331,7 @@ router.post('/admin/orders/:id/set-tracking', async (req, res) => {
                 extra: `เลขพัสดุ: <code>${trackingNumber}</code>`,
             });
         } catch (e) {}
+        emitOrderUpdate(req, order.id, 'SHIPPED');
         res.json({ success: true });
     } catch (e) {
         console.error('admin set-tracking error:', e);
@@ -3335,6 +3352,7 @@ router.patch('/admin/orders/:id/note', async (req, res) => {
             data: { adminName: a.admin?.name || a.telegramId, action: 'ORDER_NOTE',
                 targetId: order.customerId, details: JSON.stringify({ orderId: order.id, len: note.length }) },
         });
+        emitOrderUpdate(req, order.id);
         res.json({ success: true });
     } catch (e) {
         console.error('admin order note error:', e);
@@ -3391,6 +3409,7 @@ router.delete('/admin/orders/:id/items/:itemId', async (req, res) => {
         if (cancelled) {
             try { await notifCenter.notifyOrderStatusChanged({ orderId: order.id, customerId: order.customerId, status: 'CANCELLED', note: 'สินค้าถูกลบทั้งหมด' }); } catch (e) {}
         }
+        emitOrderUpdate(req, order.id, cancelled ? 'CANCELLED' : null);
         res.json({ success: true, cancelled });
     } catch (e) {
         console.error('admin order remove-item error:', e);
@@ -3442,6 +3461,7 @@ router.post('/admin/orders/:id/refund-slip', upload.single('file'), async (req, 
                 await sendNotificationToCustomer(order.customer.telegramUserId, msg);
             } catch (e) {}
         }
+        emitOrderUpdate(req, order.id);
         res.json({ success: true, refundSlipUrl });
     } catch (e) {
         console.error('admin refund-slip error:', e);
@@ -3488,6 +3508,7 @@ router.post('/admin/orders/:id/cancel', async (req, res) => {
                 byAdmin: a.admin?.name || a.telegramId, kindFilter: ['NEW_ORDER', 'MISMATCH_UNDER'],
             });
         } catch (e) {}
+        emitOrderUpdate(req, order.id, 'CANCELLED');
         res.json({ success: true });
     } catch (e) {
         console.error('admin order cancel error:', e);
@@ -4732,6 +4753,7 @@ router.post('/admin/prize-shipments/:id/ship', async (req, res) => {
             };
             return res.status(400).json({ success: false, error: map[result.error] || result.error });
         }
+        emitShipmentUpdate(req, shipmentId, 'SHIPPED');
         res.json({ success: true });
     } catch (e) {
         console.error('admin ship error:', e);

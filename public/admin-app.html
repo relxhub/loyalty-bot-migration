@@ -8,6 +8,7 @@
     <link rel="icon" type="image/png" href="logo.png">
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
@@ -670,6 +671,7 @@
                 showView('home');
                 loadShipmentsBadge();
                 loadOrdersBadge();
+                initRealtimeSocket();
             } catch (e) {
                 console.error('init error:', e);
                 document.getElementById('loading-text').innerHTML = `<span class="text-red-400">${_esc(e.message)}</span>`;
@@ -911,6 +913,46 @@
                 closeAdjModal();
                 openCustModal(id); // refresh
             } catch (e) { alert('error: '+e.message); btn.disabled=false; btn.textContent='บันทึก'; }
+        }
+
+        // ---------- 🔌 Realtime socket ----------
+        function initRealtimeSocket() {
+            try {
+                const socket = io({ transports: ['websocket', 'polling'] });
+                socket.on('connect', () => console.log('[socket] connected', socket.id));
+                socket.on('order_update', (payload) => {
+                    // ถ้ามี modal เปิดอยู่ออเดอร์เดียวกัน → reload detail
+                    if (_currentOrdId === payload?.id) openOrdDetail(_currentOrdId);
+                    // ถ้าหน้า orders แสดงอยู่ → reload list
+                    if (!document.getElementById('view-orders').classList.contains('hidden')) loadOrders();
+                    // refresh badge เสมอ
+                    loadOrdersBadge();
+                    // toast เล็กๆ ด้านล่างขวา
+                    showToast(`📦 ${payload?.id || 'order'} อัปเดต${payload?.status?' → '+payload.status:''}`);
+                });
+                socket.on('shipment_update', () => {
+                    if (!document.getElementById('view-shipments').classList.contains('hidden')) loadShipments();
+                    loadShipmentsBadge();
+                });
+                socket.on('product_update', () => {
+                    if (!document.getElementById('view-products').classList.contains('hidden')) loadAdminProducts();
+                });
+            } catch (e) { console.warn('[socket] init failed:', e); }
+        }
+
+        let _toastTimer = null;
+        function showToast(text) {
+            let el = document.getElementById('rt-toast');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'rt-toast';
+                el.className = 'fixed bottom-4 right-4 z-[200] bg-emerald-500/90 text-white text-xs font-bold px-3 py-2 rounded-lg shadow-lg transition-all opacity-0';
+                document.body.appendChild(el);
+            }
+            el.textContent = text;
+            el.style.opacity = '1';
+            clearTimeout(_toastTimer);
+            _toastTimer = setTimeout(() => { el.style.opacity = '0'; }, 3000);
         }
 
         // ---------- 🛒 Orders ----------
