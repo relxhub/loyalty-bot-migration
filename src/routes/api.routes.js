@@ -4058,6 +4058,153 @@ router.delete('/admin/products/:id', async (req, res) => {
     }
 });
 
+// ---------- 📡 ACTIVITY DASHBOARD ----------
+// GET /admin/activity — admin online (active in last 5 min) + recent actions
+router.get('/admin/activity', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const since5min = new Date(Date.now() - 5 * 60 * 1000);
+        const since24h = new Date(Date.now() - 86400000);
+        // ใครเพิ่ง active ใน 5 นาที (ดู audit log)
+        const recentActions = await prisma.adminAuditLog.findMany({
+            where: { createdAt: { gte: since5min } },
+            orderBy: { createdAt: 'desc' },
+        });
+        const activeAdminNames = [...new Set(recentActions.map(l => l.adminName).filter(Boolean))];
+        // นับ action 24 ชม. ต่อ admin
+        const today24h = await prisma.adminAuditLog.findMany({
+            where: { createdAt: { gte: since24h } },
+            select: { adminName: true, action: true },
+        });
+        const counts = {};
+        for (const l of today24h) {
+            if (!counts[l.adminName]) counts[l.adminName] = { total: 0, byAction: {} };
+            counts[l.adminName].total += 1;
+            counts[l.adminName].byAction[l.action] = (counts[l.adminName].byAction[l.action] || 0) + 1;
+        }
+        // top action types ใน 24 ชม.
+        const actionTotals = {};
+        for (const l of today24h) actionTotals[l.action] = (actionTotals[l.action] || 0) + 1;
+        const topActions = Object.entries(actionTotals).sort((a, b) => b[1] - a[1]).slice(0, 10);
+        res.json({
+            success: true,
+            activeAdmins: activeAdminNames,
+            activeCount: activeAdminNames.length,
+            recentActions: recentActions.slice(0, 30),
+            adminStats24h: counts,
+            topActions24h: topActions,
+        });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'load failed' }); }
+});
+
+// ---------- ⏪ ROLLBACK (Owner only) ----------
+// GET /admin/rollback/options/:auditLogId — แสดงรายละเอียด + ระบุว่า rollback ได้หรือไม่
+// POST /admin/rollback/:auditLogId — execute rollback
+const ROLLBACK_SUPPORTED = ['ADJUST_POINTS', 'ORDER_NOTE', 'CUSTOMER_NOTE', 'SET_BILL', 'SET_TRACKING', 'CONFIG_UPDATE'];
+router.get('/admin/rollback/options/:auditLogId', async (req, res) => {
+    const a = await authAdmin(req, ['Owner']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const log = await prisma.adminAuditLog.findUnique({ where: { id: parseInt(req.params.auditLogId) } });
+        if (!log) return res.status(404).json({ success: false, error: 'ไม่พบ log' });
+        const supported = ROLLBACK_SUPPORTED.includes(log.action);
+        const ageMin = (Date.now() - new Date(log.createdAt).getTime()) / 60000;
+        res.json({ success: true, log, supported, ageMinutes: ageMin, reasonIfNot: supported ? null : `action "${log.action}" ไม่รองรับการ rollback` });
+    } catch (e) { res.status(500).json({ success: false, error: 'load failed' }); }
+});
+
+router.post('/admin/rollback/:auditLogId', async (req, res) => {
+    const a = await authAdmin(req, ['Owner']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const log = await prisma.adminAuditLog.findUnique({ where: { id: parseInt(req.params.auditLogId) } });
+        if (!log) return res.status(404).json({ success: false, error: 'ไม่พบ log' });
+        if (!ROLLBACK_SUPPORTED.includes(log.action)) return res.status(400).json({ success: false, error: `action "${log.action}" ไม่รองรับการ rollback` });
+
+        let parsed = {};
+        try { parsed = JSON.parse(log.details || '{}'); } catch (e) {}
+
+        let result = '';
+        if (log.action === 'ADJUST_POINTS' && log.targetId) {
+            const delta = parsed.delta;
+            if (typeof delta !== 'number') return res.status(400).json({ success: false, error: 'delta ไม่ถูกต้อง' });
+            await prisma.$transaction(async (tx) => {
+                await tx.customer.update({ where: { customerId: log.targetId }, data: { points: { increment: -delta } } });
+                await tx.pointTransaction.create({
+                    data: { customerId: log.targetId, amount: -delta, type: 'ADMIN_ADJUST', detail: `Rollback ของ log #${log.id} (เดิม: ${parsed.reason || ''})` },
+                });
+            });
+            result = `Reverted ${delta} แต้มจาก ${log.targetId}`;
+        } else if (log.action === 'ORDER_NOTE') {
+            const orderId = parsed.orderId;
+            if (!orderId) return res.status(400).json({ success: false, error: 'ไม่มี orderId ใน log' });
+            await prisma.order.update({ where: { id: orderId }, data: { adminNote: null } });
+            result = `Cleared adminNote ของ ${orderId}`;
+        } else if (log.action === 'CUSTOMER_NOTE') {
+            await prisma.customer.update({ where: { customerId: log.targetId }, data: { adminNote: null } });
+            result = `Cleared adminNote ของ ${log.targetId}`;
+        } else if (log.action === 'SET_BILL') {
+            const orderId = parsed.orderId;
+            await prisma.order.update({ where: { id: orderId }, data: { billNumber: null, status: 'PAID' } });
+            result = `Cleared billNumber + status → PAID ของ ${orderId}`;
+        } else if (log.action === 'SET_TRACKING') {
+            const orderId = parsed.orderId;
+            await prisma.order.update({ where: { id: orderId }, data: { trackingNumber: null, status: 'PROCESSING' } });
+            result = `Cleared trackingNumber + status → PROCESSING ของ ${orderId}`;
+        } else if (log.action === 'CONFIG_UPDATE') {
+            return res.status(400).json({ success: false, error: 'CONFIG_UPDATE rollback ต้อง manual edit (ดู audit details)' });
+        }
+
+        await prisma.adminAuditLog.create({
+            data: { adminName: a.admin?.name || a.telegramId, action: 'ROLLBACK',
+                targetId: log.targetId, details: JSON.stringify({ rolledBackLogId: log.id, originalAction: log.action, result }) },
+        });
+        res.json({ success: true, result });
+    } catch (e) {
+        console.error('rollback error:', e);
+        res.status(500).json({ success: false, error: e.message || 'rollback failed' });
+    }
+});
+
+// ---------- 💾 DB BACKUP (Owner only — generate via pg_dump) ----------
+// POST /admin/db-backup — return CSV dump ของ critical tables (ไม่ใช่ pg_dump เต็มเพราะ Railway containers)
+router.post('/admin/db-backup', async (req, res) => {
+    const a = await authAdmin(req, ['Owner']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        // export critical tables เป็น JSON file (ลูกค้า Owner download เก็บไว้)
+        const [customers, orders, payments, transactions, coupons, customerCoupons] = await Promise.all([
+            prisma.customer.findMany({}),
+            prisma.order.findMany({}),
+            prisma.payment.findMany({}),
+            prisma.pointTransaction.findMany({}),
+            prisma.coupon.findMany({}),
+            prisma.customerCoupon.findMany({}),
+        ]);
+        const dump = {
+            generatedAt: new Date().toISOString(),
+            generatedBy: a.admin?.name || a.telegramId,
+            note: 'Critical tables snapshot. ใช้ Prisma Studio หรือ Railway dashboard สำหรับ pg_dump เต็ม.',
+            counts: {
+                customers: customers.length, orders: orders.length, payments: payments.length,
+                transactions: transactions.length, coupons: coupons.length, customerCoupons: customerCoupons.length,
+            },
+            data: { customers, orders, payments, transactions, coupons, customerCoupons },
+        };
+        await prisma.adminAuditLog.create({
+            data: { adminName: a.admin?.name || a.telegramId, action: 'DB_BACKUP',
+                details: JSON.stringify({ counts: dump.counts }) },
+        });
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="backup_${Date.now()}.json"`);
+        res.send(JSON.stringify(dump, null, 2));
+    } catch (e) {
+        console.error('backup error:', e);
+        res.status(500).json({ success: false, error: e.message || 'backup failed' });
+    }
+});
+
 // ---------- 🤖 ENGAGEMENT JOBS (manual trigger) ----------
 import { runDailyDigestJob, runBirthdayCouponJob, runWinBackJob, notifyWishlistOnRestock } from '../jobs/engagement.job.js';
 

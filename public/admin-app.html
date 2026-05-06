@@ -260,6 +260,15 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
+            <button onclick="showView('activity')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+                <div class="w-12 h-12 rounded-xl bg-sky-500/20 flex items-center justify-center text-2xl">📡</div>
+                <div class="flex-1">
+                    <div class="font-bold text-white text-sm">Activity Dashboard</div>
+                    <div class="text-[11px] text-zinc-400">ใครออนไลน์ · action ล่าสุด · stats 24 ชม.</div>
+                </div>
+                <i class="ri-arrow-right-s-line text-zinc-400"></i>
+            </button>
+
             <button id="menu-rbac" onclick="showView('rbac')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden border-yellow-500/40">
                 <div class="w-12 h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center text-2xl">🔐</div>
                 <div class="flex-1">
@@ -311,6 +320,12 @@
                 </select>
             </div>
             <div id="dash-content"><div class="text-center text-zinc-500 py-8 animate-pulse">กำลังโหลด...</div></div>
+        </div>
+
+        <!-- 📡 Activity Dashboard view -->
+        <div id="view-activity" class="hidden">
+            <div class="font-bold text-sm mb-3 flex items-center gap-2"><i class="ri-pulse-line text-sky-400"></i> Activity Dashboard</div>
+            <div id="activity-content"></div>
         </div>
 
         <!-- 🤖 Jobs view -->
@@ -497,6 +512,8 @@
         <div id="view-audit" class="hidden">
             <div class="flex items-center justify-between mb-3">
                 <div class="font-bold text-sm flex items-center gap-2"><i class="ri-file-list-3-line text-zinc-400"></i> Audit Log</div>
+                <div class="flex gap-1.5 items-center">
+                    <button id="db-backup-btn" onclick="downloadDbBackup()" class="hidden text-xs px-2.5 py-1.5 rounded-full bg-yellow-500/20 hover:bg-yellow-500/40 text-yellow-300 border border-yellow-500/40 font-bold"><i class="ri-database-2-line"></i> DB Backup</button>
                 <select id="audit-filter" onchange="loadAuditLog()" class="text-xs bg-white/5 border border-white/10 rounded-lg p-1.5 text-white">
                     <option value="">ทั้งหมด</option>
                     <option value="MISMATCH_ACCEPT">MISMATCH_ACCEPT</option>
@@ -511,6 +528,7 @@
                     <option value="ADMIN_REMOVE">ADMIN_REMOVE</option>
                     <option value="EDIT_POINTS">EDIT_POINTS</option>
                 </select>
+                </div>
             </div>
             <div id="audit-list" class="space-y-1.5"></div>
         </div>
@@ -734,7 +752,103 @@
             else if (name === 'stock-alert') loadStockAlert();
             else if (name === 'analytics') loadAnalytics('heatmap');
             else if (name === 'jobs') { /* static view */ }
+            else if (name === 'activity') loadActivityDashboard();
         }
+        // ---------- 📡 Activity Dashboard ----------
+        async function loadActivityDashboard() {
+            const wrap = document.getElementById('activity-content');
+            wrap.innerHTML = '<div class="text-center text-zinc-500 py-6 animate-pulse">กำลังโหลด...</div>';
+            try {
+                const res = await fetch('/api/admin/activity', { headers: { 'X-Init-Data': tg.initData } });
+                const d = await res.json();
+                if (!d.success) throw new Error(d.error);
+                const adminCards = Object.entries(d.adminStats24h).sort((a,b) => b[1].total - a[1].total).map(([name, s]) => {
+                    const isOnline = d.activeAdmins.includes(name);
+                    const topTypes = Object.entries(s.byAction).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>`${k}:${v}`).join(' · ');
+                    return `
+                        <div class="bg-white/5 border border-white/10 rounded-xl p-3 mb-2">
+                            <div class="flex items-center justify-between mb-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="${isOnline?'text-emerald-400':'text-zinc-600'}">●</span>
+                                    <span class="text-sm font-bold text-white">${_esc(name)}</span>
+                                    ${isOnline?'<span class="text-[9px] text-emerald-300">online</span>':''}
+                                </div>
+                                <span class="text-[10px] px-2 py-0.5 rounded bg-sky-500/20 text-sky-300">${s.total} actions</span>
+                            </div>
+                            <div class="text-[10px] text-zinc-400">${topTypes||'—'}</div>
+                        </div>`;
+                }).join('') || '<div class="text-zinc-500 text-xs text-center py-3">ยังไม่มี action ใน 24 ชม.</div>';
+
+                const recent = d.recentActions.map(l => `
+                    <div class="text-[11px] py-1 border-b border-white/5 last:border-0">
+                        <span class="text-zinc-500">${_dt(l.createdAt)}</span>
+                        <span class="text-white font-bold">${_esc(l.action)}</span>
+                        by <code class="text-zinc-300">${_esc(l.adminName)}</code>
+                        ${l.targetId ? `→ <code class="text-zinc-400">${_esc(l.targetId)}</code>` : ''}
+                    </div>`).join('') || '<div class="text-zinc-500 text-xs text-center py-3">ไม่มี action ใน 5 นาทีล่าสุด</div>';
+
+                const topActions = d.topActions24h.map(([action, n]) => `
+                    <div class="flex justify-between text-xs py-0.5">
+                        <span class="text-zinc-400">${_esc(action)}</span>
+                        <span class="text-white font-bold">${n}</span>
+                    </div>`).join('');
+
+                wrap.innerHTML = `
+                    <div class="grid grid-cols-2 gap-2 mb-3">
+                        <div class="glass-card p-3 text-center">
+                            <div class="text-2xl font-bold text-emerald-300">${d.activeCount}</div>
+                            <div class="text-[10px] text-zinc-500">admin online (5 min)</div>
+                        </div>
+                        <div class="glass-card p-3 text-center">
+                            <div class="text-2xl font-bold text-sky-300">${Object.values(d.adminStats24h).reduce((s,a)=>s+a.total,0)}</div>
+                            <div class="text-[10px] text-zinc-500">actions ทั้งหมด 24 ชม.</div>
+                        </div>
+                    </div>
+                    <div class="text-[11px] text-zinc-400 font-bold mb-1 mt-3">📊 Stats by Admin (24h)</div>
+                    ${adminCards}
+                    <div class="text-[11px] text-zinc-400 font-bold mb-1 mt-3">⚡ Recent Actions (5 min)</div>
+                    <div class="glass-card p-2 mb-3">${recent}</div>
+                    <div class="text-[11px] text-zinc-400 font-bold mb-1">🔥 Top Action Types (24h)</div>
+                    <div class="glass-card p-2">${topActions}</div>
+                `;
+            } catch (e) { wrap.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`; }
+        }
+
+        // ---------- ⏪ Rollback ----------
+        async function rollbackAction(logId, action) {
+            if (!confirm(`Rollback action "${action}" (log #${logId})?\n\nระบบจะสร้าง log ใหม่ที่ undo ผลกระทบ`)) return;
+            try {
+                const res = await fetch(`/api/admin/rollback/${logId}`, {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ initData: tg.initData }),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
+                alert('✅ ' + (data.result || 'rollback สำเร็จ'));
+                await loadAuditLog();
+            } catch (e) { alert('error: '+e.message); }
+        }
+
+        // ---------- 💾 DB Backup ----------
+        async function downloadDbBackup() {
+            if (!confirm('Generate DB backup snapshot?\n(snapshot ของตาราง critical: customers, orders, payments, transactions, coupons, customerCoupons)')) return;
+            try {
+                const res = await fetch('/api/admin/db-backup', {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ initData: tg.initData }),
+                });
+                if (!res.ok) { alert('backup ล้มเหลว'); return; }
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = `loyalty_backup_${Date.now()}.json`;
+                document.body.appendChild(a); a.click(); a.remove();
+                URL.revokeObjectURL(url);
+                showToast('💾 ดาวน์โหลด backup แล้ว');
+            } catch (e) { alert('error: '+e.message); }
+        }
+
         async function triggerJob(jobName, btn) {
             if (!confirm(`รัน job "${jobName}" ตอนนี้?`)) return;
             const wasText = btn.textContent;
@@ -813,6 +927,7 @@
                     document.getElementById('menu-dashboard').classList.remove('hidden');
                     document.getElementById('menu-admins').classList.remove('hidden');
                     document.getElementById('menu-rbac').classList.remove('hidden');
+                    document.getElementById('db-backup-btn').classList.remove('hidden');
                 }
                 if (me.role === 'SuperAdmin' || me.role === 'Owner') {
                     document.getElementById('menu-shifts').classList.remove('hidden');
@@ -2550,14 +2665,20 @@
                 const data = await res.json();
                 if (!data.success) throw new Error(data.error || 'load failed');
                 if (!data.logs.length) { list.innerHTML = '<div class="text-center text-zinc-500 py-6 text-sm">ไม่มีรายการ</div>'; return; }
+                const ROLLBACK_OK = ['ADJUST_POINTS', 'ORDER_NOTE', 'CUSTOMER_NOTE', 'SET_BILL', 'SET_TRACKING'];
+                const isOwner = window._adminRole === 'Owner';
                 list.innerHTML = data.logs.map((l, idx) => {
                     let detailsParsed = '';
                     try { const o = JSON.parse(l.details||'{}'); detailsParsed = Object.entries(o).map(([k,v])=>`<span class="text-zinc-500">${k}=</span><span class="text-zinc-300">${_esc(typeof v==='object'?JSON.stringify(v):v)}</span>`).join(' '); } catch(e){ detailsParsed = _esc(l.details||''); }
+                    const canRollback = isOwner && ROLLBACK_OK.includes(l.action);
                     return `
-                    <div class="bg-white/5 border border-white/10 rounded-lg p-2 text-[11px] item-fade-in" style="animation-delay:${idx*15}ms">
+                    <div class="bg-white/5 border border-white/10 rounded-lg p-2 text-[11px] item-fade-in" style="animation-delay:${Math.min(idx,20)*15}ms">
                         <div class="flex items-center justify-between mb-0.5">
                             <span class="font-bold text-white">${_esc(l.action)}</span>
-                            <span class="text-[10px] text-zinc-500">${_dt(l.createdAt)}</span>
+                            <div class="flex items-center gap-1.5">
+                                ${canRollback ? `<button onclick="rollbackAction(${l.id}, '${_esc(l.action)}')" class="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/20 hover:bg-orange-500/40 text-orange-300 border border-orange-500/40">⏪ undo</button>` : ''}
+                                <span class="text-[10px] text-zinc-500">${_dt(l.createdAt)}</span>
+                            </div>
                         </div>
                         <div class="text-[10px] text-zinc-400">by <code>${_esc(l.adminName)}</code>${l.targetId?` → <code>${_esc(l.targetId)}</code>`:''}</div>
                         <div class="text-[10px] mt-0.5 break-words">${detailsParsed}</div>
