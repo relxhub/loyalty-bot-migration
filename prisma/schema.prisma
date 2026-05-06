@@ -100,6 +100,10 @@ model Customer {
   activeCampaignTag String? // แท็กแคมเปญปัจจุบันที่เข้าร่วม
   isDeleted         Boolean  @default(false)
 
+  // Admin-only profile data
+  adminNote String? @db.Text // หมายเหตุของ admin (ลูกค้าไม่เห็น)
+  birthDate DateTime? // ใช้สำหรับ birthday coupon
+
   // Relations (ความสัมพันธ์กับตารางอื่น)
   transactions      PointTransaction[]
   auditLogs         AdminAuditLog[]
@@ -574,6 +578,9 @@ model Order {
   // admin ที่ถูก round-robin assign ให้ดูแลออเดอร์นี้ (ตอน sendOrderPaidAdminNotification)
   // null = ยังไม่ได้ assign (ออเดอร์ที่ยังไม่ชำระ + ออเดอร์เก่าก่อน migration)
   assignedAdminId String?
+  assignedAt      DateTime? // เวลาที่ admin ได้รับมอบหมาย (ใช้คำนวณ time-to-bill)
+  firstBillAt     DateTime? // เวลาที่แอดมินใส่บิลครั้งแรก (ไม่อัปเดตซ้ำ — fix metric)
+  billAttempts    Int       @default(0) // นับจำนวนครั้งที่ใส่/แก้บิล
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -631,6 +638,33 @@ model Payment {
 // เก็บ message_id ของข้อความที่บอท admin ส่งให้ recipient ทุกราย
 // เพื่อให้ broadcast edit ได้ครบเมื่อสถานะเปลี่ยน (ถูกกดปุ่ม)
 // ---------------------------------------------------------
+// ประวัติทุกครั้งที่ admin ใส่/แก้เลขบิล (ใช้ตรวจ anti-cheat + report time-to-bill)
+model BillAttempt {
+  id          Int      @id @default(autoincrement())
+  orderId     String
+  adminId     String // telegramId ของ admin ที่ใส่
+  billNumber  String // ค่า billNumber ที่ใส่
+  billLength  Int // length ของ billNumber (ใช้ flag suspicious — สั้นมาก = น่าสงสัย)
+  attemptNo   Int // ลำดับครั้งที่ (1, 2, 3, ...)
+  suspicious  Boolean  @default(false) // ตั้งโดย logic: length<5 + แล้วมีรอบถัดมาด้วย bill ที่ยาวกว่า
+  createdAt   DateTime @default(now())
+
+  @@index([orderId])
+  @@index([adminId, createdAt])
+}
+
+// Wishlist — ลูกค้ากด "อยากได้" สินค้าที่หมด แล้วแจ้งเมื่อ restock
+model Wishlist {
+  id           Int       @id @default(autoincrement())
+  customerId   String
+  productId    Int
+  notifiedAt   DateTime? // null = ยังไม่ได้แจ้ง (สินค้ายังหมด/restock เพิ่งกลับมา)
+  createdAt    DateTime  @default(now())
+
+  @@unique([customerId, productId])
+  @@index([productId])
+}
+
 model AdminMessage {
   id        Int      @id @default(autoincrement())
   orderId   String

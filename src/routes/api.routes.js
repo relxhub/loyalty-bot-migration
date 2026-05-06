@@ -3374,11 +3374,37 @@ router.post('/admin/orders/:id/set-bill', async (req, res) => {
         if (!['PAID', 'PROCESSING'].includes(order.status)) {
             return res.status(400).json({ success: false, error: 'สถานะออเดอร์ไม่อนุญาตให้ใส่บิล (ต้อง PAID/PROCESSING)' });
         }
+        // ตรวจสอบ BillAttempt: นับครั้งใส่บิล + flag suspicious
+        const prevAttempts = await prisma.billAttempt.findMany({
+            where: { orderId: order.id }, orderBy: { createdAt: 'asc' },
+        });
+        const attemptNo = prevAttempts.length + 1;
+        // suspicious heuristic: bill สั้นกว่า 5 ตัว = น่าสงสัย "เปล่าๆเพื่อทำเวลา"
+        const billLen = billNumber.length;
+        const isShort = billLen < 5;
+        // backfill: ถ้ารอบใหม่นี้ยาวพอ + รอบก่อนๆ มีอันสั้น → flag อันสั้นย้อนหลังว่า suspicious
         await prisma.$transaction(async (tx) => {
-            await tx.order.update({ where: { id: order.id }, data: { billNumber, status: 'PROCESSING', updatedAt: new Date() } });
+            await tx.order.update({
+                where: { id: order.id },
+                data: {
+                    billNumber, status: 'PROCESSING', updatedAt: new Date(),
+                    billAttempts: { increment: 1 },
+                    ...(order.firstBillAt == null ? { firstBillAt: new Date() } : {}),
+                },
+            });
+            await tx.billAttempt.create({
+                data: { orderId: order.id, adminId: a.telegramId, billNumber, billLength: billLen, attemptNo, suspicious: isShort && attemptNo === 1 ? false : false },
+            });
+            // หากรอบนี้ยาว >= 5 → mark รอบก่อนๆ ที่สั้นว่า suspicious (admin ใส่เลขสั้นๆ ทำเวลาก่อน แล้วมาแก้ใส่เลขจริง)
+            if (!isShort && attemptNo > 1) {
+                const shortIds = prevAttempts.filter(x => x.billLength < 5).map(x => x.id);
+                if (shortIds.length) {
+                    await tx.billAttempt.updateMany({ where: { id: { in: shortIds } }, data: { suspicious: true } });
+                }
+            }
             await tx.adminAuditLog.create({
                 data: { adminName: a.admin?.name || a.telegramId, action: 'SET_BILL', targetId: order.customerId,
-                    details: JSON.stringify({ orderId: order.id, billNumber, via: 'mini-app' }) },
+                    details: JSON.stringify({ orderId: order.id, billNumber, attemptNo, billLength: billLen, via: 'mini-app' }) },
             });
         });
         try { await notifCenter.notifyOrderStatusChanged({ orderId: order.id, customerId: order.customerId, status: 'PROCESSING', note: `เลขบิล: ${billNumber}` }); } catch (e) {}
