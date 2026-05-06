@@ -10,6 +10,7 @@
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/auth-cache.js"></script>
 
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
@@ -771,6 +772,23 @@
         // ---------- Auth & Init ----------
         async function initApp() {
             try {
+                // Fast-boot: ใช้ cache render ทันทีถ้ามี
+                const _cached = window.AuthCache?.get();
+                if (_cached && _cached.customerId) {
+                    try {
+                        window.currentUser = _cached;
+                        if (_cached.orderBotUsername) window.appConfig.orderBotUsername = _cached.orderBotUsername;
+                        renderUser(_cached);
+                        document.getElementById('loading-screen').classList.add('hidden');
+                        document.getElementById('app-content').classList.remove('hidden');
+                        loadFriendsList();
+                        loadRewardCoupons();
+                        // bg refresh — เงียบๆ
+                        setTimeout(() => fetchAuthBg(), 250);
+                        return;
+                    } catch (e) { /* fall through */ }
+                }
+
                 if (!tg.initData) {
                     showToast('กรุณาเปิดผ่าน Telegram', 'error');
                     setTimeout(() => window.location.href = 'dashboard.html', 1500);
@@ -796,6 +814,7 @@
                 }
 
                 window.currentUser = data.customer;
+                try { window.AuthCache?.set(data.customer); } catch(e){}
                 if (data.customer.orderBotUsername) {
                     window.appConfig.orderBotUsername = data.customer.orderBotUsername;
                 }
@@ -819,6 +838,24 @@
                 showToast(e.message || 'เกิดข้อผิดพลาด', 'error');
                 setTimeout(() => window.location.href = 'dashboard.html', 1500);
             }
+        }
+
+        async function fetchAuthBg() {
+            try {
+                if (!tg.initData) return;
+                const res = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData })
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.isMember && data.customer) {
+                    window.currentUser = data.customer;
+                    try { window.AuthCache?.set(data.customer); } catch(e){}
+                    renderUser(data.customer);
+                }
+            } catch (e) { /* silent */ }
         }
 
         function renderUser(user) {

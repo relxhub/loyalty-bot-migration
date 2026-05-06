@@ -11,6 +11,7 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/socket.io/socket.io.js"></script>
+    <script src="/auth-cache.js"></script>
     <!-- QR Code Styling Library -->
 
 
@@ -613,6 +614,19 @@
 
         async function initApp() {
             try {
+                // Fast-boot: ถ้ามี cache (ลูกค้าเคย auth สำเร็จในเซสชันนี้) → render ทันที
+                // แล้วค่อย refresh ข้อมูลพื้นหลัง — ไม่ต้องรอ /api/auth
+                const _cached = window.AuthCache?.get();
+                if (_cached && _cached.customerId) {
+                    try {
+                        window.currentUser = _cached;
+                        renderUser(_cached);
+                        // bg refresh — ไม่ block UI
+                        setTimeout(() => { try { refreshUserData(true); } catch(e){} }, 200);
+                        return;
+                    } catch (e) { /* fall through to normal init */ }
+                }
+
                 // Priority 1: Get start_param from URL query string
                 const urlParams = new URLSearchParams(window.location.search);
                 let startParam = urlParams.get('start_param');
@@ -887,13 +901,15 @@
                     if (user && user.orderBotUsername) {
                         window.appConfig.orderBotUsername = user.orderBotUsername;
                     }
+                    // Cache สำหรับ fast-boot ครั้งถัดไป
+                    if (isMember && user) { try { window.AuthCache?.set(user); } catch(e){} }
                 } catch (e) {
                     console.error("Error fetching user data:", e);
                     if (!isSilent) {
                         showToast(e.message || "เกิดข้อผิดพลาดในการดึงข้อมูล", 'error');
                         showLoginScreen();
                     }
-                    return; 
+                    return;
                 }
             }
 

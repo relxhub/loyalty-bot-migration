@@ -63,6 +63,7 @@ enum AutoAssignTrigger {
 // ---------------------------------------------------------
 enum RewardTrigger {
   REFEREE_FIRST_PURCHASE // referee ซื้อครั้งแรกสำเร็จ → award referrer/referee
+  MYSTERY_BOX // ใช้เป็นรางวัลใน Mystery Box เท่านั้น (ซ่อนจากศูนย์คูปอง + แต้มแลก)
 }
 
 enum RewardRecipient {
