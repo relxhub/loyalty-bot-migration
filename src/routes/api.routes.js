@@ -4058,6 +4058,188 @@ router.delete('/admin/products/:id', async (req, res) => {
     }
 });
 
+// ---------- 📊 ANALYTICS ----------
+
+// GET /admin/analytics/customer/:customerId — drill-down: LTV + RFM + orders + prizes + referrals
+router.get('/admin/analytics/customer/:customerId', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const cid = req.params.customerId;
+        const cust = await prisma.customer.findUnique({ where: { customerId: cid } });
+        if (!cust) return res.status(404).json({ success: false, error: 'ไม่พบลูกค้า' });
+        const paidStatuses = ['PAID', 'PROCESSING', 'SHIPPED'];
+        const [allOrders, last90, prizes, ref, coupons] = await Promise.all([
+            prisma.order.findMany({
+                where: { customerId: cid, kind: 'PRODUCT', status: { in: paidStatuses } },
+                select: { totalAmount: true, createdAt: true, id: true, status: true },
+                orderBy: { createdAt: 'desc' },
+            }),
+            prisma.order.count({
+                where: { customerId: cid, kind: 'PRODUCT', status: { in: paidStatuses }, createdAt: { gte: new Date(Date.now() - 90 * 86400000) } },
+            }),
+            prisma.mysteryBoxTicket.findMany({
+                where: { customerId: cid, status: 'OPENED' },
+                include: { awardedPrize: { select: { name: true } } },
+                take: 20,
+            }),
+            prisma.referral.findMany({
+                where: { referrerId: cid },
+                select: { refereeId: true, status: true, createdAt: true, completedAt: true },
+                orderBy: { createdAt: 'desc' },
+            }),
+            prisma.customerCoupon.findMany({
+                where: { customerId: cid, status: 'USED' },
+                include: { coupon: { select: { name: true } } },
+                orderBy: { usedAt: 'desc' }, take: 10,
+            }),
+        ]);
+        const ltv = allOrders.reduce((s, o) => s + Number(o.totalAmount), 0);
+        const orderCount = allOrders.length;
+        const aov = orderCount ? ltv / orderCount : 0;
+        const lastOrderAt = allOrders[0]?.createdAt || null;
+        const daysSinceLast = lastOrderAt ? Math.floor((Date.now() - new Date(lastOrderAt).getTime()) / 86400000) : null;
+        // RFM segment (rough)
+        let segment = 'New';
+        if (orderCount >= 10 && daysSinceLast != null && daysSinceLast <= 30) segment = 'Champion';
+        else if (orderCount >= 5 && daysSinceLast != null && daysSinceLast <= 60) segment = 'Loyal';
+        else if (daysSinceLast != null && daysSinceLast > 90) segment = 'At-risk';
+        else if (daysSinceLast != null && daysSinceLast > 180) segment = 'Lost';
+
+        res.json({
+            success: true,
+            ltv, orderCount, aov, lastOrderAt, daysSinceLast, last90Orders: last90, segment,
+            prizesWon: prizes.map(p => ({ name: p.awardedPrize?.name, openedAt: p.openedAt })),
+            referrals: ref,
+            recentCoupons: coupons.map(c => ({ couponName: c.coupon?.name, usedAt: c.usedAt })),
+        });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'load failed' }); }
+});
+
+// GET /admin/analytics/product-heatmap — qty ขายต่อ (วันสัปดาห์ × ชั่วโมง) ใน 90 วันล่าสุด
+router.get('/admin/analytics/product-heatmap', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const since = new Date(Date.now() - 90 * 86400000);
+        const items = await prisma.orderItem.findMany({
+            where: { order: { kind: 'PRODUCT', status: { in: ['PAID', 'PROCESSING', 'SHIPPED'] }, createdAt: { gte: since } } },
+            include: { order: { select: { createdAt: true } } },
+        });
+        // grid 7 × 24 (BKK time)
+        const grid = Array.from({ length: 7 }, () => Array(24).fill(0));
+        const tzOffsetMin = -7 * 60; // UTC → BKK adds 7 hours
+        for (const it of items) {
+            const t = new Date(it.order.createdAt.getTime() - tzOffsetMin * 60000);
+            const dow = t.getUTCDay(); // 0-6
+            const hour = t.getUTCHours();
+            grid[dow][hour] += it.quantity;
+        }
+        // top combo (dow, hour) ที่ขายเยอะสุด
+        const flat = [];
+        for (let d = 0; d < 7; d++) for (let h = 0; h < 24; h++) flat.push({ dow: d, hour: h, qty: grid[d][h] });
+        const top = flat.sort((a, b) => b.qty - a.qty).slice(0, 5);
+        res.json({ success: true, grid, top, since });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'load failed' }); }
+});
+
+// GET /admin/analytics/coupon-roi — ทุกคูปอง: usedCount, totalDiscount, additionalRevenue
+router.get('/admin/analytics/coupon-roi', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const period = String(req.query.period || '90');
+        const since = period === 'all' ? null : new Date(Date.now() - parseInt(period) * 86400000);
+        const where = { appliedCouponId: { not: null }, status: { in: ['PAID', 'PROCESSING', 'SHIPPED'] }, kind: 'PRODUCT' };
+        if (since) where.createdAt = { gte: since };
+        const orders = await prisma.order.findMany({
+            where, select: { appliedCouponId: true, totalAmount: true, discountAmount: true, customerId: true },
+        });
+        const grouped = new Map(); // couponId → { usedCount, totalDiscount, totalRevenue, customers:Set }
+        for (const o of orders) {
+            const id = o.appliedCouponId;
+            if (!grouped.has(id)) grouped.set(id, { id, usedCount: 0, totalDiscount: 0, totalRevenue: 0, customers: new Set() });
+            const g = grouped.get(id);
+            g.usedCount += 1;
+            g.totalDiscount += Number(o.discountAmount || 0);
+            g.totalRevenue += Number(o.totalAmount);
+            g.customers.add(o.customerId);
+        }
+        const ids = [...grouped.keys()];
+        const couponNames = ids.length ? await prisma.coupon.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, type: true } }) : [];
+        const nameMap = Object.fromEntries(couponNames.map(c => [c.id, c]));
+        const result = [...grouped.values()].map(g => ({
+            id: g.id,
+            name: nameMap[g.id]?.name || g.id,
+            type: nameMap[g.id]?.type || '?',
+            usedCount: g.usedCount, totalDiscount: g.totalDiscount, totalRevenue: g.totalRevenue,
+            uniqueCustomers: g.customers.size,
+            roi: g.totalDiscount > 0 ? (g.totalRevenue / g.totalDiscount) : null, // revenue per ฿1 discount
+        })).sort((a, b) => b.totalRevenue - a.totalRevenue);
+        res.json({ success: true, since, coupons: result });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'load failed' }); }
+});
+
+// GET /admin/analytics/admin-perf — รายงานประสิทธิภาพ admin + time-to-bill + suspicious detection
+router.get('/admin/analytics/admin-perf', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const period = String(req.query.period || '30');
+        const since = period === 'all' ? null : new Date(Date.now() - parseInt(period) * 86400000);
+        const dateFilter = since ? { createdAt: { gte: since } } : {};
+        const orders = await prisma.order.findMany({
+            where: { ...dateFilter, assignedAdminId: { not: null }, kind: 'PRODUCT' },
+            select: { id: true, assignedAdminId: true, assignedAt: true, firstBillAt: true, billAttempts: true, status: true },
+        });
+        // group by adminId
+        const byAdmin = new Map();
+        for (const o of orders) {
+            const id = o.assignedAdminId;
+            if (!byAdmin.has(id)) byAdmin.set(id, {
+                adminId: id, totalAssigned: 0, billed: 0, completed: 0,
+                timeToBillMs: [], totalAttempts: 0,
+            });
+            const g = byAdmin.get(id);
+            g.totalAssigned += 1;
+            if (o.firstBillAt) {
+                g.billed += 1;
+                if (o.assignedAt) g.timeToBillMs.push(new Date(o.firstBillAt).getTime() - new Date(o.assignedAt).getTime());
+            }
+            if (o.status === 'SHIPPED') g.completed += 1;
+            g.totalAttempts += o.billAttempts || 0;
+        }
+        // suspicious bills count
+        const suspiciousAttempts = await prisma.billAttempt.groupBy({
+            by: ['adminId'], where: { suspicious: true, ...(since ? { createdAt: { gte: since } } : {}) },
+            _count: { _all: true },
+        });
+        const suspMap = Object.fromEntries(suspiciousAttempts.map(x => [x.adminId, x._count._all]));
+
+        const adminIds = [...byAdmin.keys()];
+        const admins = adminIds.length ? await prisma.admin.findMany({ where: { telegramId: { in: adminIds } }, select: { telegramId: true, name: true, role: true } }) : [];
+        const adminMap = Object.fromEntries(admins.map(x => [x.telegramId, x]));
+
+        const out = [...byAdmin.values()].map(g => {
+            const med = g.timeToBillMs.length
+                ? Math.round([...g.timeToBillMs].sort((a, b) => a - b)[Math.floor(g.timeToBillMs.length / 2)] / 1000)
+                : null;
+            const avg = g.timeToBillMs.length
+                ? Math.round((g.timeToBillMs.reduce((s, n) => s + n, 0) / g.timeToBillMs.length) / 1000)
+                : null;
+            return {
+                adminId: g.adminId, name: adminMap[g.adminId]?.name || null, role: adminMap[g.adminId]?.role || '?',
+                totalAssigned: g.totalAssigned, billed: g.billed, completed: g.completed,
+                avgTimeToBillSec: avg, medianTimeToBillSec: med,
+                totalBillAttempts: g.totalAttempts, avgAttemptsPerOrder: g.billed ? Math.round((g.totalAttempts / g.billed) * 10) / 10 : 0,
+                suspiciousBills: suspMap[g.adminId] || 0,
+                completionRate: g.totalAssigned ? Math.round((g.completed / g.totalAssigned) * 100) : 0,
+            };
+        }).sort((a, b) => b.completed - a.completed);
+        res.json({ success: true, since, admins: out });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'load failed' }); }
+});
+
 // GET /admin/stock-alert — สินค้าที่ stock < threshold
 router.get('/admin/stock-alert', async (req, res) => {
     const a = await authAdmin(req);

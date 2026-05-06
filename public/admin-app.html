@@ -242,6 +242,15 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
+            <button onclick="showView('analytics')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+                <div class="w-12 h-12 rounded-xl bg-violet-500/20 flex items-center justify-center text-2xl">📈</div>
+                <div class="flex-1">
+                    <div class="font-bold text-white text-sm">Analytics</div>
+                    <div class="text-[11px] text-zinc-400">Heatmap · Coupon ROI · Admin perf · time-to-bill</div>
+                </div>
+                <i class="ri-arrow-right-s-line text-zinc-400"></i>
+            </button>
+
             <button id="menu-rbac" onclick="showView('rbac')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden border-yellow-500/40">
                 <div class="w-12 h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center text-2xl">🔐</div>
                 <div class="flex-1">
@@ -293,6 +302,17 @@
                 </select>
             </div>
             <div id="dash-content"><div class="text-center text-zinc-500 py-8 animate-pulse">กำลังโหลด...</div></div>
+        </div>
+
+        <!-- 📈 Analytics view -->
+        <div id="view-analytics" class="hidden">
+            <div class="font-bold text-sm mb-3 flex items-center gap-2"><i class="ri-bar-chart-2-line text-violet-400"></i> Analytics</div>
+            <div class="flex gap-1.5 mb-3 overflow-x-auto scrollbar-hide">
+                <button data-tab="heatmap" class="ana-tab text-xs px-3 py-1.5 rounded-full bg-violet-500/20 text-violet-200 border border-violet-500/40 font-bold whitespace-nowrap">📊 Heatmap</button>
+                <button data-tab="coupon" class="ana-tab text-xs px-3 py-1.5 rounded-full bg-white/5 text-zinc-400 border border-white/10 whitespace-nowrap">🎫 Coupon ROI</button>
+                <button data-tab="admin-perf" class="ana-tab text-xs px-3 py-1.5 rounded-full bg-white/5 text-zinc-400 border border-white/10 whitespace-nowrap">👨‍💼 Admin Perf</button>
+            </div>
+            <div id="ana-content"></div>
         </div>
 
         <!-- ⚠️ Stock Alert view -->
@@ -674,6 +694,7 @@
             else if (name === 'ship-sync') { document.getElementById('ss-result').innerHTML = ''; }
             else if (name === 'shifts') loadShiftsTable();
             else if (name === 'stock-alert') loadStockAlert();
+            else if (name === 'analytics') loadAnalytics('heatmap');
         }
 
         // ซ่อนเมนูที่ไม่อยู่ใน permissions ของ role ปัจจุบัน
@@ -974,9 +995,15 @@
                         <textarea id="cust-admin-note" rows="2" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white text-xs" placeholder="เช่น 'ลูกค้าหิวด่วน' / 'พิเศษ'">${_esc(c.adminNote || '')}</textarea>
                         <button onclick="saveCustNote('${_esc(c.customerId)}')" class="mt-1 text-[11px] px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 text-white">บันทึกหมายเหตุ</button>
                     </div>
-                    <button onclick="openAdjModal('${_esc(c.customerId)}')" class="w-full py-2.5 rounded-xl bg-blue-500 hover:bg-blue-400 text-white text-sm font-bold mb-4">
-                        <i class="ri-coin-line"></i> ปรับแต้ม
-                    </button>
+                    <div class="flex gap-2 mb-4">
+                        <button onclick="openAdjModal('${_esc(c.customerId)}')" class="flex-1 py-2.5 rounded-xl bg-blue-500 hover:bg-blue-400 text-white text-sm font-bold">
+                            <i class="ri-coin-line"></i> ปรับแต้ม
+                        </button>
+                        <button onclick="loadCustAnalytics('${_esc(c.customerId)}')" class="flex-1 py-2.5 rounded-xl bg-violet-500 hover:bg-violet-400 text-white text-sm font-bold">
+                            <i class="ri-bar-chart-line"></i> สถิติ LTV
+                        </button>
+                    </div>
+                    <div id="cust-analytics" class="mb-3"></div>
                     <div class="mb-3">
                         <div class="text-[10px] text-zinc-400 uppercase tracking-wider mb-1">ออเดอร์ล่าสุด</div>
                         <div class="bg-white/5 rounded-lg p-2 space-y-0.5">${ordersHtml}</div>
@@ -991,6 +1018,44 @@
             document.body.classList.remove('no-scroll');
             document.getElementById('cust-modal').classList.add('hidden');
         }
+        async function loadCustAnalytics(customerId) {
+            const wrap = document.getElementById('cust-analytics');
+            wrap.innerHTML = '<div class="text-zinc-500 text-xs animate-pulse">กำลังโหลด...</div>';
+            try {
+                const res = await fetch(`/api/admin/analytics/customer/${encodeURIComponent(customerId)}`, { headers: { 'X-Init-Data': tg.initData } });
+                const d = await res.json();
+                if (!d.success) throw new Error(d.error);
+                const segColor = { Champion: 'emerald', Loyal: 'blue', New: 'zinc', 'At-risk': 'orange', Lost: 'red' }[d.segment] || 'zinc';
+                wrap.innerHTML = `
+                    <div class="rounded-xl p-3 bg-violet-500/10 border border-violet-500/40">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="text-[10px] text-zinc-400 uppercase tracking-wider">📊 ภาพรวมลูกค้า</div>
+                            <span class="text-[10px] px-2 py-0.5 rounded bg-${segColor}-500/30 text-${segColor}-200">${d.segment}</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-1.5 text-center mb-2">
+                            <div class="bg-black/30 rounded p-1.5">
+                                <div class="text-sm font-bold text-yellow-300">฿${_fmt(d.ltv)}</div>
+                                <div class="text-[9px] text-zinc-500">LTV</div>
+                            </div>
+                            <div class="bg-black/30 rounded p-1.5">
+                                <div class="text-sm font-bold text-emerald-300">${d.orderCount}</div>
+                                <div class="text-[9px] text-zinc-500">ออเดอร์</div>
+                            </div>
+                            <div class="bg-black/30 rounded p-1.5">
+                                <div class="text-sm font-bold text-blue-300">฿${_fmt(d.aov)}</div>
+                                <div class="text-[9px] text-zinc-500">AOV</div>
+                            </div>
+                        </div>
+                        <div class="text-[10px] text-zinc-400 leading-relaxed">
+                            ซื้อล่าสุด: <span class="text-white">${d.lastOrderAt ? _date(d.lastOrderAt) + ` (${d.daysSinceLast} วันก่อน)` : '—'}</span><br>
+                            90 วันล่าสุด: <span class="text-white">${d.last90Orders} ออเดอร์</span><br>
+                            ${d.prizesWon.length ? '🎁 ของรางวัล: ' + d.prizesWon.length + ' ชิ้น<br>' : ''}
+                            ${d.referrals.length ? '👥 ชวนเพื่อน: ' + d.referrals.length + ' คน' : ''}
+                        </div>
+                    </div>`;
+            } catch (e) { wrap.innerHTML = `<div class="text-red-400 text-xs">${_esc(e.message)}</div>`; }
+        }
+
         async function saveCustNote(customerId) {
             const v = document.getElementById('cust-admin-note').value;
             try {
@@ -1035,6 +1100,164 @@
                 closeAdjModal();
                 openCustModal(id); // refresh
             } catch (e) { alert('error: '+e.message); btn.disabled=false; btn.textContent='บันทึก'; }
+        }
+
+        // ---------- 📈 Analytics ----------
+        async function loadAnalytics(tab) {
+            document.querySelectorAll('.ana-tab').forEach(b => {
+                const active = b.dataset.tab === tab;
+                b.classList.toggle('bg-violet-500/20', active);
+                b.classList.toggle('text-violet-200', active);
+                b.classList.toggle('border-violet-500/40', active);
+                b.classList.toggle('font-bold', active);
+                b.classList.toggle('bg-white/5', !active);
+                b.classList.toggle('text-zinc-400', !active);
+                b.classList.toggle('border-white/10', !active);
+                if (!b.dataset._wired) {
+                    b.addEventListener('click', () => loadAnalytics(b.dataset.tab));
+                    b.dataset._wired = '1';
+                }
+            });
+            const wrap = document.getElementById('ana-content');
+            wrap.innerHTML = '<div class="text-center text-zinc-500 py-6 animate-pulse">กำลังโหลด...</div>';
+            try {
+                if (tab === 'heatmap') {
+                    const r = await fetch('/api/admin/analytics/product-heatmap', { headers: { 'X-Init-Data': tg.initData } });
+                    const d = await r.json(); if (!d.success) throw new Error(d.error);
+                    renderHeatmap(d.grid, d.top);
+                } else if (tab === 'coupon') {
+                    const r = await fetch('/api/admin/analytics/coupon-roi?period=90', { headers: { 'X-Init-Data': tg.initData } });
+                    const d = await r.json(); if (!d.success) throw new Error(d.error);
+                    renderCouponRoi(d.coupons);
+                } else if (tab === 'admin-perf') {
+                    const r = await fetch('/api/admin/analytics/admin-perf?period=30', { headers: { 'X-Init-Data': tg.initData } });
+                    const d = await r.json(); if (!d.success) throw new Error(d.error);
+                    renderAdminPerf(d.admins);
+                }
+            } catch (e) { wrap.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`; }
+        }
+
+        function renderHeatmap(grid, top) {
+            const wrap = document.getElementById('ana-content');
+            const max = Math.max(1, ...grid.flat());
+            const dayLabels = ['อา','จ','อ','พ','พฤ','ศ','ส'];
+            // 7 × 24 grid: dow rows, hour columns
+            let html = `
+                <div class="text-[11px] text-zinc-400 mb-2">ชิ้นที่ขายต่อ (วัน × ชั่วโมง) ใน 90 วันล่าสุด · เข้มกว่า = ขายเยอะ</div>
+                <div class="overflow-x-auto bg-black/30 rounded-lg p-2">
+                    <div class="grid grid-cols-[24px_repeat(24,minmax(14px,1fr))] gap-0.5 min-w-[500px]">
+                        <div></div>
+                        ${Array.from({length:24}, (_,h) => `<div class="text-[8px] text-zinc-600 text-center">${h}</div>`).join('')}
+                        ${grid.map((row, dow) => `
+                            <div class="text-[10px] text-zinc-500 text-right pr-1">${dayLabels[dow]}</div>
+                            ${row.map(qty => {
+                                const intensity = qty > 0 ? Math.min(1, qty / max) : 0;
+                                const opacity = intensity * 0.95 + 0.05;
+                                return `<div class="aspect-square rounded" style="background: rgba(139, 92, 246, ${qty===0?0.05:opacity})" title="${qty} ชิ้น"></div>`;
+                            }).join('')}
+                        `).join('')}
+                    </div>
+                </div>
+                <div class="mt-3 text-[11px] text-zinc-400">🔥 ช่วงพีค top 5</div>
+                <div class="space-y-1 mt-1">
+                    ${top.filter(t => t.qty > 0).map(t => `
+                        <div class="flex justify-between text-xs bg-violet-500/10 border border-violet-500/30 rounded px-2 py-1">
+                            <span class="text-violet-200">${dayLabels[t.dow]} · ${String(t.hour).padStart(2,'0')}:00</span>
+                            <span class="text-white font-bold">${t.qty} ชิ้น</span>
+                        </div>
+                    `).join('') || '<div class="text-zinc-500 text-xs text-center py-2">ยังไม่มีข้อมูล</div>'}
+                </div>`;
+            wrap.innerHTML = html;
+        }
+
+        function renderCouponRoi(coupons) {
+            const wrap = document.getElementById('ana-content');
+            if (!coupons.length) { wrap.innerHTML = '<div class="text-center text-zinc-500 py-6 text-sm">ยังไม่มีคูปองที่ถูกใช้ใน 90 วัน</div>'; return; }
+            wrap.innerHTML = `
+                <div class="text-[11px] text-zinc-400 mb-2">คูปองที่ถูกใช้ใน 90 วันล่าสุด · เรียงตามรายได้</div>
+                ${coupons.map(c => `
+                    <div class="bg-white/5 border border-white/10 rounded-xl p-3 mb-2">
+                        <div class="flex items-start justify-between mb-1">
+                            <div class="min-w-0 flex-1">
+                                <div class="text-sm font-bold text-white truncate">${_esc(c.name)}</div>
+                                <div class="text-[10px] text-zinc-500"><code>${_esc(c.id)}</code> · ${c.type}</div>
+                            </div>
+                            <span class="text-[10px] px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-300">${c.usedCount} ใช้</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-1 text-center mt-2">
+                            <div class="bg-black/30 rounded p-1.5">
+                                <div class="text-xs font-bold text-emerald-300">฿${_fmt(c.totalRevenue)}</div>
+                                <div class="text-[9px] text-zinc-500">รายได้</div>
+                            </div>
+                            <div class="bg-black/30 rounded p-1.5">
+                                <div class="text-xs font-bold text-red-300">-฿${_fmt(c.totalDiscount)}</div>
+                                <div class="text-[9px] text-zinc-500">ลด</div>
+                            </div>
+                            <div class="bg-black/30 rounded p-1.5">
+                                <div class="text-xs font-bold text-blue-300">${c.uniqueCustomers}</div>
+                                <div class="text-[9px] text-zinc-500">unique</div>
+                            </div>
+                        </div>
+                        ${c.roi != null ? `<div class="text-[10px] text-zinc-400 mt-1.5">ROI: <span class="text-yellow-300 font-bold">฿${_fmt(c.roi)}</span> รายได้ต่อ ฿1 ส่วนลด</div>` : ''}
+                    </div>
+                `).join('')}
+            `;
+        }
+
+        function renderAdminPerf(admins) {
+            const wrap = document.getElementById('ana-content');
+            if (!admins.length) { wrap.innerHTML = '<div class="text-center text-zinc-500 py-6 text-sm">ยังไม่มี admin ที่ได้รับออเดอร์ใน 30 วัน</div>'; return; }
+            const fmtTime = (sec) => {
+                if (sec == null) return '—';
+                if (sec < 60) return sec + 's';
+                if (sec < 3600) return Math.round(sec/60) + 'm';
+                return Math.round(sec/3600 * 10)/10 + 'h';
+            };
+            wrap.innerHTML = `
+                <div class="text-[11px] text-zinc-400 mb-2">ประสิทธิภาพ admin ใน 30 วันล่าสุด · เรียงตามจำนวน completed</div>
+                ${admins.map(ad => {
+                    const susp = ad.suspiciousBills > 0;
+                    return `
+                    <div class="bg-white/5 border ${susp?'border-red-500/40':'border-white/10'} rounded-xl p-3 mb-2">
+                        <div class="flex items-center justify-between mb-1">
+                            <div class="text-sm font-bold text-white">${_esc(ad.name||ad.adminId)}</div>
+                            <span class="role-badge role-${ad.role}">${ad.role}</span>
+                        </div>
+                        <div class="grid grid-cols-4 gap-1 text-center mt-2">
+                            <div class="bg-black/30 rounded p-1.5">
+                                <div class="text-xs font-bold text-blue-300">${ad.totalAssigned}</div>
+                                <div class="text-[9px] text-zinc-500">รับ</div>
+                            </div>
+                            <div class="bg-black/30 rounded p-1.5">
+                                <div class="text-xs font-bold text-yellow-300">${ad.billed}</div>
+                                <div class="text-[9px] text-zinc-500">บิลแล้ว</div>
+                            </div>
+                            <div class="bg-black/30 rounded p-1.5">
+                                <div class="text-xs font-bold text-emerald-300">${ad.completed}</div>
+                                <div class="text-[9px] text-zinc-500">ส่งแล้ว</div>
+                            </div>
+                            <div class="bg-black/30 rounded p-1.5">
+                                <div class="text-xs font-bold text-white">${ad.completionRate}%</div>
+                                <div class="text-[9px] text-zinc-500">complete</div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-1 text-center mt-1">
+                            <div class="bg-black/30 rounded p-1.5">
+                                <div class="text-xs font-bold text-cyan-300">${fmtTime(ad.medianTimeToBillSec)}</div>
+                                <div class="text-[9px] text-zinc-500">median time-to-bill</div>
+                            </div>
+                            <div class="bg-black/30 rounded p-1.5">
+                                <div class="text-xs font-bold text-cyan-300">${fmtTime(ad.avgTimeToBillSec)}</div>
+                                <div class="text-[9px] text-zinc-500">avg</div>
+                            </div>
+                        </div>
+                        <div class="text-[10px] text-zinc-400 mt-2">
+                            ใส่บิลเฉลี่ย ${ad.avgAttemptsPerOrder} ครั้ง/ออเดอร์ ·
+                            ${susp ? `<span class="text-red-300 font-bold">⚠️ ${ad.suspiciousBills} บิลน่าสงสัย (ใส่เลขสั้นแล้วมาแก้ทีหลัง)</span>` : '<span class="text-emerald-300">ไม่มีบิลน่าสงสัย</span>'}
+                        </div>
+                    </div>`;
+                }).join('')}
+            `;
         }
 
         // ---------- 🔍 Global Search ----------
