@@ -1750,7 +1750,7 @@
                     sec('👥 ลูกค้า', customers, c => `<div class="text-xs py-1 cursor-pointer hover:text-blue-300" onclick="closeGlobalSearch();showView('customers');setTimeout(()=>openCustModal('${_esc(c.customerId)}'),300)"><code>${_esc(c.customerId)}</code> · ${_esc((c.firstName||'')+' '+(c.lastName||''))} · ${_esc(c.phoneNumber||'')}</div>`) +
                     sec('🛍️ สินค้า', products, p => `<div class="text-xs py-1 cursor-pointer hover:text-pink-300" onclick="closeGlobalSearch();showView('products');setTimeout(()=>openProdEdit(${p.id}),300)">${_esc(p.nameTh||p.nameEn)} · stock ${p.stockQuantity} · ${p.status}</div>`) +
                     sec('🎫 คูปอง', coupons, c => `<div class="text-xs py-1 cursor-pointer hover:text-yellow-300" onclick="closeGlobalSearch();showView('coupons');setTimeout(()=>openCpnEdit('${_esc(c.id)}'),300)">${_esc(c.name)} · <code>${_esc(c.id)}</code> · ${c.isActive?'Active':'Hidden'}</div>`) ||
-                    '<div class="text-center text-zinc-500 py-3 text-xs">ไม่พบ${perms.size < 4 ? ' <span class="text-zinc-600">(กรองตามสิทธิ์ของคุณ)</span>' : ''}</div>';
+                    `<div class="text-center text-zinc-500 py-3 text-xs">ไม่พบ${perms.size < 4 ? ' <span class="text-zinc-600">(กรองตามสิทธิ์ของคุณ)</span>' : ''}</div>`;
             } catch (e) { wrap.innerHTML = `<div class="text-center text-red-400 py-3 text-xs">${_esc(e.message||'error')}</div>`; }
         }
         function closeGlobalSearch() {
