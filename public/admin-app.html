@@ -201,21 +201,21 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
+            <button id="menu-shifts" onclick="showView('shifts')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden">
+                <div class="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center text-2xl">🕐</div>
+                <div class="flex-1">
+                    <div class="font-bold text-white text-sm">กะทำงานแอดมิน <span class="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/30 text-purple-300 font-bold ml-1">SuperAdmin+</span></div>
+                    <div class="text-[11px] text-zinc-400">ตารางเวร 7 วัน × 3 ช่วงเวลา · กำหนดผู้รับ order</div>
+                </div>
+                <i class="ri-arrow-right-s-line text-zinc-400"></i>
+            </button>
+
             <!-- Owner-only -->
             <button id="menu-admins" onclick="showView('admins')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden border-yellow-500/40">
                 <div class="w-12 h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center text-2xl">👨‍💼</div>
                 <div class="flex-1">
                     <div class="font-bold text-white text-sm">จัดการ Admin <span class="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/30 text-yellow-300 font-bold ml-1">Owner</span></div>
                     <div class="text-[11px] text-zinc-400">เพิ่ม/ลบ + เปลี่ยน role</div>
-                </div>
-                <i class="ri-arrow-right-s-line text-zinc-400"></i>
-            </button>
-
-            <button id="menu-shifts" onclick="showView('shifts')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden">
-                <div class="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center text-2xl">🕐</div>
-                <div class="flex-1">
-                    <div class="font-bold text-white text-sm">กะทำงานแอดมิน <span class="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/30 text-purple-300 font-bold ml-1">SuperAdmin+</span></div>
-                    <div class="text-[11px] text-zinc-400">ตารางเวร 7 วัน × 3 ช่วงเวลา · กำหนดผู้รับ order</div>
                 </div>
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
@@ -243,7 +243,14 @@
         <div id="view-shifts" class="hidden">
             <div class="font-bold text-sm mb-3 flex items-center gap-2"><i class="ri-time-line text-amber-400"></i> กะทำงานแอดมิน</div>
             <div class="text-[11px] text-zinc-400 mb-3">คลิกแต่ละช่อง "วัน × admin" เพื่อตั้งช่วงเวลา 3 กะ · ปัจจุบันใช้สำหรับ <span class="text-amber-300">round-robin assign ออเดอร์</span></div>
-            <div id="shifts-table" class="overflow-x-auto"></div>
+            <div id="shifts-table" class="overflow-x-auto mb-4"></div>
+
+            <div id="shifts-coverage-result" class="mb-3"></div>
+
+            <div class="space-y-2">
+                <button onclick="checkShiftCoverage()" class="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-sm"><i class="ri-shield-check-line"></i> ตรวจสอบครอบคลุม 24 ชม.</button>
+                <button onclick="openShiftReset()" class="w-full py-2.5 rounded-xl bg-red-600/80 hover:bg-red-500 text-white font-bold text-sm"><i class="ri-refresh-line"></i> Reset กะการทำงาน</button>
+            </div>
         </div>
 
         <!-- 🔐 RBAC view (Owner only) -->
@@ -2360,6 +2367,143 @@
                 try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
                 closeShModal(); await loadShiftsTable();
             } catch (e) { alert('error: '+e.message); }
+        }
+
+        // คำนวณ union ของ shifts ทั้งหมด (รวมข้าม admin) ต่อวัน → หา gap ใน 24 ชม.
+        function checkShiftCoverage() {
+            const result = document.getElementById('shifts-coverage-result');
+            const admins = window._shiftsCache || [];
+            const allOk = [];
+            const dayGaps = [];
+            for (let dow = 0; dow < 7; dow++) {
+                const intervals = [];
+                for (const ad of admins) {
+                    const sh = (ad.shifts || []).find(s => s.dayOfWeek === dow);
+                    if (!sh) continue;
+                    [['shift1Start','shift1End'],['shift2Start','shift2End'],['shift3Start','shift3End']].forEach(([sk, ek]) => {
+                        const s = sh[sk], e = sh[ek];
+                        if (!s || !e) return;
+                        const sm = toMin(s), em = toMin(e);
+                        if (sm == null || em == null) return;
+                        if (em > sm) {
+                            intervals.push([sm, em]);
+                        } else if (em < sm) {
+                            // wrap midnight: split เป็น 2 ช่วง [s, 1440] + [0, e]
+                            intervals.push([sm, 1440]);
+                            intervals.push([0, em]);
+                        }
+                    });
+                }
+                // merge intervals
+                intervals.sort((a,b) => a[0] - b[0]);
+                const merged = [];
+                for (const iv of intervals) {
+                    if (merged.length && iv[0] <= merged[merged.length-1][1]) {
+                        merged[merged.length-1][1] = Math.max(merged[merged.length-1][1], iv[1]);
+                    } else {
+                        merged.push([...iv]);
+                    }
+                }
+                // หา gap ใน [0, 1440]
+                const gaps = [];
+                let cursor = 0;
+                for (const iv of merged) {
+                    if (iv[0] > cursor) gaps.push([cursor, iv[0]]);
+                    cursor = Math.max(cursor, iv[1]);
+                }
+                if (cursor < 1440) gaps.push([cursor, 1440]);
+
+                if (gaps.length === 0) allOk.push(dow);
+                else dayGaps.push({ dow, gaps });
+            }
+
+            if (dayGaps.length === 0) {
+                result.innerHTML = `
+                    <div class="rounded-xl p-4 bg-emerald-500/10 border border-emerald-500/40 text-center">
+                        <div class="text-2xl mb-1">✅</div>
+                        <div class="text-sm font-bold text-emerald-300">แอดมินทุกคนทำงานครอบคลุม 24 ชม. ครบทั้ง 7 วัน</div>
+                    </div>`;
+            } else {
+                const rows = dayGaps.map(({ dow, gaps }) => {
+                    const list = gaps.map(([s, e]) => `<code class="text-[11px] text-red-200">${minToHHMM(s)} – ${minToHHMM(e)}</code>`).join(' · ');
+                    return `<div class="text-[11px] text-zinc-300 py-1 border-t border-white/10">วัน${_DAY_LABELS_FULL[dow]}: ${list}</div>`;
+                }).join('');
+                result.innerHTML = `
+                    <div class="rounded-xl p-3 bg-red-500/10 border border-red-500/40">
+                        <div class="text-sm font-bold text-red-300 mb-1">⚠️ ครอบคลุมไม่ครบ 24 ชม. (${dayGaps.length} วันมีช่วงขาด)</div>
+                        ${allOk.length ? `<div class="text-[10px] text-emerald-300 mb-1">วัน ${allOk.map(d => _DAY_LABELS[d]).join('/')} ครบแล้ว</div>` : ''}
+                        ${rows}
+                    </div>`;
+            }
+            try { tg.hapticFeedback?.notificationOccurred?.(dayGaps.length === 0 ? 'success' : 'warning'); } catch (e) {}
+        }
+        function toMin(hhmm) {
+            const m = String(hhmm || '').match(/^(\d{1,2}):(\d{2})$/);
+            if (!m) return null;
+            return parseInt(m[1]) * 60 + parseInt(m[2]);
+        }
+        function minToHHMM(min) {
+            const h = Math.floor(min / 60).toString().padStart(2, '0');
+            const m = (min % 60).toString().padStart(2, '0');
+            return `${h}:${m}`;
+        }
+
+        function openShiftReset() {
+            const admins = window._shiftsCache || [];
+            const adOpts = admins.map(a => `<option value="${_esc(a.telegramId)}">${_esc(a.name||a.telegramId)}</option>`).join('');
+            document.getElementById('sh-modal-content').innerHTML = `
+                <div class="flex items-start justify-between mb-3">
+                    <h3 class="text-base font-bold">🗑 Reset กะการทำงาน</h3>
+                    <button onclick="closeShModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center"><i class="ri-close-line"></i></button>
+                </div>
+                <div class="space-y-3 text-sm">
+                    <div class="text-[11px] text-zinc-400">เลือกขอบเขตการ reset:</div>
+                    <label class="flex items-start gap-2 p-3 rounded-lg bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10">
+                        <input type="radio" name="reset-scope" value="single" checked class="mt-1 w-4 h-4 accent-red-500">
+                        <div class="flex-1">
+                            <div class="text-white font-bold">รายบุคคล</div>
+                            <div class="text-[11px] text-zinc-400 mb-2">ลบกะของ admin คนเดียว</div>
+                            <select id="reset-target" class="w-full bg-black/40 border border-white/10 rounded p-2 text-white text-xs">${adOpts}</select>
+                        </div>
+                    </label>
+                    <label class="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/40 cursor-pointer hover:bg-red-500/20">
+                        <input type="radio" name="reset-scope" value="all" class="mt-1 w-4 h-4 accent-red-500">
+                        <div class="flex-1">
+                            <div class="text-red-300 font-bold">⚠️ ทั้งหมด (ทุกคน)</div>
+                            <div class="text-[11px] text-zinc-400">ลบกะของ admin ทุกคนพร้อมกัน — ระบบจะไม่มี active admin จนกว่าจะตั้งใหม่</div>
+                        </div>
+                    </label>
+                </div>
+                <div class="mt-4 flex gap-2">
+                    <button onclick="closeShModal()" class="flex-1 py-2.5 rounded-xl bg-zinc-700 text-white font-bold">ยกเลิก</button>
+                    <button onclick="confirmShiftReset()" class="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold">Reset</button>
+                </div>`;
+            document.body.classList.add('no-scroll');
+            document.getElementById('sh-modal').classList.remove('hidden');
+        }
+
+        async function confirmShiftReset() {
+            const scope = document.querySelector('input[name="reset-scope"]:checked')?.value;
+            const target = document.getElementById('reset-target')?.value;
+            const isAll = scope === 'all';
+            const msg = isAll
+                ? 'ยืนยัน reset กะของ admin ทุกคน?\n(ลบทั้งหมด ไม่สามารถกู้คืนได้)'
+                : `ยืนยัน reset กะของ admin คนนี้?\ntelegramId: ${target}`;
+            if (!confirm(msg)) return;
+            try {
+                const body = isAll ? { initData: tg.initData } : { telegramId: target, initData: tg.initData };
+                const res = await fetch('/api/admin/shifts/reset', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error || 'ไม่สำเร็จ'); return; }
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
+                alert(`✅ Reset แล้ว ลบ ${data.deleted} record`);
+                closeShModal();
+                document.getElementById('shifts-coverage-result').innerHTML = '';
+                await loadShiftsTable();
+            } catch (e) { alert('error: ' + e.message); }
         }
 
         async function deleteShift() {

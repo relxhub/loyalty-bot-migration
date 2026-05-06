@@ -4395,6 +4395,22 @@ router.put('/admin/shifts/:telegramId/:dayOfWeek', async (req, res) => {
     }
 });
 
+// POST /admin/shifts/reset { telegramId? } — ลบทั้งหมด หรือเฉพาะคน
+router.post('/admin/shifts/reset', async (req, res) => {
+    const a = await authAdmin(req, ['SuperAdmin', 'Owner']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const tgId = req.body?.telegramId ? String(req.body.telegramId) : null;
+        const where = tgId ? { adminTelegramId: tgId } : {};
+        const result = await prisma.adminShift.deleteMany({ where });
+        await prisma.adminAuditLog.create({
+            data: { adminName: a.admin?.name || a.telegramId, action: 'SHIFT_RESET',
+                details: JSON.stringify({ scope: tgId ? 'single' : 'all', targetTelegramId: tgId, deleted: result.count }) },
+        });
+        res.json({ success: true, deleted: result.count });
+    } catch (e) { res.status(500).json({ success: false, error: e.message || 'reset failed' }); }
+});
+
 // DELETE /admin/shifts/:telegramId/:dayOfWeek — clear ทั้งวัน
 router.delete('/admin/shifts/:telegramId/:dayOfWeek', async (req, res) => {
     const a = await authAdmin(req, ['SuperAdmin', 'Owner']);
