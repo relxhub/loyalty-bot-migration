@@ -29,6 +29,16 @@
         .status-PENDING { background: rgba(234,179,8,0.2); color: #fde68a; }
         .status-SHIPPED { background: rgba(34,197,94,0.2); color: #bbf7d0; }
         .status-DELIVERED { background: rgba(59,130,246,0.2); color: #bfdbfe; }
+        .status-active { background: rgba(34,197,94,0.2); color: #bbf7d0; }
+        .status-inactive { background: rgba(115,115,115,0.3); color: #d4d4d4; }
+        .switch { position: relative; display: inline-block; width: 38px; height: 22px; }
+        .switch input { opacity:0; width:0; height:0; }
+        .slider { position: absolute; cursor: pointer; inset:0; background:#3f3f46; border-radius:999px; transition:.2s; }
+        .slider:before { position:absolute; content:""; height:16px; width:16px; left:3px; bottom:3px; background:white; border-radius:50%; transition:.2s; }
+        .switch input:checked + .slider { background:#22c55e; }
+        .switch input:checked + .slider:before { transform: translateX(16px); }
+        .menu-card { transition: transform 0.15s ease, background 0.2s; }
+        .menu-card:active { transform: scale(0.97); }
     </style>
 </head>
 <body class="p-4">
@@ -49,40 +59,102 @@
     <div id="app" class="hidden w-full max-w-md mx-auto pb-24">
         <!-- Top bar -->
         <div class="flex items-center justify-between mb-4 pt-2">
-            <div>
-                <div class="text-[10px] text-zinc-500 uppercase tracking-widest">Admin Console</div>
-                <div class="flex items-center gap-2 mt-0.5">
-                    <div class="text-base font-bold text-white" id="admin-name">—</div>
-                    <span id="admin-role" class="role-badge">—</span>
+            <div class="flex items-center gap-2">
+                <button id="back-btn" onclick="goHome()" class="hidden w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10">
+                    <i class="ri-arrow-left-s-line text-xl"></i>
+                </button>
+                <div>
+                    <div class="text-[10px] text-zinc-500 uppercase tracking-widest">Admin Console</div>
+                    <div class="flex items-center gap-2 mt-0.5">
+                        <div class="text-base font-bold text-white" id="admin-name">—</div>
+                        <span id="admin-role" class="role-badge">—</span>
+                    </div>
                 </div>
             </div>
-            <a href="home.html" class="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10" aria-label="Back to app">
+            <a href="home.html" class="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10" aria-label="Exit">
                 <i class="ri-logout-box-r-line text-lg"></i>
             </a>
         </div>
 
-        <!-- Section: Prize shipments -->
-        <div class="glass-card p-4 mb-3">
+        <!-- HOME view -->
+        <div id="view-home" class="space-y-3">
+            <button onclick="showView('shipments')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+                <div class="w-12 h-12 rounded-xl bg-orange-500/20 flex items-center justify-center text-2xl">📦</div>
+                <div class="flex-1">
+                    <div class="font-bold text-white text-sm">จัดส่งของรางวัล</div>
+                    <div class="text-[11px] text-zinc-400">Mystery Box prize shipments</div>
+                </div>
+                <span id="badge-shipments" class="hidden text-[10px] bg-red-500 text-white rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center font-bold">0</span>
+                <i class="ri-arrow-right-s-line text-zinc-400"></i>
+            </button>
+
+            <button onclick="showView('customers')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+                <div class="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center text-2xl">👥</div>
+                <div class="flex-1">
+                    <div class="font-bold text-white text-sm">ค้นหา / แก้ไขลูกค้า</div>
+                    <div class="text-[11px] text-zinc-400">ดูข้อมูล + ปรับแต้ม</div>
+                </div>
+                <i class="ri-arrow-right-s-line text-zinc-400"></i>
+            </button>
+
+            <button onclick="showView('coupons')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+                <div class="w-12 h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center text-2xl">🎫</div>
+                <div class="flex-1">
+                    <div class="font-bold text-white text-sm">จัดการคูปอง</div>
+                    <div class="text-[11px] text-zinc-400">เปิด/ปิดคูปอง</div>
+                </div>
+                <i class="ri-arrow-right-s-line text-zinc-400"></i>
+            </button>
+
+            <button onclick="showView('mystery-boxes')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+                <div class="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center text-2xl">🎁</div>
+                <div class="flex-1">
+                    <div class="font-bold text-white text-sm">จัดการ Mystery Box</div>
+                    <div class="text-[11px] text-zinc-400">เปิด/ปิดกล่องสุ่ม</div>
+                </div>
+                <i class="ri-arrow-right-s-line text-zinc-400"></i>
+            </button>
+
+            <div class="text-[10px] text-zinc-600 text-center pt-3">Phase 2.5 จะรองรับ create/edit เต็มรูปแบบ</div>
+        </div>
+
+        <!-- 📦 Shipments view -->
+        <div id="view-shipments" class="hidden">
             <div class="flex items-center justify-between mb-3">
-                <div class="font-bold text-white text-sm flex items-center gap-2">
-                    <i class="ri-truck-line text-orange-400"></i> จัดส่งของรางวัล Mystery Box
+                <div class="font-bold text-sm flex items-center gap-2">
+                    <i class="ri-truck-line text-orange-400"></i> จัดส่งของรางวัล
                 </div>
                 <div class="flex gap-1">
                     <button data-status="PENDING" class="ship-tab status-pill status-PENDING">รอจัดส่ง <span data-count="PENDING">0</span></button>
                     <button data-status="SHIPPED" class="ship-tab status-pill status-SHIPPED">จัดส่งแล้ว</button>
                 </div>
             </div>
-            <div id="ship-list" class="space-y-2.5">
-                <div class="text-center text-zinc-500 py-6 animate-pulse">กำลังโหลด...</div>
-            </div>
+            <div id="ship-list" class="space-y-2.5"></div>
         </div>
 
-        <!-- Future sections (Phase 2+) -->
-        <div class="glass-card p-4 opacity-50">
-            <div class="text-xs text-zinc-500 mb-1">เร็วๆ นี้ (Phase 2)</div>
-            <div class="text-sm text-zinc-300">
-                🎁 จัดการ Mystery Box · 🎫 จัดการคูปอง · 👥 ค้นหา/แก้ไขลูกค้า
+        <!-- 👥 Customers view -->
+        <div id="view-customers" class="hidden">
+            <div class="font-bold text-sm mb-3 flex items-center gap-2">
+                <i class="ri-user-search-line text-blue-400"></i> ค้นหาลูกค้า
             </div>
+            <input id="cust-search" type="text" placeholder="ค้นหา: รหัส OT.../เบอร์/ชื่อ/Telegram ID" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-white placeholder-zinc-500 focus:border-blue-400 focus:outline-none mb-3">
+            <div id="cust-list" class="space-y-2"></div>
+        </div>
+
+        <!-- 🎫 Coupons view -->
+        <div id="view-coupons" class="hidden">
+            <div class="font-bold text-sm mb-3 flex items-center gap-2">
+                <i class="ri-coupon-line text-yellow-400"></i> คูปองทั้งหมด
+            </div>
+            <div id="cpn-list" class="space-y-2"></div>
+        </div>
+
+        <!-- 🎁 Mystery Boxes view -->
+        <div id="view-mystery-boxes" class="hidden">
+            <div class="font-bold text-sm mb-3 flex items-center gap-2">
+                <i class="ri-gift-2-fill text-purple-400"></i> Mystery Box ทั้งหมด
+            </div>
+            <div id="mbox-list" class="space-y-2"></div>
         </div>
     </div>
 
@@ -100,23 +172,60 @@
         </div>
     </div>
 
+    <!-- Customer Detail Modal -->
+    <div id="cust-modal" class="hidden fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-sm">
+        <div id="cust-modal-content" class="glass-card w-full max-w-md max-h-[92vh] overflow-y-auto p-5 rounded-t-3xl sm:rounded-2xl"></div>
+    </div>
+
+    <!-- Adjust Points Modal -->
+    <div id="adj-modal" class="hidden fixed inset-0 z-[90] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4">
+        <div class="glass-card w-full max-w-sm p-5">
+            <h3 class="text-base font-bold mb-1">ปรับแต้มลูกค้า</h3>
+            <div class="text-xs text-zinc-400 mb-3"><span id="adj-modal-cust" class="text-white font-mono">—</span></div>
+            <label class="text-xs text-zinc-300 block mb-1">จำนวนแต้ม (+/-)</label>
+            <input id="adj-modal-delta" type="number" placeholder="เช่น 100 หรือ -50" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-sm text-white focus:border-blue-400 focus:outline-none mb-3">
+            <label class="text-xs text-zinc-300 block mb-1">เหตุผล (optional)</label>
+            <input id="adj-modal-reason" type="text" placeholder="เช่น ชดเชยเหตุการณ์" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-sm text-white focus:border-blue-400 focus:outline-none mb-3">
+            <div class="flex gap-2">
+                <button onclick="closeAdjModal()" class="flex-1 py-2.5 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white text-sm font-bold">ยกเลิก</button>
+                <button id="adj-modal-submit" onclick="submitAdjModal()" class="flex-1 py-2.5 rounded-xl bg-blue-500 hover:bg-blue-400 text-white text-sm font-bold disabled:opacity-50">บันทึก</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const tg = window.Telegram?.WebApp;
         try { tg?.ready(); tg?.expand(); } catch(e) {}
 
         const _esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
         const _fmt = (n) => Number(n).toLocaleString('th-TH', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 });
+        const _date = (s) => s ? new Date(s).toLocaleDateString('th-TH', { day:'numeric', month:'short', year:'2-digit' }) : '—';
 
         let _currentTab = 'PENDING';
         let _currentShipmentId = null;
+        let _currentAdjCustId = null;
+        let _searchDebounce = null;
 
+        // ---------- View routing ----------
+        function showView(name) {
+            document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
+            document.getElementById('view-' + name).classList.remove('hidden');
+            document.getElementById('back-btn').classList.toggle('hidden', name === 'home');
+            // load data
+            if (name === 'shipments') loadShipments();
+            else if (name === 'customers') { document.getElementById('cust-list').innerHTML = ''; }
+            else if (name === 'coupons') loadCoupons();
+            else if (name === 'mystery-boxes') loadMysteryBoxes();
+        }
+        function goHome() { showView('home'); loadShipmentsBadge(); }
+
+        // ---------- INIT ----------
         async function init() {
             try {
                 if (!tg?.initData) {
                     document.getElementById('loading-text').innerHTML = '<span class="text-red-400">กรุณาเปิดผ่าน Telegram</span>';
                     return;
                 }
-                // Check role
                 const meRes = await fetch('/api/admin/me', { headers: { 'X-Init-Data': tg.initData } });
                 if (meRes.status === 403 || meRes.status === 401) {
                     document.getElementById('loading-screen').classList.add('hidden');
@@ -125,81 +234,78 @@
                 }
                 const me = await meRes.json();
                 if (!me.success) throw new Error(me.error || 'auth failed');
-
-                // Render top bar
                 document.getElementById('admin-name').textContent = me.name || me.telegramId;
                 const roleEl = document.getElementById('admin-role');
                 roleEl.textContent = me.role;
                 roleEl.classList.add(`role-${me.role}`);
-
                 document.getElementById('loading-screen').classList.add('hidden');
                 document.getElementById('app').classList.remove('hidden');
 
-                // tab handlers
+                // shipments tabs
                 document.querySelectorAll('.ship-tab').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        _currentTab = btn.dataset.status;
-                        loadShipments();
-                    });
+                    btn.addEventListener('click', () => { _currentTab = btn.dataset.status; loadShipments(); });
+                });
+                // customer search debounce
+                document.getElementById('cust-search').addEventListener('input', (e) => {
+                    clearTimeout(_searchDebounce);
+                    _searchDebounce = setTimeout(() => searchCustomers(e.target.value), 350);
                 });
 
-                await loadShipments();
+                showView('home');
+                loadShipmentsBadge();
             } catch (e) {
                 console.error('init error:', e);
                 document.getElementById('loading-text').innerHTML = `<span class="text-red-400">${_esc(e.message)}</span>`;
             }
         }
 
+        // ---------- 📦 Shipments ----------
+        async function loadShipmentsBadge() {
+            try {
+                const res = await fetch('/api/admin/prize-shipments?status=PENDING', { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (data.success) {
+                    const n = data.shipments?.length || 0;
+                    const b = document.getElementById('badge-shipments');
+                    if (n > 0) { b.textContent = n; b.classList.remove('hidden'); }
+                    else b.classList.add('hidden');
+                }
+            } catch (e) { /* silent */ }
+        }
         async function loadShipments() {
             const list = document.getElementById('ship-list');
             list.innerHTML = '<div class="text-center text-zinc-500 py-6 animate-pulse">กำลังโหลด...</div>';
             try {
-                const res = await fetch(`/api/admin/prize-shipments?status=${encodeURIComponent(_currentTab)}`, {
-                    headers: { 'X-Init-Data': tg.initData },
-                });
+                const res = await fetch(`/api/admin/prize-shipments?status=${encodeURIComponent(_currentTab)}`, { headers: { 'X-Init-Data': tg.initData } });
                 const data = await res.json();
                 if (!data.success) throw new Error(data.error || 'load failed');
-
-                if (!data.shipments || data.shipments.length === 0) {
+                if (!data.shipments?.length) {
                     list.innerHTML = `<div class="text-center text-zinc-500 py-8 text-sm">ยังไม่มี shipment ${_currentTab === 'PENDING' ? 'ที่รอจัดส่ง' : ''}</div>`;
-                    document.querySelector('[data-count="PENDING"]').textContent = '0';
+                    if (_currentTab === 'PENDING') document.querySelector('[data-count="PENDING"]').textContent = '0';
                     return;
                 }
-
-                // PENDING count badge
-                if (_currentTab === 'PENDING') {
-                    document.querySelector('[data-count="PENDING"]').textContent = data.shipments.length;
-                }
-
-                let html = '';
-                data.shipments.forEach((sh, idx) => {
-                    const cust = sh.customer || {};
-                    const addr = sh.address || {};
-                    const orderId = sh.order?.id || '—';
-                    const orderStatus = sh.order?.status || '—';
+                if (_currentTab === 'PENDING') document.querySelector('[data-count="PENDING"]').textContent = data.shipments.length;
+                list.innerHTML = data.shipments.map((sh, idx) => {
+                    const cust = sh.customer || {}, addr = sh.address || {};
                     const prizesHtml = sh.prizes.map(p => `
                         <div class="flex items-center gap-2 text-xs">
                             ${p.imageUrl ? `<img src="${_esc(p.imageUrl)}" class="w-6 h-6 rounded object-cover">` : '<div class="w-6 h-6 rounded bg-zinc-700 flex items-center justify-center text-[10px]">🎁</div>'}
                             <span class="text-zinc-200 truncate">${_esc(p.name)}</span>
                         </div>`).join('');
-
                     const action = sh.status === 'PENDING'
                         ? `<button onclick="openShipModal(${sh.id})" class="w-full mt-3 py-2 rounded-lg bg-orange-500 hover:bg-orange-400 text-white text-xs font-bold active:scale-95">📦 ยืนยันจัดส่ง</button>`
                         : `<div class="text-[11px] text-zinc-400 mt-2">เลขพัสดุ: <code class="text-zinc-200">${_esc(sh.trackingNumber || '—')}</code></div>`;
-
-                    html += `
+                    return `
                     <div class="rounded-xl bg-white/5 border border-white/10 p-3 item-fade-in" style="animation-delay:${idx*40}ms">
                         <div class="flex items-start justify-between gap-2 mb-2">
                             <div class="flex-1 min-w-0">
-                                <div class="text-[10px] text-zinc-500">SH#${sh.id} · Order <code>${_esc(orderId)}</code></div>
+                                <div class="text-[10px] text-zinc-500">SH#${sh.id} · Order <code>${_esc(sh.order?.id || '—')}</code></div>
                                 <div class="text-sm font-bold text-white">${_esc(cust.firstName || '')} ${_esc(cust.lastName || '')}</div>
                                 <div class="text-[11px] text-zinc-400">${_esc(cust.customerId || '—')}${cust.phoneNumber ? ' · ' + _esc(cust.phoneNumber) : ''}</div>
                             </div>
                             <span class="status-pill status-${sh.status}">${sh.status}</span>
                         </div>
-                        <div class="space-y-1 mb-2 bg-black/20 rounded-lg p-2">
-                            ${prizesHtml}
-                        </div>
+                        <div class="space-y-1 mb-2 bg-black/20 rounded-lg p-2">${prizesHtml}</div>
                         <div class="text-[11px] text-zinc-300 leading-relaxed mb-1">
                             <i class="ri-map-pin-line text-orange-300"></i>
                             <b>${_esc(addr.receiverName || '—')}</b> · ${_esc(addr.phone || '')}
@@ -207,18 +313,16 @@
                         </div>
                         <div class="flex items-center justify-between text-[11px] text-zinc-400">
                             <span>ค่าส่ง: ฿${_fmt(sh.shippingFee)}</span>
-                            <span>${new Date(sh.createdAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                            <span>${new Date(sh.createdAt).toLocaleDateString('th-TH', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}</span>
                         </div>
                         ${action}
                     </div>`;
-                });
-                list.innerHTML = html;
+                }).join('');
             } catch (e) {
                 console.error(e);
                 list.innerHTML = '<div class="text-center text-red-400 py-6">โหลดไม่สำเร็จ</div>';
             }
         }
-
         function openShipModal(shipmentId) {
             _currentShipmentId = shipmentId;
             document.getElementById('ship-modal-id').textContent = '#' + shipmentId;
@@ -227,43 +331,260 @@
             document.getElementById('ship-modal').classList.remove('hidden');
             setTimeout(() => document.getElementById('ship-modal-tracking').focus(), 50);
         }
-
         function closeShipModal() {
             _currentShipmentId = null;
             document.body.classList.remove('no-scroll');
             document.getElementById('ship-modal').classList.add('hidden');
         }
-
         async function submitShipModal() {
             if (!_currentShipmentId) return;
             const tracking = document.getElementById('ship-modal-tracking').value.trim();
             const btn = document.getElementById('ship-modal-submit');
-            btn.disabled = true;
-            btn.textContent = 'กำลังบันทึก...';
+            btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
             try {
                 const res = await fetch(`/api/admin/prize-shipments/${_currentShipmentId}/ship`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ initData: tg.initData, trackingNumber: tracking }),
                 });
                 const data = await res.json();
-                if (!data.success) {
-                    alert(data.error || 'จัดส่งไม่สำเร็จ');
-                    btn.disabled = false; btn.textContent = 'ยืนยัน';
-                    return;
-                }
+                if (!data.success) { alert(data.error || 'ไม่สำเร็จ'); btn.disabled=false; btn.textContent='ยืนยัน'; return; }
                 try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch(e){}
                 closeShipModal();
                 await loadShipments();
-            } catch (e) {
-                alert('เกิดข้อผิดพลาด: ' + e.message);
-                btn.disabled = false; btn.textContent = 'ยืนยัน';
-            }
+                loadShipmentsBadge();
+            } catch (e) { alert('error: '+e.message); btn.disabled=false; btn.textContent='ยืนยัน'; }
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('ship-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeShipModal(); });
+            document.getElementById('cust-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeCustModal(); });
+            document.getElementById('adj-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeAdjModal(); });
+        });
+
+        // ---------- 👥 Customers ----------
+        async function searchCustomers(q) {
+            const list = document.getElementById('cust-list');
+            if (!q || q.trim().length < 2) { list.innerHTML = '<div class="text-center text-zinc-500 py-6 text-sm">พิมพ์อย่างน้อย 2 ตัวอักษรเพื่อค้นหา</div>'; return; }
+            list.innerHTML = '<div class="text-center text-zinc-500 py-6 animate-pulse">กำลังค้นหา...</div>';
+            try {
+                const res = await fetch(`/api/admin/customers/search?q=${encodeURIComponent(q.trim())}`, { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'search failed');
+                if (!data.customers.length) { list.innerHTML = '<div class="text-center text-zinc-500 py-6 text-sm">ไม่พบลูกค้า</div>'; return; }
+                list.innerHTML = data.customers.map((c, idx) => `
+                    <button onclick="openCustModal('${_esc(c.customerId)}')" class="w-full text-left bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl p-3 item-fade-in" style="animation-delay:${idx*30}ms">
+                        <div class="flex items-center justify-between">
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm font-bold text-white">${_esc(c.firstName || '—')} ${_esc(c.lastName || '')}</div>
+                                <div class="text-[11px] text-zinc-400">
+                                    <code>${_esc(c.customerId)}</code>${c.phoneNumber ? ' · ' + _esc(c.phoneNumber) : ''}
+                                </div>
+                            </div>
+                            <div class="text-right flex-shrink-0">
+                                <div class="text-base font-bold text-yellow-400">${_fmt(c.points)}</div>
+                                <div class="text-[10px] text-zinc-500">แต้ม</div>
+                            </div>
+                        </div>
+                    </button>`).join('');
+            } catch (e) { list.innerHTML = '<div class="text-center text-red-400 py-6">โหลดไม่สำเร็จ</div>'; }
+        }
+        async function openCustModal(customerId) {
+            const modal = document.getElementById('cust-modal');
+            const content = document.getElementById('cust-modal-content');
+            content.innerHTML = '<div class="text-center text-zinc-500 py-10 animate-pulse">กำลังโหลด...</div>';
+            document.body.classList.add('no-scroll');
+            modal.classList.remove('hidden');
+            try {
+                const res = await fetch(`/api/admin/customers/${encodeURIComponent(customerId)}`, { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (!data.success) { content.innerHTML = '<div class="text-center text-red-400 py-6">โหลดไม่สำเร็จ</div>'; return; }
+                const c = data.customer, s = data.stats || {};
+                const ordersHtml = (data.recentOrders || []).map(o => `
+                    <div class="flex items-center justify-between text-[11px] py-1 border-b border-white/5 last:border-0">
+                        <div><code class="text-zinc-300">${_esc(o.id)}</code> <span class="status-pill ${o.status === 'PAID' || o.status === 'PROCESSING' || o.status === 'SHIPPED' ? 'status-active' : 'status-inactive'}">${_esc(o.status)}</span></div>
+                        <div class="text-zinc-400">฿${_fmt(o.totalAmount)}</div>
+                    </div>`).join('') || '<div class="text-zinc-500 text-xs py-2">ยังไม่มีออเดอร์</div>';
+                const txHtml = (data.recentTransactions || []).map(t => `
+                    <div class="flex items-center justify-between text-[11px] py-1 border-b border-white/5 last:border-0">
+                        <div class="flex-1 truncate text-zinc-300">${_esc(t.detail || t.type)}</div>
+                        <div class="${t.amount > 0 ? 'text-green-400' : 'text-red-400'} font-bold">${t.amount > 0 ? '+' : ''}${t.amount}</div>
+                    </div>`).join('') || '<div class="text-zinc-500 text-xs py-2">ยังไม่มีรายการ</div>';
+                content.innerHTML = `
+                    <div class="flex items-start justify-between mb-3">
+                        <div>
+                            <h3 class="text-lg font-bold">${_esc(c.firstName || '—')} ${_esc(c.lastName || '')}</h3>
+                            <div class="text-xs text-zinc-400"><code>${_esc(c.customerId)}</code>${c.phoneNumber ? ' · ' + _esc(c.phoneNumber) : ''}</div>
+                            ${c.telegramUserId ? `<div class="text-[10px] text-zinc-500">TG: ${_esc(c.telegramUserId)}</div>` : ''}
+                        </div>
+                        <button onclick="closeCustModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center"><i class="ri-close-line"></i></button>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 mb-3">
+                        <div class="bg-white/5 rounded-lg p-2 text-center">
+                            <div class="text-base font-bold text-yellow-400">${_fmt(c.points)}</div><div class="text-[10px] text-zinc-500">แต้ม</div>
+                        </div>
+                        <div class="bg-white/5 rounded-lg p-2 text-center">
+                            <div class="text-base font-bold text-orange-400">${s.availableCoupons || 0}</div><div class="text-[10px] text-zinc-500">คูปอง</div>
+                        </div>
+                        <div class="bg-white/5 rounded-lg p-2 text-center">
+                            <div class="text-base font-bold text-green-400">${s.completedReferrals || 0}</div><div class="text-[10px] text-zinc-500">ชวน</div>
+                        </div>
+                    </div>
+                    <div class="text-[10px] text-zinc-500 mb-3">หมดอายุแต้ม: ${_date(c.expiryDate)} · เริ่มสมัคร: ${_date(c.joinDate)}</div>
+                    <button onclick="openAdjModal('${_esc(c.customerId)}')" class="w-full py-2.5 rounded-xl bg-blue-500 hover:bg-blue-400 text-white text-sm font-bold mb-4">
+                        <i class="ri-coin-line"></i> ปรับแต้ม
+                    </button>
+                    <div class="mb-3">
+                        <div class="text-[10px] text-zinc-400 uppercase tracking-wider mb-1">ออเดอร์ล่าสุด</div>
+                        <div class="bg-white/5 rounded-lg p-2 space-y-0.5">${ordersHtml}</div>
+                    </div>
+                    <div>
+                        <div class="text-[10px] text-zinc-400 uppercase tracking-wider mb-1">รายการแต้มล่าสุด</div>
+                        <div class="bg-white/5 rounded-lg p-2 space-y-0.5">${txHtml}</div>
+                    </div>`;
+            } catch (e) { content.innerHTML = '<div class="text-center text-red-400 py-6">เกิดข้อผิดพลาด</div>'; }
+        }
+        function closeCustModal() {
+            document.body.classList.remove('no-scroll');
+            document.getElementById('cust-modal').classList.add('hidden');
+        }
+        function openAdjModal(customerId) {
+            _currentAdjCustId = customerId;
+            document.getElementById('adj-modal-cust').textContent = customerId;
+            document.getElementById('adj-modal-delta').value = '';
+            document.getElementById('adj-modal-reason').value = '';
+            document.getElementById('adj-modal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('adj-modal-delta').focus(), 50);
+        }
+        function closeAdjModal() {
+            _currentAdjCustId = null;
+            document.getElementById('adj-modal').classList.add('hidden');
+        }
+        async function submitAdjModal() {
+            if (!_currentAdjCustId) return;
+            const delta = parseInt(document.getElementById('adj-modal-delta').value);
+            const reason = document.getElementById('adj-modal-reason').value.trim();
+            if (!Number.isFinite(delta) || delta === 0) { alert('ระบุจำนวนแต้ม'); return; }
+            const btn = document.getElementById('adj-modal-submit');
+            btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+            try {
+                const res = await fetch(`/api/admin/customers/${encodeURIComponent(_currentAdjCustId)}/adjust-points`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData, delta, reason: reason || null }),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error || 'ไม่สำเร็จ'); btn.disabled=false; btn.textContent='บันทึก'; return; }
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch(e){}
+                const id = _currentAdjCustId;
+                closeAdjModal();
+                openCustModal(id); // refresh
+            } catch (e) { alert('error: '+e.message); btn.disabled=false; btn.textContent='บันทึก'; }
         }
 
-        document.getElementById('ship-modal').addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) closeShipModal();
-        });
+        // ---------- 🎫 Coupons ----------
+        async function loadCoupons() {
+            const list = document.getElementById('cpn-list');
+            list.innerHTML = '<div class="text-center text-zinc-500 py-6 animate-pulse">กำลังโหลด...</div>';
+            try {
+                const res = await fetch('/api/admin/coupons', { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'load failed');
+                if (!data.coupons.length) { list.innerHTML = '<div class="text-center text-zinc-500 py-6 text-sm">ยังไม่มีคูปอง</div>'; return; }
+                list.innerHTML = data.coupons.map((c, idx) => {
+                    const valDisplay = c.type === 'GIFT' ? `รับฟรี${c.giftQty > 1 ? ' x'+c.giftQty : ''}` :
+                        c.type === 'DISCOUNT_PERCENT' ? `ลด ${c.value}%` :
+                        c.type === 'DISCOUNT_FLAT' ? `ลด ฿${c.value}` : '—';
+                    const tags = [];
+                    if (c.pointsCost) tags.push(`<span class="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300">${c.pointsCost} แต้ม</span>`);
+                    if (c.isAutoAssign) tags.push('<span class="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300">Auto</span>');
+                    if (c.rewardTrigger) tags.push(`<span class="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300">${_esc(c.rewardTrigger)}</span>`);
+                    return `
+                    <div class="bg-white/5 border border-white/10 rounded-xl p-3 item-fade-in" style="animation-delay:${idx*30}ms">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm font-bold text-white truncate">${_esc(c.name)}</div>
+                                <div class="text-[11px] text-zinc-400"><code>${_esc(c.id)}</code> · ${valDisplay}</div>
+                                <div class="flex flex-wrap gap-1 mt-1">${tags.join('')}</div>
+                                <div class="text-[10px] text-zinc-500 mt-1">
+                                    ใช้แล้ว ${c.claimedCount}${c.totalQuota ? '/' + c.totalQuota : ''}
+                                    ${c.endDate ? ' · ปิดรับ ' + _date(c.endDate) : ''}
+                                </div>
+                            </div>
+                            <label class="switch flex-shrink-0">
+                                <input type="checkbox" ${c.isActive ? 'checked' : ''} onchange="toggleCoupon('${_esc(c.id)}', this)">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch (e) { list.innerHTML = '<div class="text-center text-red-400 py-6">โหลดไม่สำเร็จ</div>'; }
+        }
+        async function toggleCoupon(id, checkbox) {
+            checkbox.disabled = true;
+            try {
+                const res = await fetch(`/api/admin/coupons/${encodeURIComponent(id)}/toggle`, {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData }),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error || 'ไม่สำเร็จ'); checkbox.checked = !checkbox.checked; }
+                else { try { tg.hapticFeedback?.impactOccurred?.('light'); } catch(e){} }
+            } catch (e) { alert('error: '+e.message); checkbox.checked = !checkbox.checked; }
+            finally { checkbox.disabled = false; }
+        }
+
+        // ---------- 🎁 Mystery Boxes ----------
+        async function loadMysteryBoxes() {
+            const list = document.getElementById('mbox-list');
+            list.innerHTML = '<div class="text-center text-zinc-500 py-6 animate-pulse">กำลังโหลด...</div>';
+            try {
+                const res = await fetch('/api/admin/mystery-boxes', { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'load failed');
+                if (!data.boxes.length) { list.innerHTML = '<div class="text-center text-zinc-500 py-6 text-sm">ยังไม่มี Mystery Box</div>'; return; }
+                list.innerHTML = data.boxes.map((b, idx) => {
+                    const tierTag = b.requiredTier && b.requiredTier !== 'NONE' ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300">${b.requiredTier} only</span>` : '';
+                    const conditionTag = b.minPurchaseAmount || b.maxPurchaseAmount
+                        ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300">฿${b.minPurchaseAmount||0}–${b.maxPurchaseAmount||'∞'}</span>` : '';
+                    const prizesHtml = b.prizes.slice(0, 4).map(p => `
+                        <div class="flex items-center gap-1.5 text-[11px]">
+                            ${p.imageUrl ? `<img src="${_esc(p.imageUrl)}" class="w-5 h-5 rounded object-cover">` : '<div class="w-5 h-5 rounded bg-zinc-700 flex items-center justify-center text-[9px]">🎁</div>'}
+                            <span class="text-zinc-300 truncate flex-1">${_esc(p.name)}</span>
+                            <span class="text-zinc-500">w${p.weight}</span>
+                        </div>`).join('');
+                    return `
+                    <div class="bg-white/5 border border-white/10 rounded-xl p-3 item-fade-in" style="animation-delay:${idx*30}ms">
+                        <div class="flex items-start justify-between gap-2 mb-2">
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm font-bold text-white truncate">${_esc(b.name)}</div>
+                                <div class="text-[11px] text-zinc-400"><code>${_esc(b.id)}</code> · ${_esc(b.trigger)}</div>
+                                <div class="flex flex-wrap gap-1 mt-1">${tierTag}${conditionTag}</div>
+                                <div class="text-[10px] text-zinc-500 mt-1">
+                                    แจกแล้ว ${b.ticketCount} ใบ · ${b.prizes.length} รางวัล
+                                    ${b.endDate ? ' · จบ ' + _date(b.endDate) : ''}
+                                </div>
+                            </div>
+                            <label class="switch flex-shrink-0">
+                                <input type="checkbox" ${b.isActive ? 'checked' : ''} onchange="toggleMbox('${_esc(b.id)}', this)">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        ${prizesHtml ? `<div class="bg-black/20 rounded-lg p-2 space-y-1 mt-1">${prizesHtml}${b.prizes.length > 4 ? `<div class="text-[10px] text-zinc-500 text-center">+ อีก ${b.prizes.length - 4} รางวัล</div>` : ''}</div>` : ''}
+                    </div>`;
+                }).join('');
+            } catch (e) { list.innerHTML = '<div class="text-center text-red-400 py-6">โหลดไม่สำเร็จ</div>'; }
+        }
+        async function toggleMbox(id, checkbox) {
+            checkbox.disabled = true;
+            try {
+                const res = await fetch(`/api/admin/mystery-boxes/${encodeURIComponent(id)}/toggle`, {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData }),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error || 'ไม่สำเร็จ'); checkbox.checked = !checkbox.checked; }
+                else { try { tg.hapticFeedback?.impactOccurred?.('light'); } catch(e){} }
+            } catch (e) { alert('error: '+e.message); checkbox.checked = !checkbox.checked; }
+            finally { checkbox.disabled = false; }
+        }
 
         init();
     </script>

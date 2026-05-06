@@ -2883,6 +2883,221 @@ router.get('/admin/prize-shipments', async (req, res) => {
     }
 });
 
+// ---------- 👥 CUSTOMERS ----------
+// GET /admin/customers/search?q=... — by customerId / phone / firstName / lastName / username
+router.get('/admin/customers/search', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const q = String(req.query.q || '').trim();
+        if (q.length < 2) return res.json({ success: true, customers: [] });
+        const customers = await prisma.customer.findMany({
+            where: {
+                isDeleted: false,
+                OR: [
+                    { customerId: { contains: q, mode: 'insensitive' } },
+                    { phoneNumber: { contains: q } },
+                    { firstName: { contains: q, mode: 'insensitive' } },
+                    { lastName: { contains: q, mode: 'insensitive' } },
+                    { username: { contains: q, mode: 'insensitive' } },
+                    { telegramUserId: { equals: q } },
+                ],
+            },
+            select: { customerId: true, firstName: true, lastName: true, phoneNumber: true, points: true, expiryDate: true, telegramUserId: true, joinDate: true },
+            take: 30,
+            orderBy: { joinDate: 'desc' },
+        });
+        res.json({ success: true, customers });
+    } catch (e) {
+        console.error('admin customer search error:', e);
+        res.status(500).json({ success: false, error: 'search failed' });
+    }
+});
+
+// GET /admin/customers/:customerId — detail + recent orders + coupons + referrals
+router.get('/admin/customers/:customerId', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const cust = await prisma.customer.findUnique({
+            where: { customerId: req.params.customerId },
+        });
+        if (!cust) return res.status(404).json({ success: false, error: 'ไม่พบลูกค้า' });
+
+        const [orders, coupons, referralsMade, recentTx] = await Promise.all([
+            prisma.order.findMany({
+                where: { customerId: cust.customerId },
+                orderBy: { createdAt: 'desc' },
+                take: 10,
+                select: { id: true, kind: true, status: true, totalAmount: true, createdAt: true },
+            }),
+            prisma.customerCoupon.count({
+                where: { customerId: cust.customerId, status: 'AVAILABLE' },
+            }),
+            prisma.referral.count({
+                where: { referrerId: cust.customerId, status: 'COMPLETED' },
+            }),
+            prisma.pointTransaction.findMany({
+                where: { customerId: cust.customerId },
+                orderBy: { createdAt: 'desc' },
+                take: 8,
+                select: { amount: true, type: true, detail: true, createdAt: true },
+            }),
+        ]);
+
+        res.json({
+            success: true,
+            customer: cust,
+            stats: { availableCoupons: coupons, completedReferrals: referralsMade },
+            recentOrders: orders,
+            recentTransactions: recentTx,
+        });
+    } catch (e) {
+        console.error('admin customer detail error:', e);
+        res.status(500).json({ success: false, error: 'load failed' });
+    }
+});
+
+// POST /admin/customers/:customerId/adjust-points — เพิ่ม/ลดแต้ม + audit log
+router.post('/admin/customers/:customerId/adjust-points', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const { delta, reason } = req.body || {};
+        const amount = parseInt(delta);
+        if (!Number.isFinite(amount) || amount === 0) {
+            return res.status(400).json({ success: false, error: 'delta ต้องเป็นเลข ≠ 0' });
+        }
+        const cust = await prisma.customer.findUnique({ where: { customerId: req.params.customerId } });
+        if (!cust) return res.status(404).json({ success: false, error: 'ไม่พบลูกค้า' });
+        if (cust.points + amount < 0) {
+            return res.status(400).json({ success: false, error: 'แต้มไม่พอ จะติดลบ' });
+        }
+
+        await prisma.$transaction(async (tx) => {
+            await tx.customer.update({
+                where: { customerId: cust.customerId },
+                data: { points: { increment: amount } },
+            });
+            await tx.pointTransaction.create({
+                data: {
+                    customerId: cust.customerId,
+                    amount,
+                    type: 'ADMIN_ADJUST',
+                    detail: reason || `Adjusted by ${a.admin.name || a.telegramId}`,
+                },
+            });
+            await tx.adminAuditLog.create({
+                data: {
+                    adminName: a.admin.name || a.telegramId,
+                    action: 'ADJUST_POINTS',
+                    targetId: cust.customerId,
+                    details: JSON.stringify({ delta: amount, reason: reason || null }),
+                },
+            });
+        });
+        res.json({ success: true, newPoints: cust.points + amount });
+    } catch (e) {
+        console.error('admin adjust points error:', e);
+        res.status(500).json({ success: false, error: 'adjust failed' });
+    }
+});
+
+// ---------- 🎫 COUPONS ----------
+// GET /admin/coupons — list ทั้งหมด พร้อม claimed count
+router.get('/admin/coupons', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const coupons = await prisma.coupon.findMany({
+            orderBy: [{ isActive: 'desc' }, { createdAt: 'desc' }],
+            select: {
+                id: true, name: true, nameEn: true, type: true, value: true, giftQty: true,
+                pointsCost: true, isActive: true, isAutoAssign: true, autoAssignTrigger: true,
+                rewardTrigger: true, totalQuota: true, claimedCount: true,
+                startDate: true, endDate: true, validFrom: true, validUntil: true, validityDays: true,
+                createdAt: true,
+            },
+        });
+        res.json({ success: true, coupons });
+    } catch (e) {
+        console.error('admin coupons list error:', e);
+        res.status(500).json({ success: false, error: 'load failed' });
+    }
+});
+
+// PATCH /admin/coupons/:id/toggle — switch isActive
+router.patch('/admin/coupons/:id/toggle', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const c = await prisma.coupon.findUnique({ where: { id: req.params.id } });
+        if (!c) return res.status(404).json({ success: false, error: 'ไม่พบคูปอง' });
+        const updated = await prisma.coupon.update({
+            where: { id: c.id },
+            data: { isActive: !c.isActive },
+            select: { id: true, isActive: true },
+        });
+        res.json({ success: true, coupon: updated });
+    } catch (e) {
+        console.error('admin coupon toggle error:', e);
+        res.status(500).json({ success: false, error: 'toggle failed' });
+    }
+});
+
+// ---------- 🎁 MYSTERY BOXES ----------
+// GET /admin/mystery-boxes — list + nested prizes
+router.get('/admin/mystery-boxes', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const boxes = await prisma.mysteryBox.findMany({
+            include: {
+                prizes: { where: { isActive: true }, orderBy: { weight: 'desc' } },
+                _count: { select: { tickets: true } },
+            },
+            orderBy: [{ isActive: 'desc' }, { createdAt: 'desc' }],
+        });
+        const out = boxes.map(b => ({
+            id: b.id, name: b.name, nameEn: b.nameEn, description: b.description,
+            imageUrl: b.imageUrl, trigger: b.trigger,
+            minPurchaseAmount: b.minPurchaseAmount != null ? Number(b.minPurchaseAmount) : null,
+            maxPurchaseAmount: b.maxPurchaseAmount != null ? Number(b.maxPurchaseAmount) : null,
+            ticketsPerEvent: b.ticketsPerEvent, maxPerUser: b.maxPerUser,
+            requiredTier: b.requiredTier,
+            isActive: b.isActive, startDate: b.startDate, endDate: b.endDate,
+            ticketCount: b._count.tickets,
+            prizes: b.prizes.map(p => ({
+                id: p.id, name: p.name, imageUrl: p.imageUrl, weight: p.weight,
+                rewardCouponId: p.rewardCouponId, isPhysicalReward: p.isPhysicalReward,
+            })),
+        }));
+        res.json({ success: true, boxes: out });
+    } catch (e) {
+        console.error('admin mystery boxes list error:', e);
+        res.status(500).json({ success: false, error: 'load failed' });
+    }
+});
+
+// PATCH /admin/mystery-boxes/:id/toggle — switch isActive
+router.patch('/admin/mystery-boxes/:id/toggle', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const b = await prisma.mysteryBox.findUnique({ where: { id: req.params.id } });
+        if (!b) return res.status(404).json({ success: false, error: 'ไม่พบกล่อง' });
+        const updated = await prisma.mysteryBox.update({
+            where: { id: b.id },
+            data: { isActive: !b.isActive },
+            select: { id: true, isActive: true },
+        });
+        res.json({ success: true, box: updated });
+    } catch (e) {
+        console.error('admin mystery box toggle error:', e);
+        res.status(500).json({ success: false, error: 'toggle failed' });
+    }
+});
+
 // POST /api/admin/prize-shipments/:id/ship — mark as SHIPPED
 router.post('/admin/prize-shipments/:id/ship', async (req, res) => {
     const a = await authAdmin(req);
