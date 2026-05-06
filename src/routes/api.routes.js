@@ -692,31 +692,43 @@ router.post('/orders/:orderId/cancel', async (req, res) => {
 });
 
 // Helper: upload slip image to Telegram → return /api/images/<file_id> URL
-// ใช้ใน /verify-slip เพื่อให้ admin ดูรูปสลิปได้แม้ใน BYPASS_SLIPOK mode (SlipOK URL ว่าง)
-async function uploadSlipToTelegram(file) {
-    if (!file || !file.buffer) return '';
-    const adminToken = process.env.ADMIN_BOT_TOKEN;
-    const targetChatId = process.env.ADMIN_GROUP_ID || process.env.SUPER_ADMIN_TELEGRAM_ID;
-    if (!adminToken || !targetChatId) {
-        console.warn('[uploadSlipToTelegram] ADMIN_BOT_TOKEN/ADMIN_GROUP_ID missing');
-        return '';
+// strategy:
+//   1) ลองส่งผ่าน ORDER_BOT ไปยัง customer chat — bot มีสิทธิ์ส่งเสมอ (ลูกค้า /start แล้ว)
+//      หมายเหตุ: ส่ง disable_notification=true ลูกค้าจะเห็นแต่ไม่ดัง — เป็น receipt copy
+//   2) fallback: admin bot ไปยัง admin group / super admin
+async function uploadSlipToTelegram(file, customerTelegramUserId = null) {
+    if (!file || !file.buffer) { console.warn('[slip] no file/buffer'); return ''; }
+    const FormData = (await import('form-data')).default;
+
+    const trySend = async (token, chatId, label) => {
+        if (!token || !chatId) return null;
+        try {
+            const fd = new FormData();
+            fd.append('chat_id', String(chatId));
+            fd.append('disable_notification', 'true');
+            fd.append('photo', file.buffer, { filename: file.originalname || 'slip.jpg', contentType: file.mimetype || 'image/jpeg' });
+            const r = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: fd, headers: fd.getHeaders() });
+            const d = await r.json();
+            if (!d.ok) { console.error(`[slip] ${label} sendPhoto fail:`, d.description || d); return null; }
+            const photos = d.result?.photo || [];
+            const fileId = photos[photos.length - 1]?.file_id;
+            if (!fileId) { console.error(`[slip] ${label} no file_id`); return null; }
+            return fileId;
+        } catch (e) { console.error(`[slip] ${label} error:`, e.message); return null; }
+    };
+
+    // 1) order bot → customer
+    let fileId = null;
+    if (customerTelegramUserId) {
+        fileId = await trySend(process.env.ORDER_BOT_TOKEN, customerTelegramUserId, 'order-bot→customer');
     }
-    try {
-        const FormData = (await import('form-data')).default;
-        const fd = new FormData();
-        fd.append('chat_id', targetChatId);
-        fd.append('disable_notification', 'true'); // ส่งเงียบ — ไม่กวน admin (notif หลักจะมาทีหลัง)
-        fd.append('photo', file.buffer, { filename: file.originalname || 'slip.jpg', contentType: file.mimetype || 'image/jpeg' });
-        const r = await fetch(`https://api.telegram.org/bot${adminToken}/sendPhoto`, { method: 'POST', body: fd, headers: fd.getHeaders() });
-        const d = await r.json();
-        if (!d.ok) { console.error('[uploadSlipToTelegram] Telegram error:', d); return ''; }
-        const photos = d.result?.photo || [];
-        const fileId = photos[photos.length - 1]?.file_id;
-        return fileId ? `/api/images/${fileId}` : '';
-    } catch (e) {
-        console.error('[uploadSlipToTelegram] error:', e.message);
-        return '';
+    // 2) admin bot → admin group / super admin
+    if (!fileId) {
+        const targetChat = process.env.ADMIN_GROUP_ID || process.env.SUPER_ADMIN_TELEGRAM_ID;
+        fileId = await trySend(process.env.ADMIN_BOT_TOKEN, targetChat, 'admin-bot→group');
     }
+    if (!fileId) { console.warn('[slip] all upload paths failed'); return ''; }
+    return `/api/images/${fileId}`;
 }
 
 // SLIPOK Integration
@@ -730,17 +742,18 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
         }
 
         const file = files[0];
-        // upload สลิปไป Telegram ทันที (ทำขนานกับ SlipOK call) → ใช้ลิงก์นี้ใน Payment.slipUrl
-        const tgSlipUrlPromise = uploadSlipToTelegram(file);
 
         // 1. Get Order
         const order = await prisma.order.findUnique({
             where: { id: orderId },
-            include: { 
+            include: {
                 items: { include: { product: { include: { category: true } } } },
-                customer: true 
+                customer: true
             }
         });
+        // upload สลิปไป Telegram ทันที (ส่งให้ลูกค้าเอง — bot มีสิทธิ์เสมอ)
+        // ทำขนานกับ SlipOK call → ใช้ลิงก์นี้ใน Payment.slipUrl
+        const tgSlipUrlPromise = uploadSlipToTelegram(file, order?.customer?.telegramUserId);
 
         if (!order) return res.status(404).json({ success: false, error: 'ไม่พบออเดอร์นี้' });
         if (order.status !== 'PENDING_PAYMENT') return res.status(400).json({ success: false, error: 'ออเดอร์นี้ชำระเงินไปแล้ว หรือถูกยกเลิก' });
