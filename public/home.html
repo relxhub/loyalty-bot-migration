@@ -752,6 +752,8 @@
                     const role = authData?.customer?.role;
                     const isPreview = new URLSearchParams(window.location.search).get('preview') === '1';
                     if (!isPreview && (role === 'Admin' || role === 'SuperAdmin' || role === 'Owner')) {
+                        // persist initData เพื่อให้ admin-app ใช้ต่อได้ (Telegram WebView บางครั้งทำหายหลัง navigate)
+                        try { if (tg.initData) sessionStorage.setItem('admin_initData', tg.initData); } catch (e) {}
                         window.location.replace('admin-app.html');
                         return;
                     }

@@ -1129,10 +1129,35 @@
         // ---------- INIT ----------
         async function init() {
             try {
-                if (!tg?.initData) {
-                    document.getElementById('loading-text').innerHTML = '<span class="text-red-400">กรุณาเปิดผ่าน Telegram</span>';
+                // debug: แสดง state ของ tg เพื่อ diagnose
+                const dbg = (msg) => { try { document.getElementById('loading-text').innerHTML = msg; } catch(e){} };
+                dbg('🔍 ตรวจ Telegram WebApp...');
+
+                // initData อาจหายหลัง window.location.replace (Telegram WebView quirk)
+                // → ลองหาจาก URL hash หรือ sessionStorage เป็น fallback
+                let initData = tg?.initData || '';
+                if (!initData) {
+                    // บาง TG client ใส่ใน hash เป็น #tgWebAppData=...
+                    const hash = location.hash || '';
+                    const m = hash.match(/tgWebAppData=([^&]+)/);
+                    if (m) initData = decodeURIComponent(m[1]);
+                }
+                if (!initData) {
+                    initData = sessionStorage.getItem('admin_initData') || '';
+                }
+                if (!initData) {
+                    dbg(`<span class="text-red-400">⚠️ ไม่พบ initData<br><span class="text-[10px]">tg=${tg?'มี':'ไม่มี'} · WebApp=${typeof window.Telegram?.WebApp}</span><br><button onclick="location.href='admin-app.html'" class="mt-2 px-3 py-1.5 rounded bg-yellow-500 text-black text-xs">โหลดใหม่</button></span>`);
                     return;
                 }
+                // cache ไว้สำหรับ navigation รอบถัดไป
+                try { sessionStorage.setItem('admin_initData', initData); } catch (e) {}
+                // override tg.initData (ถ้า Telegram set ไว้แล้ว defineProperty อาจ fail ก็ข้าม)
+                if (!tg.initData) {
+                    try { Object.defineProperty(tg, 'initData', { value: initData, writable: true, configurable: true }); }
+                    catch (e) { try { tg.initData = initData; } catch (e2) {} }
+                }
+
+                dbg('🔄 กำลังตรวจสิทธิ์... (เชื่อมต่อ server)');
                 // 10s timeout + แสดง retry button หลัง 5s ถ้ายังไม่เสร็จ
                 const slowTimer = setTimeout(() => {
                     const t = document.getElementById('loading-text');
@@ -1142,7 +1167,7 @@
                 const timeoutId = setTimeout(() => ctrl.abort(), 10000);
                 let meRes;
                 try {
-                    meRes = await fetch('/api/admin/me', { headers: { 'X-Init-Data': tg.initData }, signal: ctrl.signal });
+                    meRes = await fetch('/api/admin/me', { headers: { 'X-Init-Data': initData }, signal: ctrl.signal });
                 } finally {
                     clearTimeout(slowTimer); clearTimeout(timeoutId);
                 }
