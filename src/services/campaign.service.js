@@ -6,14 +6,15 @@ import { getConfig } from '../config/config.js';
 
 export async function getActiveCampaign() {
     const now = new Date();
-    
-    // ✅ แก้ไข: เปลี่ยน startAt -> startDate และ endAt -> endDate
+
+    // ต้อง active=true + อยู่ในช่วงเวลา
     const campaign = await prisma.campaign.findFirst({
         where: {
-            startDate: { lte: now }, // แก้ตรงนี้
-            endDate: { gt: now }     // แก้ตรงนี้
+            isActive: true,
+            startDate: { lte: now },
+            endDate: { gt: now }
         },
-        orderBy: { endDate: 'asc' }  // แก้ตรงนี้
+        orderBy: { endDate: 'asc' }
     });
 
     if (!campaign) {
