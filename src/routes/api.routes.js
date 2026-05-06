@@ -4032,6 +4032,61 @@ router.delete('/admin/products/:id', async (req, res) => {
     }
 });
 
+// POST /admin/products/bulk-stock { mode: 'add'|'sub'|'set', adjustments: [{id, value}] }
+router.post('/admin/products/bulk-stock', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const mode = String(req.body?.mode || '').toLowerCase();
+        if (!['add', 'sub', 'set'].includes(mode)) return res.status(400).json({ success: false, error: 'mode ต้องเป็น add/sub/set' });
+        const adjustments = Array.isArray(req.body?.adjustments) ? req.body.adjustments : [];
+        if (!adjustments.length) return res.status(400).json({ success: false, error: 'ไม่มีรายการที่จะปรับ' });
+        // 'set' mode = SuperAdmin/Owner only (เปลี่ยนสต็อกตรงๆ ความเสี่ยงสูง)
+        if (mode === 'set' && !['SuperAdmin', 'Owner'].includes(a.admin.role)) {
+            return res.status(403).json({ success: false, error: 'mode "ปรับ" ใช้ได้เฉพาะ SuperAdmin/Owner' });
+        }
+        const ids = adjustments.map(x => parseInt(x.id)).filter(Boolean);
+        const products = await prisma.product.findMany({ where: { id: { in: ids } }, select: { id: true, nameTh: true, nameEn: true, stockQuantity: true } });
+        const pMap = new Map(products.map(p => [p.id, p]));
+        const changes = []; // { id, name, before, after, diff, capped }
+        await prisma.$transaction(async (tx) => {
+            for (const adj of adjustments) {
+                const id = parseInt(adj.id);
+                const p = pMap.get(id);
+                if (!p) continue;
+                const v = Math.abs(parseInt(adj.value)) || 0;
+                if (v === 0 && mode !== 'set') continue;
+                const before = p.stockQuantity;
+                let after = before;
+                let capped = false;
+                if (mode === 'add') after = before + v;
+                else if (mode === 'sub') {
+                    after = Math.max(0, before - v);
+                    if (before - v < 0) capped = true;
+                } else if (mode === 'set') {
+                    after = Math.max(0, parseInt(adj.value) || 0);
+                }
+                if (after === before && mode !== 'set') continue;
+                await tx.product.update({ where: { id }, data: { stockQuantity: after } });
+                changes.push({ id, name: p.nameTh || p.nameEn || `#${id}`, before, after, diff: after - before, capped });
+            }
+            await tx.adminAuditLog.create({
+                data: { adminName: a.admin?.name || a.telegramId, action: 'BULK_STOCK_' + mode.toUpperCase(),
+                    details: JSON.stringify({ mode, count: changes.length, changes: changes.slice(0, 50) }) },
+            });
+        });
+        // realtime broadcast
+        try {
+            const io = req.app.get('socketio');
+            if (io) for (const ch of changes) io.emit('product_update', { id: ch.id, stockQuantity: ch.after });
+        } catch (e) {}
+        res.json({ success: true, mode, changes });
+    } catch (e) {
+        console.error('admin bulk-stock error:', e);
+        res.status(500).json({ success: false, error: e.message || 'bulk update failed' });
+    }
+});
+
 function sanitizeProductPayload(b) {
     const num = (v) => (v === '' || v == null ? null : Number(v));
     const intOrNull = (v) => (v === '' || v == null ? null : parseInt(v));
