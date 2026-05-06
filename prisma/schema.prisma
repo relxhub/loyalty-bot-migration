@@ -111,6 +111,7 @@ model Customer {
   favorites         Favorite[] // Relation to Favorites
   orders            Order[] // Relation to Orders
   notifications     Notification[] // Relation to in-app notifications
+  mysteryBoxTickets MysteryBoxTicket[] // Relation to Mystery Box tickets
 
   @@index([verificationCode])
   @@index([referrerId])
@@ -207,10 +208,6 @@ model Coupon {
   rewardMaxAmount       Decimal?         @db.Decimal(10, 2) // ยอดเพดาน (null = ไม่จำกัด)
   rewardOncePerReferral Boolean          @default(true) // กันแจกซ้ำต่อ Referral
 
-  // Mystery Box: ถ้า true → ตอนแจกจะใส่เป็น "กล่องสุ่ม" ลูกค้าต้องเปิดก่อนใช้
-  // (ใช้คู่กับ rewardTrigger สำหรับเอฟเฟกต์เซอร์ไพรส์)
-  isMysteryBox Boolean @default(false)
-
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
@@ -231,9 +228,6 @@ model CustomerCoupon {
   // ติดตามแหล่งที่มาของ reward coupon (ใช้กันแจกซ้ำตาม Referral)
   sourceReferralId Int? // Referral.id ที่เป็นต้นเหตุ (null = ไม่ใช่ reward coupon)
   sourceEvent      String? // เช่น "REFEREE_FIRST_PURCHASE"
-
-  // Mystery Box: true → ลูกค้ายังไม่ได้เปิดกล่องสุ่ม (ใช้คูปองนี้ไม่ได้จนกว่าจะเปิด)
-  isMysteryBoxLocked Boolean @default(false)
 
   customer Customer @relation(fields: [customerId], references: [customerId])
   coupon   Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
@@ -641,6 +635,103 @@ enum NotificationKind {
   POINTS_EARNED // ได้รับแต้มก้อนใหญ่ (referral bonus / milestone)
   COUPON_EXPIRING_SOON // คูปองใกล้หมดอายุ (cron แจ้งล่วงหน้า 3 วัน)
   ADMIN_BROADCAST // ประกาศจากแอดมิน
+}
+
+// ---------------------------------------------------------
+// 🎁 MYSTERY BOX (แยกออกจาก Coupon)
+// ---------------------------------------------------------
+enum MysteryBoxTrigger {
+  REFEREE_FIRST_PURCHASE // ชวนเพื่อน + เพื่อนซื้อครั้งแรก
+  JOIN_CHANNEL // เข้าร่วม Telegram channel ครั้งแรก
+  ADMIN_GRANT // admin มอบ manual ผ่าน /grantbox
+  PURCHASE_MILESTONE // ลูกค้าซื้อครบยอดที่กำหนด (เช่น สั่งซื้อ ฿5,000) — ยังไม่ hook ใน v1
+  REVIEW_PRODUCT // รีวิวสินค้าครั้งแรก
+}
+
+model MysteryBox {
+  id            String  @id // เช่น 'MB_FRIEND_INVITE'
+  name          String
+  nameEn        String?
+  description   String? @db.Text
+  descriptionEn String? @db.Text
+  imageUrl      String? @db.Text // รูปกล่อง
+
+  trigger MysteryBoxTrigger
+
+  // เงื่อนไขสำหรับ REFEREE_FIRST_PURCHASE
+  minPurchaseAmount Decimal? @db.Decimal(10, 2) // ยอดขั้นต่ำของ referee (subtotal-discount, ไม่รวมค่าส่ง)
+  maxPurchaseAmount Decimal? @db.Decimal(10, 2)
+
+  // จำนวนสิทธิ์ที่ให้ต่อ trigger event 1 ครั้ง
+  ticketsPerEvent Int @default(1)
+
+  // เพดานต่อ user ตลอด lifetime ของ box (null = ไม่จำกัด)
+  maxPerUser Int?
+
+  isActive  Boolean   @default(true)
+  startDate DateTime?
+  endDate   DateTime?
+  createdAt DateTime  @default(now())
+
+  prizes  MysteryBoxPrize[]
+  tickets MysteryBoxTicket[]
+
+  @@index([trigger, isActive])
+}
+
+model MysteryBoxPrize {
+  id            Int     @id @default(autoincrement())
+  mysteryBoxId  String
+  name          String // ชื่อรางวัล เช่น "หัว Pod Pro 2 ฟรี 1 ชิ้น"
+  nameEn        String?
+  description   String? @db.Text
+  descriptionEn String? @db.Text
+  imageUrl      String? @db.Text // URL รูปสินค้า
+
+  weight Int @default(1) // น้ำหนักความน่าจะออก (1-100; pool sum = 100 จะตรงกับ %)
+
+  // ของรางวัล: ถ้าเซ็ต → ระบบสร้าง CustomerCoupon ให้อัตโนมัติหลังเปิด
+  rewardCouponId String?
+
+  // ของจริง (ส่งไปรษณีย์เอง) → admin ต้องดำเนินการต่อ
+  isPhysicalReward Boolean @default(false)
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  mysteryBox       MysteryBox         @relation(fields: [mysteryBoxId], references: [id], onDelete: Cascade)
+  awardedTickets   MysteryBoxTicket[]
+
+  @@index([mysteryBoxId])
+}
+
+model MysteryBoxTicket {
+  id           Int    @id @default(autoincrement())
+  customerId   String
+  mysteryBoxId String
+
+  // sourcing — ใช้กันแจกซ้ำ
+  sourceEvent      String? // 'REFEREE_FIRST_PURCHASE' / 'JOIN_CHANNEL' / 'ADMIN_GRANT' / ...
+  sourceReferralId Int? // Referral.id ที่เป็นต้นเหตุ (สำหรับ referee trigger)
+  sourceMetadata   String? @db.Text // JSON เผื่ออะไรเพิ่ม
+
+  // state
+  status         String    @default("UNOPENED") // UNOPENED, OPENED
+  openedAt       DateTime?
+  awardedPrizeId Int? // prize ที่ออกหลังเปิด
+
+  // ถ้า prize ผูก rewardCouponId → เก็บ CustomerCoupon.id ที่สร้างให้
+  awardedCustomerCouponId Int?
+
+  createdAt DateTime @default(now())
+
+  customer     Customer         @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
+  mysteryBox   MysteryBox       @relation(fields: [mysteryBoxId], references: [id])
+  awardedPrize MysteryBoxPrize? @relation(fields: [awardedPrizeId], references: [id])
+
+  @@index([customerId, status])
+  @@index([customerId, mysteryBoxId])
+  @@index([mysteryBoxId, sourceReferralId])
 }
 
 model Notification {

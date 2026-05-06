@@ -10,6 +10,7 @@ import { getConfig } from '../config/config.js';
 import { createCustomer, giveReferralBonus } from '../services/customer.service.js';
 import * as referralService from '../services/referral.service.js'; // Import the new referral service
 import * as couponService from '../services/coupon.service.js';
+import * as mysteryBoxService from '../services/mystery-box.service.js';
 import * as shippingService from '../services/shipping.service.js';
 import { sendOrderPaidAdminNotification } from '../services/order-notification.service.js';
 import { broadcastEditAdminMessages } from '../services/admin-message.service.js';
@@ -413,6 +414,10 @@ export async function handleAdminCommand(ctx) {
                 await handleNotifyBroadcast(ctx, text, adminUser, chatId);
                 break;
 
+            case "/grantbox":
+                await handleGrantMysteryBox(ctx, commandParts, adminUser, chatId);
+                break;
+
             case "/start":
                 const welcomeMsg = `👋 สวัสดี ${adminUser}!\nบอทสำหรับแอดมินพร้อมใช้งาน\n\n` +
                 "<b>คำสั่งทั้งหมด:</b>\n" +
@@ -422,6 +427,7 @@ export async function handleAdminCommand(ctx) {
                 (role === "SuperAdmin" ? "🪙 /add [รหัสลูกค้า] [แต้ม]\n" : "") +
                 (role === "SuperAdmin" ? "👮‍♂️ /addadmin [ID] [Role] [Name]\n" : "") +
                 (role === "SuperAdmin" ? "📣 /notify [ข้อความ] (broadcast หาลูกค้า)\n" : "") +
+                "🎁 /grantbox [รหัสลูกค้า] [รหัสกล่อง]\n" +
                 "👤 /new [ลูกค้าใหม่]\n" +
                 "✨ /refer [รหัสลูกค้าที่ถูกแนะนำ] [ยอดซื้อ]\n" +
                 "🎫 /coupon [รหัสลูกค้า] [รหัสคูปอง]\n" +
@@ -934,6 +940,47 @@ async function handleCouponUse(ctx, commandParts, adminUser, chatId) {
 
     } catch (error) {
         sendAdminReply(chatId, `❌ ${error.message}`);
+    }
+}
+
+/**
+ * /grantbox <customerId> <mysteryBoxId>  — มอบกล่องสุ่ม manual
+ */
+async function handleGrantMysteryBox(ctx, commandParts, adminUser, chatId) {
+    if (commandParts.length < 3) {
+        sendAdminReply(chatId,
+            "📦 <b>วิธีใช้:</b> <code>/grantbox [รหัสลูกค้า] [รหัสกล่อง]</code>\n\n" +
+            "ตัวอย่าง: <code>/grantbox OT12345 MB_WELCOME</code>\n\n" +
+            "ดูรหัสกล่องได้ใน Prisma Studio → ตาราง MysteryBox"
+        );
+        return;
+    }
+    const customerId = commandParts[1].toUpperCase();
+    const boxId = commandParts[2];
+    try {
+        const cust = await prisma.customer.findUnique({ where: { customerId } });
+        if (!cust) return sendAdminReply(chatId, `❌ ไม่พบลูกค้ารหัส ${customerId}`);
+
+        const box = await prisma.mysteryBox.findUnique({ where: { id: boxId } });
+        if (!box) return sendAdminReply(chatId, `❌ ไม่พบกล่อง ${boxId}`);
+        if (!box.isActive) return sendAdminReply(chatId, `⚠️ กล่อง ${boxId} ไม่ active`);
+
+        const result = await mysteryBoxService.grantSpecificBox({
+            customerId,
+            mysteryBoxId: boxId,
+            adminName: adminUser,
+        });
+
+        if (!result.success) {
+            return sendAdminReply(chatId, `⚠️ ไม่สามารถมอบกล่องได้ (${result.error})`);
+        }
+        sendAdminReply(chatId,
+            `✅ มอบกล่อง <b>${box.name}</b> ให้ <code>${customerId}</code> เรียบร้อย\n` +
+            `Ticket #${result.ticket.id}`
+        );
+    } catch (e) {
+        console.error('handleGrantMysteryBox error:', e);
+        sendAdminReply(chatId, `❌ เกิดข้อผิดพลาด: ${e.message}`);
     }
 }
 

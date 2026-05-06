@@ -2,6 +2,7 @@ import { prisma } from '../db.js';
 import * as customerService from './customer.service.js';
 import * as campaignService from './campaign.service.js';
 import * as couponService from './coupon.service.js';
+import * as mysteryBoxService from './mystery-box.service.js';
 import { notifyCustomer } from './notification-center.service.js';
 import { getConfig } from '../config/config.js';
 import { addDays } from '../utils/date.utils.js';
@@ -264,8 +265,8 @@ const completeReferral = async (refereeId, purchaseAmount, orderId = null) => {
 
   // หลัง tx สำเร็จ → ลองมอบ reward coupon (best-effort, ไม่กระทบสถานะ referral)
   let rewardSuffix = '';
+  const eligibleAmount = await computeEligibleAmount({ orderId, refereeId, fallback: purchaseAmount });
   try {
-    const eligibleAmount = await computeEligibleAmount({ orderId, refereeId, fallback: purchaseAmount });
     const { granted } = await couponService.grantRewardCoupons({
       event: 'REFEREE_FIRST_PURCHASE',
       referrerId: txResult.referrerId,
@@ -280,6 +281,24 @@ const completeReferral = async (refereeId, purchaseAmount, orderId = null) => {
     }
   } catch (e) {
     console.error('[Referral] grantRewardCoupons failed:', e.message);
+  }
+
+  // หลัง tx สำเร็จ → ลองมอบ Mystery Box (REFEREE_FIRST_PURCHASE) ให้ referrer
+  // (best-effort, ไม่กระทบ referral)
+  try {
+    const { granted: mbGranted } = await mysteryBoxService.grantTickets({
+      customerId: txResult.referrerId,
+      event: 'REFEREE_FIRST_PURCHASE',
+      eligibleAmount,
+      referralRowId: txResult.referralId,
+      metadata: { refereeId },
+    });
+    if (mbGranted.length > 0) {
+      const lines = mbGranted.map(g => `🎁 ${g.boxName}${g.qty > 1 ? ` ×${g.qty}` : ''}`);
+      rewardSuffix += `\n${lines.join('\n')}`;
+    }
+  } catch (e) {
+    console.error('[Referral] grantMysteryBox failed:', e.message);
   }
 
   return {

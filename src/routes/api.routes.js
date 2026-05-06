@@ -10,6 +10,7 @@ import * as referralService from '../services/referral.service.js';
 import { sendOrderPaidAdminNotification } from '../services/order-notification.service.js';
 import { recordAdminMessage } from '../services/admin-message.service.js';
 import * as notifCenter from '../services/notification-center.service.js';
+import * as mysteryBox from '../services/mystery-box.service.js';
 import { getProductPageData } from '../services/product.service.js';
 import * as couponService from '../services/coupon.service.js';
 import * as shippingService from '../services/shipping.service.js';
@@ -1787,6 +1788,20 @@ router.post('/reviews', async (req, res) => {
             return newReview;
         });
 
+        // Mystery Box: หากเป็นรีวิวครั้งแรกของลูกค้า → grant ticket REVIEW_PRODUCT
+        try {
+            const totalReviews = await prisma.productReview.count({ where: { customerId } });
+            if (totalReviews === 1) {
+                await mysteryBox.grantTickets({
+                    customerId,
+                    event: 'REVIEW_PRODUCT',
+                    metadata: { productId: parseInt(productId) },
+                });
+            }
+        } catch (e) {
+            console.error('[Review→MysteryBox] grant failed:', e.message);
+        }
+
         res.status(201).json({ success: true, review: result, pointsAwarded: reviewPoints });
 
     } catch (error) {
@@ -2035,49 +2050,6 @@ router.post('/coupons/redeem', async (req, res) => {
 /**
  * ดึงคูปองส่วนตัวของลูกค้า
  */
-// 🎁 เปิดกล่องสุ่ม (Mystery Box) — ปลดล็อก isMysteryBoxLocked แล้วคืนรายละเอียดคูปอง
-router.post('/coupons/my/:customerCouponId/open-mystery', async (req, res) => {
-    try {
-        const { customerCouponId } = req.params;
-        const { initData } = req.body;
-        if (!verifyTelegramWebAppData(initData)) {
-            return res.status(401).json({ success: false, error: 'Invalid Telegram Data' });
-        }
-        const urlParams = new URLSearchParams(initData);
-        const userData = JSON.parse(urlParams.get('user'));
-        const telegramId = userData.id.toString();
-
-        const user = await prisma.customer.findUnique({
-            where: { telegramUserId: telegramId },
-            select: { customerId: true },
-        });
-        if (!user) return res.status(404).json({ success: false, error: 'ไม่พบลูกค้า' });
-
-        const cc = await prisma.customerCoupon.findUnique({
-            where: { id: parseInt(customerCouponId) },
-            include: { coupon: true },
-        });
-        if (!cc) return res.status(404).json({ success: false, error: 'ไม่พบคูปอง' });
-        if (cc.customerId !== user.customerId) {
-            return res.status(403).json({ success: false, error: 'คูปองนี้ไม่ใช่ของคุณ' });
-        }
-        if (!cc.isMysteryBoxLocked) {
-            // เปิดไปแล้ว — คืน coupon ตรงๆ ให้ frontend อัพเดทเฉยๆ
-            return res.json({ success: true, alreadyOpened: true, coupon: cc.coupon, customerCoupon: cc });
-        }
-
-        const updated = await prisma.customerCoupon.update({
-            where: { id: cc.id },
-            data: { isMysteryBoxLocked: false },
-            include: { coupon: true },
-        });
-        res.json({ success: true, alreadyOpened: false, coupon: updated.coupon, customerCoupon: updated });
-    } catch (e) {
-        console.error('Open mystery box error:', e);
-        res.status(500).json({ success: false, error: 'เปิดกล่องไม่สำเร็จ' });
-    }
-});
-
 router.get('/coupons/my/:telegramId', async (req, res) => {
     try {
         const { telegramId } = req.params;
@@ -2554,6 +2526,143 @@ router.post('/notifications/:telegramId/:id/read', async (req, res) => {
     } catch (e) {
         console.error('Mark read error:', e);
         res.status(500).json({ success: false, error: 'mark read ไม่สำเร็จ' });
+    }
+});
+
+// ==================================================
+// 🎁 MYSTERY BOX
+// ==================================================
+
+// Catalog: รายการกล่องที่ active + prize pool พร้อม %
+router.get('/mystery-box/catalog', async (req, res) => {
+    try {
+        const boxes = await mysteryBox.listActiveBoxes();
+        res.json({ success: true, boxes });
+    } catch (e) {
+        console.error('Mystery box catalog error:', e);
+        res.status(500).json({ success: false, error: 'โหลด catalog ไม่สำเร็จ' });
+    }
+});
+
+// ตั๋วของลูกค้า + จำนวนยังไม่เปิด
+router.get('/mystery-box/my/:telegramId', async (req, res) => {
+    try {
+        const customerId = await customerIdFromTelegramId(req.params.telegramId);
+        if (!customerId) return res.json({ success: true, tickets: [], unopened: 0 });
+
+        const [tickets, unopened] = await Promise.all([
+            mysteryBox.listMyTickets(customerId),
+            mysteryBox.getUnopenedCount(customerId),
+        ]);
+        res.json({ success: true, tickets, unopened });
+    } catch (e) {
+        console.error('Mystery box my error:', e);
+        res.status(500).json({ success: false, error: 'โหลดตั๋วไม่สำเร็จ' });
+    }
+});
+
+// จำนวนยังไม่เปิด (สำหรับ badge บน dashboard)
+router.get('/mystery-box/my/:telegramId/unopened-count', async (req, res) => {
+    try {
+        const customerId = await customerIdFromTelegramId(req.params.telegramId);
+        if (!customerId) return res.json({ success: true, unopened: 0 });
+        const unopened = await mysteryBox.getUnopenedCount(customerId);
+        res.json({ success: true, unopened });
+    } catch (e) {
+        console.error('Mystery box unopened error:', e);
+        res.status(500).json({ success: false, error: 'นับตั๋วไม่สำเร็จ' });
+    }
+});
+
+// Claim กล่อง JOIN_CHANNEL — verify membership ก่อนแจก
+router.post('/mystery-box/:boxId/claim-channel', async (req, res) => {
+    try {
+        const { initData } = req.body || {};
+        if (!verifyTelegramWebAppData(initData)) {
+            return res.status(401).json({ success: false, error: 'Invalid Telegram Data' });
+        }
+        const urlParams = new URLSearchParams(initData);
+        const userData = JSON.parse(urlParams.get('user'));
+        const telegramId = userData.id.toString();
+        const customerId = await customerIdFromTelegramId(telegramId);
+        if (!customerId) return res.status(404).json({ success: false, error: 'ไม่พบลูกค้า' });
+
+        // verify ว่ากล่องนี้เป็น trigger=JOIN_CHANNEL จริง
+        const box = await prisma.mysteryBox.findUnique({ where: { id: req.params.boxId } });
+        if (!box || !box.isActive || box.trigger !== 'JOIN_CHANNEL') {
+            return res.status(400).json({ success: false, error: 'กล่องนี้ไม่ใช่ประเภท join channel' });
+        }
+
+        // verify membership ผ่าน Telegram getChatMember
+        const orderBotToken = process.env.ORDER_BOT_TOKEN;
+        const channelId = getConfig('channelId');
+        if (!orderBotToken || !channelId) {
+            return res.status(500).json({ success: false, error: 'ระบบยังไม่ได้ตั้งค่า channel' });
+        }
+        try {
+            const url = `https://api.telegram.org/bot${orderBotToken}/getChatMember?chat_id=${channelId}&user_id=${telegramId}`;
+            const r = await fetch(url);
+            const data = await r.json();
+            if (!data.ok) return res.status(400).json({ success: false, error: 'ไม่สามารถตรวจสอบสมาชิก channel ได้' });
+            const status = data.result?.status;
+            if (!['creator', 'administrator', 'member', 'restricted'].includes(status)) {
+                return res.status(400).json({ success: false, error: 'คุณยังไม่ได้เข้าร่วม channel — กดเข้าก่อนแล้วลองใหม่' });
+            }
+        } catch (e) {
+            return res.status(500).json({ success: false, error: 'ตรวจสอบ channel ไม่สำเร็จ' });
+        }
+
+        // grant (relies on box.maxPerUser=1 to dedup ตอนเรียกซ้ำ)
+        const result = await mysteryBox.grantTickets({
+            customerId,
+            event: 'JOIN_CHANNEL',
+            metadata: { telegramId },
+        });
+
+        if (result.granted.length === 0) {
+            const skip = result.skipped[0];
+            const msg = skip?.reason === 'MAX_PER_USER_REACHED'
+                ? 'คุณรับสิทธิ์นี้ไปแล้ว'
+                : 'ไม่สามารถรับสิทธิ์ได้ในขณะนี้';
+            return res.status(400).json({ success: false, error: msg });
+        }
+
+        res.json({ success: true, granted: result.granted });
+    } catch (e) {
+        console.error('Claim channel mystery box error:', e);
+        res.status(500).json({ success: false, error: 'รับสิทธิ์ไม่สำเร็จ' });
+    }
+});
+
+// เปิดกล่อง
+router.post('/mystery-box/ticket/:ticketId/open', async (req, res) => {
+    try {
+        const { initData } = req.body || {};
+        if (!verifyTelegramWebAppData(initData)) {
+            return res.status(401).json({ success: false, error: 'Invalid Telegram Data' });
+        }
+        const urlParams = new URLSearchParams(initData);
+        const userData = JSON.parse(urlParams.get('user'));
+        const telegramId = userData.id.toString();
+        const customerId = await customerIdFromTelegramId(telegramId);
+        if (!customerId) return res.status(404).json({ success: false, error: 'ไม่พบลูกค้า' });
+
+        const result = await mysteryBox.openTicket({ customerId, ticketId: req.params.ticketId });
+        if (!result.success) {
+            const map = {
+                NOT_FOUND: 'ไม่พบตั๋ว',
+                NOT_OWNER: 'ตั๋วนี้ไม่ใช่ของคุณ',
+                NO_PRIZES_CONFIGURED: 'กล่องนี้ยังไม่ได้ตั้งค่ารางวัล',
+                INVALID_WEIGHTS: 'การตั้งค่ารางวัลไม่ถูกต้อง',
+                OPEN_FAILED: 'เปิดกล่องไม่สำเร็จ',
+                INVALID_INPUT: 'ข้อมูลไม่ครบ',
+            };
+            return res.status(400).json({ success: false, error: map[result.error] || 'เปิดกล่องไม่สำเร็จ' });
+        }
+        res.json(result);
+    } catch (e) {
+        console.error('Open mystery box ticket error:', e);
+        res.status(500).json({ success: false, error: 'เปิดกล่องไม่สำเร็จ' });
     }
 });
 

@@ -302,7 +302,7 @@
         </div>
 
         <!-- 🎁 Mystery Box Banner — โชว์เด่นบนสุด ถ้ามีกล่องที่ยังไม่เปิด -->
-        <div id="mystery-banner" class="hidden mt-2 mb-1 cursor-pointer rounded-2xl p-3.5 active:scale-[.98] transition" onclick="openMyCouponsModal(); try { Telegram.WebApp.hapticFeedback.impactOccurred('medium'); } catch(e){}" style="background: linear-gradient(135deg, rgba(168,85,247,0.25), rgba(236,72,153,0.25)); border: 1px solid rgba(168,85,247,0.5); animation: mystery-pulse 2.5s ease-in-out infinite;">
+        <a id="mystery-banner" href="mystery-box.html" class="hidden mt-2 mb-1 cursor-pointer rounded-2xl p-3.5 active:scale-[.98] transition" onclick="try { Telegram.WebApp.hapticFeedback.impactOccurred('medium'); } catch(e){}" style="background: linear-gradient(135deg, rgba(168,85,247,0.25), rgba(236,72,153,0.25)); border: 1px solid rgba(168,85,247,0.5); animation: mystery-pulse 2.5s ease-in-out infinite;">
             <div class="flex items-center gap-3">
                 <div class="text-3xl">🎁</div>
                 <div class="flex-1 min-w-0">
@@ -311,7 +311,7 @@
                 </div>
                 <i class="ri-arrow-right-s-line text-2xl text-white/70"></i>
             </div>
-        </div>
+        </a>
 
         <div class="glass-card p-5 relative overflow-hidden group border border-zinc-700 mt-2">
             <div class="flex justify-between items-start">
@@ -922,29 +922,33 @@
                 const telegramId = window.currentUser?.telegramUserId || tg.initDataUnsafe?.user?.id;
                 if (!telegramId) return;
 
-                const res = await fetch(`/api/coupons/my/${telegramId}`);
-                const data = await res.json();
+                // Coupon badge
+                const cRes = await fetch(`/api/coupons/my/${telegramId}`);
+                const cData = await cRes.json();
                 const badge = document.getElementById('coupon-badge');
-
-                if (data.success && data.coupons && data.coupons.length > 0) {
-                    badge.innerText = data.coupons.length;
+                if (cData.success && cData.coupons && cData.coupons.length > 0) {
+                    badge.innerText = cData.coupons.length;
                     badge.classList.remove('hidden');
                 } else {
                     badge.classList.add('hidden');
                 }
 
-                // Mystery box banner
-                const banner = document.getElementById('mystery-banner');
-                const bannerCount = document.getElementById('mystery-banner-count');
-                if (banner && bannerCount && data.success && Array.isArray(data.coupons)) {
-                    const lockedCount = data.coupons.filter(c => c.isMysteryBoxLocked).length;
-                    if (lockedCount > 0) {
-                        bannerCount.textContent = lockedCount;
-                        banner.classList.remove('hidden');
-                    } else {
-                        banner.classList.add('hidden');
+                // Mystery box banner — ดึงจาก API ใหม่
+                try {
+                    const mRes = await fetch(`/api/mystery-box/my/${telegramId}/unopened-count`);
+                    const mData = await mRes.json();
+                    const banner = document.getElementById('mystery-banner');
+                    const bannerCount = document.getElementById('mystery-banner-count');
+                    if (banner && bannerCount && mData.success) {
+                        const n = mData.unopened || 0;
+                        if (n > 0) {
+                            bannerCount.textContent = n;
+                            banner.classList.remove('hidden');
+                        } else {
+                            banner.classList.add('hidden');
+                        }
                     }
-                }
+                } catch (e) { /* silent */ }
             } catch (err) {
                 console.error("Failed to update coupon badge", err);
             }
@@ -1178,92 +1182,6 @@
         window.requestAnimationFrame(step);
         }
 
-        // ========== 🎁 MYSTERY BOX REVEAL ==========
-        async function openMysteryBox(customerCouponId) {
-            try { tg.hapticFeedback?.impactOccurred?.('medium'); } catch (e) {}
-
-            // 1) โชว์ overlay reveal modal พร้อม animation spin
-            showMysteryReveal('spinning');
-
-            // 2) เรียก API เปิดกล่อง (อย่างน้อย 1.6s ให้แอนิเมชันสวย)
-            const apiP = fetch(`/api/coupons/my/${customerCouponId}/open-mystery`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ initData: tg.initData }),
-            }).then(r => r.json()).catch((e) => ({ success: false, error: e.message }));
-
-            const minDelay = new Promise(r => setTimeout(r, 1700));
-            const [data] = await Promise.all([apiP, minDelay]);
-
-            if (!data || !data.success) {
-                showMysteryReveal('error', { message: data?.error || 'เปิดกล่องไม่สำเร็จ' });
-                return;
-            }
-
-            try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
-            showMysteryReveal('reveal', { coupon: data.coupon });
-
-            // 3) reload list หลัง close
-        }
-
-        function showMysteryReveal(state, opts = {}) {
-            let modal = document.getElementById('mystery-reveal-modal');
-            if (!modal) {
-                modal = document.createElement('div');
-                modal.id = 'mystery-reveal-modal';
-                modal.className = 'fixed inset-0 z-[80] flex items-center justify-center bg-black/90 backdrop-blur-md';
-                document.body.appendChild(modal);
-            }
-
-            if (state === 'spinning') {
-                modal.innerHTML = `
-                    <div class="text-center px-6">
-                        <div class="text-7xl mb-6 mystery-spin">🎁</div>
-                        <p class="text-white text-lg font-bold mb-2">กำลังเปิดกล่อง...</p>
-                        <p class="text-zinc-400 text-sm">ลุ้นรางวัลพิเศษ ✨</p>
-                    </div>`;
-                return;
-            }
-
-            if (state === 'error') {
-                modal.innerHTML = `
-                    <div class="text-center px-6">
-                        <div class="text-6xl mb-4">⚠️</div>
-                        <p class="text-red-400 text-lg font-bold mb-4">${opts.message || 'เกิดข้อผิดพลาด'}</p>
-                        <button onclick="closeMysteryReveal()" class="px-6 py-2 rounded-xl bg-zinc-700 text-white font-bold">ปิด</button>
-                    </div>`;
-                return;
-            }
-
-            if (state === 'reveal' && opts.coupon) {
-                const c = opts.coupon;
-                const fmt = (n) => Number(n).toLocaleString('th-TH', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 });
-                let rewardLabel = '';
-                if (c.type === 'GIFT') rewardLabel = `รับฟรี${c.giftQty && c.giftQty > 1 ? ` x${c.giftQty}` : ''}`;
-                else if (c.type === 'DISCOUNT_PERCENT') rewardLabel = `ลด ${fmt(c.value)}%`;
-                else if (c.type === 'DISCOUNT_FLAT') rewardLabel = `ลด ฿${fmt(c.value)}`;
-                const safeName = String(c.name || '').replace(/</g, '&lt;');
-                modal.innerHTML = `
-                    <div class="glass-card max-w-sm w-[88%] p-6 text-center bounce-in border border-yellow-400/30">
-                        <div class="text-7xl mb-4">🎉</div>
-                        <p class="text-yellow-400 text-xs uppercase tracking-widest font-bold mb-1">คุณได้รับ</p>
-                        <h2 class="text-2xl font-black text-white mb-1">${safeName}</h2>
-                        <div class="inline-block px-4 py-1 rounded-full bg-yellow-500/20 text-yellow-300 text-sm font-bold mb-5">${rewardLabel}</div>
-                        <button onclick="closeMysteryReveal()" class="w-full py-3 rounded-xl bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold active:scale-95">
-                            เริ่มใช้คูปอง
-                        </button>
-                    </div>`;
-            }
-        }
-
-        function closeMysteryReveal() {
-            const modal = document.getElementById('mystery-reveal-modal');
-            if (modal) modal.remove();
-            // reload wallet + refresh badge/banner
-            try { openMyCouponsModal(); } catch (e) {}
-            try { updateCouponBadge(); } catch (e) {}
-        }
-
         async function openMyCouponsModal() {
             hideBottomNav();
             const modal = document.getElementById('my-coupons-modal');
@@ -1285,35 +1203,7 @@
                 const data = await res.json();
 
                 if (data.success && data.coupons.length > 0) {
-                    // แยก mystery box ที่ยังไม่เปิด ออกจากคูปองปกติ
-                    const mysteryBoxes = data.coupons.filter(it => it.isMysteryBoxLocked);
-                    const regularCoupons = data.coupons.filter(it => !it.isMysteryBoxLocked);
-
-                    let mysteryHtml = '';
-                    if (mysteryBoxes.length > 0) {
-                        mysteryHtml = mysteryBoxes.map((cc, i) => `
-                            <div class="relative overflow-hidden rounded-2xl p-4 mb-3 mystery-box-card" style="background: linear-gradient(135deg, rgba(168,85,247,0.18), rgba(236,72,153,0.18)); border: 1px solid rgba(168,85,247,0.4); animation: mystery-pulse 2.5s ease-in-out infinite;">
-                                <div class="flex items-center gap-3 mb-3">
-                                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500/40 to-pink-500/40 flex items-center justify-center text-3xl flex-shrink-0">
-                                        🎁
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <div class="text-base font-bold text-white">กล่องสุ่มพิเศษ</div>
-                                        <div class="text-[11px] text-purple-200">เปิดเพื่อลุ้นรางวัลภายใน</div>
-                                    </div>
-                                </div>
-                                <button onclick="openMysteryBox(${cc.id})" class="w-full py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 font-bold text-white shadow-lg active:scale-95 transition flex items-center justify-center gap-2">
-                                    <i class="ri-magic-line"></i> เปิดกล่อง
-                                </button>
-                            </div>`).join('');
-                    }
-
-                    if (regularCoupons.length === 0) {
-                        list.innerHTML = mysteryHtml || `<div class="flex flex-col items-center justify-center h-full text-gray-500 opacity-60"><i class="ri-ticket-2-line text-6xl mb-4"></i><p>คุณยังไม่มีคูปอง</p></div>`;
-                        return;
-                    }
-
-                    const groupedCoupons = regularCoupons.reduce((acc, item) => {
+                    const groupedCoupons = data.coupons.reduce((acc, item) => {
                         const key = item.coupon.id;
                         
                         // คำนวณวันหมดอายุรายใบ
@@ -1343,7 +1233,7 @@
                         return acc;
                     }, {});
 
-                    list.innerHTML = mysteryHtml + Object.values(groupedCoupons).map((item, index) => {
+                    list.innerHTML = Object.values(groupedCoupons).map((item, index) => {
                         const validFrom = item.coupon.validFrom ? (window.formatDate ? window.formatDate(new Date(item.coupon.validFrom), { day: 'numeric', month: 'short', year: 'numeric' }) : new Date(item.coupon.validFrom).toLocaleDateString('th-TH')) : (window.t ? window.t('coupon.usable_now', 'ใช้ได้ทันที') : 'ใช้ได้ทันที');
                         const validUntil = item.nearestExpiryStr;
                         const countBadge = item.count > 1 ? `<span class="ml-2 px-2 py-0.5 bg-[#050C0D] text-white text-xs rounded-full font-bold border border-white/10">x${item.count}</span>` : '';
