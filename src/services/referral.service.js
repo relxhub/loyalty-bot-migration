@@ -175,7 +175,31 @@ const completeReferral = async (refereeId, purchaseAmount, orderId = null) => {
     }
 
     // 3. Calculate Bonus Points
-    const bonusPoints = activeCampaign?.baseReferral ?? parseInt(getConfig('standardReferralPoints')) ?? 50;
+    const baseBonus = activeCampaign?.baseReferral ?? parseInt(getConfig('standardReferralPoints')) ?? 50;
+
+    // Tier multiplier: คำนวณจาก referrer's monthly count (BEFORE incrementing)
+    const startOfMonth = (() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })();
+    const endOfMonth = (() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999); })();
+    const referrerMonthCount = await tx.referral.count({
+      where: {
+        referrerId: referral.referrerId,
+        status: 'COMPLETED',
+        completedAt: { gte: startOfMonth, lte: endOfMonth },
+      },
+    });
+    const silverMin = parseInt(getConfig('tier_silver_min')) || 3;
+    const goldMin = parseInt(getConfig('tier_gold_min')) || 6;
+    const silverMul = Number(getConfig('tier_silver_multiplier')) || 1.0;
+    const goldMul = Number(getConfig('tier_gold_multiplier')) || 1.0;
+    let tierMultiplier = 1.0;
+    let tierLabel = '';
+    if (referrerMonthCount >= goldMin) { tierMultiplier = goldMul; tierLabel = 'Gold'; }
+    else if (referrerMonthCount >= silverMin) { tierMultiplier = silverMul; tierLabel = 'Silver'; }
+    const bonusPoints = Math.round(baseBonus * tierMultiplier);
+    const tierMessage = (tierMultiplier > 1 && tierLabel)
+      ? ` (${tierLabel} x${tierMultiplier})`
+      : '';
+
     let earnedMilestoneBonus = 0;
     let milestoneMessage = '';
 
@@ -235,7 +259,7 @@ const completeReferral = async (refereeId, purchaseAmount, orderId = null) => {
 
     return {
       success: true,
-      message: `การแนะนำสำเร็จ! ผู้แนะนำ ${referral.referrerId} ได้รับ ${totalPointsToAdd} แต้ม${milestoneMessage}`,
+      message: `การแนะนำสำเร็จ! ผู้แนะนำ ${referral.referrerId} ได้รับ ${totalPointsToAdd} แต้ม${tierMessage}${milestoneMessage}`,
       bonus: totalPointsToAdd,
       referralId: referral.id,
       referrerId: referral.referrerId,

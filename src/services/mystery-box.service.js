@@ -134,6 +134,24 @@ export async function grantTickets({ customerId, event, eligibleAmount = null, r
             }
         }
 
+        // เงื่อนไข tier — ผู้รับต้องมี referrals สำเร็จในเดือนนี้ ≥ requiredTierMin
+        if (box.requiredTierMin != null && box.requiredTierMin > 0) {
+            const m = new Date();
+            const startOfMonth = new Date(m.getFullYear(), m.getMonth(), 1);
+            const endOfMonth = new Date(m.getFullYear(), m.getMonth() + 1, 0, 23, 59, 59, 999);
+            const monthCount = await prisma.referral.count({
+                where: {
+                    referrerId: customerId,
+                    status: 'COMPLETED',
+                    completedAt: { gte: startOfMonth, lte: endOfMonth },
+                },
+            });
+            if (monthCount < box.requiredTierMin) {
+                skipped.push({ boxId: box.id, reason: 'TIER_TOO_LOW', userMonthCount: monthCount, requiredTierMin: box.requiredTierMin });
+                continue;
+            }
+        }
+
         try {
             // กันแจกซ้ำต่อ Referral
             if (referralRowId) {
@@ -359,6 +377,7 @@ function shapeBoxForClient(box) {
         maxPurchaseAmount: box.maxPurchaseAmount != null ? Number(box.maxPurchaseAmount) : null,
         ticketsPerEvent: box.ticketsPerEvent,
         maxPerUser: box.maxPerUser,
+        requiredTierMin: box.requiredTierMin,
         endDate: box.endDate,
         prizes: (box.prizes || []).map((p) => ({
             ...shapePrizeForClient(p),

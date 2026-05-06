@@ -49,6 +49,11 @@ const configs = [
     { key: 'tier_bronze_label', value: 'Bronze' },
     { key: 'tier_silver_label', value: 'Silver' },
     { key: 'tier_gold_label',   value: 'Gold' },
+
+    // ตัวคูณแต้ม referral ตาม tier — ใช้ตอน completeReferral
+    // Bronze ไม่มี multiplier (= x1.0 เสมอ)
+    { key: 'tier_silver_multiplier', value: '1.10' }, // +10%
+    { key: 'tier_gold_multiplier',   value: '1.25' }, // +25%
 ];
 
 async function seedSystemConfig() {

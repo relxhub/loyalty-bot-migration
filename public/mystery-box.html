@@ -289,6 +289,9 @@
                         ? `รับ ${box.ticketsPerEvent} สิทธิ์/ครั้ง`
                         : `รับ 1 สิทธิ์/ครั้ง`;
                     const maxInfo = box.maxPerUser ? ` · เพดาน ${box.maxPerUser} ครั้ง/คน` : '';
+                    const tierInfo = (box.requiredTierMin && box.requiredTierMin > 0)
+                        ? ` · เฉพาะผู้ชวนเพื่อนเดือนนี้ ≥ ${box.requiredTierMin} คน`
+                        : '';
 
                     // User progress (claimed/maxPerUser)
                     let progressBadge = '';
@@ -348,7 +351,7 @@
                                 <div class="text-[11px] text-purple-200 mt-1.5 flex items-start gap-1.5">
                                     <i class="ri-check-line mt-0.5 flex-shrink-0"></i><span>${_esc(conditionText)}</span>
                                 </div>
-                                <div class="text-[10px] text-zinc-500 mt-0.5">${ticketsInfo}${maxInfo}</div>
+                                <div class="text-[10px] text-zinc-500 mt-0.5">${ticketsInfo}${maxInfo}${tierInfo}</div>
                                 ${progressBadge}
                             </div>
                         </div>
