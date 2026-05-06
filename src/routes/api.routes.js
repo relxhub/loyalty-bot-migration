@@ -2905,6 +2905,18 @@ async function getPermissionsFor(role, customRoleName = null) {
     return matrix[role] || [];
 }
 
+// requirePermission(a, section) — return true ถ้า admin มีสิทธิ์ใน section นั้น
+// Owner & SuperAdmin ดู roles ใน RBAC_DEFAULT/custom; Admin ดูเหมือนกัน
+async function requirePermission(a, section) {
+    if (!a?.admin) return false;
+    if (a.admin.role === 'Owner') return true;
+    const perms = await getPermissionsFor(a.admin.role, a.admin.customRoleName);
+    return perms.includes(section);
+}
+function denyPermission(res, section) {
+    return res.status(403).json({ success: false, error: `ไม่มีสิทธิ์เข้าถึง section: ${section}` });
+}
+
 // GET /api/admin/me — ใช้ตรวจสิทธิ์ตอน admin-app load
 router.get('/admin/me', async (req, res) => {
     const a = await authAdmin(req);
@@ -3907,6 +3919,7 @@ router.get('/admin/coupons/:id/detail', async (req, res) => {
 router.post('/admin/coupons', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'coupons'))) return denyPermission(res, 'coupons');
     try {
         const b = req.body || {};
         if (!b.id || !b.name || !b.type) return res.status(400).json({ success: false, error: 'id/name/type ห้ามว่าง' });
@@ -3925,6 +3938,7 @@ router.post('/admin/coupons', async (req, res) => {
 router.patch('/admin/coupons/:id', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'coupons'))) return denyPermission(res, 'coupons');
     try {
         const exist = await prisma.coupon.findUnique({ where: { id: req.params.id } });
         if (!exist) return res.status(404).json({ success: false, error: 'ไม่พบคูปอง' });
@@ -3941,6 +3955,7 @@ router.patch('/admin/coupons/:id', async (req, res) => {
 router.delete('/admin/coupons/:id', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'coupons'))) return denyPermission(res, 'coupons');
     try {
         const exist = await prisma.coupon.findUnique({ where: { id: req.params.id } });
         if (!exist) return res.status(404).json({ success: false, error: 'ไม่พบคูปอง' });
@@ -4212,6 +4227,7 @@ router.get('/admin/products/:id/detail', async (req, res) => {
 router.post('/admin/products', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'products'))) return denyPermission(res, 'products');
     try {
         const b = req.body || {};
         if (!b.imageUrl || (!b.nameTh && !b.nameEn)) return res.status(400).json({ success: false, error: 'ต้องมี name + imageUrl' });
@@ -4227,6 +4243,7 @@ router.post('/admin/products', async (req, res) => {
 router.patch('/admin/products/:id', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'products'))) return denyPermission(res, 'products');
     try {
         const id = parseInt(req.params.id);
         const exist = await prisma.product.findUnique({ where: { id } });
@@ -4245,6 +4262,7 @@ router.patch('/admin/products/:id', async (req, res) => {
 router.delete('/admin/products/:id', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'products'))) return denyPermission(res, 'products');
     try {
         const id = parseInt(req.params.id);
         const used = await prisma.orderItem.count({ where: { productId: id } });
@@ -4414,18 +4432,21 @@ import { runDailyDigestJob, runBirthdayCouponJob, runWinBackJob, notifyWishlistO
 router.post('/admin/jobs/daily-digest', async (req, res) => {
     const a = await authAdmin(req, ['SuperAdmin', 'Owner']);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'jobs'))) return denyPermission(res, 'jobs');
     runDailyDigestJob().catch(() => {});
     res.json({ success: true, message: 'triggered (running async)' });
 });
 router.post('/admin/jobs/birthday', async (req, res) => {
     const a = await authAdmin(req, ['SuperAdmin', 'Owner']);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'jobs'))) return denyPermission(res, 'jobs');
     runBirthdayCouponJob().catch(() => {});
     res.json({ success: true, message: 'triggered (running async)' });
 });
 router.post('/admin/jobs/winback', async (req, res) => {
     const a = await authAdmin(req, ['SuperAdmin', 'Owner']);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'jobs'))) return denyPermission(res, 'jobs');
     runWinBackJob().catch(() => {});
     res.json({ success: true, message: 'triggered (running async)' });
 });
@@ -4681,6 +4702,7 @@ router.get('/admin/stock-alert', async (req, res) => {
 router.post('/admin/products/bulk-price', async (req, res) => {
     const a = await authAdmin(req, ['SuperAdmin', 'Owner']);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'products'))) return denyPermission(res, 'products');
     try {
         const mode = String(req.body?.mode || ''); // 'pct' (เปอร์เซ็นต์), 'flat' (เพิ่ม/ลดบาท), 'set' (ปรับเป็นค่าเดียวกัน)
         const value = Number(req.body?.value);
@@ -4778,6 +4800,7 @@ router.get('/admin/global-search', async (req, res) => {
 router.post('/admin/products/bulk-stock', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'products'))) return denyPermission(res, 'products');
     try {
         const mode = String(req.body?.mode || '').toLowerCase();
         if (!['add', 'sub', 'set'].includes(mode)) return res.status(400).json({ success: false, error: 'mode ต้องเป็น add/sub/set' });
@@ -4864,6 +4887,7 @@ function sanitizeProductPayload(b) {
 router.post('/admin/shipping/sync-sheet', async (req, res) => {
     const a = await authAdmin(req, ['SuperAdmin', 'Owner']);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'ship-sync'))) return denyPermission(res, 'ship-sync');
     try {
         const sheetUrl = String(req.body?.sheetUrl || '').trim();
         if (!sheetUrl.includes('docs.google.com/spreadsheets')) {
@@ -5031,6 +5055,7 @@ function sanitizeBankPayload(b, isCreate) {
 router.post('/admin/broadcast', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'broadcast'))) return denyPermission(res, 'broadcast');
     try {
         const b = req.body || {};
         if (!b.title || !b.body) return res.status(400).json({ success: false, error: 'title/body ห้ามว่าง' });
@@ -5276,6 +5301,7 @@ router.get('/admin/banners', async (req, res) => {
 router.post('/admin/banners', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'banners'))) return denyPermission(res, 'banners');
     try {
         const b = req.body || {};
         if (!b.imageUrl) return res.status(400).json({ success: false, error: 'imageUrl ห้ามว่าง' });
@@ -5290,6 +5316,7 @@ router.post('/admin/banners', async (req, res) => {
 router.patch('/admin/banners/:id', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'banners'))) return denyPermission(res, 'banners');
     try {
         const id = parseInt(req.params.id);
         const exist = await prisma.banner.findUnique({ where: { id } });
@@ -5308,6 +5335,7 @@ router.patch('/admin/banners/:id', async (req, res) => {
 router.delete('/admin/banners/:id', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'banners'))) return denyPermission(res, 'banners');
     try {
         await prisma.banner.delete({ where: { id: parseInt(req.params.id) } });
         res.json({ success: true });
@@ -5327,6 +5355,7 @@ router.get('/admin/campaigns', async (req, res) => {
 router.post('/admin/campaigns', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'campaigns'))) return denyPermission(res, 'campaigns');
     try {
         const b = req.body || {};
         if (!b.name || !b.startDate || !b.endDate) return res.status(400).json({ success: false, error: 'name/startDate/endDate ห้ามว่าง' });
@@ -5341,6 +5370,7 @@ router.post('/admin/campaigns', async (req, res) => {
 router.patch('/admin/campaigns/:id', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'campaigns'))) return denyPermission(res, 'campaigns');
     try {
         const id = parseInt(req.params.id);
         const exist = await prisma.campaign.findUnique({ where: { id } });
@@ -5356,6 +5386,7 @@ router.patch('/admin/campaigns/:id', async (req, res) => {
 router.delete('/admin/campaigns/:id', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'campaigns'))) return denyPermission(res, 'campaigns');
     try {
         await prisma.campaign.delete({ where: { id: parseInt(req.params.id) } });
         res.json({ success: true });
@@ -5401,6 +5432,7 @@ router.get('/admin/categories', async (req, res) => {
 router.post('/admin/categories', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'categories'))) return denyPermission(res, 'categories');
     try {
         const b = req.body || {};
         if (!b.name) return res.status(400).json({ success: false, error: 'ชื่อหมวดห้ามว่าง' });
@@ -5417,6 +5449,7 @@ router.post('/admin/categories', async (req, res) => {
 router.patch('/admin/categories/:id', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'categories'))) return denyPermission(res, 'categories');
     try {
         const id = parseInt(req.params.id);
         const exist = await prisma.category.findUnique({ where: { id } });
@@ -5434,6 +5467,7 @@ router.patch('/admin/categories/:id', async (req, res) => {
 router.delete('/admin/categories/:id', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'categories'))) return denyPermission(res, 'categories');
     try {
         const id = parseInt(req.params.id);
         const cnt = await prisma.product.count({ where: { categoryId: id } });
@@ -5515,6 +5549,7 @@ function sanitizeCouponPayload(b) {
 router.patch('/admin/coupons/:id/toggle', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'coupons'))) return denyPermission(res, 'coupons');
     try {
         const c = await prisma.coupon.findUnique({ where: { id: req.params.id } });
         if (!c) return res.status(404).json({ success: false, error: 'ไม่พบคูปอง' });
@@ -5568,6 +5603,7 @@ router.get('/admin/mystery-boxes', async (req, res) => {
 router.post('/admin/mystery-boxes', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'mystery-boxes'))) return denyPermission(res, 'mystery-boxes');
     try {
         const b = req.body || {};
         if (!b.id || !b.name || !b.trigger) {
@@ -5607,6 +5643,7 @@ router.post('/admin/mystery-boxes', async (req, res) => {
 router.patch('/admin/mystery-boxes/:id', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'mystery-boxes'))) return denyPermission(res, 'mystery-boxes');
     try {
         const id = req.params.id;
         const exist = await prisma.mysteryBox.findUnique({ where: { id } });
@@ -5639,6 +5676,7 @@ router.patch('/admin/mystery-boxes/:id', async (req, res) => {
 router.post('/admin/mystery-boxes/:id/prizes', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'mystery-boxes'))) return denyPermission(res, 'mystery-boxes');
     try {
         const boxId = req.params.id;
         const exist = await prisma.mysteryBox.findUnique({ where: { id: boxId } });
@@ -5671,6 +5709,7 @@ router.post('/admin/mystery-boxes/:id/prizes', async (req, res) => {
 router.patch('/admin/mystery-boxes/:boxId/prizes/:prizeId', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'mystery-boxes'))) return denyPermission(res, 'mystery-boxes');
     try {
         const prizeId = parseInt(req.params.prizeId);
         const exist = await prisma.mysteryBoxPrize.findUnique({ where: { id: prizeId } });
@@ -5700,6 +5739,7 @@ router.patch('/admin/mystery-boxes/:boxId/prizes/:prizeId', async (req, res) => 
 router.delete('/admin/mystery-boxes/:boxId/prizes/:prizeId', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'mystery-boxes'))) return denyPermission(res, 'mystery-boxes');
     try {
         const prizeId = parseInt(req.params.prizeId);
         const exist = await prisma.mysteryBoxPrize.findUnique({ where: { id: prizeId } });
@@ -5740,6 +5780,7 @@ router.get('/admin/coupon-options', async (req, res) => {
 router.patch('/admin/mystery-boxes/:id/toggle', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!(await requirePermission(a, 'mystery-boxes'))) return denyPermission(res, 'mystery-boxes');
     try {
         const b = await prisma.mysteryBox.findUnique({ where: { id: req.params.id } });
         if (!b) return res.status(404).json({ success: false, error: 'ไม่พบกล่อง' });

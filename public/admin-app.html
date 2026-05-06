@@ -1613,13 +1613,20 @@
                 const res = await fetch('/api/admin/global-search?q=' + encodeURIComponent(q), { headers: { 'X-Init-Data': tg.initData } });
                 const data = await res.json();
                 if (!data.success) throw new Error(data.error);
+                // filter ตาม permissions ของ admin คนนี้ — กัน Admin role bypass ผ่าน search
+                const perms = new Set(window._myPermissions || []);
+                const can = (s) => perms.has(s);
+                const orders = can('orders') ? data.orders : [];
+                const customers = can('customers') ? data.customers : [];
+                const products = can('products') ? data.products : [];
+                const coupons = can('coupons') ? data.coupons : [];
                 const sec = (label, items, render) => items.length ? `<div class="mb-3"><div class="text-[10px] text-zinc-500 font-bold mb-1">${label} (${items.length})</div>${items.map(render).join('')}</div>` : '';
                 wrap.innerHTML =
-                    sec('🛒 ออเดอร์', data.orders, o => `<div class="text-xs py-1 cursor-pointer hover:text-emerald-300" onclick="closeGlobalSearch();showView('orders');setTimeout(()=>openOrdDetail('${_esc(o.id)}'),300)"><code>#${_esc(o.id)}</code> · ${_esc(o.status)} · ฿${_fmt(o.totalAmount)}</div>`) +
-                    sec('👥 ลูกค้า', data.customers, c => `<div class="text-xs py-1 cursor-pointer hover:text-blue-300" onclick="closeGlobalSearch();showView('customers');setTimeout(()=>openCustModal('${_esc(c.customerId)}'),300)"><code>${_esc(c.customerId)}</code> · ${_esc((c.firstName||'')+' '+(c.lastName||''))} · ${_esc(c.phoneNumber||'')}</div>`) +
-                    sec('🛍️ สินค้า', data.products, p => `<div class="text-xs py-1 cursor-pointer hover:text-pink-300" onclick="closeGlobalSearch();showView('products');setTimeout(()=>openProdEdit(${p.id}),300)">${_esc(p.nameTh||p.nameEn)} · stock ${p.stockQuantity} · ${p.status}</div>`) +
-                    sec('🎫 คูปอง', data.coupons, c => `<div class="text-xs py-1 cursor-pointer hover:text-yellow-300" onclick="closeGlobalSearch();showView('coupons');setTimeout(()=>openCpnEdit('${_esc(c.id)}'),300)">${_esc(c.name)} · <code>${_esc(c.id)}</code> · ${c.isActive?'Active':'Hidden'}</div>`) ||
-                    '<div class="text-center text-zinc-500 py-3 text-xs">ไม่พบ</div>';
+                    sec('🛒 ออเดอร์', orders, o => `<div class="text-xs py-1 cursor-pointer hover:text-emerald-300" onclick="closeGlobalSearch();showView('orders');setTimeout(()=>openOrdDetail('${_esc(o.id)}'),300)"><code>#${_esc(o.id)}</code> · ${_esc(o.status)} · ฿${_fmt(o.totalAmount)}</div>`) +
+                    sec('👥 ลูกค้า', customers, c => `<div class="text-xs py-1 cursor-pointer hover:text-blue-300" onclick="closeGlobalSearch();showView('customers');setTimeout(()=>openCustModal('${_esc(c.customerId)}'),300)"><code>${_esc(c.customerId)}</code> · ${_esc((c.firstName||'')+' '+(c.lastName||''))} · ${_esc(c.phoneNumber||'')}</div>`) +
+                    sec('🛍️ สินค้า', products, p => `<div class="text-xs py-1 cursor-pointer hover:text-pink-300" onclick="closeGlobalSearch();showView('products');setTimeout(()=>openProdEdit(${p.id}),300)">${_esc(p.nameTh||p.nameEn)} · stock ${p.stockQuantity} · ${p.status}</div>`) +
+                    sec('🎫 คูปอง', coupons, c => `<div class="text-xs py-1 cursor-pointer hover:text-yellow-300" onclick="closeGlobalSearch();showView('coupons');setTimeout(()=>openCpnEdit('${_esc(c.id)}'),300)">${_esc(c.name)} · <code>${_esc(c.id)}</code> · ${c.isActive?'Active':'Hidden'}</div>`) ||
+                    '<div class="text-center text-zinc-500 py-3 text-xs">ไม่พบ${perms.size < 4 ? ' <span class="text-zinc-600">(กรองตามสิทธิ์ของคุณ)</span>' : ''}</div>';
             } catch (e) { wrap.innerHTML = `<div class="text-center text-red-400 py-3 text-xs">${_esc(e.message||'error')}</div>`; }
         }
         function closeGlobalSearch() {
