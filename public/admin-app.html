@@ -429,6 +429,7 @@
                 <button onclick="openProdEdit()" class="text-xs px-3 py-1.5 rounded-full bg-pink-500 hover:bg-pink-400 text-white font-bold"><i class="ri-add-line"></i> สร้างใหม่</button>
             </div>
             <input id="prod-search" type="text" placeholder="ค้นหาสินค้า..." class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-sm text-white placeholder-zinc-500 focus:border-pink-400 focus:outline-none mb-2">
+            <div id="prod-cat-chips" class="flex gap-1.5 overflow-x-auto pb-2 mb-1 -mx-1 px-1 scrollbar-hide"></div>
             <div id="prod-list" class="space-y-2"></div>
         </div>
 
@@ -566,10 +567,21 @@
         let _catOptionsCache = [];
 
         // ---------- View routing ----------
+        const _viewScroll = {}; // viewName → scrollY ก่อนสลับออก
+        let _currentView = 'home';
+
         function showView(name) {
+            // 1) จำตำแหน่ง scroll ของ view ที่กำลังจะออก
+            if (_currentView) _viewScroll[_currentView] = window.scrollY || document.documentElement.scrollTop || 0;
             document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
             document.getElementById('view-' + name).classList.remove('hidden');
             document.getElementById('back-btn').classList.toggle('hidden', name === 'home');
+            _currentView = name;
+            // 2) restore scroll — รอ frame เพื่อให้ view show ก่อน, แล้ว retry หลัง data load (200ms+500ms)
+            const targetY = _viewScroll[name] || 0;
+            requestAnimationFrame(() => window.scrollTo(0, targetY));
+            setTimeout(() => window.scrollTo(0, targetY), 200);
+            setTimeout(() => window.scrollTo(0, targetY), 500);
             // load data
             if (name === 'shipments') loadShipments();
             else if (name === 'customers') { document.getElementById('cust-list').innerHTML = ''; }
@@ -1321,9 +1333,68 @@
         }
 
         // ---------- 🛍️ Products ----------
+        let _prodCatFilter = 'all'; // 'all' | categoryId (number as string)
+
+        function renderProdCatChips() {
+            const all = window._prodCache || [];
+            // นับสินค้าต่อหมวด
+            const counts = new Map();
+            const catNameMap = new Map();
+            for (const p of all) {
+                const id = p.category?.id ?? null;
+                counts.set(id, (counts.get(id) || 0) + 1);
+                if (p.category && !catNameMap.has(id)) catNameMap.set(id, p.category.name);
+            }
+            const chips = document.getElementById('prod-cat-chips');
+            const order = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]); // ตามจำนวน desc
+            const totalChip = `<button data-cat="all" class="prod-chip whitespace-nowrap text-xs px-3 py-1.5 rounded-full ${_prodCatFilter==='all'?'bg-pink-500/20 text-pink-300 border border-pink-500/40 font-bold':'bg-white/5 text-zinc-400 border border-white/10'}">ทั้งหมด (${all.length})</button>`;
+            const catChips = order.map(([id, n]) => {
+                const key = id == null ? 'none' : String(id);
+                const label = id == null ? 'ไม่มีหมวด' : (catNameMap.get(id) || `#${id}`);
+                const active = _prodCatFilter === key;
+                return `<button data-cat="${_esc(key)}" class="prod-chip whitespace-nowrap text-xs px-3 py-1.5 rounded-full ${active?'bg-pink-500/20 text-pink-300 border border-pink-500/40 font-bold':'bg-white/5 text-zinc-400 border border-white/10'}">${_esc(label)} (${n})</button>`;
+            }).join('');
+            chips.innerHTML = totalChip + catChips;
+            chips.querySelectorAll('.prod-chip').forEach(b => {
+                b.addEventListener('click', () => { _prodCatFilter = b.dataset.cat; renderProdCatChips(); renderProdList(); });
+            });
+        }
+
+        function renderProdList() {
+            const list = document.getElementById('prod-list');
+            const all = window._prodCache || [];
+            const filtered = all.filter(p => {
+                if (_prodCatFilter === 'all') return true;
+                if (_prodCatFilter === 'none') return p.category == null;
+                return String(p.category?.id) === _prodCatFilter;
+            });
+            if (!filtered.length) { list.innerHTML = '<div class="text-center text-zinc-500 py-6 text-sm">ไม่มีสินค้าในหมวดนี้</div>'; return; }
+            list.innerHTML = filtered.map((p, idx) => {
+                const isOut = p.status === 'OUT_OF_STOCK';
+                const tags = [];
+                if (p.isHot) tags.push('<span class="text-[9px] px-1 py-0.5 rounded bg-red-500/20 text-red-300">HOT</span>');
+                if (p.isNew) tags.push('<span class="text-[9px] px-1 py-0.5 rounded bg-blue-500/20 text-blue-300">NEW</span>');
+                if (!p.allowCoupons) tags.push('<span class="text-[9px] px-1 py-0.5 rounded bg-zinc-500/20 text-zinc-300">no-coupon</span>');
+                return `
+                <div class="bg-white/5 border border-white/10 rounded-xl p-2.5 flex items-center gap-2.5 cursor-pointer hover:bg-white/10 item-fade-in" style="animation-delay:${Math.min(idx,20)*15}ms" onclick="openProdEdit(${p.id})">
+                    <img src="${_esc(p.imageUrl)}" class="w-12 h-12 rounded object-cover ${isOut?'opacity-40':''}">
+                    <div class="flex-1 min-w-0">
+                        <div class="text-xs font-bold text-white truncate">${_esc(p.nameTh || p.nameEn || '—')}</div>
+                        <div class="text-[10px] text-zinc-500">${_esc(p.category?.name||'ไม่มีหมวด')} · stock ${p.stockQuantity}</div>
+                        <div class="flex flex-wrap gap-1 mt-0.5">${tags.join('')}</div>
+                    </div>
+                    <label class="switch flex-shrink-0" onclick="event.stopPropagation()">
+                        <input type="checkbox" ${!isOut?'checked':''} onchange="toggleProdStock(${p.id}, this)">
+                        <span class="slider"></span>
+                    </label>
+                </div>`;
+            }).join('');
+        }
+
         async function loadAdminProducts() {
             const list = document.getElementById('prod-list');
             list.innerHTML = '<div class="text-center text-zinc-500 py-6 animate-pulse">กำลังโหลด...</div>';
+            document.getElementById('prod-cat-chips').innerHTML = '';
             const q = document.getElementById('prod-search').value.trim();
             try {
                 const res = await fetch(`/api/admin/products${q ? '?q=' + encodeURIComponent(q) : ''}`, { headers: { 'X-Init-Data': tg.initData } });
@@ -1331,26 +1402,8 @@
                 if (!data.success) throw new Error(data.error || 'load failed');
                 window._prodCache = data.products;
                 if (!data.products.length) { list.innerHTML = '<div class="text-center text-zinc-500 py-6 text-sm">ไม่มีสินค้า</div>'; return; }
-                list.innerHTML = data.products.map((p, idx) => {
-                    const isOut = p.status === 'OUT_OF_STOCK';
-                    const tags = [];
-                    if (p.isHot) tags.push('<span class="text-[9px] px-1 py-0.5 rounded bg-red-500/20 text-red-300">HOT</span>');
-                    if (p.isNew) tags.push('<span class="text-[9px] px-1 py-0.5 rounded bg-blue-500/20 text-blue-300">NEW</span>');
-                    if (!p.allowCoupons) tags.push('<span class="text-[9px] px-1 py-0.5 rounded bg-zinc-500/20 text-zinc-300">no-coupon</span>');
-                    return `
-                    <div class="bg-white/5 border border-white/10 rounded-xl p-2.5 flex items-center gap-2.5 cursor-pointer hover:bg-white/10 item-fade-in" style="animation-delay:${idx*20}ms" onclick="openProdEdit(${p.id})">
-                        <img src="${_esc(p.imageUrl)}" class="w-12 h-12 rounded object-cover ${isOut?'opacity-40':''}">
-                        <div class="flex-1 min-w-0">
-                            <div class="text-xs font-bold text-white truncate">${_esc(p.nameTh || p.nameEn || '—')}</div>
-                            <div class="text-[10px] text-zinc-500">${_esc(p.category?.name||'ไม่มีหมวด')} · stock ${p.stockQuantity}</div>
-                            <div class="flex flex-wrap gap-1 mt-0.5">${tags.join('')}</div>
-                        </div>
-                        <label class="switch flex-shrink-0" onclick="event.stopPropagation()">
-                            <input type="checkbox" ${!isOut?'checked':''} onchange="toggleProdStock(${p.id}, this)">
-                            <span class="slider"></span>
-                        </label>
-                    </div>`;
-                }).join('');
+                renderProdCatChips();
+                renderProdList();
             } catch (e) { list.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`; }
         }
 
