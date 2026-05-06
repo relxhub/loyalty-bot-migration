@@ -3093,6 +3093,102 @@ router.delete('/admin/coupons/:id', async (req, res) => {
     }
 });
 
+// ---------- 📊 OWNER FINANCIAL DASHBOARD ----------
+router.get('/admin/dashboard/financial', async (req, res) => {
+    const a = await authAdmin(req, ['Owner']);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const period = (req.query.period || '30').toString();
+        const since = period === 'all' ? null : new Date(Date.now() - parseInt(period) * 86400000);
+        const dateFilter = since ? { createdAt: { gte: since } } : {};
+        const paidStatuses = ['PAID', 'PROCESSING', 'SHIPPED'];
+
+        // revenue (PRODUCT only — PRIZE_DELIVERY คือค่าส่ง ไม่ใช่ยอดขาย)
+        const ordersAgg = await prisma.order.aggregate({
+            where: { ...dateFilter, kind: 'PRODUCT', status: { in: paidStatuses } },
+            _sum: { totalAmount: true },
+            _count: { _all: true },
+        });
+        const revenue = Number(ordersAgg._sum.totalAmount || 0);
+        const paidOrders = ordersAgg._count._all || 0;
+        const aov = paidOrders ? revenue / paidOrders : 0;
+
+        // customers
+        const [newCustomers, totalCustomers] = await Promise.all([
+            prisma.customer.count({ where: { isDeleted: false, ...(since ? { joinDate: { gte: since } } : {}) } }),
+            prisma.customer.count({ where: { isDeleted: false } }),
+        ]);
+
+        // referrals
+        const [completedReferrals, pendingReferrals] = await Promise.all([
+            prisma.referral.count({ where: { status: 'COMPLETED', ...(since ? { completedAt: { gte: since } } : {}) } }),
+            prisma.referral.count({ where: { status: 'PENDING_PURCHASE' } }),
+        ]);
+
+        // points
+        const pointsAgg = await prisma.customer.aggregate({ _sum: { points: true } });
+        const pointsOutstanding = Number(pointsAgg._sum.points || 0);
+        const issuedAgg = await prisma.pointTransaction.aggregate({
+            where: { ...(since ? { createdAt: { gte: since } } : {}), amount: { gt: 0 } },
+            _sum: { amount: true },
+        });
+        const pointsIssued = Number(issuedAgg._sum.amount || 0);
+
+        // coupons
+        const couponsClaimed = await prisma.customerCoupon.count({ where: since ? { claimedAt: { gte: since } } : {} });
+        const couponsUsed = await prisma.customerCoupon.count({ where: { status: 'USED', ...(since ? { usedAt: { gte: since } } : {}) } });
+
+        // top products (in revenue) — group by productId, join name
+        const itemsGrouped = await prisma.orderItem.groupBy({
+            by: ['productId'],
+            where: { order: { ...dateFilter, kind: 'PRODUCT', status: { in: paidStatuses } } },
+            _sum: { quantity: true },
+            orderBy: { _sum: { quantity: 'desc' } },
+            take: 5,
+        });
+        const productIds = itemsGrouped.map(i => i.productId);
+        const products = productIds.length ? await prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, name: true, price: true } }) : [];
+        const pMap = new Map(products.map(p => [p.id, p]));
+        const topProducts = itemsGrouped.map(i => {
+            const p = pMap.get(i.productId);
+            return { id: i.productId, name: p?.name || `#${i.productId}`, qty: i._sum.quantity || 0, revenue: Number(p?.price || 0) * (i._sum.quantity || 0) };
+        });
+
+        // tier distribution — best-effort: ใช้ referralCount จาก Customer (ตามนิยาม Bronze<3 / Silver 3-5 / Gold 6+)
+        const allCust = await prisma.customer.findMany({ where: { isDeleted: false }, select: { referralCount: true } });
+        const tierCounts = { Bronze: 0, Silver: 0, Gold: 0 };
+        for (const c of allCust) {
+            if (c.referralCount >= 6) tierCounts.Gold++;
+            else if (c.referralCount >= 3) tierCounts.Silver++;
+            else tierCounts.Bronze++;
+        }
+
+        // mystery box stats
+        const [ticketsIssued, opened, shipmentsPending] = await Promise.all([
+            prisma.mysteryBoxTicket.count({ where: since ? { createdAt: { gte: since } } : {} }),
+            prisma.mysteryBoxTicket.count({ where: { status: 'OPENED', ...(since ? { openedAt: { gte: since } } : {}) } }),
+            prisma.prizeShipment.count({ where: { status: 'PENDING' } }),
+        ]);
+
+        res.json({
+            success: true,
+            data: {
+                revenue, paidOrders, aov,
+                newCustomers, totalCustomers,
+                completedReferrals, pendingReferrals,
+                pointsOutstanding, pointsIssued,
+                couponsClaimed, couponsUsed,
+                topProducts,
+                tierCounts,
+                boxStats: { ticketsIssued, opened, shipmentsPending },
+            },
+        });
+    } catch (e) {
+        console.error('admin dashboard error:', e);
+        res.status(500).json({ success: false, error: e.message || 'load failed' });
+    }
+});
+
 // GET /admin/category-options — สำหรับเลือกใน coupon form (giftCategoryId / targetCategoryId)
 router.get('/admin/category-options', async (req, res) => {
     const a = await authAdmin(req);

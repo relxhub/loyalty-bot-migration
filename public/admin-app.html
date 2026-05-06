@@ -115,7 +115,29 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
-            <div class="text-[10px] text-zinc-600 text-center pt-3">Phase 2.5 จะรองรับ create/edit เต็มรูปแบบ</div>
+            <!-- Owner-only: financial dashboard -->
+            <button id="menu-dashboard" onclick="showView('dashboard')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left hidden border-yellow-500/40">
+                <div class="w-12 h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center text-2xl">📊</div>
+                <div class="flex-1">
+                    <div class="font-bold text-white text-sm">Financial Dashboard <span class="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/30 text-yellow-300 font-bold ml-1">Owner</span></div>
+                    <div class="text-[11px] text-zinc-400">รายได้ · สมาชิกใหม่ · top สินค้า</div>
+                </div>
+                <i class="ri-arrow-right-s-line text-zinc-400"></i>
+            </button>
+        </div>
+
+        <!-- 📊 Dashboard view (Owner only) -->
+        <div id="view-dashboard" class="hidden">
+            <div class="flex items-center justify-between mb-3">
+                <div class="font-bold text-sm flex items-center gap-2"><i class="ri-line-chart-line text-yellow-400"></i> Financial Dashboard</div>
+                <select id="dash-period" onchange="loadDashboard()" class="text-xs bg-white/5 border border-white/10 rounded-lg p-1.5 text-white">
+                    <option value="7">7 วัน</option>
+                    <option value="30" selected>30 วัน</option>
+                    <option value="90">90 วัน</option>
+                    <option value="all">ทั้งหมด</option>
+                </select>
+            </div>
+            <div id="dash-content"><div class="text-center text-zinc-500 py-8 animate-pulse">กำลังโหลด...</div></div>
         </div>
 
         <!-- 📦 Shipments view -->
@@ -237,6 +259,7 @@
             else if (name === 'customers') { document.getElementById('cust-list').innerHTML = ''; }
             else if (name === 'coupons') loadCoupons();
             else if (name === 'mystery-boxes') loadMysteryBoxes();
+            else if (name === 'dashboard') loadDashboard();
         }
         function goHome() { showView('home'); loadShipmentsBadge(); }
 
@@ -259,6 +282,8 @@
                 const roleEl = document.getElementById('admin-role');
                 roleEl.textContent = me.role;
                 roleEl.classList.add(`role-${me.role}`);
+                window._adminRole = me.role;
+                if (me.role === 'Owner') document.getElementById('menu-dashboard').classList.remove('hidden');
                 document.getElementById('loading-screen').classList.add('hidden');
                 document.getElementById('app').classList.remove('hidden');
 
@@ -501,6 +526,86 @@
                 closeAdjModal();
                 openCustModal(id); // refresh
             } catch (e) { alert('error: '+e.message); btn.disabled=false; btn.textContent='บันทึก'; }
+        }
+
+        // ---------- 📊 Owner Dashboard ----------
+        async function loadDashboard() {
+            const wrap = document.getElementById('dash-content');
+            const period = document.getElementById('dash-period').value;
+            wrap.innerHTML = '<div class="text-center text-zinc-500 py-8 animate-pulse">กำลังโหลด...</div>';
+            try {
+                const res = await fetch(`/api/admin/dashboard/financial?period=${encodeURIComponent(period)}`, { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'load failed');
+                const d = data.data;
+                wrap.innerHTML = `
+                    <div class="grid grid-cols-2 gap-2 mb-3">
+                        <div class="glass-card p-3">
+                            <div class="text-[10px] text-zinc-400">รายได้รวม</div>
+                            <div class="text-lg font-bold text-yellow-300">฿${_fmt(d.revenue)}</div>
+                            <div class="text-[10px] text-zinc-500">${d.paidOrders} ออเดอร์</div>
+                        </div>
+                        <div class="glass-card p-3">
+                            <div class="text-[10px] text-zinc-400">AOV</div>
+                            <div class="text-lg font-bold text-white">฿${_fmt(d.aov)}</div>
+                            <div class="text-[10px] text-zinc-500">เฉลี่ย/ออเดอร์</div>
+                        </div>
+                        <div class="glass-card p-3">
+                            <div class="text-[10px] text-zinc-400">สมาชิกใหม่</div>
+                            <div class="text-lg font-bold text-blue-300">${_fmt(d.newCustomers)}</div>
+                            <div class="text-[10px] text-zinc-500">รวม ${_fmt(d.totalCustomers)}</div>
+                        </div>
+                        <div class="glass-card p-3">
+                            <div class="text-[10px] text-zinc-400">Referral สำเร็จ</div>
+                            <div class="text-lg font-bold text-pink-300">${_fmt(d.completedReferrals)}</div>
+                            <div class="text-[10px] text-zinc-500">รอ ${_fmt(d.pendingReferrals)}</div>
+                        </div>
+                        <div class="glass-card p-3">
+                            <div class="text-[10px] text-zinc-400">แต้มคงเหลือ</div>
+                            <div class="text-lg font-bold text-purple-300">${_fmt(d.pointsOutstanding)}</div>
+                            <div class="text-[10px] text-zinc-500">issued ${_fmt(d.pointsIssued)}</div>
+                        </div>
+                        <div class="glass-card p-3">
+                            <div class="text-[10px] text-zinc-400">คูปองใช้แล้ว</div>
+                            <div class="text-lg font-bold text-green-300">${_fmt(d.couponsUsed)}</div>
+                            <div class="text-[10px] text-zinc-500">เก็บ ${_fmt(d.couponsClaimed)}</div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card p-3 mb-3">
+                        <div class="text-[11px] font-bold text-zinc-300 mb-2">🏆 Top Products (ตามยอดขาย)</div>
+                        ${d.topProducts.length ? d.topProducts.map((p, i) => `
+                            <div class="flex items-center gap-2 py-1.5 ${i>0?'border-t border-white/5':''}">
+                                <div class="w-5 text-zinc-500 text-xs text-center">${i+1}</div>
+                                <div class="flex-1 min-w-0 text-xs text-white truncate">${_esc(p.name)}</div>
+                                <div class="text-xs text-yellow-300 font-bold">฿${_fmt(p.revenue)}</div>
+                                <div class="text-[10px] text-zinc-500 w-12 text-right">x${p.qty}</div>
+                            </div>`).join('') : '<div class="text-zinc-500 text-xs text-center py-2">ยังไม่มีข้อมูล</div>'}
+                    </div>
+
+                    <div class="glass-card p-3 mb-3">
+                        <div class="text-[11px] font-bold text-zinc-300 mb-2">💎 Tier Distribution</div>
+                        ${Object.entries(d.tierCounts).map(([t, n]) => `
+                            <div class="flex items-center justify-between text-xs py-1">
+                                <span class="text-zinc-400">${t}</span>
+                                <span class="text-white font-bold">${_fmt(n)}</span>
+                            </div>`).join('')}
+                    </div>
+
+                    <div class="glass-card p-3">
+                        <div class="text-[11px] font-bold text-zinc-300 mb-2">🎁 Mystery Box</div>
+                        <div class="grid grid-cols-3 gap-2 text-center">
+                            <div><div class="text-base font-bold text-purple-300">${_fmt(d.boxStats.ticketsIssued)}</div><div class="text-[10px] text-zinc-500">tickets ออก</div></div>
+                            <div><div class="text-base font-bold text-purple-300">${_fmt(d.boxStats.opened)}</div><div class="text-[10px] text-zinc-500">เปิดแล้ว</div></div>
+                            <div><div class="text-base font-bold text-orange-300">${_fmt(d.boxStats.shipmentsPending)}</div><div class="text-[10px] text-zinc-500">รอจัดส่ง</div></div>
+                        </div>
+                    </div>
+
+                    <div class="text-[10px] text-zinc-600 text-center pt-3">ข้อมูล ณ ${new Date().toLocaleString('th-TH')} · ช่วง ${period === 'all' ? 'ทั้งหมด' : period+' วัน'}</div>
+                `;
+            } catch (e) {
+                wrap.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`;
+            }
         }
 
         // ---------- 🎫 Coupons ----------
