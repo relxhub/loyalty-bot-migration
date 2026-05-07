@@ -1836,6 +1836,24 @@
                     window._overPaidCopyCache[order.id] = op.copyMessage || '';
                 }
 
+                // ----- Countdown for PENDING_PAYMENT (per-order Phase 4 expiryMinutes) -----
+                // ใช้ order.expiryMinutes ก่อน (snapshot ตาม customer tier) — fallback ค่ากลาง
+                let countdownHtml = '';
+                const _isPendingNonMismatch = order.status === 'PENDING_PAYMENT' && !order.mismatchLocked;
+                if (_isPendingNonMismatch) {
+                    const _expMin = (order.expiryMinutes != null) ? order.expiryMinutes : (window.currentExpiryMinutes || 30);
+                    countdownHtml = `
+                        <div id="od-countdown-row" class="flex items-center gap-2 px-3 py-2.5 rounded-xl border bg-orange-500/10 border-orange-500/30 text-orange-300 mb-3"
+                             data-created-at="${order.createdAt}" data-expiry-min="${_expMin}">
+                            <i id="od-countdown-icon" class="ri-timer-flash-line text-base"></i>
+                            <div class="flex-1">
+                                <div id="od-countdown-label" class="text-[11px] opacity-80">${tt('payment.countdown_label', 'หมดเวลาชำระภายใน')}</div>
+                                <div id="od-countdown-value" class="text-base font-mono font-bold tracking-wider">--:--</div>
+                            </div>
+                        </div>
+                    `;
+                }
+
                 // ----- Body assembly -----
                 body.innerHTML = `
                     <div class="space-y-4 pt-2">
@@ -1855,6 +1873,8 @@
                                 </div>
                             </div>
                         </div>
+
+                        ${countdownHtml}
 
                         ${shippingAddressHtml}
                         ${billHtml}
@@ -1904,10 +1924,48 @@
 
                 modal.classList.remove('hidden');
                 setTimeout(() => modal.classList.add('show'), 10);
+
+                // ----- Start countdown ticker (PENDING_PAYMENT non-mismatch) -----
+                if (window._odCountdownInterval) { clearInterval(window._odCountdownInterval); window._odCountdownInterval = null; }
+                const cdRow = document.getElementById('od-countdown-row');
+                if (cdRow) {
+                    const valEl = document.getElementById('od-countdown-value');
+                    const labelEl = document.getElementById('od-countdown-label');
+                    const iconEl = document.getElementById('od-countdown-icon');
+                    const expiryMs = new Date(cdRow.dataset.createdAt).getTime() + (parseInt(cdRow.dataset.expiryMin, 10) * 60 * 1000);
+                    const setStyle = (mode) => {
+                        cdRow.classList.remove('bg-orange-500/10','border-orange-500/30','text-orange-300','bg-red-500/15','border-red-500/40','text-red-300');
+                        if (mode === 'expired' || mode === 'urgent') {
+                            cdRow.classList.add('bg-red-500/15','border-red-500/40','text-red-300');
+                        } else {
+                            cdRow.classList.add('bg-orange-500/10','border-orange-500/30','text-orange-300');
+                        }
+                    };
+                    const tick = () => {
+                        const remain = expiryMs - Date.now();
+                        if (remain <= 0) {
+                            valEl.textContent = '00:00';
+                            if (labelEl) labelEl.textContent = tt('payment.expired', 'หมดเวลาชำระเงินแล้ว');
+                            if (iconEl) iconEl.className = 'ri-close-circle-line text-base';
+                            setStyle('expired');
+                            if (window._odCountdownInterval) { clearInterval(window._odCountdownInterval); window._odCountdownInterval = null; }
+                            // server expiry job น่าจะเพิ่ง cancel — socket order_update จะ refresh modal เอง
+                            return;
+                        }
+                        const m = Math.floor(remain / 60000);
+                        const s = Math.floor((remain % 60000) / 1000);
+                        valEl.textContent = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+                        setStyle(remain <= 5 * 60 * 1000 ? 'urgent' : 'normal');
+                    };
+                    tick();
+                    window._odCountdownInterval = setInterval(tick, 1000);
+                }
             };
 
             window.closeOrderDetailsModal = () => {
                 window.currentOpenOrderId = null;
+                // หยุด countdown ticker เมื่อปิด modal
+                if (window._odCountdownInterval) { clearInterval(window._odCountdownInterval); window._odCountdownInterval = null; }
                 const modal = document.getElementById('order-details-modal');
                 if (!modal) return;
                 modal.classList.remove('show');
