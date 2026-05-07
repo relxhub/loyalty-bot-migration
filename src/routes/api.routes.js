@@ -5784,12 +5784,15 @@ router.get('/admin/mystery-boxes', async (req, res) => {
             minPurchaseAmount: b.minPurchaseAmount != null ? Number(b.minPurchaseAmount) : null,
             maxPurchaseAmount: b.maxPurchaseAmount != null ? Number(b.maxPurchaseAmount) : null,
             ticketsPerEvent: b.ticketsPerEvent, maxPerUser: b.maxPerUser,
+            pointCost: b.pointCost,
             requiredTier: b.requiredTier,
             isActive: b.isActive, startDate: b.startDate, endDate: b.endDate,
             ticketCount: b._count.tickets,
             prizes: b.prizes.map(p => ({
-                id: p.id, name: p.name, imageUrl: p.imageUrl, weight: p.weight,
+                id: p.id, name: p.name, description: p.description,
+                imageUrl: p.imageUrl, weight: p.weight,
                 rewardCouponId: p.rewardCouponId, isPhysicalReward: p.isPhysicalReward,
+                isNoPrize: p.isNoPrize,
             })),
         }));
         res.json({ success: true, boxes: out });
