@@ -2031,16 +2031,40 @@
                 </div>` : '';
 
             const canEditItems = o.kind === 'PRODUCT' && o.status !== 'CANCELLED' && o.status !== 'SHIPPED';
-            const items = o.items.map(it => `
-                <div class="flex items-center gap-2 py-1.5 border-b border-white/5 last:border-0">
-                    ${it.product.imageUrl ? `<img src="${_esc(it.product.imageUrl)}" class="w-10 h-10 rounded object-cover">` : '<div class="w-10 h-10 rounded bg-zinc-700"></div>'}
-                    <div class="flex-1 min-w-0">
-                        <div class="text-xs text-white truncate">${_esc(it.product.name)}</div>
-                        <div class="text-[10px] text-zinc-500">${_esc(it.product.category?.name || '')} · ฿${_fmt(it.priceAtPurchase)} × ${it.quantity}</div>
-                    </div>
-                    <div class="text-xs text-emerald-300 whitespace-nowrap">฿${_fmt(it.priceAtPurchase * it.quantity)}</div>
-                    ${canEditItems ? `<button onclick="ordRemoveItem(${it.id}, '${_esc(it.product.name).replace(/'/g, "&#39;")}')" class="text-zinc-500 hover:text-red-400 text-base ml-1"><i class="ri-close-circle-line"></i></button>` : ''}
-                </div>`).join('');
+
+            // Group items by category — show parent header + indented variant bullets
+            const groupedItems = (() => {
+                const groups = new Map();
+                for (const it of o.items) {
+                    const key = it.product.category?.id ?? `_${it.product.id}`; // ถ้าไม่มี category ใช้ productId แยกกลุ่มเอง
+                    const name = it.product.category?.name || it.product.name;
+                    if (!groups.has(key)) groups.set(key, { name, items: [] });
+                    groups.get(key).items.push(it);
+                }
+                return Array.from(groups.values());
+            })();
+            const totalQty = o.items.reduce((s, i) => s + i.quantity, 0);
+            const lineCount = o.items.length;
+
+            const items = groupedItems.map(g => {
+                const firstPrice = g.items[0].priceAtPurchase;
+                const allSame = g.items.every(it => Math.abs(it.priceAtPurchase - firstPrice) < 0.01);
+                const headerPrice = allSame ? `฿${_fmt(firstPrice)}` : 'หลายราคา';
+                const bullets = g.items.map(it => `
+                    <div class="flex items-center gap-2 py-0.5 pl-3 text-[11px]">
+                        <span class="text-zinc-500 flex-shrink-0">•</span>
+                        <div class="flex-1 min-w-0 text-zinc-200 truncate">${_esc(it.product.name)} <span class="text-zinc-500">×${it.quantity}</span></div>
+                        <div class="text-emerald-300 whitespace-nowrap">฿${_fmt(it.priceAtPurchase * it.quantity)}</div>
+                        ${canEditItems ? `<button onclick="ordRemoveItem(${it.id}, '${_esc(it.product.name).replace(/'/g, "&#39;")}')" class="text-zinc-500 hover:text-red-400 text-sm flex-shrink-0"><i class="ri-close-circle-line"></i></button>` : ''}
+                    </div>`).join('');
+                return `
+                    <div class="mb-2 last:mb-0">
+                        <div class="text-[11px] font-bold text-white py-1 border-b border-white/10">
+                            ${_esc(g.name)} <span class="text-zinc-400 font-normal">(${headerPrice})</span>
+                        </div>
+                        ${bullets}
+                    </div>`;
+            }).join('');
 
             const addr = o.address;
             const addrBlock = addr ? `
@@ -2110,7 +2134,7 @@
                         ${addrBlock}
                     </div>
                     <div>
-                        <div class="text-[10px] text-zinc-500 font-bold mb-1">รายการสินค้า (${o.items.reduce((s,i)=>s+i.quantity,0)} ชิ้น)</div>
+                        <div class="text-[10px] text-zinc-500 font-bold mb-1">รายการสินค้า · รวม ${totalQty} ชิ้น (${lineCount} รายการ)</div>
                         <div class="bg-black/30 rounded-lg p-2">${items || '<div class="text-[11px] text-zinc-500 text-center py-2">—</div>'}</div>
                     </div>
                     <div class="bg-black/30 rounded-lg p-2.5 space-y-1">

@@ -3438,24 +3438,25 @@ router.get('/admin/orders/:id', async (req, res) => {
         });
         if (!order) return res.status(404).json({ success: false, error: 'ไม่พบออเดอร์' });
 
-        let address = null;
-        if (order.shippingAddressId) {
-            address = await prisma.shippingAddress.findUnique({ where: { id: order.shippingAddressId } });
-        }
-        let coupon = null;
-        if (order.appliedCouponId) {
-            coupon = await prisma.coupon.findUnique({
-                where: { id: order.appliedCouponId },
-                select: { id: true, name: true, type: true, value: true },
-            });
-        }
-        // audit log: actions ที่เคยเกิดกับออเดอร์นี้
-        const audit = await prisma.adminAuditLog.findMany({
-            where: { details: { contains: order.id } },
-            orderBy: { createdAt: 'desc' },
-            take: 20,
-            select: { adminName: true, action: true, createdAt: true, details: true },
-        });
+        // Parallelize 3 follow-up queries — ก่อนหน้านี้รัน sequential ~1s รวม
+        // (audit ใช้ contains scan ทั้ง table — ใส่ใน Promise.all แทน wait ทีละตัว)
+        const [address, coupon, audit] = await Promise.all([
+            order.shippingAddressId
+                ? prisma.shippingAddress.findUnique({ where: { id: order.shippingAddressId } })
+                : Promise.resolve(null),
+            order.appliedCouponId
+                ? prisma.coupon.findUnique({
+                      where: { id: order.appliedCouponId },
+                      select: { id: true, name: true, type: true, value: true },
+                  })
+                : Promise.resolve(null),
+            prisma.adminAuditLog.findMany({
+                where: { details: { contains: order.id } },
+                orderBy: { createdAt: 'desc' },
+                take: 20,
+                select: { adminName: true, action: true, createdAt: true, details: true },
+            }),
+        ]);
 
         res.json({
             success: true,
