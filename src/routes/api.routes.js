@@ -772,7 +772,15 @@ async function uploadSlipToTelegram(file, customerTelegramUserId = null) {
             fd.append('disable_notification', 'true');
             fd.append('photo', file.buffer, { filename: file.originalname || 'slip.jpg', contentType: file.mimetype || 'image/jpeg' });
             const r = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: fd, headers: fd.getHeaders() });
-            const d = await r.json();
+            // Telegram บางครั้งคืน body ว่างหรือ HTML (rate-limit / 5xx / proxy block)
+            // → อ่านเป็น text ก่อน แล้วลอง JSON.parse กัน Unexpected end of JSON input
+            const text = await r.text().catch(() => '');
+            if (!text) { console.error(`[slip] ${label} empty body (HTTP ${r.status})`); return null; }
+            let d;
+            try { d = JSON.parse(text); } catch (e) {
+                console.error(`[slip] ${label} non-JSON body (HTTP ${r.status}):`, text.slice(0, 200));
+                return null;
+            }
             if (!d.ok) { console.error(`[slip] ${label} sendPhoto fail:`, d.description || d); return null; }
             const photos = d.result?.photo || [];
             const fileId = photos[photos.length - 1]?.file_id;
@@ -1039,7 +1047,9 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                 }
 
                 // Lock + reserve stock/coupon + Payment(PENDING) — all in one transaction
-                const slipUrlForDb = (await tgSlipUrlPromise) || slipData?.data?.url || '';
+                let tgSlipUrl = '';
+                try { tgSlipUrl = await tgSlipUrlPromise; } catch (e) { console.error('[slip] tg upload await failed (mismatch path):', e.message); }
+                const slipUrlForDb = tgSlipUrl || slipData?.data?.url || '';
                 const slipImageB64 = slipUrlForDb ? null : fileToBase64DataUrl(file); // base64 fallback
                 try {
                     await prisma.$transaction(async (tx) => {
@@ -1196,7 +1206,9 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
             });
 
             // B. Create Payment Record
-            const slipUrlForDb = (await tgSlipUrlPromise) || slipData.data.url || '';
+            let tgSlipUrl = '';
+            try { tgSlipUrl = await tgSlipUrlPromise; } catch (e) { console.error('[slip] tg upload await failed (paid path):', e.message); }
+            const slipUrlForDb = tgSlipUrl || slipData.data.url || '';
             const slipImageB64 = slipUrlForDb ? null : fileToBase64DataUrl(file);
             await tx.payment.create({
                 data: {
