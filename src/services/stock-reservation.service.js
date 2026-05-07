@@ -16,6 +16,7 @@
 
 import { prisma } from '../db.js';
 import { getConfig } from '../config/config.js';
+import { emitSocket } from './notification-center.service.js';
 
 // ----- config loader -----
 
@@ -270,6 +271,38 @@ export async function convertReservationToHardDecrement(tx, orderItems) {
             WHERE id = ${it.productId}
         `;
     }
+}
+
+// ----- broadcast helper: notify clients ของ available stock เปลี่ยน -----
+
+/**
+ * อ่านสต็อกสด (post-tx) และ broadcast 'product_update' ให้ทุก client
+ * เพื่อให้ products.html อัปเดต available realtime หลัง reserve/release/convert
+ * ใช้นอก tx (หลัง commit) เท่านั้น เพราะอ่านจาก global prisma
+ *
+ * @param {Array<number>|Array<{productId:number}>|Array<{id:number}>} idsOrItems
+ */
+export async function broadcastStockUpdate(idsOrItems) {
+    try {
+        if (!Array.isArray(idsOrItems) || idsOrItems.length === 0) return;
+        const ids = [...new Set(idsOrItems.map(x => {
+            if (typeof x === 'number') return x;
+            return parseInt(x.productId ?? x.id, 10);
+        }).filter(Number.isFinite))];
+        if (ids.length === 0) return;
+        const products = await prisma.product.findMany({
+            where: { id: { in: ids } },
+            select: { id: true, status: true, stockQuantity: true, reservedQuantity: true },
+        });
+        for (const p of products) {
+            const available = Math.max(0, p.stockQuantity - (p.reservedQuantity || 0));
+            emitSocket('product_update', {
+                productId: p.id,
+                status: p.status,
+                stock: available,
+            });
+        }
+    } catch (e) { /* best-effort — never fail caller */ }
 }
 
 // ----- helper: build user-friendly error map for endpoint -----

@@ -112,6 +112,14 @@
                 </div>
             </div>
 
+            <div id="payment-countdown-row" class="hidden flex items-center gap-2 px-3 py-2 rounded-xl border mb-3">
+                <i id="payment-countdown-icon" class="ri-timer-flash-line text-base"></i>
+                <div class="flex-1">
+                    <div id="payment-countdown-label" class="text-[11px] opacity-80">หมดเวลาชำระภายใน</div>
+                    <div id="payment-countdown-value" class="text-base font-mono font-bold tracking-wider">--:--</div>
+                </div>
+            </div>
+
             <div class="border-t border-white/10 my-4"></div>
 
             <div id="order-items-list" class="space-y-2 mb-4 text-sm text-zinc-300">
@@ -234,6 +242,78 @@
                 else if (type === 'success') tg.HapticFeedback.notificationOccurred('success');
                 else tg.HapticFeedback.notificationOccurred('warning');
             }
+        }
+
+        // Countdown timer สำหรับออเดอร์ PENDING_PAYMENT
+        // - ใช้ order.expiryMinutes (Phase 4 D5 per-order) + order.createdAt
+        // - เปลี่ยนสีเมื่อใกล้หมดเวลา (≤5 min = แดง, อื่นๆ = ส้ม)
+        // - หมดเวลา → lock UI + redirect กลับ products.html
+        let _paymentCountdownInterval = null;
+        function startPaymentCountdown(order) {
+            const row = document.getElementById('payment-countdown-row');
+            const valEl = document.getElementById('payment-countdown-value');
+            const labelEl = document.getElementById('payment-countdown-label');
+            const iconEl = document.getElementById('payment-countdown-icon');
+            if (!row || !valEl) return;
+
+            const expiryMs = new Date(order.createdAt).getTime() + (order.expiryMinutes * 60 * 1000);
+
+            const setStyle = (mode) => {
+                // mode: 'normal' (orange) | 'urgent' (red) | 'expired' (red bold)
+                row.classList.remove('hidden');
+                row.classList.add('flex');
+                row.classList.remove('bg-orange-500/10','border-orange-500/30','text-orange-300','bg-red-500/15','border-red-500/40','text-red-300');
+                if (mode === 'expired') {
+                    row.classList.add('bg-red-500/15','border-red-500/40','text-red-300');
+                } else if (mode === 'urgent') {
+                    row.classList.add('bg-red-500/15','border-red-500/40','text-red-300');
+                } else {
+                    row.classList.add('bg-orange-500/10','border-orange-500/30','text-orange-300');
+                }
+            };
+
+            const tick = () => {
+                if (window.isPaymentBlocked) {
+                    // mismatchLocked / over-paid / cancelled — countdown ไม่เกี่ยว
+                    row.classList.add('hidden');
+                    if (_paymentCountdownInterval) { clearInterval(_paymentCountdownInterval); _paymentCountdownInterval = null; }
+                    return;
+                }
+                const remain = expiryMs - Date.now();
+                if (remain <= 0) {
+                    valEl.textContent = '00:00';
+                    labelEl.textContent = tt('payment.expired', 'หมดเวลาชำระเงินแล้ว');
+                    if (iconEl) iconEl.className = 'ri-close-circle-line text-base';
+                    setStyle('expired');
+                    if (_paymentCountdownInterval) { clearInterval(_paymentCountdownInterval); _paymentCountdownInterval = null; }
+                    // lock UI + redirect — ระบบจะ auto-cancel ผ่าน expiry job
+                    window.isPaymentBlocked = true;
+                    const uploadSection = document.getElementById('upload-section');
+                    const uploadArea = document.getElementById('upload-area');
+                    const submitBtn = document.getElementById('submit-slip-btn');
+                    if (uploadArea) uploadArea.style.display = 'none';
+                    if (submitBtn) submitBtn.style.display = 'none';
+                    if (uploadSection) {
+                        const div = document.createElement('div');
+                        div.className = 'bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-center mt-4 mb-4';
+                        div.innerHTML = `
+                            <i class="ri-time-line text-red-500 text-3xl mb-2"></i>
+                            <div class="text-red-500 font-bold mb-1">${tt('payment.expired_title', 'หมดเวลาชำระเงิน')}</div>
+                            <div class="text-xs text-red-400 mb-4 leading-relaxed">${tt('payment.expired_msg', 'ออเดอร์นี้หมดเวลาแล้ว ระบบจะยกเลิกอัตโนมัติ กรุณาทำรายการใหม่')}</div>
+                            <button onclick="window.location.href='products.html'" class="w-full py-3 bg-zinc-800 text-white rounded-xl text-sm font-bold active:scale-95 transition border border-zinc-700">${tt('common.back_home', 'กลับสู่หน้าหลัก')}</button>
+                        `;
+                        uploadSection.prepend(div);
+                    }
+                    return;
+                }
+                const m = Math.floor(remain / 60000);
+                const s = Math.floor((remain % 60000) / 1000);
+                valEl.textContent = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+                setStyle(remain <= 5 * 60 * 1000 ? 'urgent' : 'normal');
+            };
+
+            tick();
+            _paymentCountdownInterval = setInterval(tick, 1000);
         }
 
         function copyBankAccount(accNumber) {
@@ -460,6 +540,11 @@
 
                     document.getElementById('loading-screen').classList.add('hidden');
                     document.getElementById('payment-content').classList.remove('hidden');
+
+                    // Start countdown — ใช้ per-order Order.expiryMinutes (Phase 4 D5 snapshot)
+                    if (order.status === 'PENDING_PAYMENT' && order.expiryMinutes && order.createdAt) {
+                        startPaymentCountdown(order);
+                    }
                 } else {
                     throw new Error(data.error || 'ไม่สามารถโหลดข้อมูลออเดอร์ได้');
                 }

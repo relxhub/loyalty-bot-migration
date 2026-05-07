@@ -200,9 +200,10 @@ export async function runOrderExpiryJob() {
 
         console.log(`[OrderExpiryJob] 🔍 Found ${expiredOrders.length} expired orders. Cancelling + releasing reservations...`);
 
-        const { releaseReservation } = await import('../services/stock-reservation.service.js');
+        const { releaseReservation, broadcastStockUpdate } = await import('../services/stock-reservation.service.js');
 
         // Per-order tx — กัน 1 ออเดอร์ fail ทำให้ทั้งชุด rollback
+        const releasedProductIds = new Set();
         for (const o of expiredOrders) {
             try {
                 await prisma.$transaction(async (tx) => {
@@ -212,10 +213,15 @@ export async function runOrderExpiryJob() {
                     });
                     await releaseReservation(tx, items);
                     await tx.order.update({ where: { id: o.id }, data: { status: 'CANCELLED' } });
+                    items.forEach(it => releasedProductIds.add(it.productId));
                 });
             } catch (e) {
                 console.error(`[OrderExpiryJob] failed cancel ${o.id}:`, e.message);
             }
+        }
+        // realtime: available stock คืน → broadcast ครั้งเดียวต่อ SKU
+        if (releasedProductIds.size > 0) {
+            broadcastStockUpdate([...releasedProductIds]);
         }
 
         try {

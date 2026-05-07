@@ -169,6 +169,16 @@
                 <i class="ri-arrow-right-s-line text-zinc-400"></i>
             </button>
 
+            <button data-menu-key="reserved-stock" onclick="showView('reserved-stock')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
+                <div class="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center text-2xl">📦</div>
+                <div class="flex-1">
+                    <div class="font-bold text-white text-sm">สต็อกที่ถูกจอง</div>
+                    <div class="text-[11px] text-zinc-400">รายการสินค้าที่รอชำระเงิน — แยกตามหมวด</div>
+                </div>
+                <span id="badge-reserved-stock" class="hidden text-[10px] bg-blue-500 text-white rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center font-bold">0</span>
+                <i class="ri-arrow-right-s-line text-zinc-400"></i>
+            </button>
+
             <button data-menu-key="categories" onclick="showView('categories')" class="menu-card w-full glass-card p-4 flex items-center gap-3 text-left">
                 <div class="w-12 h-12 rounded-xl bg-cyan-500/20 flex items-center justify-center text-2xl">📂</div>
                 <div class="flex-1">
@@ -413,6 +423,12 @@
         <div id="view-stock-alert" class="hidden">
             <div class="font-bold text-sm mb-3 flex items-center gap-2"><i class="ri-error-warning-line text-red-400"></i> เตือนสต็อกใกล้หมด</div>
             <div id="stock-alert-content"></div>
+        </div>
+
+        <!-- 📦 Reserved Stock view -->
+        <div id="view-reserved-stock" class="hidden">
+            <div class="font-bold text-sm mb-3 flex items-center gap-2"><i class="ri-archive-line text-blue-400"></i> สต็อกที่ถูกจองรอชำระเงิน</div>
+            <div id="reserved-stock-content"></div>
         </div>
 
         <!-- 🛒 Orders view -->
@@ -823,6 +839,7 @@
             else if (name === 'ship-sync') { document.getElementById('ss-result').innerHTML = ''; }
             else if (name === 'shifts') loadShiftsTable();
             else if (name === 'stock-alert') loadStockAlert();
+            else if (name === 'reserved-stock') loadReservedStock();
             else if (name === 'analytics') loadAnalytics('heatmap');
             else if (name === 'jobs') { /* static view */ }
             else if (name === 'reviews') loadAdminReviews();
@@ -1102,6 +1119,7 @@
                 'mystery-boxes': 'showView(\'mystery-boxes\')',
                 products: 'showView(\'products\')',
                 'stock-alert': 'showView(\'stock-alert\')',
+                'reserved-stock': 'showView(\'reserved-stock\')',
                 categories: 'showView(\'categories\')',
                 banners: 'showView(\'banners\')',
                 campaigns: 'showView(\'campaigns\')',
@@ -1239,6 +1257,7 @@
                 loadShipmentsBadge();
                 loadOrdersBadge();
                 loadStockAlertBadge();
+                loadReservedStockBadge();
                 initRealtimeSocket();
             } catch (e) {
                 console.error('init error:', e);
@@ -1801,6 +1820,115 @@
                                 <div class="text-base font-bold ${p.level==='critical'?'text-red-300':'text-orange-300'}">${p.availableQuantity ?? p.stockQuantity}</div>
                                 <div class="text-[9px] text-zinc-500">${p.level === 'critical' ? '⚠️ ด่วน' : 'ใกล้หมด'}</div>
                                 ${(p.reservedQuantity ?? 0) > 0 ? `<div class="text-[9px] text-blue-300 mt-0.5">📦 ${p.stockQuantity} ทั้งหมด · จอง ${p.reservedQuantity}</div>` : ''}
+                            </div>
+                        </div>
+                    `).join('')}
+                `;
+            } catch (e) { wrap.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`; }
+        }
+
+        // ---------- 📦 Reserved Stock (held for pending payment) ----------
+        async function loadReservedStockBadge() {
+            try {
+                const res = await fetch('/api/admin/products/reserved', { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (data.success) {
+                    const n = data.totalSkus || 0;
+                    const badge = document.getElementById('badge-reserved-stock');
+                    if (n > 0) { badge.textContent = n > 99 ? '99+' : n; badge.classList.remove('hidden'); }
+                    else badge.classList.add('hidden');
+                }
+            } catch (e) {}
+        }
+        async function loadReservedStock() {
+            const wrap = document.getElementById('reserved-stock-content');
+            wrap.innerHTML = '<div class="text-center text-zinc-500 py-6 animate-pulse">กำลังโหลด...</div>';
+            try {
+                const res = await fetch('/api/admin/products/reserved', { headers: { 'X-Init-Data': tg.initData } });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error);
+
+                if (!data.categories || data.categories.length === 0) {
+                    wrap.innerHTML = `<div class="rounded-xl p-4 bg-emerald-500/10 border border-emerald-500/40 text-center">
+                        <div class="text-2xl mb-1">✅</div>
+                        <div class="text-sm font-bold text-emerald-300">ไม่มีสินค้าที่ถูกจองอยู่</div>
+                        <div class="text-[10px] text-zinc-400 mt-1">สต็อกทั้งหมดพร้อมขายตามจำนวนจริง</div>
+                    </div>`;
+                    return;
+                }
+
+                const fmtRel = (iso) => {
+                    const d = new Date(iso);
+                    const m = Math.floor((Date.now() - d.getTime()) / 60000);
+                    if (m < 1) return 'ตะกี้';
+                    if (m < 60) return `${m} นาทีก่อน`;
+                    const h = Math.floor(m / 60);
+                    if (h < 24) return `${h} ชม. ก่อน`;
+                    return `${Math.floor(h / 24)} วันก่อน`;
+                };
+                const fmtRemain = (createdAt, expMin) => {
+                    if (!expMin) return '';
+                    const expMs = new Date(createdAt).getTime() + expMin * 60000;
+                    const r = expMs - Date.now();
+                    if (r <= 0) return '<span class="text-red-300">หมดเวลาแล้ว</span>';
+                    const mm = Math.floor(r / 60000);
+                    return `<span class="text-orange-300">เหลือ ${mm} นาที</span>`;
+                };
+
+                wrap.innerHTML = `
+                    <div class="rounded-xl p-3 bg-blue-500/10 border border-blue-500/30 mb-3">
+                        <div class="text-[11px] text-blue-300">รวมที่ถูกจอง</div>
+                        <div class="text-2xl font-bold text-white">${data.totalReservedQty} <span class="text-sm font-normal text-zinc-400">ชิ้น</span></div>
+                        <div class="text-[10px] text-zinc-400 mt-0.5">${data.totalSkus} SKU · กระจายใน ${data.categories.length} หมวด</div>
+                    </div>
+                    ${data.categories.map((cat, ci) => `
+                        <div class="bg-white/5 border border-white/10 rounded-xl mb-2 overflow-hidden">
+                            <button onclick="this.nextElementSibling.classList.toggle('hidden');this.querySelector('.cat-arrow').classList.toggle('rotate-180')"
+                                    class="w-full p-3 flex items-center gap-2 text-left hover:bg-white/5">
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-bold text-white truncate">${_esc(cat.categoryName)}</div>
+                                    <div class="text-[10px] text-zinc-500">${cat.products.length} SKU · จองรวม ${cat.categoryReservedQty} ชิ้น</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-base font-bold text-blue-300">${cat.categoryReservedQty}</div>
+                                </div>
+                                <i class="ri-arrow-down-s-line text-zinc-400 cat-arrow transition"></i>
+                            </button>
+                            <div class="${ci === 0 ? '' : 'hidden'} border-t border-white/10 divide-y divide-white/5">
+                                ${cat.products.map(p => `
+                                    <div class="p-2.5 bg-black/20">
+                                        <div class="flex items-center gap-2.5 mb-2">
+                                            ${p.imageUrl ? `<img src="${_esc(p.imageUrl)}" class="w-10 h-10 rounded object-cover">` : '<div class="w-10 h-10 rounded bg-zinc-700"></div>'}
+                                            <div class="flex-1 min-w-0">
+                                                <div class="text-xs text-white truncate">${_esc(p.nameTh || p.nameEn)}</div>
+                                                <div class="text-[10px] text-zinc-500">สต็อกจริง ${p.stockQuantity} · พร้อมขาย ${p.available}</div>
+                                            </div>
+                                            <div class="text-right">
+                                                <div class="text-sm font-bold text-blue-300">${p.reservedQuantity}</div>
+                                                <div class="text-[9px] text-zinc-500">จอง</div>
+                                            </div>
+                                        </div>
+                                        ${p.orders.length > 0 ? `
+                                            <div class="text-[10px] text-zinc-400 mb-1">ออเดอร์ที่ถือ:</div>
+                                            <div class="space-y-1">
+                                                ${p.orders.map(o => `
+                                                    <div class="flex items-center justify-between gap-2 bg-white/5 rounded px-2 py-1.5 text-[11px] cursor-pointer hover:bg-white/10"
+                                                         onclick="showView('orders');setTimeout(()=>openOrdDetail('${_esc(o.orderId)}'),300)">
+                                                        <div class="min-w-0 flex-1">
+                                                            <span class="font-mono text-zinc-300">#${_esc(o.orderId)}</span>
+                                                            <span class="text-zinc-500"> · ${_esc(o.customerId)}</span>
+                                                        </div>
+                                                        <div class="text-right whitespace-nowrap">
+                                                            <span class="text-blue-300 font-bold">×${o.quantity}</span>
+                                                            <span class="text-zinc-500"> · ${fmtRel(o.createdAt)}</span>
+                                                            ${o.expiryMinutes ? ` · ${fmtRemain(o.createdAt, o.expiryMinutes)}` : ''}
+                                                        </div>
+                                                    </div>
+                                                `).join('')}
+                                            </div>
+                                        ` : '<div class="text-[10px] text-zinc-500 italic">ไม่พบออเดอร์ที่ตรงกัน (อาจเป็น mismatchLocked หรือ data drift)</div>'}
+                                    </div>
+                                `).join('')}
                             </div>
                         </div>
                     `).join('')}
@@ -3652,6 +3780,7 @@
             'mystery-boxes': '🎁 Mystery Box',
             products: '🛍️ สินค้า',
             'stock-alert': '⚠️ เตือนสต็อก',
+            'reserved-stock': '📦 สต็อกที่ถูกจอง',
             categories: '📂 หมวดหมู่',
             banners: '🎞️ Banner',
             campaigns: '📅 แคมเปญ',

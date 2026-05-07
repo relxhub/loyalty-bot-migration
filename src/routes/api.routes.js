@@ -352,6 +352,7 @@ router.post('/orders/checkout', async (req, res) => {
         if (active.nonMismatch.length >= reserveCfg.maxActiveReservations) {
             // auto-cancel old non-mismatch orders + release their reservations
             const cancelledIds = [];
+            const releasedItems = [];
             try {
                 await prisma.$transaction(async (tx) => {
                     for (const o of active.nonMismatch) {
@@ -359,8 +360,11 @@ router.post('/orders/checkout', async (req, res) => {
                         await stockReservation.releaseReservation(tx, items);
                         await tx.order.update({ where: { id: o.id }, data: { status: 'CANCELLED' } });
                         cancelledIds.push(o.id);
+                        releasedItems.push(...items);
                     }
                 });
+                // realtime: available stock คืน
+                stockReservation.broadcastStockUpdate(releasedItems);
                 // best-effort notif (don't block if fail)
                 for (const oid of cancelledIds) {
                     try {
@@ -539,6 +543,8 @@ router.post('/orders/checkout', async (req, res) => {
 
         // realtime: บอก admin ว่ามีออเดอร์ใหม่ (PENDING_PAYMENT) — แสดงในแท็บ "รอชำระ"
         try { req.app.get('socketio')?.emit('order_update', { id: result.id, status: 'PENDING_PAYMENT', ts: Date.now() }); } catch (e) {}
+        // realtime: บอก client ทุกคนว่า available stock ของ SKU เปลี่ยน (จองแล้ว) — กันลูกค้ารายอื่นเห็นเลขเก่า
+        stockReservation.broadcastStockUpdate(itemsForReserve);
 
         res.json({ success: true, orderId: result.id });
 
@@ -710,6 +716,52 @@ router.get('/orders/:orderId', async (req, res) => {
     }
 });
 
+// GET /api/orders/pending/:telegramId — lightweight: ออเดอร์ PENDING_PAYMENT ของลูกค้า
+// ใช้กับ pending-order-banner.js (shared script ที่ inject ทุกหน้า) เพื่อให้ลูกค้าเห็นทันที
+// ว่ามีออเดอร์ค้างชำระและเหลือเวลาเท่าไร — payload เบา (เฉพาะ field ที่ banner ใช้)
+router.get('/orders/pending/:telegramId', async (req, res) => {
+    try {
+        const { telegramId } = req.params;
+        const customer = await prisma.customer.findUnique({
+            where: { telegramUserId: telegramId },
+            select: { customerId: true },
+        });
+        if (!customer) return res.json({ success: true, pendingOrders: [] });
+
+        const orders = await prisma.order.findMany({
+            where: {
+                customerId: customer.customerId,
+                status: 'PENDING_PAYMENT',
+            },
+            orderBy: { createdAt: 'asc' }, // เก่าที่สุดก่อน → ใกล้หมดเวลา
+            select: {
+                id: true,
+                totalAmount: true,
+                createdAt: true,
+                expiryMinutes: true,
+                mismatchLocked: true,
+            },
+        });
+
+        // fallback expiryMinutes สำหรับ order เก่าก่อน Phase 4
+        const storeSetting = await prisma.storeSetting.findUnique({ where: { id: 1 } });
+        const fallbackMinutes = storeSetting?.orderExpiryMinutes || 30;
+
+        const pendingOrders = orders.map(o => ({
+            id: o.id,
+            totalAmount: Number(o.totalAmount),
+            createdAt: o.createdAt,
+            expiryMinutes: o.expiryMinutes ?? fallbackMinutes,
+            mismatchLocked: o.mismatchLocked,
+        }));
+
+        res.json({ success: true, pendingOrders });
+    } catch (error) {
+        console.error('Get Pending Orders Error:', error);
+        res.status(500).json({ success: false, error: 'load failed' });
+    }
+});
+
 // Fetch user's order history
 router.get('/orders/history/:telegramId', async (req, res) => {
     try {
@@ -824,6 +876,8 @@ router.post('/orders/:orderId/cancel', async (req, res) => {
 
         // realtime: admin list refresh
         try { req.app.get('socketio')?.emit('order_update', { id: orderId, status: 'CANCELLED', ts: Date.now() }); } catch (e) {}
+        // realtime: available stock คืน → broadcast ให้ products page ของลูกค้ารายอื่น
+        stockReservation.broadcastStockUpdate(order.items);
 
         res.json({ success: true });
     } catch (error) {
@@ -1257,6 +1311,8 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
 
                 // realtime: under-paid lock — แจ้ง admin ทันที (ออเดอร์เปลี่ยนเป็น mismatchLocked)
                 try { req.app.get('socketio')?.emit('order_update', { id: orderId, status: 'PENDING_PAYMENT', mismatchLocked: true, ts: Date.now() }); } catch (e) {}
+                // realtime: stock ถูกตัดจริงตอน mismatchLocked → broadcast ให้ products page อัปเดต
+                stockReservation.broadcastStockUpdate(order.items);
 
                 return res.status(409).json({
                     success: false,
@@ -1336,6 +1392,9 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                 note: `ยอดชำระ ฿${parseFloat(slipAmount).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
             });
         } catch (e) { /* silent */ }
+
+        // realtime: stock ถูกตัดจริง (reserved ลด + stockQuantity ลด) → broadcast
+        stockReservation.broadcastStockUpdate(order.items);
 
         // 5.45 Mystery Box: PURCHASE_MILESTONE — เช็คยอดสะสม lifetime ของลูกค้า
         // (best-effort — ไม่กระทบ flow ออเดอร์)
@@ -3707,6 +3766,8 @@ router.post('/admin/orders/:id/reject', async (req, res) => {
             });
         } catch (e) {}
         emitOrderUpdate(req, order.id, 'CANCELLED');
+        // realtime: stock เพิ่งคืน (release หรือ stock++) → broadcast available
+        stockReservation.broadcastStockUpdate(order.items);
         res.json({ success: true, paidAmount });
     } catch (e) {
         console.error('admin order reject error:', e);
@@ -3960,6 +4021,8 @@ router.delete('/admin/orders/:id/items/:itemId', async (req, res) => {
             try { await notifCenter.notifyOrderStatusChanged({ orderId: order.id, customerId: order.customerId, status: 'CANCELLED', note: 'สินค้าถูกลบทั้งหมด' }); } catch (e) {}
         }
         emitOrderUpdate(req, order.id, cancelled ? 'CANCELLED' : null);
+        // realtime: SKU ที่ตัดออกมีสต็อกคืน → broadcast (single product)
+        stockReservation.broadcastStockUpdate([target.productId]);
         res.json({ success: true, cancelled, decrementBy, fullRemove: isFullRemove });
     } catch (e) {
         console.error('admin order remove-item error:', e);
@@ -4097,6 +4160,8 @@ router.post('/admin/orders/:id/cancel', async (req, res) => {
             });
         } catch (e) {}
         emitOrderUpdate(req, order.id, 'CANCELLED');
+        // realtime: stock คืน (release หรือ stock++) → broadcast available
+        if (order.kind === 'PRODUCT') stockReservation.broadcastStockUpdate(order.items);
         res.json({ success: true });
     } catch (e) {
         console.error('admin order cancel error:', e);
@@ -5074,6 +5139,99 @@ router.get('/admin/analytics/admin-perf', async (req, res) => {
         }).sort((a, b) => b.completed - a.completed);
         res.json({ success: true, since, admins: out });
     } catch (e) { res.status(500).json({ success: false, error: e.message || 'load failed' }); }
+});
+
+// GET /admin/products/reserved — สินค้าที่ถูก hold สต็อกรอชำระ (reservedQuantity > 0)
+// group by category พร้อมรายการออเดอร์ที่ถืออยู่
+router.get('/admin/products/reserved', async (req, res) => {
+    const a = await authAdmin(req);
+    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    try {
+        const products = await prisma.product.findMany({
+            where: { reservedQuantity: { gt: 0 } },
+            include: { category: { select: { id: true, name: true } } },
+            orderBy: { reservedQuantity: 'desc' },
+        });
+
+        if (products.length === 0) {
+            return res.json({
+                success: true,
+                totalReservedQty: 0,
+                totalSkus: 0,
+                categories: [],
+            });
+        }
+
+        // หาออเดอร์ที่ถือ reserve อยู่ (PENDING_PAYMENT non-mismatch + kind=PRODUCT)
+        const productIds = products.map(p => p.id);
+        const orderItems = await prisma.orderItem.findMany({
+            where: {
+                productId: { in: productIds },
+                order: {
+                    kind: 'PRODUCT',
+                    status: 'PENDING_PAYMENT',
+                    mismatchLocked: false,
+                },
+            },
+            include: {
+                order: { select: { id: true, customerId: true, createdAt: true, expiryMinutes: true } },
+            },
+        });
+
+        // group orderItems by productId
+        const byProduct = new Map();
+        for (const it of orderItems) {
+            if (!byProduct.has(it.productId)) byProduct.set(it.productId, []);
+            byProduct.get(it.productId).push({
+                orderId: it.order.id,
+                customerId: it.order.customerId,
+                quantity: it.quantity,
+                createdAt: it.order.createdAt,
+                expiryMinutes: it.order.expiryMinutes,
+            });
+        }
+
+        // group products by category
+        const byCategory = new Map();
+        let totalReservedQty = 0;
+        for (const p of products) {
+            totalReservedQty += p.reservedQuantity;
+            const catKey = p.category?.id ?? 0;
+            if (!byCategory.has(catKey)) {
+                byCategory.set(catKey, {
+                    categoryId: p.category?.id ?? null,
+                    categoryName: p.category?.name ?? '— ไม่มีหมวด —',
+                    products: [],
+                });
+            }
+            byCategory.get(catKey).products.push({
+                id: p.id,
+                nameTh: p.nameTh,
+                nameEn: p.nameEn,
+                imageUrl: p.imageUrl,
+                stockQuantity: p.stockQuantity,
+                reservedQuantity: p.reservedQuantity,
+                available: Math.max(0, p.stockQuantity - p.reservedQuantity),
+                orders: byProduct.get(p.id) || [],
+            });
+        }
+
+        // sort: หมวดที่มี reserved รวมเยอะสุดก่อน
+        const categories = [...byCategory.values()].map(c => ({
+            ...c,
+            categoryReservedQty: c.products.reduce((s, p) => s + p.reservedQuantity, 0),
+        })).sort((a, b) => b.categoryReservedQty - a.categoryReservedQty);
+
+        res.json({
+            success: true,
+            totalReservedQty,
+            totalSkus: products.length,
+            categories,
+        });
+    } catch (e) {
+        console.error('admin reserved-stock error:', e);
+        res.status(500).json({ success: false, error: e.message || 'load failed' });
+    }
 });
 
 // GET /admin/stock-alert — สินค้าที่ stock < threshold

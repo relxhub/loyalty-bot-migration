@@ -2094,7 +2094,10 @@
                     let actionsHtml = '';
 
                     if (order.status === 'PENDING_PAYMENT') {
-                        const expiryMs = new Date(order.createdAt).getTime() + (expiryMinutes * 60 * 1000);
+                        // Per-order expiryMinutes (Phase 4 D5 — tier-based snapshot) ใช้ก่อน
+                        // ถ้า null (ออเดอร์เก่าก่อน Phase 4) ค่อย fallback ไปค่ากลาง
+                        const effExpMin = (order.expiryMinutes != null) ? order.expiryMinutes : expiryMinutes;
+                        const expiryMs = new Date(order.createdAt).getTime() + (effExpMin * 60 * 1000);
                         const remainingMs = expiryMs - now;
                         if (remainingMs > 0) {
                             expiryHtml = `<div class="text-[11px] text-orange-400 mt-1.5 font-mono flex items-center gap-1"><i class="ri-timer-flash-line"></i> ${tt('history.expires_in', 'หมดเวลาใน')} <span id="countdown-${order.id}">--:--</span></div>`;

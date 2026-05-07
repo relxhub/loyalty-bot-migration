@@ -212,6 +212,10 @@
     "payment.admin_confirmed": "Admin has confirmed full payment",
     "payment.cancelled_title": "Order cancelled",
     "payment.cancelled_msg": "Your order was cancelled. If you've already transferred money, please reach out in the chatbot to request a refund.",
+    "payment.expired": "Payment time expired",
+    "payment.expired_title": "Payment expired",
+    "payment.expired_msg": "This order has timed out and will be auto-cancelled. Please place a new order.",
+    "common.back_home": "Back to home",
 
     "lock.over_title": "Awaiting refund from admin",
     "lock.over_desc": "You transferred more than the order total — please message admin in the chatbot to request a refund of the excess.",
