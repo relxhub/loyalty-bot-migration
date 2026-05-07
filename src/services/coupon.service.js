@@ -432,6 +432,65 @@ export async function getBestCoupon(customerId, cartItems, totalAmount) {
 }
 
 /**
+ * คำนวณส่วนลด server-side สำหรับคูปอง 1 ใบกับตะกร้าที่เจาะจง
+ *
+ * ใช้ใน /orders/checkout เพื่อกัน client ส่ง discountAmount เกินจริง
+ * (ตรรกะเดียวกับ section discount calc ใน getBestCoupon — สกัดออกมาใช้ร่วม)
+ *
+ * @param {object} coupon — Coupon model (ต้องมี type, value, excludedProductIds, giftCategoryId, giftProductId, giftQty)
+ * @param {Array<{productId:number, price:number, qty:number}>} cartItems
+ * @param {object} [prismaClient=prisma] — รับ tx prisma ได้ถ้าต้องการ atomic
+ * @returns {Promise<number>} ส่วนลดเป็นบาท (0 ถ้าไม่มีสิทธิ์ลด/ของแถมไม่ valid)
+ */
+export async function computeDiscountForCart(coupon, cartItems, prismaClient = prisma) {
+    if (!coupon || !Array.isArray(cartItems) || cartItems.length === 0) return 0;
+
+    const productIds = cartItems.map((i) => Number(i.productId)).filter(Number.isFinite);
+    const productsInCart = productIds.length > 0
+        ? await prismaClient.product.findMany({
+              where: { id: { in: productIds } },
+              select: { id: true, allowCoupons: true },
+          })
+        : [];
+
+    const excluded = Array.isArray(coupon.excludedProductIds) ? coupon.excludedProductIds : [];
+    const eligibleAmount = cartItems.reduce((sum, i) => {
+        const pid = Number(i.productId);
+        const productInfo = productsInCart.find((p) => p.id === pid);
+        if (productInfo && !productInfo.allowCoupons) return sum;
+        if (excluded.includes(pid)) return sum;
+        return sum + Number(i.price) * Number(i.qty);
+    }, 0);
+
+    if (eligibleAmount <= 0) return 0;
+
+    if (coupon.type === 'DISCOUNT_FLAT') {
+        return Number(coupon.value) || 0;
+    }
+    if (coupon.type === 'DISCOUNT_PERCENT') {
+        return eligibleAmount * (Number(coupon.value) / 100);
+    }
+    if (coupon.type === 'GIFT') {
+        const qty = coupon.giftQty || 1;
+        if (coupon.giftCategoryId) {
+            const cat = await prismaClient.category.findUnique({
+                where: { id: coupon.giftCategoryId },
+            });
+            return cat ? Number(cat.price) * qty : 0;
+        }
+        if (coupon.giftProductId) {
+            const prod = await prismaClient.product.findUnique({
+                where: { id: coupon.giftProductId },
+                include: { category: true },
+            });
+            return prod && prod.category ? Number(prod.category.price) * qty : 0;
+        }
+        return 0;
+    }
+    return 0;
+}
+
+/**
  * แอดมินใช้คูปอง (ตัดสิทธิ์)
  */
 export async function useCoupon(customerId, couponId, adminName) {

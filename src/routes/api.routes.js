@@ -311,6 +311,70 @@ router.post('/orders/checkout', async (req, res) => {
             return res.status(400).json({ error: "กรุณาเลือกที่อยู่จัดส่ง" });
         }
 
+        // -----------------------------------------------------------
+        // 🔒 Server-side money calc — กัน client ส่ง discount/total เกินจริง
+        // -----------------------------------------------------------
+        const subtotalServer = cart.reduce(
+            (s, item) => s + (parseFloat(item.price) || 0) * (parseInt(item.quantity, 10) || 0),
+            0,
+        );
+
+        // ดึง shipping config ฝั่ง server (default: shipping_fee=60, free_shipping_min=500)
+        const shipCfgRows = await prisma.systemConfig.findMany({
+            where: { key: { in: ['shipping_fee', 'free_shipping_min'] } },
+        });
+        const shipCfg = shipCfgRows.reduce(
+            (m, c) => ({ ...m, [c.key]: parseFloat(c.value) }),
+            { shipping_fee: 60, free_shipping_min: 500 },
+        );
+        const shippingServer = subtotalServer >= shipCfg.free_shipping_min ? 0 : shipCfg.shipping_fee;
+
+        // ตรวจสิทธิ์คูปอง + คำนวณส่วนลดฝั่ง server (ก่อน tx — ถ้าไม่ผ่าน reject เลย)
+        let discountServer = 0;
+        if (appliedCouponId) {
+            try {
+                // ดึง categoryId ของแต่ละ item เพื่อ validate target/exclusion
+                const productsForCoupon = await prisma.product.findMany({
+                    where: { id: { in: cart.map((i) => parseInt(i.id, 10)) } },
+                    select: { id: true, categoryId: true },
+                });
+                const cartItemsForCoupon = cart.map((item) => {
+                    const pid = parseInt(item.id, 10);
+                    const p = productsForCoupon.find((pp) => pp.id === pid);
+                    return {
+                        productId: pid,
+                        categoryId: p?.categoryId || null,
+                        qty: parseInt(item.quantity, 10),
+                        price: parseFloat(item.price),
+                    };
+                });
+                const { coupon: validated } = await couponService.validateCouponForCart(
+                    customer.customerId,
+                    appliedCouponId,
+                    cartItemsForCoupon,
+                    subtotalServer,
+                );
+                discountServer = await couponService.computeDiscountForCart(
+                    validated.coupon,
+                    cartItemsForCoupon,
+                );
+            } catch (e) {
+                return res.status(400).json({ success: false, error: e.message || 'คูปองไม่ถูกต้อง' });
+            }
+        }
+        const totalServer = Math.max(0, Math.round((subtotalServer + shippingServer - discountServer) * 100) / 100);
+
+        // Telemetry: เตือนถ้า client ส่งค่าไม่ตรงกับ server (เกิน 0.01 บาท)
+        const clientDiscount = parseFloat(discountAmount) || 0;
+        const clientTotal = parseFloat(totalAmount) || 0;
+        if (Math.abs(clientDiscount - discountServer) > 0.01 || Math.abs(clientTotal - totalServer) > 0.01) {
+            console.warn(
+                `[checkout] amount mismatch — customer=${customer.customerId} coupon=${appliedCouponId || 'none'} ` +
+                `client(discount=${clientDiscount}, total=${clientTotal}) ` +
+                `server(discount=${discountServer}, total=${totalServer})`,
+            );
+        }
+
         // 1. Verify Stock & Generate Order ID inside a transaction
         const orderId = `ORD-${Date.now().toString().slice(-6)}-${Math.floor(1000 + Math.random() * 9000)}`;
         
@@ -344,7 +408,7 @@ router.post('/orders/checkout', async (req, res) => {
                 }
             }
 
-            // Verify Coupon if applied
+            // Re-verify coupon ใน tx (กัน race หลัง validate ฝั่งนอก tx — ถูกใช้ไปแล้วระหว่างนั้น)
             if (appliedCouponId) {
                 const customerCoupon = await tx.customerCoupon.findFirst({
                     where: {
@@ -354,38 +418,28 @@ router.post('/orders/checkout', async (req, res) => {
                     },
                     include: { coupon: true }
                 });
-                
+
                 if (!customerCoupon) {
                      throw new Error(`คูปอง ${appliedCouponId} ไม่สามารถใช้งานได้ หรือถูกใช้ไปแล้ว`);
                 }
-                
+
                 // Do NOT mark coupon as used here anymore to allow users to return and pay later.
                 // We will mark it as USED in Phase 3 when the SlipOK API confirms payment.
             }
 
-            // คำนวณ subtotal/shippingFee จาก cart + ตัวเลขที่ส่งมา
-            // subtotal  = ผลรวมราคาสินค้า (ก่อนหักคูปอง)
-            // shipping  = totalAmount - (subtotal - discountAmount)  (กันค่าติดลบ)
-            const subtotalCalc = cart.reduce(
-                (s, item) => s + (parseFloat(item.price) || 0) * (parseInt(item.quantity, 10) || 0),
-                0
-            );
-            const discountCalc = parseFloat(discountAmount) || 0;
-            const totalCalc = parseFloat(totalAmount) || 0;
-            const shippingCalc = Math.max(0, Math.round((totalCalc - (subtotalCalc - discountCalc)) * 100) / 100);
-
+            // ใช้ค่า server-computed (จาก block ด้านบน) — ไม่ trust client values
             // Create Order
             const newOrder = await tx.order.create({
                 data: {
                     id: orderId,
                     customerId: customer.customerId,
-                    totalAmount: totalCalc,
+                    totalAmount: totalServer,
                     status: 'PENDING_PAYMENT',
                     shippingAddressId: parseInt(shippingAddressId, 10),
                     appliedCouponId: appliedCouponId,
-                    discountAmount: discountCalc,
-                    subtotal: subtotalCalc,
-                    shippingFee: shippingCalc,
+                    discountAmount: discountServer,
+                    subtotal: subtotalServer,
+                    shippingFee: shippingServer,
                     items: {
                         create: cart.map(item => ({
                             productId: parseInt(item.id, 10),
