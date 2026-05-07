@@ -184,10 +184,11 @@
     function updateNavBadge() {
         const dot = document.getElementById('nav-orders-dot');
         if (!dot) return;
-        // นับออเดอร์ที่ยัง active (ยังไม่ส่ง / ยังไม่ยกเลิก) — รอการดำเนินการ
-        const active = _allOrders.filter(o => ['PENDING_PAYMENT', 'PAID', 'PROCESSING'].includes(o.status)).length;
-        if (active > 0) {
-            dot.textContent = active > 9 ? '9+' : String(active);
+        // นับเฉพาะออเดอร์ที่รอชำระเงิน (PENDING_PAYMENT) — ที่ลูกค้าต้อง action
+        // ออเดอร์ PAID/PROCESSING/SHIPPED ไม่ต้อง action — ลูกค้าแค่รอ ไม่เป็น notification
+        const pending = _allOrders.filter(o => o.status === 'PENDING_PAYMENT').length;
+        if (pending > 0) {
+            dot.textContent = pending > 9 ? '9+' : String(pending);
             dot.classList.remove('hidden');
         } else {
             dot.classList.add('hidden');
