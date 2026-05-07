@@ -2060,6 +2060,13 @@
                     const img = it.product.imageUrl
                         ? `<img src="${_esc(it.product.imageUrl)}" class="w-9 h-9 rounded object-cover flex-shrink-0">`
                         : '<div class="w-9 h-9 rounded bg-zinc-700 flex-shrink-0"></div>';
+                    const safeName = escTh.replace(/'/g, "&#39;");
+                    const decBtn = (canEditItems && it.quantity > 1)
+                        ? `<button onclick="ordDecrementItem(${it.id}, '${safeName}', ${it.quantity})" title="ลด 1 ชิ้น" class="text-zinc-500 hover:text-yellow-300 text-base flex-shrink-0 ml-1"><i class="ri-subtract-line"></i></button>`
+                        : '';
+                    const remBtn = canEditItems
+                        ? `<button onclick="ordRemoveItem(${it.id}, '${safeName}')" title="ลบรายการ" class="text-zinc-500 hover:text-red-400 text-base flex-shrink-0 ml-1"><i class="ri-close-circle-line"></i></button>`
+                        : '';
                     return `
                     <div class="flex items-center gap-2 py-1 pl-2">
                         ${img}
@@ -2068,7 +2075,7 @@
                             ${nameEn && nameEn !== nameTh ? `<div class="text-[10px] text-zinc-500 truncate">${_esc(nameEn)}</div>` : ''}
                         </div>
                         <div class="text-xs text-emerald-300 whitespace-nowrap">฿${_fmt(it.priceAtPurchase * it.quantity)}</div>
-                        ${canEditItems ? `<button onclick="ordRemoveItem(${it.id}, '${escTh.replace(/'/g, "&#39;")}')" class="text-zinc-500 hover:text-red-400 text-base flex-shrink-0 ml-1"><i class="ri-close-circle-line"></i></button>` : ''}
+                        ${decBtn}${remBtn}
                     </div>`;
                 }).join('');
                 return `
@@ -2096,10 +2103,33 @@
                     <button onclick="openCustModalFromOrd('${_esc(o.customer.customerId)}', '${_esc(o.id)}')" class="text-[10px] px-2 py-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/40">ดูลูกค้า</button>
                 </div>` : '';
 
+            // ประวัติ admin — แปล action code เป็นข้อความที่อ่านง่าย + parse details
+            const _fmtAudit = (l) => {
+                let d = null;
+                try { d = l.details ? JSON.parse(l.details) : null; } catch (e) {}
+                switch (l.action) {
+                    case 'ORDER_NOTE':
+                        if (d?.cleared) return '🗒️ ล้างหมายเหตุ';
+                        return `🗒️ บันทึกหมายเหตุ: <span class="text-zinc-200">${_esc(d?.note || '—')}</span>`;
+                    case 'ORDER_REMOVE_ITEM':
+                        return `❌ ลบสินค้า (productId ${d?.productId || '?'} × ${d?.qty || '?'})`;
+                    case 'ORDER_DECREMENT_ITEM':
+                        return `➖ ลดสินค้า (productId ${d?.productId || '?'} × ${d?.qty || 1})`;
+                    case 'ORDER_REFUND_SLIP': return '💸 อัปสลิปคืนเงิน';
+                    case 'SLIP_BACKFILL':    return '📎 อัปสลิปแทนลูกค้า';
+                    case 'ORDER_APPROVE':    return '✅ อนุมัติสลิป';
+                    case 'ORDER_REJECT':     return '🚫 ปฏิเสธสลิป';
+                    case 'ORDER_CANCEL':     return '🗑️ ยกเลิกออเดอร์';
+                    case 'ORDER_SET_BILL':   return `🧾 ใส่เลขบิล: <code>${_esc(d?.billNumber || '?')}</code>`;
+                    case 'ORDER_SET_TRACKING': return `🚚 ใส่เลขพัสดุ: <code>${_esc(d?.trackingNumber || '?')}</code>`;
+                    case 'ORDER_CONFIRM_OVERPAID': return '💰 ยืนยันคืนเงินส่วนเกิน';
+                    default: return _esc(l.action);
+                }
+            };
             const audit = o.audit?.length ? `
                 <div class="pt-2 mt-2 border-t border-white/10">
                     <div class="text-[10px] text-zinc-500 font-bold mb-1">ประวัติ admin (${o.audit.length})</div>
-                    ${o.audit.slice(0, 5).map(l => `<div class="text-[10px] text-zinc-400">${_dt(l.createdAt)} · <code>${_esc(l.adminName)}</code> · ${_esc(l.action)}</div>`).join('')}
+                    ${o.audit.slice(0, 5).map(l => `<div class="text-[10px] text-zinc-400 leading-relaxed">${_dt(l.createdAt)} · <code>${_esc(l.adminName)}</code> · ${_fmtAudit(l)}</div>`).join('')}
                 </div>` : '';
 
             const couponLine = o.coupon ? `<div class="flex justify-between text-[11px]"><span class="text-zinc-400">คูปอง ${_esc(o.coupon.name)}</span><span class="text-red-300">-฿${_fmt(o.discountAmount)}</span></div>` : '';
@@ -2275,20 +2305,29 @@
 
         function ordRemoveItem(itemId, name) {
             if (!confirm(`ลบ "${name}" ออกจากออเดอร์?\n(จะคืนสต็อกอัตโนมัติ ถ้าหมดทุก item ออเดอร์จะถูกยกเลิก)`)) return;
-            (async () => {
-                try {
-                    const res = await fetch(`/api/admin/orders/${encodeURIComponent(_currentOrdId)}/items/${itemId}`, {
-                        method: 'DELETE', headers: {'Content-Type':'application/json', 'X-Init-Data': tg.initData},
-                        body: JSON.stringify({ initData: tg.initData }),
-                    });
-                    const data = await res.json();
-                    if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
-                    if (data.cancelled) alert('สินค้าหมด ออเดอร์ถูกยกเลิกอัตโนมัติ');
-                    try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
-                    await openOrdDetail(_currentOrdId);
-                    loadOrders();
-                } catch (e) { alert('error: '+e.message); }
-            })();
+            _ordItemMutate(itemId, null); // null = full remove
+        }
+
+        function ordDecrementItem(itemId, name, currentQty) {
+            if (!confirm(`ลด "${name}" 1 ชิ้น? (เหลือ ${currentQty - 1} ชิ้น — คืนสต็อก 1)`)) return;
+            _ordItemMutate(itemId, 1); // qty=1 → ลด 1
+        }
+
+        async function _ordItemMutate(itemId, qty) {
+            try {
+                const body = { initData: tg.initData };
+                if (qty != null) body.qty = qty;
+                const res = await fetch(`/api/admin/orders/${encodeURIComponent(_currentOrdId)}/items/${itemId}`, {
+                    method: 'DELETE', headers: {'Content-Type':'application/json', 'X-Init-Data': tg.initData},
+                    body: JSON.stringify(body),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error||'ไม่สำเร็จ'); return; }
+                if (data.cancelled) alert('สินค้าหมด ออเดอร์ถูกยกเลิกอัตโนมัติ');
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
+                await openOrdDetail(_currentOrdId);
+                loadOrders();
+            } catch (e) { alert('error: '+e.message); }
         }
 
         async function ordUploadSlip(file) {

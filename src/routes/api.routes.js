@@ -3780,9 +3780,15 @@ router.post('/admin/orders/:id/note', async (req, res) => {
         if (!order) return res.status(404).json({ success: false, error: 'ไม่พบออเดอร์' });
         const note = (req.body?.adminNote ?? '').toString();
         await prisma.order.update({ where: { id: order.id }, data: { adminNote: note || null } });
+        // เก็บ text จริงใน details (cap 500 chars) เพื่อให้ admin ดูประวัติย้อนหลังได้ว่าโน้ตเปลี่ยนแปลงอะไร
+        const noteSnippet = note.slice(0, 500);
         await prisma.adminAuditLog.create({
-            data: { adminName: a.admin?.name || a.telegramId, action: 'ORDER_NOTE',
-                targetId: order.customerId, details: JSON.stringify({ orderId: order.id, len: note.length }) },
+            data: {
+                adminName: a.admin?.name || a.telegramId,
+                action: 'ORDER_NOTE',
+                targetId: order.customerId,
+                details: JSON.stringify({ orderId: order.id, note: noteSnippet, cleared: note.length === 0 }),
+            },
         });
         emitOrderUpdate(req, order.id);
         res.json({ success: true });
@@ -3792,8 +3798,10 @@ router.post('/admin/orders/:id/note', async (req, res) => {
     }
 });
 
-// DELETE /admin/orders/:id/items/:itemId — ลบ item ออกจากออเดอร์ + คืนสต็อก
-// ถ้าออเดอร์ไม่เหลือ item เลย → CANCELLED (คืนคูปองด้วย)
+// DELETE /admin/orders/:id/items/:itemId — ลด/ลบ item ออกจากออเดอร์ + คืนสต็อก
+//   - body { qty: 1 } → ลดทีละ 1 ชิ้น (ถ้ายังเหลือ > 0)
+//   - body ไม่ใส่ qty หรือ qty >= target.quantity → ลบทั้ง row
+//   - ถ้าออเดอร์ไม่เหลือ item เลย → CANCELLED (คืนคูปองด้วย)
 router.delete('/admin/orders/:id/items/:itemId', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
@@ -3811,11 +3819,31 @@ router.delete('/admin/orders/:id/items/:itemId', async (req, res) => {
         const target = order.items.find(it => it.id === itemId);
         if (!target) return res.status(404).json({ success: false, error: 'ไม่พบ item' });
 
+        // qty ที่จะตัด — ถ้า body ไม่ส่งมา หรือเกินจำนวนจริง = ตัดทั้งหมด
+        const reqQty = parseInt(req.body?.qty);
+        const decrementBy = (Number.isFinite(reqQty) && reqQty > 0 && reqQty < target.quantity) ? reqQty : target.quantity;
+        const isFullRemove = decrementBy >= target.quantity;
+
         let cancelled = false;
         await prisma.$transaction(async (tx) => {
-            await tx.orderItem.delete({ where: { id: itemId } });
-            await tx.product.update({ where: { id: target.productId }, data: { stockQuantity: { increment: target.quantity } } });
-            const remaining = order.items.filter(it => it.id !== itemId);
+            if (isFullRemove) {
+                await tx.orderItem.delete({ where: { id: itemId } });
+            } else {
+                await tx.orderItem.update({
+                    where: { id: itemId },
+                    data: { quantity: { decrement: decrementBy } },
+                });
+            }
+            await tx.product.update({
+                where: { id: target.productId },
+                data: { stockQuantity: { increment: decrementBy } },
+            });
+            // คำนวณ remaining items หลังการตัด — สำหรับเช็คว่าออเดอร์ว่างหรือไม่ + recalc total
+            const remaining = order.items
+                .map(it => it.id === itemId
+                    ? { ...it, quantity: it.quantity - decrementBy }
+                    : it)
+                .filter(it => it.quantity > 0);
             if (remaining.length === 0) {
                 await tx.order.update({ where: { id: order.id }, data: { status: 'CANCELLED' } });
                 if (order.appliedCouponId) {
@@ -3826,7 +3854,6 @@ router.delete('/admin/orders/:id/items/:itemId', async (req, res) => {
                 }
                 cancelled = true;
             } else {
-                // อัปเดต subtotal/totalAmount แบบประมาณ — recalc จาก remaining items
                 const newSubtotal = remaining.reduce((s, it) => s + Number(it.priceAtPurchase) * it.quantity, 0);
                 const shippingFee = order.shippingFee != null ? Number(order.shippingFee) : 0;
                 const discount = Number(order.discountAmount || 0);
@@ -3834,15 +3861,19 @@ router.delete('/admin/orders/:id/items/:itemId', async (req, res) => {
                 await tx.order.update({ where: { id: order.id }, data: { subtotal: newSubtotal, totalAmount: newTotal } });
             }
             await tx.adminAuditLog.create({
-                data: { adminName: a.admin?.name || a.telegramId, action: 'ORDER_REMOVE_ITEM',
-                    targetId: order.customerId, details: JSON.stringify({ orderId: order.id, productId: target.productId, qty: target.quantity, cancelled }) },
+                data: {
+                    adminName: a.admin?.name || a.telegramId,
+                    action: isFullRemove ? 'ORDER_REMOVE_ITEM' : 'ORDER_DECREMENT_ITEM',
+                    targetId: order.customerId,
+                    details: JSON.stringify({ orderId: order.id, productId: target.productId, qty: decrementBy, cancelled }),
+                },
             });
         });
         if (cancelled) {
             try { await notifCenter.notifyOrderStatusChanged({ orderId: order.id, customerId: order.customerId, status: 'CANCELLED', note: 'สินค้าถูกลบทั้งหมด' }); } catch (e) {}
         }
         emitOrderUpdate(req, order.id, cancelled ? 'CANCELLED' : null);
-        res.json({ success: true, cancelled });
+        res.json({ success: true, cancelled, decrementBy, fullRemove: isFullRemove });
     } catch (e) {
         console.error('admin order remove-item error:', e);
         res.status(500).json({ success: false, error: e.message || 'remove failed' });
