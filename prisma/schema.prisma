@@ -344,6 +344,9 @@ model Product {
   isHot                Boolean       @default(false)
   viewCount            Int           @default(0)
   stockQuantity        Int           @default(0) // สำหรับตัดสต็อก
+  // จำนวนที่ถูกจองไว้ (อยู่ใน Order PENDING_PAYMENT ที่ยังไม่ paid)
+  // Available = stockQuantity - reservedQuantity (ที่ลูกค้าเห็นในแอป)
+  reservedQuantity     Int           @default(0)
   nicotine             Int?
   coolnessLevel        Int?          @default(0)
   sweetnessLevel       Int?          @default(0)
@@ -572,6 +575,11 @@ model Order {
 
   // Mismatch lock — ตอนเจอยอดสลิปไม่ตรง (ขาด): ตั้ง true → ตัดสต็อก/คูปองทันที, ห้าม re-upload, ไม่ให้ expiry-job ยกเลิก
   mismatchLocked Boolean @default(false)
+
+  // Snapshot ของ expiry window ตอน checkout (นาที)
+  // คำนวณตาม customer tier (new=10, regular=15, vip=30, abuser=5) — config ใน SystemConfig
+  // null = ออเดอร์เก่าก่อน migration → expiry job ใช้ StoreSetting.orderExpiryMinutes (30 default)
+  expiryMinutes Int?
 
   // Over-paid refund tracking — ตั้งเวลาเมื่อ admin กดยืนยันคืนเงินส่วนเกินแล้ว (null = ยังไม่ได้คืน)
   overPaidRefundedAt DateTime?

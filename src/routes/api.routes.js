@@ -5233,6 +5233,22 @@ const KNOWN_CONFIG_KEYS = [
     { key: 'channelId', label: 'Channel ID (โพสต์ของรางวัล)', type: 'text' },
     { key: 'expiryCutoffTime', label: 'เวลาตัดแต้มหมดอายุ (HH:mm)', type: 'text' },
     { key: 'reminderNotificationTime', label: 'เวลาเตือนแต้มใกล้หมด (HH:mm)', type: 'text' },
+    // ---------- 🔒 Stock Reservation / Anti-Abuse (Phase 3+) ----------
+    { key: 'checkout_max_qty_per_item', label: '🔒 [Checkout] จำนวนสูงสุด/SKU/ออเดอร์', type: 'number' },
+    { key: 'checkout_max_total_items', label: '🔒 [Checkout] จำนวนชิ้นรวม/ออเดอร์', type: 'number' },
+    { key: 'checkout_max_distinct_skus', label: '🔒 [Checkout] จำนวน SKU ต่างกันสูงสุด/ออเดอร์', type: 'number' },
+    { key: 'checkout_max_active_reservations', label: '🔒 [Reservation] ออเดอร์รอชำระสูงสุด/คน', type: 'number' },
+    { key: 'checkout_velocity_max_per_hour', label: '🔒 [Velocity] จำนวนออเดอร์สูงสุด/คน/ชม.', type: 'number' },
+    { key: 'checkout_velocity_window_seconds', label: '🔒 [Velocity] ช่วงเวลาที่นับ (วินาที)', type: 'number' },
+    { key: 'checkout_reserve_max_per_user_pct', label: '🔒 [Ratio] สัดส่วน reserve สูงสุด/คน (0.0-1.0)', type: 'number' },
+    { key: 'checkout_reserve_global_alert_pct', label: '🔒 [Ratio] สัดส่วนที่ alert admin (0.0-1.0)', type: 'number' },
+    { key: 'expiry_minutes_new', label: '⏱️ [Expiry] ลูกค้าใหม่ (นาที)', type: 'number' },
+    { key: 'expiry_minutes_regular', label: '⏱️ [Expiry] ลูกค้าทั่วไป (นาที)', type: 'number' },
+    { key: 'expiry_minutes_vip', label: '⏱️ [Expiry] ลูกค้า VIP (นาที)', type: 'number' },
+    { key: 'expiry_minutes_abuser', label: '⏱️ [Expiry] ลูกค้าที่ยกเลิกบ่อย (นาที)', type: 'number' },
+    { key: 'checkout_new_threshold_orders', label: '🏷️ [Tier] PAID < N → New', type: 'number' },
+    { key: 'checkout_vip_threshold_orders', label: '🏷️ [Tier] PAID ≥ N → VIP', type: 'number' },
+    { key: 'checkout_abuser_threshold_cancellations', label: '🏷️ [Tier] CANCELLED ≥ N ใน 24 ชม. → Abuser', type: 'number' },
 ];
 
 router.get('/admin/system-config', async (req, res) => {
