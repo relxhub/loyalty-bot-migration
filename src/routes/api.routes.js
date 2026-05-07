@@ -809,7 +809,8 @@ router.get('/orders/history/:telegramId', async (req, res) => {
             orderBy: { createdAt: 'desc' },
             include: {
                 items: {
-                    include: { product: true }
+                    // include product.category — orders.html group items ตาม category
+                    include: { product: { include: { category: true } } }
                 },
                 payment: true
             }
