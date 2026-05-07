@@ -1,3 +1,38 @@
+// --- AUTO-HIDE BOTTOM NAV ON SCROLL (port จาก products.js เพื่อ behavior ตรงกัน) ---
+(function setupAutoHideNavOnScroll() {
+    const HIDE_THRESHOLD = 30;
+    const SHOW_THRESHOLD = -30;
+    const TOP_RESET_Y = 50;
+    let lastY = 0, accum = 0, ticking = false;
+    const getScrollY = () => (
+        window.scrollY ||
+        window.pageYOffset ||
+        document.scrollingElement?.scrollTop ||
+        document.documentElement?.scrollTop ||
+        document.body?.scrollTop || 0
+    );
+    const apply = () => {
+        const nav = document.getElementById('bottom-nav');
+        if (!nav) return;
+        const currentY = getScrollY();
+        const delta = currentY - lastY;
+        lastY = currentY;
+        if ((delta > 0) !== (accum > 0)) accum = 0;
+        accum += delta;
+        if (currentY < TOP_RESET_Y) { nav.classList.remove('hide'); accum = 0; return; }
+        if (accum > HIDE_THRESHOLD) nav.classList.add('hide');
+        else if (accum < SHOW_THRESHOLD) nav.classList.remove('hide');
+    };
+    const onScroll = () => {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(() => { apply(); ticking = false; });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    document.addEventListener('scroll', onScroll, { passive: true, capture: true });
+    document.addEventListener('touchmove', onScroll, { passive: true });
+})();
+
 // orders.js — หน้าออเดอร์ของฉัน (customer order tracking)
 //
 // Responsibilities:
@@ -283,12 +318,8 @@
             actionsHtml = `<button onclick="event.stopPropagation();window._ordersOpenTracking('${_esc(o.id)}')" class="w-full py-2.5 bg-gradient-to-br from-yellow-400 to-orange-500 text-white rounded-xl text-xs font-bold active:scale-95 transition shadow-[0_0_12px_rgba(245,158,11,0.25)] flex items-center justify-center gap-1.5">
                 <i class="ri-truck-line"></i> ${tt('orders.card.track', 'ติดตามพัสดุ')}
             </button>`;
-        } else if (!isPrize && (o.status === 'CANCELLED' || o.status === 'PAID' || o.status === 'PROCESSING' || o.status === 'SHIPPED') && !o.overPaidInfo) {
-            // Reorder for completed/cancelled (PRZ orders ไม่มีให้สั่งซ้ำ)
-            actionsHtml = `<button onclick="event.stopPropagation();window._ordersReorder('${_esc(o.id)}')" class="w-full py-2.5 bg-gradient-to-br from-yellow-400 to-orange-500 text-white rounded-xl text-xs font-bold active:scale-95 transition shadow-[0_0_12px_rgba(245,158,11,0.25)] flex items-center justify-center gap-1.5">
-                <i class="ri-restart-line"></i> ${tt('order.reorder', 'สั่งซื้ออีกครั้ง')}
-            </button>`;
         }
+        // Reorder ไม่อยู่ใน card list (อยู่เฉพาะใน detail modal — ลด clutter)
 
         const animDelay = Math.min(idx, 8) * 40;
         return `
@@ -758,9 +789,11 @@
         if (!TAB_FILTERS[tab]) tab = 'ALL';
         _currentTab = tab;
         try { tg?.HapticFeedback?.selectionChanged?.(); } catch (e) {}
+        let activeBtn = null;
         document.querySelectorAll('.ord-tab').forEach(btn => {
             const isActive = btn.dataset.tab === tab;
             if (isActive) {
+                activeBtn = btn;
                 btn.className = 'ord-tab whitespace-nowrap text-xs font-bold px-4 py-1.5 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 text-white shadow-[0_0_15px_rgba(245,158,11,0.3)] active:scale-95 transition flex items-center gap-1.5';
                 const cnt = btn.querySelector('.ord-count'); if (cnt) cnt.className = 'ord-count text-[10px] bg-white/25 px-1.5 rounded-full';
             } else {
@@ -768,6 +801,10 @@
                 const cnt = btn.querySelector('.ord-count'); if (cnt) cnt.className = 'ord-count text-[10px] bg-zinc-700 px-1.5 rounded-full';
             }
         });
+        // เลื่อน tab ที่ active มาอยู่ตรงกลาง — สำคัญสำหรับ tab ขวาสุด/ซ้ายสุดที่ถูกตัด
+        if (activeBtn) {
+            try { activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }); } catch (e) {}
+        }
         renderList();
     };
 

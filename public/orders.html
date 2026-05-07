@@ -174,17 +174,16 @@
     </div>
 
     <!-- App content -->
-    <div id="app-content" class="hidden max-w-md mx-auto px-4 pt-5">
-        <!-- Header (lang switcher fixed top-left, header centered) -->
-        <div class="flex items-center justify-center mb-5 gap-2 pt-1">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center shadow-[0_0_18px_rgba(245,158,11,0.35)]">
-                <i class="ri-truck-fill text-white text-lg"></i>
+    <div id="app-content" class="hidden max-w-md mx-auto">
+        <!-- Sticky header + tabs (freeze on scroll) -->
+        <div class="sticky top-0 z-20 bg-[#121212] px-4 pt-5 pb-2">
+            <!-- Header — title only, no icon box (lang switcher fixed top-left) -->
+            <div class="flex items-center justify-center mb-3 pt-1">
+                <h1 class="text-xl font-bold" data-i18n="orders.title">ออเดอร์ของฉัน</h1>
             </div>
-            <h1 class="text-xl font-bold" data-i18n="orders.title">ออเดอร์ของฉัน</h1>
-        </div>
 
-        <!-- Filter tabs (6 tabs ตาม OrderStatus enum: ALL + 5 status) -->
-        <div class="flex gap-2 overflow-x-auto no-scrollbar mb-4 pb-1 -mx-1 px-1 sticky top-0 z-10 bg-[#121212]/95 backdrop-blur py-2">
+            <!-- Filter tabs (6 tabs ตาม OrderStatus enum: ALL + 5 status) -->
+            <div class="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1 pb-1">
             <button data-tab="ALL" class="ord-tab whitespace-nowrap text-xs font-bold px-4 py-1.5 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 text-white shadow-[0_0_15px_rgba(245,158,11,0.3)] active:scale-95 transition flex items-center gap-1.5">
                 <span data-i18n="orders.tabs.all">ทั้งหมด</span> <span class="ord-count text-[10px] bg-white/25 px-1.5 rounded-full" data-tab-count="ALL">0</span>
             </button>
@@ -203,10 +202,11 @@
             <button data-tab="CANCELLED" class="ord-tab whitespace-nowrap text-xs font-bold px-4 py-1.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 active:scale-95 transition flex items-center gap-1.5">
                 <span data-i18n="orders.tabs.cancelled">ยกเลิก</span> <span class="ord-count text-[10px] bg-zinc-700 px-1.5 rounded-full" data-tab-count="CANCELLED">0</span>
             </button>
+            </div>
         </div>
 
         <!-- Orders list -->
-        <div id="orders-list">
+        <div id="orders-list" class="px-4 pt-3">
             <!-- Skeleton on initial load -->
             <div class="skeleton h-32 rounded-2xl mb-3"></div>
             <div class="skeleton h-32 rounded-2xl mb-3"></div>
@@ -236,7 +236,7 @@
             <span data-i18n="nav.products">เมนูสินค้า</span>
         </a>
         <a href="orders.html" class="flex flex-col items-center text-xs font-medium text-white w-1/5 py-1.5 rounded-xl transition active:scale-95 relative">
-            <i class="ri-truck-fill text-xl"></i>
+            <i class="ri-receipt-fill text-xl"></i>
             <span data-i18n="nav.orders">ออเดอร์</span>
             <span id="nav-orders-dot" class="hidden nav-dot"></span>
         </a>
