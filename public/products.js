@@ -3758,6 +3758,11 @@
                     // เคยรอ poll 30 วิ → ปุ่ม "ชำระเงิน" ค้างจนกว่าจะ poll
                     socket.on('order_update', (payload) => {
                         if (!payload || !payload.id) return;
+                        // ⚠️ Server emit เป็น global broadcast → filter ฝั่ง client:
+                        // react เฉพาะ order ที่อยู่ใน window.allOrders ของเราเอง
+                        // กันลูกค้าคนอื่นทำ action แล้วเรา refetch เผลอๆ
+                        const isMine = (window.allOrders || []).some(o => o.id === payload.id);
+                        if (!isMine) return;
                         const detailsModal = document.getElementById('order-details-modal');
                         const isModalOpen = detailsModal && !detailsModal.classList.contains('hidden');
                         // ถ้า modal ของ order นี้เปิดอยู่ → refresh ทันที (server fetch จะคืน order ใหม่)

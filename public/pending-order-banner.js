@@ -150,6 +150,8 @@
         el.style.display = 'flex';
     }
 
+    let _myPendingOrderIds = new Set();
+
     async function fetchPending(telegramId) {
         try {
             const res = await fetch(`/api/orders/pending/${encodeURIComponent(telegramId)}?v=${Date.now()}`, {
@@ -158,6 +160,8 @@
             });
             const data = await res.json();
             if (!data.success) return;
+            // track ids ของลูกค้าคนนี้ — ใช้ใน socket handler เพื่อ filter event ของลูกค้าคนอื่น
+            _myPendingOrderIds = new Set((data.pendingOrders || []).map(o => o.id));
             const best = pickBest(data.pendingOrders);
             renderBanner(best);
         } catch (e) { /* silent */ }
@@ -186,6 +190,10 @@
                 socket.on('order_update', (payload) => {
                     if (!payload || !payload.id) return;
                     const el = document.getElementById('pending-order-banner');
+                    // ⚠️ filter — react เฉพาะ order ของลูกค้าคนนี้ (server emit เป็น global)
+                    // กรณี match: order อยู่ใน pending list ของเรา หรือเป็น order ที่กำลังโชว์ใน banner
+                    const isMine = _myPendingOrderIds.has(payload.id) || el?._currentOrderId === payload.id;
+                    if (!isMine) return;
                     // ถ้าเป็น order ที่กำลังโชว์อยู่และเปลี่ยนเป็น CANCELLED/PAID → freeze ทันที
                     if (el && el._currentOrderId === payload.id) {
                         if (payload.status === 'CANCELLED' || payload.status === 'PAID') {

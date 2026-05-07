@@ -823,6 +823,11 @@
             };
             sock.on('order_update', (payload) => {
                 if (!payload?.id) return;
+                // ⚠️ Server emit order_update เป็น global broadcast (admin ต้องเห็นทุกออเดอร์)
+                // → filter ฝั่ง client: react เฉพาะ order ที่อยู่ใน _allOrders ของเราเอง
+                // กันเคสลูกค้า A ทำ action แล้วลูกค้า B หน้าจอ refresh เอง
+                const isMine = _allOrders.some(o => o.id === payload.id);
+                if (!isMine) return;
                 debounceRefetch(payload.id);
                 if (_currentOpenOrderId === payload.id) {
                     // Re-render modal after refetch (debounce delay)
