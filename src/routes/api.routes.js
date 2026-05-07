@@ -3145,13 +3145,13 @@ async function authAdmin(req, allowedRoles = ['Admin', 'SuperAdmin', 'Owner']) {
 // All sections that can be permission-gated. Owner เห็นทุก section + 'admins'+'rbac'+'dashboard' เสมอ
 const RBAC_SECTIONS = [
     'orders', 'shipments', 'customers', 'coupons', 'mystery-boxes',
-    'products', 'stock-alert', 'categories', 'banners', 'campaigns', 'reviews',
+    'products', 'stock-alert', 'reserved-stock', 'categories', 'banners', 'campaigns', 'reviews',
     'broadcast', 'audit', 'activity', 'settings', 'ship-sync',
     'analytics', 'jobs',
 ];
 const RBAC_DEFAULT = {
-    Admin: ['orders', 'shipments', 'customers', 'stock-alert'],
-    SuperAdmin: ['orders', 'shipments', 'customers', 'coupons', 'mystery-boxes', 'products', 'stock-alert', 'categories', 'banners', 'campaigns', 'reviews', 'broadcast', 'audit', 'activity', 'settings', 'ship-sync', 'analytics', 'jobs'],
+    Admin: ['orders', 'shipments', 'customers', 'stock-alert', 'reserved-stock'],
+    SuperAdmin: ['orders', 'shipments', 'customers', 'coupons', 'mystery-boxes', 'products', 'stock-alert', 'reserved-stock', 'categories', 'banners', 'campaigns', 'reviews', 'broadcast', 'audit', 'activity', 'settings', 'ship-sync', 'analytics', 'jobs'],
 };
 
 async function getRbacMatrix() {
