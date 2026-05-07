@@ -152,6 +152,32 @@
 
     let _myPendingOrderIds = new Set();
 
+    // Update badge dot บนปุ่ม "ออเดอร์" ใน bottom-nav ทุกหน้า
+    // — orders.html มี <span id="nav-orders-dot"> อยู่แล้ว → update เลย
+    // — หน้าอื่นไม่มี → inject เข้าไปใน <a href="orders.html"> dynamic
+    function updateOrdersNavBadge(pendingCount) {
+        let dot = document.getElementById('nav-orders-dot');
+        if (!dot) {
+            const link = document.querySelector('a[href="orders.html"]');
+            if (!link) return;
+            // ensure parent มี position relative สำหรับ absolute dot
+            const cs = window.getComputedStyle(link);
+            if (cs.position === 'static') link.style.position = 'relative';
+            dot = document.createElement('span');
+            dot.id = 'nav-orders-dot';
+            dot.style.cssText = 'position:absolute;top:4px;right:22%;min-width:16px;height:16px;background:#f97316;color:white;border-radius:9999px;padding:0 4px;font-size:10px;font-weight:bold;align-items:center;justify-content:center;border:2px solid #1E1E1E;line-height:1;';
+            link.appendChild(dot);
+        }
+        if (pendingCount > 0) {
+            dot.textContent = pendingCount > 9 ? '9+' : String(pendingCount);
+            dot.style.display = 'flex';
+            dot.classList.remove('hidden');
+        } else {
+            dot.style.display = 'none';
+            dot.classList.add('hidden');
+        }
+    }
+
     async function fetchPending(telegramId) {
         try {
             const res = await fetch(`/api/orders/pending/${encodeURIComponent(telegramId)}?v=${Date.now()}`, {
@@ -160,9 +186,11 @@
             });
             const data = await res.json();
             if (!data.success) return;
+            const pending = data.pendingOrders || [];
             // track ids ของลูกค้าคนนี้ — ใช้ใน socket handler เพื่อ filter event ของลูกค้าคนอื่น
-            _myPendingOrderIds = new Set((data.pendingOrders || []).map(o => o.id));
-            const best = pickBest(data.pendingOrders);
+            _myPendingOrderIds = new Set(pending.map(o => o.id));
+            updateOrdersNavBadge(pending.length);
+            const best = pickBest(pending);
             renderBanner(best);
         } catch (e) { /* silent */ }
     }
