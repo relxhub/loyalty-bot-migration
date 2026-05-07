@@ -168,6 +168,43 @@
             return;
         }
         list.innerHTML = orders.map((o, idx) => renderCard(o, idx)).join('');
+        startCardCountdownTicker();
+    }
+
+    // Centralized ticker for all card countdowns + modal countdown (1 setInterval)
+    let _countdownInterval = null;
+    function startCardCountdownTicker() {
+        if (_countdownInterval) clearInterval(_countdownInterval);
+        const tick = () => {
+            const els = document.querySelectorAll('[data-ord-card-countdown], [data-ord-modal-countdown]');
+            if (!els.length) {
+                if (_countdownInterval) { clearInterval(_countdownInterval); _countdownInterval = null; }
+                return;
+            }
+            const now = Date.now();
+            els.forEach(el => {
+                const created = new Date(el.dataset.createdAt).getTime();
+                const expMin = parseInt(el.dataset.expiryMin, 10) || 0;
+                const remain = (created + expMin * 60000) - now;
+                const valEl = el.querySelector('[data-cd-value]');
+                if (!valEl) return;
+                if (remain <= 0) {
+                    valEl.textContent = tt('history.expired', 'หมดเวลาชำระเงิน');
+                    el.classList.remove('text-orange-400');
+                    el.classList.add('text-red-400');
+                } else {
+                    const m = Math.floor(remain / 60000);
+                    const s = Math.floor((remain % 60000) / 1000);
+                    valEl.textContent = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+                    if (remain <= 5 * 60000) {
+                        el.classList.remove('text-orange-400');
+                        el.classList.add('text-red-400');
+                    }
+                }
+            });
+        };
+        tick();
+        _countdownInterval = setInterval(tick, 1000);
     }
 
     function renderEmptyState(isTotallyEmpty) {
@@ -212,25 +249,45 @@
             ? `<span class="text-[11px] text-zinc-400 ml-2">${tt('orders.card.items_more', 'และอีก {n} ชิ้น').replace('{n}', String(items.length - 3))}</span>`
             : (totalUnits > 0 ? `<span class="text-[11px] text-zinc-500 ml-2">${totalUnits} ชิ้น</span>` : '');
 
-        // Action buttons
-        let primaryBtn = '';
+        // Countdown row (PENDING_PAYMENT non-mismatch) — per-order expiryMinutes
+        // Pattern: ฝัง data attrs + ticker setInterval หลัง render หา elements
+        let countdownHtml = '';
+        if (o.status === 'PENDING_PAYMENT' && !o.mismatchLocked && o.expiryMinutes) {
+            countdownHtml = `<div class="text-[11px] text-orange-400 mb-2 font-mono flex items-center gap-1" data-ord-card-countdown="${_esc(o.id)}" data-created-at="${o.createdAt}" data-expiry-min="${o.expiryMinutes}"><i class="ri-timer-flash-line"></i> ${tt('history.expires_in', 'หมดเวลาใน')} <span data-cd-value>--:--</span></div>`;
+        }
+
+        // Action buttons (mimic history modal pattern):
+        // PENDING_PAYMENT non-mismatch: [ยกเลิก w-1/3] [ชำระเงิน w-2/3]
+        // mismatchLocked: [ทักแอดมิน] full
+        // SHIPPED + tracking: [ติดตามพัสดุ] full
+        // PAID/PROCESSING: (ไม่มีปุ่ม — กดที่ card เพื่อเปิด detail)
+        // CANCELLED + non-PRZ: [สั่งซื้ออีกครั้ง] full
+        let actionsHtml = '';
         const tracking = o.trackingNumber && String(o.trackingNumber).trim();
         if (o.status === 'PENDING_PAYMENT' && !o.mismatchLocked) {
-            primaryBtn = `<button onclick="event.stopPropagation();window._ordersGoPayment('${_esc(o.id)}')" class="flex-1 py-2.5 bg-gradient-to-br from-yellow-400 to-orange-500 text-white rounded-xl text-xs font-bold active:scale-95 transition shadow-[0_0_12px_rgba(245,158,11,0.25)] flex items-center justify-center gap-1.5">
-                <i class="ri-bank-card-line"></i> ${tt('cart.checkout', 'ชำระเงิน')}
-            </button>`;
+            actionsHtml = `
+                <div class="flex gap-2">
+                    <button onclick="event.stopPropagation();window._ordersCancelOrder('${_esc(o.id)}')" class="w-1/3 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-xl text-xs font-bold active:scale-95 transition border border-zinc-700">
+                        ${tt('common.cancel', 'ยกเลิก')}
+                    </button>
+                    <button onclick="event.stopPropagation();window._ordersGoPayment('${_esc(o.id)}')" class="w-2/3 py-2.5 bg-gradient-to-br from-yellow-400 to-orange-500 text-white rounded-xl text-xs font-bold active:scale-95 transition shadow-[0_0_12px_rgba(245,158,11,0.25)] flex items-center justify-center gap-1.5">
+                        <i class="ri-bank-card-line"></i> ${tt('cart.checkout', 'ชำระเงิน')}
+                    </button>
+                </div>`;
         } else if (isMismatch) {
-            primaryBtn = `<button onclick="event.stopPropagation();window._ordersContactAdmin('${_esc(o.id)}')" class="flex-1 py-2.5 bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-xl text-xs font-bold active:scale-95 transition flex items-center justify-center gap-1.5">
+            actionsHtml = `<button onclick="event.stopPropagation();window._ordersContactAdmin('${_esc(o.id)}')" class="w-full py-2.5 bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-xl text-xs font-bold active:scale-95 transition flex items-center justify-center gap-1.5">
                 <i class="ri-customer-service-2-line"></i> ${tt('orders.card.contact_admin', 'ทักแอดมิน')}
             </button>`;
         } else if (tracking && o.status === 'SHIPPED') {
-            primaryBtn = `<button onclick="event.stopPropagation();window._ordersOpenTracking('${_esc(o.id)}')" class="flex-1 py-2.5 bg-gradient-to-br from-yellow-400 to-orange-500 text-white rounded-xl text-xs font-bold active:scale-95 transition shadow-[0_0_12px_rgba(245,158,11,0.25)] flex items-center justify-center gap-1.5">
+            actionsHtml = `<button onclick="event.stopPropagation();window._ordersOpenTracking('${_esc(o.id)}')" class="w-full py-2.5 bg-gradient-to-br from-yellow-400 to-orange-500 text-white rounded-xl text-xs font-bold active:scale-95 transition shadow-[0_0_12px_rgba(245,158,11,0.25)] flex items-center justify-center gap-1.5">
                 <i class="ri-truck-line"></i> ${tt('orders.card.track', 'ติดตามพัสดุ')}
             </button>`;
+        } else if (!isPrize && (o.status === 'CANCELLED' || o.status === 'PAID' || o.status === 'PROCESSING' || o.status === 'SHIPPED') && !o.overPaidInfo) {
+            // Reorder for completed/cancelled (PRZ orders ไม่มีให้สั่งซ้ำ)
+            actionsHtml = `<button onclick="event.stopPropagation();window._ordersReorder('${_esc(o.id)}')" class="w-full py-2.5 bg-gradient-to-br from-yellow-400 to-orange-500 text-white rounded-xl text-xs font-bold active:scale-95 transition shadow-[0_0_12px_rgba(245,158,11,0.25)] flex items-center justify-center gap-1.5">
+                <i class="ri-restart-line"></i> ${tt('order.reorder', 'สั่งซื้ออีกครั้ง')}
+            </button>`;
         }
-        const detailBtn = `<button onclick="event.stopPropagation();window._ordersOpenDetail('${_esc(o.id)}')" class="flex-1 py-2.5 bg-zinc-800 text-zinc-200 border border-zinc-700 rounded-xl text-xs font-bold active:scale-95 transition flex items-center justify-center gap-1.5">
-            <i class="ri-eye-line"></i> ${tt('orders.card.detail', 'ดูรายละเอียด')}
-        </button>`;
 
         const animDelay = Math.min(idx, 8) * 40;
         return `
@@ -244,7 +301,8 @@
                     </div>
                     <span class="text-[10px] px-2 py-0.5 rounded-full border ${pillCls} flex items-center gap-1 whitespace-nowrap"><i class="${pillIcon}"></i>${_esc(pillLabel)}</span>
                 </div>
-                <div class="text-[11px] text-zinc-500 mb-3">${_dateRel(o.createdAt)}</div>
+                <div class="text-[11px] text-zinc-500 mb-2">${_dateRel(o.createdAt)}</div>
+                ${countdownHtml}
                 <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center">${previewImgs || '<div class="w-9 h-9 rounded-full bg-zinc-700 flex items-center justify-center">🛍</div>'}${moreItemsTxt}</div>
                     <div class="text-right">
@@ -252,9 +310,7 @@
                         <div class="text-lg font-bold leading-tight bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">฿${_fmt(o.totalAmount)}</div>
                     </div>
                 </div>
-                <div class="flex gap-2">
-                    ${primaryBtn}${detailBtn}
-                </div>
+                ${actionsHtml}
             </div>`;
     }
 
@@ -270,6 +326,8 @@
         if (!modal || !body) return;
         body.innerHTML = renderDetailBody(o);
         modal.classList.add('show');
+        // start countdown ticker (will pick up modal countdown banner if present)
+        startCardCountdownTicker();
     }
     function closeDetail() {
         _currentOpenOrderId = null;
@@ -323,26 +381,48 @@
         // Mismatch warning + CTA
         const mismatchHtml = isMismatch ? renderMismatchBox(o) : '';
 
-        // Items
-        let itemsHtml = '';
+        // Countdown banner (PENDING_PAYMENT non-mismatch) — pattern เดียวกับ payment.html
+        const showCountdown = o.status === 'PENDING_PAYMENT' && !o.mismatchLocked && o.expiryMinutes;
+        const countdownBanner = showCountdown ? `
+            <div class="flex items-center gap-2 px-3 py-2.5 rounded-xl border bg-orange-500/10 border-orange-500/30 text-orange-300 mb-4"
+                 data-ord-modal-countdown="${_esc(o.id)}" data-created-at="${o.createdAt}" data-expiry-min="${o.expiryMinutes}">
+                <i class="ri-timer-flash-line text-base"></i>
+                <div class="flex-1">
+                    <div class="text-[11px] opacity-80">${tt('payment.countdown_label', 'หมดเวลาชำระภายใน')}</div>
+                    <div data-cd-value class="text-base font-mono font-bold tracking-wider">--:--</div>
+                </div>
+            </div>` : '';
+
+        // Items grouped by category (mimic history modal pattern)
         let subtotal = 0;
-        for (const it of (o.items || [])) {
-            const price = parseFloat(it.priceAtPurchase || 0);
-            const lineTotal = price * it.quantity;
-            subtotal += lineTotal;
-            const name = it.product?.nameTh || it.product?.nameEn || `#${it.productId}`;
-            const img = it.product?.imageUrl;
-            const nic = (it.product?.nicotine != null) ? ` <span class="text-[10px] text-zinc-500">(${it.product.nicotine}%)</span>` : '';
-            itemsHtml += `
-                <div class="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">
-                    ${img ? `<img src="${_esc(img)}" class="w-11 h-11 rounded-lg object-cover" alt="">` : '<div class="w-11 h-11 rounded-lg bg-zinc-800 flex items-center justify-center">🛍</div>'}
-                    <div class="flex-1 min-w-0">
-                        <div class="text-sm text-zinc-200 truncate">${_esc(name)}${nic}</div>
-                        <div class="text-[11px] text-zinc-500 mt-0.5">×${it.quantity} · ฿${_fmt(price)}</div>
-                    </div>
-                    <div class="text-sm font-medium text-zinc-200 whitespace-nowrap">฿${_fmt(lineTotal)}</div>
-                </div>`;
-        }
+        const itemsByCategory = (o.items || []).reduce((acc, it) => {
+            const catName = it.product?.category?.name || tt('common.other', 'อื่นๆ');
+            if (!acc[catName]) acc[catName] = [];
+            acc[catName].push(it);
+            return acc;
+        }, {});
+        let itemsHtml = '';
+        Object.entries(itemsByCategory).forEach(([catName, items], gIdx) => {
+            if (gIdx > 0) itemsHtml += '<div class="border-t border-white/5 my-2"></div>';
+            itemsHtml += `<div class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">${_esc(catName)}</div>`;
+            for (const it of items) {
+                const price = parseFloat(it.priceAtPurchase || 0);
+                const lineTotal = price * it.quantity;
+                subtotal += lineTotal;
+                const name = it.product?.nameTh || it.product?.nameEn || `#${it.productId}`;
+                const img = it.product?.imageUrl;
+                const nic = (it.product?.nicotine != null) ? ` <span class="text-[10px] text-zinc-500">(${it.product.nicotine}%)</span>` : '';
+                itemsHtml += `
+                    <div class="flex items-center gap-3 py-2">
+                        ${img ? `<img src="${_esc(img)}" class="w-11 h-11 rounded-lg object-cover" alt="">` : '<div class="w-11 h-11 rounded-lg bg-zinc-800 flex items-center justify-center">🛍</div>'}
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm text-zinc-200 truncate">${_esc(name)}${nic}</div>
+                            <div class="text-[11px] text-zinc-500 mt-0.5">×${it.quantity} · ฿${_fmt(price)}</div>
+                        </div>
+                        <div class="text-sm font-medium text-zinc-200 whitespace-nowrap">฿${_fmt(lineTotal)}</div>
+                    </div>`;
+            }
+        });
 
         // Address
         const addr = o.shippingAddress;
@@ -393,6 +473,63 @@
             <div class="text-[11px] text-zinc-400 font-bold mb-1.5 flex items-center gap-1.5"><i class="ri-sticky-note-line text-zinc-300"></i> ${tt('orders.detail.note', 'หมายเหตุจากแอดมิน')}</div>
             <div class="bg-zinc-800/60 border border-zinc-700 rounded-xl p-3 mb-4 text-xs text-zinc-300 leading-relaxed whitespace-pre-wrap">${_esc(o.adminNote)}</div>` : '';
 
+        // Over-paid info box (PAID + over-paid + ยังไม่ refund)
+        let overPaidHtml = '';
+        if (o.overPaidInfo) {
+            const op = o.overPaidInfo;
+            overPaidHtml = `
+                <div class="bg-cyan-500/10 border border-cyan-500/30 rounded-2xl p-4 mb-4 text-center">
+                    <i class="ri-refund-2-line text-cyan-300 text-3xl"></i>
+                    <div class="text-cyan-200 font-bold text-sm mt-1">${tt('lock.over_title', 'ออเดอร์รอแอดมินคืนเงิน')}</div>
+                    <div class="text-[11px] text-zinc-400 leading-relaxed mt-1">${tt('lock.over_desc', 'คุณโอนเงินมามากกว่ายอดที่ต้อง — กรุณาทักแอดมินเพื่อขอคืนเงินส่วนเกินในแชทบอท')}</div>
+                    <div class="grid grid-cols-3 gap-2 mt-3 text-xs">
+                        <div class="bg-zinc-800/60 rounded-lg p-2">
+                            <div class="text-zinc-500 text-[10px]">${tt('lock.to_pay', 'ต้องโอน')}</div>
+                            <div class="text-white font-bold mt-0.5">฿${_fmt(op.expected)}</div>
+                        </div>
+                        <div class="bg-zinc-800/60 rounded-lg p-2">
+                            <div class="text-zinc-500 text-[10px]">${tt('lock.paid', 'โอนแล้ว')}</div>
+                            <div class="text-white font-bold mt-0.5">฿${_fmt(op.actual)}</div>
+                        </div>
+                        <div class="bg-cyan-500/15 border border-cyan-500/40 rounded-lg p-2">
+                            <div class="text-cyan-200 text-[10px]">${tt('lock.over_label', 'เกินมา')}</div>
+                            <div class="text-cyan-200 font-bold mt-0.5">฿${_fmt(op.diff)}</div>
+                        </div>
+                    </div>
+                    <div class="space-y-2 mt-3">
+                        <button onclick="window._ordersCopyOverPaidMsg('${_esc(o.id)}')" class="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-sky-500 rounded-xl text-white font-bold text-xs active:scale-95 transition flex items-center justify-center gap-2">
+                            <i class="ri-clipboard-line"></i> ${tt('lock.over_copy', 'คัดลอกข้อความขอคืนเงิน')}
+                        </button>
+                        <button onclick="window._ordersContactAdmin('${_esc(o.id)}','overpaid')" class="w-full py-2.5 bg-zinc-800 border border-zinc-700 rounded-xl text-zinc-200 font-medium text-xs active:scale-95 transition flex items-center justify-center gap-2">
+                            <i class="ri-chat-3-line"></i> ${tt('btn.close_and_chat', 'ปิดและทักแอดมิน')}
+                        </button>
+                    </div>
+                </div>`;
+        }
+
+        // Refund slip view button (admin คืนเงินส่วนเกินแล้ว → มี slip)
+        const refundHtml = o.refundSlipUrl ? `
+            <button onclick="window.open('${_esc(o.refundSlipUrl)}','_blank')" class="w-full py-3 bg-white/5 hover:bg-white/10 text-zinc-200 rounded-xl text-sm font-bold active:scale-95 transition border border-white/10 flex justify-center items-center gap-2 mb-4">
+                <i class="ri-file-list-3-line text-lg"></i> ${tt('order.view_refund_slip', 'ดูสลิปคืนเงิน')}
+            </button>` : '';
+
+        // Sticky footer action buttons (mimic history modal pattern)
+        let footerHtml = '';
+        if (o.status === 'PENDING_PAYMENT' && !o.mismatchLocked) {
+            footerHtml = `
+                <div class="flex gap-2 mt-2">
+                    <button onclick="window._ordersCloseDetail();window._ordersCancelOrder('${_esc(o.id)}')" class="w-1/3 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-sm font-bold active:scale-95 transition border border-zinc-700">${tt('common.cancel', 'ยกเลิก')}</button>
+                    <button onclick="window._ordersGoPayment('${_esc(o.id)}')" class="w-2/3 py-3 bg-gradient-to-br from-yellow-400 to-orange-500 text-white rounded-xl text-sm font-bold active:scale-95 transition shadow-[0_0_15px_rgba(245,158,11,0.3)] flex items-center justify-center gap-2">
+                        <i class="ri-bank-card-line"></i> ${tt('cart.checkout', 'ชำระเงิน')}
+                    </button>
+                </div>`;
+        } else if (!isPrize && !o.overPaidInfo && (o.status === 'PAID' || o.status === 'PROCESSING' || o.status === 'SHIPPED' || o.status === 'CANCELLED')) {
+            footerHtml = `
+                <button onclick="window._ordersCloseDetail();window._ordersReorder('${_esc(o.id)}')" class="w-full py-3 bg-gradient-to-br from-yellow-400 to-orange-500 text-white rounded-xl text-sm font-bold active:scale-95 transition shadow-[0_0_15px_rgba(245,158,11,0.3)] flex items-center justify-center gap-2 mt-2">
+                    <i class="ri-restart-line text-lg"></i> ${tt('order.reorder', 'สั่งซื้ออีกครั้ง')}
+                </button>`;
+        }
+
         return `
             <button onclick="window._ordersCloseDetail()" class="absolute top-4 right-4 w-9 h-9 rounded-full bg-zinc-800 text-zinc-300 flex items-center justify-center active:scale-90 transition z-10"><i class="ri-close-line text-xl"></i></button>
 
@@ -405,12 +542,14 @@
             </div>
 
             ${cancelledBanner}
+            ${countdownBanner}
 
             <div class="flex items-center justify-between mb-5 px-1">
                 ${timelineHtml}
             </div>
 
             ${mismatchHtml}
+            ${overPaidHtml}
             ${addressHtml}
             ${trackingHtml}
             ${billHtml}
@@ -419,12 +558,10 @@
             <div class="bg-[var(--secondary-bg)] rounded-xl p-3 mb-4">${itemsHtml || `<div class="text-xs text-zinc-500 text-center py-2">${tt('orders.detail.no_items', 'ไม่มีรายการ')}</div>`}</div>
 
             ${summaryHtml}
+            ${refundHtml}
             ${noteHtml}
 
-            ${o.status === 'PENDING_PAYMENT' && !o.mismatchLocked ? `
-            <button onclick="window._ordersGoPayment('${_esc(o.id)}')" class="w-full py-3 bg-gradient-to-br from-yellow-400 to-orange-500 text-white rounded-xl font-bold text-sm shadow-[0_0_15px_rgba(245,158,11,0.3)] active:scale-95 transition flex items-center justify-center gap-2 mt-2">
-                <i class="ri-bank-card-line"></i> ${tt('cart.checkout', 'ชำระเงิน')}
-            </button>` : ''}
+            ${footerHtml}
         `;
     }
 
@@ -561,10 +698,58 @@
             else fallback();
         } catch (e) { fallback(); }
     };
-    window._ordersContactAdmin = (orderId) => {
-        // Pattern เดียวกับ payment.html — ปิด mini app เพื่อให้ลูกค้ากลับไปแชทบอท
-        window._ordersCopyMismatchMsg(orderId);
+    window._ordersContactAdmin = (orderId, mode) => {
+        // Pattern เดียวกับ payment.html — copy + ปิด mini app
+        if (mode === 'overpaid') window._ordersCopyOverPaidMsg(orderId);
+        else window._ordersCopyMismatchMsg(orderId);
         setTimeout(() => { try { tg?.close(); } catch (e) { window.close(); } }, 400);
+    };
+
+    window._ordersCopyOverPaidMsg = (orderId) => {
+        const o = _allOrders.find(x => x.id === orderId);
+        if (!o?.overPaidInfo) return;
+        const msg = o.overPaidInfo.copyMessage || '';
+        const fallback = () => {
+            const ta = document.createElement('textarea');
+            ta.value = msg; document.body.appendChild(ta); ta.select();
+            try { document.execCommand('copy'); showToast(tt('msg.copied', 'คัดลอกแล้ว'), 'success'); } catch (e) {}
+            ta.remove();
+        };
+        try {
+            if (navigator.clipboard?.writeText) navigator.clipboard.writeText(msg).then(() => showToast(tt('msg.copied', 'คัดลอกแล้ว'), 'success')).catch(fallback);
+            else fallback();
+        } catch (e) { fallback(); }
+    };
+
+    // Cancel order — confirm popup → API call → refresh (socket also triggers refetch)
+    window._ordersCancelOrder = (orderId) => {
+        if (!tg) return;
+        tg.showConfirm(tt('orders.cancel_confirm', 'คุณต้องการยกเลิกคำสั่งซื้อนี้ใช่หรือไม่?'), async (confirmed) => {
+            if (!confirmed) return;
+            try {
+                const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/cancel`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData }),
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(tt('msg.order_cancelled', 'ยกเลิกคำสั่งซื้อเรียบร้อย'), 'success');
+                    fetchOrders();
+                } else {
+                    showToast(data.error || tt('common.error', 'เกิดข้อผิดพลาด'), 'error');
+                }
+            } catch (e) {
+                showToast(tt('common.connection_error', 'เกิดข้อผิดพลาดในการเชื่อมต่อ'), 'error');
+            }
+        });
+    };
+
+    // Reorder — เก็บ orderId ใน sessionStorage แล้ว redirect ไป products.html
+    // products.js init detects pendingReorder + เรียก window.reorder() (logic เดิม)
+    window._ordersReorder = (orderId) => {
+        try { sessionStorage.setItem('pendingReorder', orderId); } catch (e) {}
+        try { tg?.HapticFeedback?.impactOccurred?.('medium'); } catch (e) {}
+        window.location.href = 'products.html?v=2';
     };
 
     // --- Tab switching ---

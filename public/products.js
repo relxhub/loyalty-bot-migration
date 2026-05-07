@@ -3705,6 +3705,17 @@
                 renderBanners(data.banners);
                 renderCategories(data.categories);
 
+                // Reorder hook — orders.html ตั้ง sessionStorage แล้ว redirect มา
+                // ดึง orderId แล้วเรียก window.reorder() (logic เดียว ทั้งหน้า history modal และ orders page)
+                try {
+                    const pendingReorder = sessionStorage.getItem('pendingReorder');
+                    if (pendingReorder) {
+                        sessionStorage.removeItem('pendingReorder');
+                        // wait until reorder function + cart + products พร้อม
+                        setTimeout(() => { if (typeof window.reorder === 'function') window.reorder(pendingReorder); }, 600);
+                    }
+                } catch (e) { /* silent */ }
+
             // Real-time push: listen to admin status toggles via Socket.io
             // (the server emits 'product_update' from /api/products/:id/status)
             try {

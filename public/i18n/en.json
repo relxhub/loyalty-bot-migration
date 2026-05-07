@@ -39,6 +39,8 @@
     "orders.courier.open": "Open courier site",
     "orders.courier.unknown": "Courier unknown",
     "orders.courier.select": "Select courier",
+    "orders.cancel_confirm": "Do you want to cancel this order?",
+    "msg.order_cancelled": "Order cancelled successfully",
     "time.just_now": "just now",
     "time.min_ago": "min ago",
     "time.hour_ago": "h ago",

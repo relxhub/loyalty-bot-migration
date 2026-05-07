@@ -39,6 +39,8 @@
     "orders.courier.open": "เปิดเว็บขนส่ง",
     "orders.courier.unknown": "ตรวจไม่พบขนส่ง",
     "orders.courier.select": "เลือกขนส่ง",
+    "orders.cancel_confirm": "คุณต้องการยกเลิกคำสั่งซื้อนี้ใช่หรือไม่?",
+    "msg.order_cancelled": "ยกเลิกคำสั่งซื้อเรียบร้อย",
     "time.just_now": "เมื่อกี้",
     "time.min_ago": "นาทีก่อน",
     "time.hour_ago": "ชม. ก่อน",
