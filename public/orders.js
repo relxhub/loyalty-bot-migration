@@ -63,12 +63,14 @@
     };
     const MISMATCH_PILL_CLS = 'bg-purple-500/15 text-purple-300 border-purple-500/30';
 
-    // --- Filter tab → status set ---
+    // --- Filter tab → status set (6 tabs: ALL + 5 OrderStatus enum) ---
     const TAB_FILTERS = {
-        ALL:       () => true,
-        PENDING:   (o) => o.status === 'PENDING_PAYMENT',
-        SHIPPING:  (o) => ['PAID', 'PROCESSING', 'SHIPPED'].includes(o.status),
-        CANCELLED: (o) => o.status === 'CANCELLED',
+        ALL:             () => true,
+        PENDING_PAYMENT: (o) => o.status === 'PENDING_PAYMENT',
+        PAID:            (o) => o.status === 'PAID',
+        PROCESSING:      (o) => o.status === 'PROCESSING',
+        SHIPPED:         (o) => o.status === 'SHIPPED',
+        CANCELLED:       (o) => o.status === 'CANCELLED',
     };
 
     // --- Smart courier detection ---
@@ -130,11 +132,9 @@
 
     // --- Counts + UI ---
     function getCounts() {
-        const c = { ALL: _allOrders.length, PENDING: 0, SHIPPING: 0, CANCELLED: 0 };
+        const c = { ALL: _allOrders.length, PENDING_PAYMENT: 0, PAID: 0, PROCESSING: 0, SHIPPED: 0, CANCELLED: 0 };
         for (const o of _allOrders) {
-            if (TAB_FILTERS.PENDING(o)) c.PENDING++;
-            if (TAB_FILTERS.SHIPPING(o)) c.SHIPPING++;
-            if (TAB_FILTERS.CANCELLED(o)) c.CANCELLED++;
+            if (c[o.status] !== undefined) c[o.status]++;
         }
         return c;
     }
@@ -149,9 +149,10 @@
     function updateNavBadge() {
         const dot = document.getElementById('nav-orders-dot');
         if (!dot) return;
-        const pending = _allOrders.filter(o => TAB_FILTERS.PENDING(o) || TAB_FILTERS.SHIPPING(o)).length;
-        if (pending > 0) {
-            dot.textContent = pending > 9 ? '9+' : String(pending);
+        // นับออเดอร์ที่ยัง active (ยังไม่ส่ง / ยังไม่ยกเลิก) — รอการดำเนินการ
+        const active = _allOrders.filter(o => ['PENDING_PAYMENT', 'PAID', 'PROCESSING'].includes(o.status)).length;
+        if (active > 0) {
+            dot.textContent = active > 9 ? '9+' : String(active);
             dot.classList.remove('hidden');
         } else {
             dot.classList.add('hidden');

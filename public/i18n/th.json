@@ -9,8 +9,10 @@
 
     "orders.title": "ออเดอร์ของฉัน",
     "orders.tabs.all": "ทั้งหมด",
-    "orders.tabs.pending": "รอชำระ",
-    "orders.tabs.shipping": "กำลังจัดส่ง",
+    "orders.tabs.pending": "รอชำระเงิน",
+    "orders.tabs.paid": "ชำระเงินแล้ว",
+    "orders.tabs.processing": "กำลังแพ็คสินค้า",
+    "orders.tabs.shipped": "จัดส่งแล้ว",
     "orders.tabs.cancelled": "ยกเลิก",
     "orders.empty.title": "ยังไม่มีออเดอร์",
     "orders.empty.subtitle": "ไปดูสินค้ากันเลย!",

@@ -9,8 +9,10 @@
 
     "orders.title": "My Orders",
     "orders.tabs.all": "All",
-    "orders.tabs.pending": "Pending",
-    "orders.tabs.shipping": "Shipping",
+    "orders.tabs.pending": "Pending Payment",
+    "orders.tabs.paid": "Paid",
+    "orders.tabs.processing": "Preparing",
+    "orders.tabs.shipped": "Shipped",
     "orders.tabs.cancelled": "Cancelled",
     "orders.empty.title": "No orders yet",
     "orders.empty.subtitle": "Let's go shopping!",

@@ -183,16 +183,22 @@
             <h1 class="text-xl font-bold" data-i18n="orders.title">ออเดอร์ของฉัน</h1>
         </div>
 
-        <!-- Filter tabs -->
+        <!-- Filter tabs (6 tabs ตาม OrderStatus enum: ALL + 5 status) -->
         <div class="flex gap-2 overflow-x-auto no-scrollbar mb-4 pb-1 -mx-1 px-1 sticky top-0 z-10 bg-[#121212]/95 backdrop-blur py-2">
             <button data-tab="ALL" class="ord-tab whitespace-nowrap text-xs font-bold px-4 py-1.5 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 text-white shadow-[0_0_15px_rgba(245,158,11,0.3)] active:scale-95 transition flex items-center gap-1.5">
                 <span data-i18n="orders.tabs.all">ทั้งหมด</span> <span class="ord-count text-[10px] bg-white/25 px-1.5 rounded-full" data-tab-count="ALL">0</span>
             </button>
-            <button data-tab="PENDING" class="ord-tab whitespace-nowrap text-xs font-bold px-4 py-1.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 active:scale-95 transition flex items-center gap-1.5">
-                <span data-i18n="orders.tabs.pending">รอชำระ</span> <span class="ord-count text-[10px] bg-zinc-700 px-1.5 rounded-full" data-tab-count="PENDING">0</span>
+            <button data-tab="PENDING_PAYMENT" class="ord-tab whitespace-nowrap text-xs font-bold px-4 py-1.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 active:scale-95 transition flex items-center gap-1.5">
+                <span data-i18n="orders.tabs.pending">รอชำระเงิน</span> <span class="ord-count text-[10px] bg-zinc-700 px-1.5 rounded-full" data-tab-count="PENDING_PAYMENT">0</span>
             </button>
-            <button data-tab="SHIPPING" class="ord-tab whitespace-nowrap text-xs font-bold px-4 py-1.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 active:scale-95 transition flex items-center gap-1.5">
-                <span data-i18n="orders.tabs.shipping">กำลังจัดส่ง</span> <span class="ord-count text-[10px] bg-zinc-700 px-1.5 rounded-full" data-tab-count="SHIPPING">0</span>
+            <button data-tab="PAID" class="ord-tab whitespace-nowrap text-xs font-bold px-4 py-1.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 active:scale-95 transition flex items-center gap-1.5">
+                <span data-i18n="orders.tabs.paid">ชำระเงินแล้ว</span> <span class="ord-count text-[10px] bg-zinc-700 px-1.5 rounded-full" data-tab-count="PAID">0</span>
+            </button>
+            <button data-tab="PROCESSING" class="ord-tab whitespace-nowrap text-xs font-bold px-4 py-1.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 active:scale-95 transition flex items-center gap-1.5">
+                <span data-i18n="orders.tabs.processing">กำลังแพ็คสินค้า</span> <span class="ord-count text-[10px] bg-zinc-700 px-1.5 rounded-full" data-tab-count="PROCESSING">0</span>
+            </button>
+            <button data-tab="SHIPPED" class="ord-tab whitespace-nowrap text-xs font-bold px-4 py-1.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 active:scale-95 transition flex items-center gap-1.5">
+                <span data-i18n="orders.tabs.shipped">จัดส่งแล้ว</span> <span class="ord-count text-[10px] bg-zinc-700 px-1.5 rounded-full" data-tab-count="SHIPPED">0</span>
             </button>
             <button data-tab="CANCELLED" class="ord-tab whitespace-nowrap text-xs font-bold px-4 py-1.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 active:scale-95 transition flex items-center gap-1.5">
                 <span data-i18n="orders.tabs.cancelled">ยกเลิก</span> <span class="ord-count text-[10px] bg-zinc-700 px-1.5 rounded-full" data-tab-count="CANCELLED">0</span>
