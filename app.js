@@ -119,9 +119,22 @@ async function startServer() {
 
     io.on('connection', (socket) => {
         console.log(`🔌 Client connected: ${socket.id}`);
-        
+
         // Broadcast User Count
         io.emit('online_users', { count: io.engine.clientsCount });
+
+        // Register: client ส่ง { telegramId } หลัง connect → join room `cust:<telegramId>`
+        // ใช้สำหรับ targeted emits (เช่น points/coupon/order ของลูกค้าคนใดคนหนึ่ง)
+        // ไม่ต้อง verify initData ที่นี่ — events ไม่มี payload sensitive (แค่ trigger refetch)
+        socket.on('register', (payload) => {
+            try {
+                const tgId = payload && payload.telegramId ? String(payload.telegramId) : null;
+                if (tgId) {
+                    socket.join(`cust:${tgId}`);
+                    socket.data.tgId = tgId;
+                }
+            } catch (e) { /* silent */ }
+        });
 
         socket.on('disconnect', () => {
             console.log(`🔌 Client disconnected: ${socket.id}`);

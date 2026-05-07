@@ -3653,6 +3653,27 @@
                         }
                     });
 
+                    // banner/category/store-setting changed (admin) → refetch full state
+                    // (poll 120s เป็น fallback สำหรับ socket หลุด)
+                    const _refetchProducts = async () => {
+                        try {
+                            const r = await fetch('/api/products?v=' + Date.now(), { cache: 'no-cache', headers: { 'x-silent-poll': 'true' } });
+                            const d = await r.json();
+                            if (d.products && window.allProducts) {
+                                window.allProducts = allProducts = d.products;
+                                window.allCategories = allCategories = d.categories;
+                                window.allBanners = allBanners = d.banners;
+                                window.storeSetting = storeSetting = d.storeSetting;
+                                if (typeof renderBanners === 'function') renderBanners(d.banners);
+                                if (typeof renderCategories === 'function') renderCategories(d.categories);
+                                if (typeof renderProducts === 'function') renderProducts(d.products);
+                            }
+                        } catch (e) { /* silent */ }
+                    };
+                    socket.on('banner_update', _refetchProducts);
+                    socket.on('category_update', _refetchProducts);
+                    socket.on('store_setting_update', _refetchProducts);
+
                     // order_update: ออเดอร์เปลี่ยนสถานะ (เช่น auto-cancel หมดเวลา, admin ยกเลิก,
                     // สลิปได้รับการตรวจสอบ) → refresh order detail modal ทันที + reload history list
                     // เคยรอ poll 30 วิ → ปุ่ม "ชำระเงิน" ค้างจนกว่าจะ poll
@@ -3684,7 +3705,9 @@
                 }
             } catch(e) { /* socket optional */ }
 
-            // Background polling (30s) for everything sockets don't cover (banners/categories/ticker/store settings)
+            // Background polling (120s) — safety net เผื่อ socket หลุด/missed events
+            // หลัง Phase B socket emit ครบ (banner/category/store_setting/order/product/stock)
+            // poll นี้ทำหน้าที่แค่ catch-all สำหรับเหตุการณ์ที่ socket อาจหลุด
             setInterval(async () => {
                 try {
                     const res = await fetch('/api/products?v=' + new Date().getTime(), { cache: 'no-cache', headers: { 'x-silent-poll': 'true' } });
@@ -3754,7 +3777,7 @@
                 } catch(e) {
                     // Ignore polling errors
                 }
-            }, 30000); // 30 seconds (reduced from 10s — Socket.io covers status changes in real time)
+            }, 120000); // 120s safety net (Phase B: socket รับ realtime แล้ว — poll นี้แค่ catch-all)
 
 
                 appContainer.classList.remove('hidden');

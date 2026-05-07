@@ -12,6 +12,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="/auth-cache.js"></script>
+    <script src="/socket-register.js" defer></script>
     <script src="/pending-order-banner.js" defer></script>
     <!-- QR Code Styling Library -->
 
@@ -1681,24 +1682,35 @@
             }, 5000);
         }
 
-        // --- [START] ระบบ Real-time (Auto Polling) ---
+        // --- [START] ระบบ Real-time (Socket + Slow Poll Fallback) ---
 
         let isFirstLoad = true; // ตัวแปรกันไม่ให้เด้งตอนเปิดแอปครั้งแรก
 
-        // ตั้งเวลาเช็คข้อมูลใหม่ทุกๆ 5 วินาที (ปรับเวลาได้ตามชอบ)
-        setInterval(async () => {
-            // เช็คว่า User กำลังเปิดหน้าจออยู่ไหม (ถ้าพับจอไป ไม่ต้องโหลดให้เปลืองเน็ต)
-            if (document.hidden) return;
+        // Realtime: subscribe socket → refetch ทันทีเมื่อ server emit event ที่เกี่ยวข้อง
+        // (server emit จาก: order PAID, admin grant points/coupon, referral bonus, ฯลฯ)
+        try {
+            const _waitSocket = setInterval(() => {
+                if (window.appSocket) {
+                    clearInterval(_waitSocket);
+                    const sock = window.appSocket;
+                    const refresh = () => { if (!document.hidden) refreshUserData(true).catch(()=>{}); };
+                    sock.on('customer_data_update', refresh); // points/coupons เปลี่ยน
+                    sock.on('order_update', refresh);         // ออเดอร์เปลี่ยนสถานะ
+                    sock.on('connect', refresh);              // reconnect → catch missed events
+                }
+            }, 100);
+            setTimeout(() => clearInterval(_waitSocket), 5000); // give up after 5s
+        } catch (e) { /* socket optional */ }
 
+        // Slow poll safety net (30s) — เผื่อ socket หลุด หรือ event missed
+        setInterval(async () => {
+            if (document.hidden) return;
             try {
-                // เรียกฟังก์ชันโหลดข้อมูล (ส่ง true ไปบอกว่านี่คือการ Auto Refresh นะ)
-                // เพื่อให้ใน refreshUserData รู้ว่าไม่ต้องโชว์ Loading Screen
-                await refreshUserData(true); 
-                
+                await refreshUserData(true);
             } catch (e) {
                 console.log("Auto sync failed (อาจเป็นเพราะเน็ตหลุด):", e);
             }
-        }, 5000); // 5000 ms = 5 วินาที
+        }, 30000); // 30s — เดิม 5s ลดลงเพราะ socket รับ realtime แล้ว
 
         // --- [END] ระบบ Real-time ---
 

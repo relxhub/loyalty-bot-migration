@@ -15,6 +15,28 @@ export function setSocketIo(io) {
 export function emitSocket(event, payload) {
     try { injectedIo?.emit(event, payload); } catch (e) {}
 }
+// Targeted emit ไปยังลูกค้าคนใดคนหนึ่ง (room = `cust:<telegramId>`)
+// ใช้กับ event ส่วนตัว เช่น points_update / coupon_update / order_update ของลูกค้าคนนั้น
+// ลูกค้าคนอื่นจะไม่ได้รับ event — ลด traffic + กัน data leak
+export function emitToCustomer(telegramId, event, payload) {
+    if (!telegramId) return;
+    try { injectedIo?.to(`cust:${telegramId}`).emit(event, payload); } catch (e) {}
+}
+
+// ลูกค้าได้รับ trigger ให้ refetch ข้อมูลของตัวเอง (points / coupons / customer info)
+// รับ customerId (จะ lookup telegramId เอง) — ใช้สะดวกที่ call site ที่มี order/transaction
+export async function notifyCustomerDataChanged(customerId, reason) {
+    if (!customerId) return;
+    try {
+        const c = await prisma.customer.findUnique({
+            where: { customerId },
+            select: { telegramUserId: true },
+        });
+        if (c?.telegramUserId) {
+            emitToCustomer(c.telegramUserId, 'customer_data_update', { reason: reason || 'unknown', ts: Date.now() });
+        }
+    } catch (e) { /* silent */ }
+}
 
 const VALID_KINDS = new Set([
     'REWARD_COUPON_GRANTED',

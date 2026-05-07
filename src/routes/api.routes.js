@@ -1419,6 +1419,8 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
 
         // realtime: stock ถูกตัดจริง (reserved ลด + stockQuantity ลด) → broadcast
         stockReservation.broadcastStockUpdate(order.items);
+        // realtime: ลูกค้าได้รับ points + coupon ใช้ไป → trigger ให้ dashboard refetch
+        notifCenter.notifyCustomerDataChanged(order.customerId, 'order_paid');
 
         // 5.45 Mystery Box: PURCHASE_MILESTONE — เช็คยอดสะสม lifetime ของลูกค้า
         // (best-effort — ไม่กระทบ flow ออเดอร์)
@@ -5603,6 +5605,7 @@ router.patch('/admin/store-setting', async (req, res) => {
         if (b.outOfStockThreshold !== undefined) data.outOfStockThreshold = parseInt(b.outOfStockThreshold) || 0;
         if (b.orderExpiryMinutes !== undefined) data.orderExpiryMinutes = parseInt(b.orderExpiryMinutes) || 30;
         await prisma.storeSetting.upsert({ where: { id: 1 }, update: data, create: { id: 1, ...data } });
+        try { req.app.get('socketio')?.emit('store_setting_update', { ts: Date.now() }); } catch (e) {}
         res.json({ success: true });
     } catch (e) { res.status(500).json({ success: false, error: e.message || 'update failed' }); }
 });
@@ -5921,6 +5924,7 @@ router.post('/admin/banners', async (req, res) => {
             imageUrl: b.imageUrl, linkUrl: b.linkUrl || null,
             isActive: b.isActive !== false, order: parseInt(b.order) || 0,
         }});
+        try { req.app.get('socketio')?.emit('banner_update', { ts: Date.now() }); } catch (e) {}
         res.json({ success: true, banner: { id: created.id } });
     } catch (e) { res.status(500).json({ success: false, error: e.message || 'create failed' }); }
 });
@@ -5940,6 +5944,7 @@ router.patch('/admin/banners/:id', async (req, res) => {
             isActive: b.isActive !== undefined ? !!b.isActive : exist.isActive,
             order: b.order !== undefined ? parseInt(b.order) || 0 : exist.order,
         }});
+        try { req.app.get('socketio')?.emit('banner_update', { ts: Date.now() }); } catch (e) {}
         res.json({ success: true });
     } catch (e) { res.status(500).json({ success: false, error: e.message || 'update failed' }); }
 });
@@ -5950,6 +5955,7 @@ router.delete('/admin/banners/:id', async (req, res) => {
     if (!(await requirePermission(a, 'banners'))) return denyPermission(res, 'banners');
     try {
         await prisma.banner.delete({ where: { id: parseInt(req.params.id) } });
+        try { req.app.get('socketio')?.emit('banner_update', { ts: Date.now() }); } catch (e) {}
         res.json({ success: true });
     } catch (e) { res.status(500).json({ success: false, error: e.message || 'delete failed' }); }
 });
@@ -6050,6 +6056,7 @@ router.post('/admin/categories', async (req, res) => {
         if (!b.name) return res.status(400).json({ success: false, error: 'ชื่อหมวดห้ามว่าง' });
         const data = sanitizeCategoryPayload(b);
         const created = await prisma.category.create({ data });
+        try { req.app.get('socketio')?.emit('category_update', { ts: Date.now() }); } catch (e) {}
         res.json({ success: true, category: { id: created.id } });
     } catch (e) {
         if (e.code === 'P2002') return res.status(400).json({ success: false, error: 'ชื่อหมวดซ้ำ' });
@@ -6068,6 +6075,7 @@ router.patch('/admin/categories/:id', async (req, res) => {
         if (!exist) return res.status(404).json({ success: false, error: 'ไม่พบหมวด' });
         const data = sanitizeCategoryPayload(req.body || {});
         await prisma.category.update({ where: { id }, data });
+        try { req.app.get('socketio')?.emit('category_update', { ts: Date.now() }); } catch (e) {}
         res.json({ success: true });
     } catch (e) {
         if (e.code === 'P2002') return res.status(400).json({ success: false, error: 'ชื่อหมวดซ้ำ' });
@@ -6085,6 +6093,7 @@ router.delete('/admin/categories/:id', async (req, res) => {
         const cnt = await prisma.product.count({ where: { categoryId: id } });
         if (cnt > 0) return res.status(400).json({ success: false, error: `ลบไม่ได้ — มีสินค้า ${cnt} ชิ้นใช้หมวดนี้` });
         await prisma.category.delete({ where: { id } });
+        try { req.app.get('socketio')?.emit('category_update', { ts: Date.now() }); } catch (e) {}
         res.json({ success: true });
     } catch (e) {
         console.error('admin category delete error:', e);

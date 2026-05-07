@@ -18,7 +18,7 @@
     // ข้ามหน้า payment เพราะ countdown มีอยู่แล้วในหน้านั้น
     if (/payment\.html/i.test(window.location.pathname)) return;
 
-    const POLL_INTERVAL_MS = 30000;
+    const POLL_INTERVAL_MS = 90000; // 90s safety net — socket order_update รับ realtime ใน Phase B
     const SS_DISMISS_KEY = 'pendingBannerDismiss';
 
     function getDismissedIds() {
