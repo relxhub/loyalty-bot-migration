@@ -3485,7 +3485,13 @@ router.get('/admin/orders/:id', async (req, res) => {
                 } : null,
                 items: order.items.map(it => ({
                     id: it.id, quantity: it.quantity, priceAtPurchase: Number(it.priceAtPurchase),
-                    product: { id: it.product.id, name: it.product.name, nameEn: it.product.nameEn, imageUrl: it.product.imageUrl, category: it.product.category },
+                    product: {
+                        id: it.product.id,
+                        nameTh: it.product.nameTh,
+                        nameEn: it.product.nameEn,
+                        imageUrl: it.product.imageUrl,
+                        category: it.product.category,
+                    },
                 })),
                 payment: order.payment ? {
                     id: order.payment.id, status: order.payment.status,

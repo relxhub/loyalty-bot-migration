@@ -2032,12 +2032,15 @@
 
             const canEditItems = o.kind === 'PRODUCT' && o.status !== 'CANCELLED' && o.status !== 'SHIPPED';
 
-            // Group items by category — show parent header + indented variant bullets
+            // Group items by category — show parent header + indented variant rows
+            // Product model มีแค่ nameTh / nameEn (ไม่มี plain name)
+            const _pickNameTh = (p) => p?.nameTh || p?.nameEn || '—';
+            const _pickNameEn = (p) => p?.nameEn || '';
             const groupedItems = (() => {
                 const groups = new Map();
                 for (const it of o.items) {
                     const key = it.product.category?.id ?? `_${it.product.id}`; // ถ้าไม่มี category ใช้ productId แยกกลุ่มเอง
-                    const name = it.product.category?.name || it.product.name;
+                    const name = it.product.category?.name || _pickNameTh(it.product);
                     if (!groups.has(key)) groups.set(key, { name, items: [] });
                     groups.get(key).items.push(it);
                 }
@@ -2050,16 +2053,27 @@
                 const firstPrice = g.items[0].priceAtPurchase;
                 const allSame = g.items.every(it => Math.abs(it.priceAtPurchase - firstPrice) < 0.01);
                 const headerPrice = allSame ? `฿${_fmt(firstPrice)}` : 'หลายราคา';
-                const bullets = g.items.map(it => `
-                    <div class="flex items-center gap-2 py-0.5 pl-3 text-[11px]">
-                        <span class="text-zinc-500 flex-shrink-0">•</span>
-                        <div class="flex-1 min-w-0 text-zinc-200 truncate">${_esc(it.product.name)} <span class="text-zinc-500">×${it.quantity}</span></div>
-                        <div class="text-emerald-300 whitespace-nowrap">฿${_fmt(it.priceAtPurchase * it.quantity)}</div>
-                        ${canEditItems ? `<button onclick="ordRemoveItem(${it.id}, '${_esc(it.product.name).replace(/'/g, "&#39;")}')" class="text-zinc-500 hover:text-red-400 text-sm flex-shrink-0"><i class="ri-close-circle-line"></i></button>` : ''}
-                    </div>`).join('');
+                const bullets = g.items.map(it => {
+                    const nameTh = _pickNameTh(it.product);
+                    const nameEn = _pickNameEn(it.product);
+                    const escTh = _esc(nameTh);
+                    const img = it.product.imageUrl
+                        ? `<img src="${_esc(it.product.imageUrl)}" class="w-9 h-9 rounded object-cover flex-shrink-0">`
+                        : '<div class="w-9 h-9 rounded bg-zinc-700 flex-shrink-0"></div>';
+                    return `
+                    <div class="flex items-center gap-2 py-1 pl-2">
+                        ${img}
+                        <div class="flex-1 min-w-0">
+                            <div class="text-xs text-white truncate">${escTh} <span class="text-zinc-400 font-normal">×${it.quantity}</span></div>
+                            ${nameEn && nameEn !== nameTh ? `<div class="text-[10px] text-zinc-500 truncate">${_esc(nameEn)}</div>` : ''}
+                        </div>
+                        <div class="text-xs text-emerald-300 whitespace-nowrap">฿${_fmt(it.priceAtPurchase * it.quantity)}</div>
+                        ${canEditItems ? `<button onclick="ordRemoveItem(${it.id}, '${escTh.replace(/'/g, "&#39;")}')" class="text-zinc-500 hover:text-red-400 text-base flex-shrink-0 ml-1"><i class="ri-close-circle-line"></i></button>` : ''}
+                    </div>`;
+                }).join('');
                 return `
                     <div class="mb-2 last:mb-0">
-                        <div class="text-[11px] font-bold text-white py-1 border-b border-white/10">
+                        <div class="text-xs font-bold text-white py-1 border-b border-white/10">
                             ${_esc(g.name)} <span class="text-zinc-400 font-normal">(${headerPrice})</span>
                         </div>
                         ${bullets}
