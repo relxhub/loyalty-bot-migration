@@ -49,11 +49,10 @@ export function runScheduler(timezone) {
             timezone: timezone
         });
 
-        // E-commerce: ตรวจสอบออเดอร์หมดอายุทุกๆ 1 นาที
-        cron.schedule('* * * * *', runOrderExpiryJob, {
-            scheduled: true,
-            timezone: timezone
-        });
+        // E-commerce: ตรวจสอบออเดอร์หมดอายุทุก 10 วินาที
+        // (ลูกค้า countdown ถึง 0 → server ยกเลิกภายใน 10s + emit socket → UI realtime)
+        // ใช้ setInterval แทน cron เพราะ node-cron 5-field ไม่รองรับ sub-minute granularity
+        setInterval(() => { runOrderExpiryJob().catch(e => console.error('[OrderExpiryJob] tick err:', e?.message)); }, 10000);
 
         // 📰 Daily digest — 09:00 ทุกวัน → ส่งสรุปไป admin group
         cron.schedule('0 9 * * *', runDailyDigestJob, { scheduled: true, timezone });

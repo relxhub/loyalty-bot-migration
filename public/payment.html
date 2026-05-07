@@ -93,7 +93,7 @@
 
     <!-- Header -->
     <div class="flex justify-between items-center mb-6">
-        <button onclick="window.history.back()" class="w-10 h-10 rounded-full bg-zinc-800/50 flex items-center justify-center border border-zinc-700/50 active:scale-95 transition">
+        <button id="payment-back-btn" type="button" class="w-10 h-10 rounded-full bg-zinc-800/50 flex items-center justify-center border border-zinc-700/50 active:scale-95 transition">
             <i class="ri-arrow-left-s-line text-xl text-white"></i>
         </button>
         <h1 class="text-xl font-bold" data-i18n="payment.title">ชำระเงิน</h1>
@@ -207,6 +207,10 @@
 
             <button id="submit-slip-btn" disabled class="w-full mt-4 py-4 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl font-bold text-lg text-white shadow-lg opacity-50 cursor-not-allowed flex items-center justify-center gap-2 transition-all">
                 <i class="ri-check-double-line"></i> <span data-i18n="payment.confirm_payment">ยืนยันการชำระเงิน</span>
+            </button>
+
+            <button id="cancel-order-btn" type="button" class="w-full mt-3 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-sm font-bold text-zinc-300 border border-zinc-700 active:scale-95 transition flex items-center justify-center gap-2">
+                <i class="ri-close-circle-line"></i> <span data-i18n="payment.cancel_order">ยกเลิกออเดอร์นี้</span>
             </button>
         </div>
     </div>
@@ -365,6 +369,23 @@
 
             const urlParams = new URLSearchParams(window.location.search);
             const orderId = urlParams.get('orderId');
+            const fromOrigin = urlParams.get('from'); // 'cart' | null (history/banner/anywhere else)
+
+            // Journey-aware back button
+            // - มาจาก cart (เพิ่งกด checkout): ตะกร้าเคลียร์แล้ว → กลับไปไหนก็ไม่เจอ cart → ไป products.html ตรงๆ
+            // - มาจาก history modal / banner / direct link: window.history.back() ให้กลับไปหน้าเดิม
+            const backBtn = document.getElementById('payment-back-btn');
+            if (backBtn) {
+                backBtn.addEventListener('click', () => {
+                    if (fromOrigin === 'cart') {
+                        window.location.href = 'products.html';
+                    } else if (window.history.length > 1) {
+                        window.history.back();
+                    } else {
+                        window.location.href = 'products.html';
+                    }
+                });
+            }
 
             if (!orderId) {
                 document.getElementById('loading-screen').classList.add('hidden');
@@ -423,6 +444,11 @@
 
                     document.getElementById('display-order-id').textContent = order.id;
                     document.getElementById('display-total').textContent = `${parseFloat(order.totalAmount).toLocaleString('th-TH')} ฿`;
+                    // Snapshot สำหรับเช็คใน checkOrderState — ถ้า admin แก้ items/total → reload หน้า
+                    window._orderSnapshot = {
+                        totalAmount: parseFloat(order.totalAmount),
+                        itemsSig: (order.items || []).map(it => `${it.productId}:${it.quantity}`).sort().join('|'),
+                    };
 
                     // Populate Order Items
                     const itemsContainer = document.getElementById('order-items-list');
@@ -584,6 +610,40 @@
                 lockPaymentUI(info, mode);
             }
 
+            // Cancel order — confirm popup → POST /api/orders/:id/cancel → redirect
+            const cancelBtn = document.getElementById('cancel-order-btn');
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', () => {
+                    if (window.isPaymentBlocked) return;
+                    tg.showPopup({
+                        title: tt('payment.cancel_confirm_title', 'ยืนยันยกเลิกออเดอร์'),
+                        message: tt('payment.cancel_confirm_msg', 'คุณต้องการยกเลิกออเดอร์นี้ใช่หรือไม่? สต็อกจะถูกปล่อยกลับและคุณสามารถสั่งซื้อใหม่ได้ทันที'),
+                        buttons: [
+                            { id: 'no', type: 'cancel', text: tt('common.no', 'ไม่ใช่') },
+                            { id: 'yes', type: 'destructive', text: tt('common.yes_cancel', 'ใช่ ยกเลิก') },
+                        ],
+                    }, async (id) => {
+                        if (id !== 'yes') return;
+                        try {
+                            const res = await fetch(`/api/orders/${orderId}/cancel`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ initData: tg.initData }),
+                            });
+                            const data = await res.json();
+                            if (data.success) {
+                                window.isPaymentBlocked = true;
+                                window.location.href = 'products.html';
+                            } else {
+                                tg.showAlert(data.error || tt('common.error', 'เกิดข้อผิดพลาด'));
+                            }
+                        } catch (e) {
+                            showToast(tt('common.connection_error_retry', 'เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่'), 'error');
+                        }
+                    });
+                });
+            }
+
             // Dummy Slip Upload Logic for Phase 2 UI
             const slipInput = document.getElementById('slip-input');
             const submitBtn = document.getElementById('submit-slip-btn');
@@ -714,6 +774,16 @@
                             const pollRes = await fetch(`/api/orders/${orderId}?v=${Date.now()}`, { cache: 'no-cache', headers: { 'x-silent-poll': 'true' } });
                             const pollData = await pollRes.json();
                             if (pollData.success && pollData.order && pollData.order.items) {
+                            // Items / total เปลี่ยน (admin แก้ออเดอร์) → reload หน้าเพื่อ render สด
+                            const newTotal = parseFloat(pollData.order.totalAmount);
+                            const newSig = (pollData.order.items || []).map(it => `${it.productId}:${it.quantity}`).sort().join('|');
+                            const snap = window._orderSnapshot;
+                            if (snap && (Math.abs(snap.totalAmount - newTotal) > 0.01 || snap.itemsSig !== newSig)) {
+                                window.isPaymentBlocked = true;
+                                showToast(tt('payment.items_changed', 'แอดมินปรับรายการในออเดอร์ของคุณ — รีโหลดหน้า...'), 'info');
+                                setTimeout(() => window.location.reload(), 800);
+                                return;
+                            }
                             // Mismatch lock (under-paid) detected via polling
                             if (pollData.order.mismatchLocked) {
                                 window.isPaymentBlocked = true;

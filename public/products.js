@@ -2427,12 +2427,22 @@
                         saveCart();
                         window.updateCartIcon();
                         if (typeof window.updateCartModalDisplay === 'function') window.updateCartModalDisplay();
-                        
+
                         btn.innerHTML = originalText;
                         btn.disabled = false;
 
-                        // Redirect to payment page
-                        window.location.href = `payment.html?orderId=${data.orderId}&v=${Date.now()}`;
+                        // ถ้ามีออเดอร์เก่าถูก auto-cancel เพราะลูกค้าสร้างใหม่ (D2) → แจ้งให้ทราบ
+                        const cancelledIds = Array.isArray(data.autoCancelledOrderIds) ? data.autoCancelledOrderIds : [];
+                        const goPayment = () => { window.location.href = `payment.html?orderId=${data.orderId}&from=cart&v=${Date.now()}`; };
+                        if (cancelledIds.length > 0) {
+                            tg.showPopup({
+                                title: tt('checkout.auto_cancel_title', 'ออเดอร์เก่าถูกยกเลิกอัตโนมัติ'),
+                                message: tt('checkout.auto_cancel_msg', `ออเดอร์ ${cancelledIds.map(x=>'#'+x).join(', ')} ถูกยกเลิกอัตโนมัติ เพราะคุณสร้างออเดอร์ใหม่ ระบบอนุญาตให้มีออเดอร์ค้างชำระได้ทีละ 1 รายการเท่านั้น`),
+                                buttons: [{ id: 'ok', type: 'default', text: tt('common.ok', 'ตกลง') }],
+                            }, goPayment);
+                        } else {
+                            goPayment();
+                        }
                     } else if (data.stockIssues) {
                         btn.innerHTML = originalText;
                         btn.disabled = false;

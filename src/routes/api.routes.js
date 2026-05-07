@@ -373,9 +373,11 @@ router.post('/orders/checkout', async (req, res) => {
                 error: 'คุณมีออเดอร์ที่รอแอดมินดำเนินการอยู่ (ออเดอร์ #' + active.mismatch[0].id + ') กรุณาแชทแอดมิน',
             });
         }
+        // hoist สู่ outer scope — ใช้ใน response ที่ส่ง autoCancelledOrderIds กลับ client
+        let autoCancelledIds = [];
         if (active.nonMismatch.length >= reserveCfg.maxActiveReservations) {
             // auto-cancel old non-mismatch orders + release their reservations
-            const cancelledIds = [];
+            const cancelledIds = autoCancelledIds; // alias เพื่อ minimize diff ใน block ด้านล่าง
             const releasedItems = [];
             try {
                 await prisma.$transaction(async (tx) => {
@@ -570,7 +572,9 @@ router.post('/orders/checkout', async (req, res) => {
         // realtime: บอก client ทุกคนว่า available stock ของ SKU เปลี่ยน (จองแล้ว) — กันลูกค้ารายอื่นเห็นเลขเก่า
         stockReservation.broadcastStockUpdate(itemsForReserve);
 
-        res.json({ success: true, orderId: result.id });
+        // ส่ง autoCancelledOrderIds กลับ client เพื่อ toast: "ออเดอร์ #X ถูกยกเลิกอัตโนมัติ"
+        // (D2 auto-cancel — เกิดเมื่อสร้างออเดอร์ใหม่ขณะที่มีออเดอร์ค้างชำระอยู่)
+        res.json({ success: true, orderId: result.id, autoCancelledOrderIds: autoCancelledIds });
 
     } catch (error) {
         console.error("Checkout Error:", error);
@@ -5504,45 +5508,64 @@ router.post('/admin/shipping/sync-sheet', async (req, res) => {
 });
 
 // ---------- ⚙️ SETTINGS ----------
+// แต่ละ key มี `group` สำหรับจัดกลุ่มใน admin UI (accordion sections)
 const KNOWN_CONFIG_KEYS = [
-    { key: 'store_is_open', label: '🚪 เปิดร้าน (true/false)', type: 'text' },
-    { key: 'store_closed_message', label: '🚪 ข้อความหน้าปิดร้าน', type: 'text' },
-    { key: 'shipping_fee', label: 'ค่าจัดส่ง (บาท)', type: 'number' },
-    { key: 'free_shipping_min', label: 'ส่งฟรีเมื่อยอดถึง (บาท)', type: 'number' },
-    { key: 'standardReferralPoints', label: 'แต้มชวนเพื่อนพื้นฐาน', type: 'number' },
-    { key: 'standardLinkBonus', label: 'แต้มผูกบัญชีพื้นฐาน', type: 'number' },
-    { key: 'expiryDaysNewMember', label: 'วันหมดอายุแต้มสมาชิกใหม่', type: 'number' },
-    { key: 'expiryDaysAddPoints', label: 'วันหมดอายุเมื่อเติมแต้ม', type: 'number' },
-    { key: 'expiryDaysReferralBonus', label: 'วันหมดอายุโบนัสชวนเพื่อน', type: 'number' },
-    { key: 'expiryDaysLinkAccount', label: 'วันหมดอายุโบนัสผูกบัญชี', type: 'number' },
-    { key: 'expiryDaysLimitMax', label: 'จำนวนวันหมดอายุสูงสุด', type: 'number' },
-    { key: 'tier_silver_min', label: 'จำนวนเพื่อนถึง Silver', type: 'number' },
-    { key: 'tier_gold_min', label: 'จำนวนเพื่อนถึง Gold', type: 'number' },
-    { key: 'tier_silver_multiplier', label: 'ตัวคูณแต้ม Silver', type: 'number' },
-    { key: 'tier_gold_multiplier', label: 'ตัวคูณแต้ม Gold', type: 'number' },
-    { key: 'minPurchaseForReferral', label: 'ยอดขั้นต่ำเพื่อนับ referral', type: 'number' },
-    { key: 'reviewPoints', label: 'แต้มจากการรีวิว', type: 'number' },
-    { key: 'orderBotUsername', label: 'Username บอทออเดอร์', type: 'text' },
-    { key: 'tracking_url_template', label: 'Template URL พัสดุ', type: 'text' },
-    { key: 'channelId', label: 'Channel ID (โพสต์ของรางวัล)', type: 'text' },
-    { key: 'expiryCutoffTime', label: 'เวลาตัดแต้มหมดอายุ (HH:mm)', type: 'text' },
-    { key: 'reminderNotificationTime', label: 'เวลาเตือนแต้มใกล้หมด (HH:mm)', type: 'text' },
-    // ---------- 🔒 จำกัดการสั่งซื้อ + กันโกง (Stock Reservation Phase 3+) ----------
-    { key: 'checkout_max_qty_per_item', label: '🔒 ลูกค้าซื้อสินค้าตัวเดียวกันได้สูงสุดกี่ชิ้น/ออเดอร์', type: 'number' },
-    { key: 'checkout_max_total_items', label: '🔒 ตะกร้ามีของรวมกันได้สูงสุดกี่ชิ้น/ออเดอร์', type: 'number' },
-    { key: 'checkout_max_distinct_skus', label: '🔒 ตะกร้ามีสินค้าต่างชนิดได้สูงสุดกี่รายการ/ออเดอร์', type: 'number' },
-    { key: 'checkout_max_active_reservations', label: '🔒 ลูกค้า 1 คนมีออเดอร์ค้างรอชำระได้กี่ใบ', type: 'number' },
-    { key: 'checkout_velocity_max_per_hour', label: '🔒 ลูกค้า 1 คนสร้างออเดอร์ได้กี่ครั้งใน 1 ชั่วโมง', type: 'number' },
-    { key: 'checkout_velocity_window_seconds', label: '🔒 ช่วงเวลานับจำนวนครั้ง (วินาที — 3600 = 1 ชม.)', type: 'number' },
-    { key: 'checkout_reserve_max_per_user_pct', label: '🔒 ลูกค้า 1 คนจองสต็อกได้สูงสุดกี่ % (0.5 = 50% ของสต็อก)', type: 'number' },
-    { key: 'checkout_reserve_global_alert_pct', label: '🔒 แจ้งเตือนแอดมินเมื่อสต็อกถูกจองรวมเกินกี่ % (0.8 = 80%)', type: 'number' },
-    { key: 'expiry_minutes_new', label: '⏱️ เวลาชำระเงินสำหรับลูกค้าใหม่ (นาที — ยังไม่เคยซื้อสำเร็จ)', type: 'number' },
-    { key: 'expiry_minutes_regular', label: '⏱️ เวลาชำระเงินสำหรับลูกค้าทั่วไป (นาที)', type: 'number' },
-    { key: 'expiry_minutes_vip', label: '⏱️ เวลาชำระเงินสำหรับลูกค้า VIP (นาที — ซื้อสำเร็จมาแล้วหลายครั้ง)', type: 'number' },
-    { key: 'expiry_minutes_abuser', label: '⏱️ เวลาชำระเงินสำหรับลูกค้าที่ยกเลิกบ่อย (นาที — ลดเวลากันโกง)', type: 'number' },
-    { key: 'checkout_new_threshold_orders', label: '🏷️ ลูกค้าซื้อสำเร็จน้อยกว่ากี่ออเดอร์ ถือว่าเป็นลูกค้าใหม่', type: 'number' },
-    { key: 'checkout_vip_threshold_orders', label: '🏷️ ลูกค้าซื้อสำเร็จตั้งแต่กี่ออเดอร์ขึ้นไป ถือว่าเป็น VIP', type: 'number' },
-    { key: 'checkout_abuser_threshold_cancellations', label: '🏷️ ยกเลิกกี่ออเดอร์ใน 24 ชม. ถือว่าเป็นลูกค้ายกเลิกบ่อย', type: 'number' },
+    // 🚪 ร้านค้า
+    { key: 'store_is_open', label: 'เปิดร้าน (true/false)', type: 'text', group: 'store' },
+    { key: 'store_closed_message', label: 'ข้อความหน้าปิดร้าน', type: 'text', group: 'store' },
+    // 💰 ค่าส่ง
+    { key: 'shipping_fee', label: 'ค่าจัดส่ง (บาท)', type: 'number', group: 'shipping' },
+    { key: 'free_shipping_min', label: 'ส่งฟรีเมื่อยอดถึง (บาท)', type: 'number', group: 'shipping' },
+    // 🎁 ระบบแต้ม + คูปอง
+    { key: 'standardReferralPoints', label: 'แต้มชวนเพื่อนพื้นฐาน', type: 'number', group: 'points' },
+    { key: 'standardLinkBonus', label: 'แต้มผูกบัญชีพื้นฐาน', type: 'number', group: 'points' },
+    { key: 'reviewPoints', label: 'แต้มจากการรีวิว', type: 'number', group: 'points' },
+    { key: 'minPurchaseForReferral', label: 'ยอดขั้นต่ำเพื่อนับ referral (บาท)', type: 'number', group: 'points' },
+    { key: 'expiryDaysNewMember', label: 'วันหมดอายุแต้มสมาชิกใหม่', type: 'number', group: 'points' },
+    { key: 'expiryDaysAddPoints', label: 'วันหมดอายุเมื่อเติมแต้ม', type: 'number', group: 'points' },
+    { key: 'expiryDaysReferralBonus', label: 'วันหมดอายุโบนัสชวนเพื่อน', type: 'number', group: 'points' },
+    { key: 'expiryDaysLinkAccount', label: 'วันหมดอายุโบนัสผูกบัญชี', type: 'number', group: 'points' },
+    { key: 'expiryDaysLimitMax', label: 'จำนวนวันหมดอายุสูงสุด', type: 'number', group: 'points' },
+    { key: 'expiryCutoffTime', label: 'เวลาตัดแต้มหมดอายุ (cron format เช่น "5 0 * * *")', type: 'text', group: 'points' },
+    { key: 'reminderNotificationTime', label: 'เวลาเตือนแต้มใกล้หมด (cron format)', type: 'text', group: 'points' },
+    // 🏆 Tier ลูกค้า
+    { key: 'tier_silver_min', label: 'จำนวนเพื่อนถึง Silver', type: 'number', group: 'tier' },
+    { key: 'tier_gold_min', label: 'จำนวนเพื่อนถึง Gold', type: 'number', group: 'tier' },
+    { key: 'tier_silver_multiplier', label: 'ตัวคูณแต้ม Silver', type: 'number', group: 'tier' },
+    { key: 'tier_gold_multiplier', label: 'ตัวคูณแต้ม Gold', type: 'number', group: 'tier' },
+    // 🔒 Anti-abuse / จำกัดการสั่งซื้อ
+    { key: 'checkout_max_qty_per_item', label: 'ลูกค้าซื้อสินค้าตัวเดียวกันได้สูงสุดกี่ชิ้น/ออเดอร์', type: 'number', group: 'anti_abuse' },
+    { key: 'checkout_max_total_items', label: 'ตะกร้ามีของรวมกันได้สูงสุดกี่ชิ้น/ออเดอร์', type: 'number', group: 'anti_abuse' },
+    { key: 'checkout_max_distinct_skus', label: 'ตะกร้ามีสินค้าต่างชนิดได้สูงสุดกี่รายการ/ออเดอร์', type: 'number', group: 'anti_abuse' },
+    { key: 'checkout_max_active_reservations', label: 'ลูกค้า 1 คนมีออเดอร์ค้างรอชำระได้กี่ใบ', type: 'number', group: 'anti_abuse' },
+    { key: 'checkout_velocity_max_per_hour', label: 'ลูกค้า 1 คนสร้างออเดอร์ได้กี่ครั้งใน 1 ชั่วโมง', type: 'number', group: 'anti_abuse' },
+    { key: 'checkout_velocity_window_seconds', label: 'ช่วงเวลานับจำนวนครั้ง (วินาที — 3600 = 1 ชม.)', type: 'number', group: 'anti_abuse' },
+    { key: 'checkout_reserve_max_per_user_pct', label: 'ลูกค้า 1 คนจองสต็อกได้สูงสุดกี่ % (0.5 = 50% ของสต็อก)', type: 'number', group: 'anti_abuse' },
+    { key: 'checkout_reserve_global_alert_pct', label: 'แจ้งเตือนแอดมินเมื่อสต็อกถูกจองรวมเกินกี่ % (0.8 = 80%)', type: 'number', group: 'anti_abuse' },
+    // ⏱️ เวลาชำระเงิน per tier
+    { key: 'expiry_minutes_new', label: 'เวลาชำระเงินสำหรับลูกค้าใหม่ (นาที — ยังไม่เคยซื้อสำเร็จ)', type: 'number', group: 'expiry' },
+    { key: 'expiry_minutes_regular', label: 'เวลาชำระเงินสำหรับลูกค้าทั่วไป (นาที)', type: 'number', group: 'expiry' },
+    { key: 'expiry_minutes_vip', label: 'เวลาชำระเงินสำหรับลูกค้า VIP (นาที)', type: 'number', group: 'expiry' },
+    { key: 'expiry_minutes_abuser', label: 'เวลาชำระเงินสำหรับลูกค้าที่ยกเลิกบ่อย (นาที — ลดเวลากันโกง)', type: 'number', group: 'expiry' },
+    { key: 'checkout_new_threshold_orders', label: 'ลูกค้าซื้อสำเร็จน้อยกว่ากี่ออเดอร์ ถือว่าเป็นลูกค้าใหม่', type: 'number', group: 'expiry' },
+    { key: 'checkout_vip_threshold_orders', label: 'ลูกค้าซื้อสำเร็จตั้งแต่กี่ออเดอร์ขึ้นไป ถือว่าเป็น VIP', type: 'number', group: 'expiry' },
+    { key: 'checkout_abuser_threshold_cancellations', label: 'ยกเลิกกี่ออเดอร์ใน 24 ชม. ถือว่าเป็นลูกค้ายกเลิกบ่อย', type: 'number', group: 'expiry' },
+    // 🤖 Telegram bot
+    { key: 'orderBotUsername', label: 'Username บอทออเดอร์', type: 'text', group: 'bot' },
+    { key: 'channelId', label: 'Channel ID (โพสต์ของรางวัล)', type: 'text', group: 'bot' },
+    // 📦 อื่นๆ
+    { key: 'tracking_url_template', label: 'Template URL พัสดุ ({{TRACK}} จะถูกแทนที่)', type: 'text', group: 'misc' },
+];
+
+const CONFIG_GROUPS = [
+    { key: 'store', label: '🚪 ร้านค้า', desc: 'เปิด/ปิดร้าน + ข้อความหน้าปิด' },
+    { key: 'shipping', label: '🚚 ค่าส่งสินค้า', desc: 'ค่าจัดส่ง + เกณฑ์ส่งฟรี' },
+    { key: 'points', label: '🎁 ระบบแต้มและคูปอง', desc: 'แต้มชวนเพื่อน, รีวิว, วันหมดอายุ' },
+    { key: 'tier', label: '🏆 Tier ลูกค้า (Silver/Gold)', desc: 'เกณฑ์ + ตัวคูณแต้ม per tier' },
+    { key: 'anti_abuse', label: '🔒 Anti-abuse / จำกัดการสั่งซื้อ', desc: 'qty cap, velocity, reservation ratio' },
+    { key: 'expiry', label: '⏱️ เวลาชำระเงิน per tier', desc: 'New / Regular / VIP / Abuser' },
+    { key: 'bot', label: '🤖 Telegram bot', desc: 'Username + Channel ID' },
+    { key: 'misc', label: '📦 อื่นๆ', desc: 'Tracking URL template' },
 ];
 
 router.get('/admin/system-config', async (req, res) => {
@@ -5552,10 +5575,10 @@ router.get('/admin/system-config', async (req, res) => {
         const rows = await prisma.systemConfig.findMany();
         const map = Object.fromEntries(rows.map(r => [r.key, r.value]));
         const items = KNOWN_CONFIG_KEYS.map(k => ({ ...k, value: map[k.key] ?? '' }));
-        // include any extra keys ใน DB ที่ไม่อยู่ใน known list
+        // include any extra keys ใน DB ที่ไม่อยู่ใน known list (assign group 'misc')
         const knownSet = new Set(KNOWN_CONFIG_KEYS.map(k => k.key));
-        for (const r of rows) if (!knownSet.has(r.key)) items.push({ key: r.key, label: r.key, type: 'text', value: r.value });
-        res.json({ success: true, items });
+        for (const r of rows) if (!knownSet.has(r.key)) items.push({ key: r.key, label: r.key, type: 'text', value: r.value, group: 'misc' });
+        res.json({ success: true, items, groups: CONFIG_GROUPS });
     } catch (e) { res.status(500).json({ success: false, error: 'load failed' }); }
 });
 

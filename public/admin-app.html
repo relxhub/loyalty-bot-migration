@@ -3329,12 +3329,66 @@
                 const data = await res.json();
                 if (!data.success) throw new Error(data.error || 'load failed');
                 window._cfgItems = data.items;
-                list.innerHTML = data.items.map(it => `
+
+                // Group items by group
+                const groupsDef = data.groups || [{ key: 'misc', label: '📦 อื่นๆ', desc: '' }];
+                const itemsByGroup = new Map();
+                for (const it of data.items) {
+                    const g = it.group || 'misc';
+                    if (!itemsByGroup.has(g)) itemsByGroup.set(g, []);
+                    itemsByGroup.get(g).push(it);
+                }
+
+                const renderInput = (it) => `
                     <div class="bg-white/5 border border-white/10 rounded-lg p-2.5">
                         <label class="text-[11px] text-zinc-400 block mb-1">${_esc(it.label)} <code class="text-[9px] text-zinc-600">${_esc(it.key)}</code></label>
-                        <input data-key="${_esc(it.key)}" type="${it.type==='number'?'number':'text'}" step="any" value="${_esc(it.value)}" class="cfg-input w-full bg-black/40 border border-white/10 rounded p-1.5 text-white text-sm">
-                    </div>`).join('');
+                        <input data-key="${_esc(it.key)}" data-group="${_esc(it.group||'misc')}" type="${it.type==='number'?'number':'text'}" step="any" value="${_esc(it.value)}" class="cfg-input w-full bg-black/40 border border-white/10 rounded p-1.5 text-white text-sm">
+                    </div>`;
+
+                // Render เฉพาะ groups ที่มี items + ตามลำดับใน groupsDef
+                const html = groupsDef
+                    .filter(g => itemsByGroup.has(g.key) && itemsByGroup.get(g.key).length > 0)
+                    .map((g, idx) => {
+                        const items = itemsByGroup.get(g.key);
+                        const isOpen = idx === 0; // กลุ่มแรก expand ไว้ default
+                        return `
+                            <div class="bg-white/5 border border-white/10 rounded-xl mb-2 overflow-hidden">
+                                <button onclick="this.nextElementSibling.classList.toggle('hidden');this.querySelector('.cfg-arrow').classList.toggle('rotate-180')"
+                                        class="w-full p-3 flex items-center gap-2 text-left hover:bg-white/5">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="text-sm font-bold text-white">${_esc(g.label)}</div>
+                                        ${g.desc ? `<div class="text-[10px] text-zinc-500 mt-0.5">${_esc(g.desc)} · ${items.length} รายการ</div>` : ''}
+                                    </div>
+                                    <i class="ri-arrow-down-s-line text-zinc-400 cfg-arrow transition ${isOpen?'rotate-180':''}"></i>
+                                </button>
+                                <div class="${isOpen?'':'hidden'} border-t border-white/10 p-2 space-y-2">
+                                    ${items.map(renderInput).join('')}
+                                    <button onclick="saveSystemConfigGroup('${_esc(g.key)}')"
+                                            class="w-full mt-2 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold active:scale-95 transition flex items-center justify-center gap-1">
+                                        <i class="ri-save-line"></i> บันทึกกลุ่มนี้
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                list.innerHTML = html || '<div class="text-center text-zinc-500 py-6 text-sm">ไม่มี config</div>';
             } catch (e) { list.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`; }
+        }
+
+        // บันทึกเฉพาะ inputs ใน group นั้นๆ (ปุ่ม "บันทึกกลุ่มนี้")
+        async function saveSystemConfigGroup(group) {
+            const updates = Array.from(document.querySelectorAll(`.cfg-input[data-group="${group}"]`)).map(el => ({ key: el.dataset.key, value: el.value }));
+            if (!updates.length) return;
+            try {
+                const res = await fetch('/api/admin/system-config', {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ updates, initData: tg.initData }),
+                });
+                const data = await res.json();
+                if (!data.success) { alert(data.error || 'ไม่สำเร็จ'); return; }
+                try { tg.hapticFeedback?.notificationOccurred?.('success'); } catch (e) {}
+                showToast(`✅ บันทึกกลุ่ม ${data.count} รายการแล้ว`);
+            } catch (e) { alert('error: ' + e.message); }
         }
 
         async function saveSystemConfig() {
