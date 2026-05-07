@@ -2867,6 +2867,44 @@ router.post('/mystery-box/ticket/:ticketId/open', async (req, res) => {
     }
 });
 
+// ใช้แต้มแลกกล่อง — สร้าง ticket ใบเดียว แล้ว frontend redirect ไปกดเปิด
+router.post('/mystery-box/redeem', async (req, res) => {
+    try {
+        const { initData, mysteryBoxId } = req.body || {};
+        if (!verifyTelegramWebAppData(initData)) {
+            return res.status(401).json({ success: false, error: 'Invalid Telegram Data' });
+        }
+        if (!mysteryBoxId) return res.status(400).json({ success: false, error: 'mysteryBoxId จำเป็น' });
+        const urlParams = new URLSearchParams(initData);
+        const userData = JSON.parse(urlParams.get('user'));
+        const telegramId = userData.id.toString();
+        const customerId = await customerIdFromTelegramId(telegramId);
+        if (!customerId) return res.status(404).json({ success: false, error: 'ไม่พบลูกค้า' });
+
+        const result = await mysteryBox.redeemBoxWithPoints({ customerId, mysteryBoxId });
+        if (!result.success) {
+            const map = {
+                INVALID_INPUT: 'ข้อมูลไม่ครบ',
+                BOX_NOT_FOUND: 'ไม่พบกล่อง',
+                BOX_INACTIVE: 'กล่องนี้ปิดอยู่',
+                NOT_REDEEMABLE: 'กล่องนี้ไม่เปิดให้แลกด้วยแต้ม',
+                NOT_STARTED: 'กล่องนี้ยังไม่เริ่ม',
+                EXPIRED: 'กล่องนี้หมดอายุแล้ว',
+                TIER_TOO_LOW: 'ระดับสมาชิกของคุณยังไม่ถึง',
+                MAX_PER_USER_REACHED: 'คุณรับกล่องนี้ครบสิทธิ์แล้ว',
+                INSUFFICIENT_POINTS: 'แต้มไม่พอ',
+                CUSTOMER_NOT_FOUND: 'ไม่พบลูกค้า',
+                REDEEM_FAILED: 'แลกไม่สำเร็จ',
+            };
+            return res.status(400).json({ success: false, error: map[result.error] || 'แลกไม่สำเร็จ' });
+        }
+        res.json(result);
+    } catch (e) {
+        console.error('Redeem mystery box error:', e);
+        res.status(500).json({ success: false, error: 'แลกกล่องไม่สำเร็จ' });
+    }
+});
+
 // 4. Mark ทั้งหมดเป็นอ่านแล้ว
 router.post('/notifications/:telegramId/read-all', async (req, res) => {
     try {
@@ -5788,6 +5826,7 @@ router.post('/admin/mystery-boxes', async (req, res) => {
                 maxPurchaseAmount: b.maxPurchaseAmount != null && b.maxPurchaseAmount !== '' ? Number(b.maxPurchaseAmount) : null,
                 ticketsPerEvent: parseInt(b.ticketsPerEvent) || 1,
                 maxPerUser: b.maxPerUser != null && b.maxPerUser !== '' ? parseInt(b.maxPerUser) : null,
+                pointCost: b.pointCost != null && b.pointCost !== '' ? parseInt(b.pointCost) : null,
                 requiredTier: b.requiredTier || 'NONE',
                 isActive: b.isActive !== false,
                 startDate: b.startDate ? new Date(b.startDate) : null,
@@ -5822,6 +5861,7 @@ router.patch('/admin/mystery-boxes/:id', async (req, res) => {
         if (b.maxPurchaseAmount !== undefined) data.maxPurchaseAmount = (b.maxPurchaseAmount === '' || b.maxPurchaseAmount === null) ? null : Number(b.maxPurchaseAmount);
         if (b.ticketsPerEvent !== undefined) data.ticketsPerEvent = parseInt(b.ticketsPerEvent) || 1;
         if (b.maxPerUser !== undefined) data.maxPerUser = (b.maxPerUser === '' || b.maxPerUser === null) ? null : parseInt(b.maxPerUser);
+        if (b.pointCost !== undefined) data.pointCost = (b.pointCost === '' || b.pointCost === null) ? null : parseInt(b.pointCost);
         if (b.requiredTier !== undefined) data.requiredTier = b.requiredTier || 'NONE';
         if (b.isActive !== undefined) data.isActive = !!b.isActive;
         if (b.startDate !== undefined) data.startDate = b.startDate ? new Date(b.startDate) : null;
@@ -5846,6 +5886,7 @@ router.post('/admin/mystery-boxes/:id/prizes', async (req, res) => {
         const b = req.body || {};
         if (!b.name) return res.status(400).json({ success: false, error: 'name จำเป็น' });
 
+        const isNoPrize = !!b.isNoPrize;
         const created = await prisma.mysteryBoxPrize.create({
             data: {
                 mysteryBoxId: boxId,
@@ -5855,8 +5896,10 @@ router.post('/admin/mystery-boxes/:id/prizes', async (req, res) => {
                 descriptionEn: b.descriptionEn || null,
                 imageUrl: b.imageUrl || null,
                 weight: parseInt(b.weight) || 1,
-                rewardCouponId: b.rewardCouponId || null,
-                isPhysicalReward: !!b.isPhysicalReward,
+                // ถ้าเป็นช่องโชคไม่ดี → force-clear coupon + physical (กัน inconsistency)
+                rewardCouponId: isNoPrize ? null : (b.rewardCouponId || null),
+                isPhysicalReward: isNoPrize ? false : !!b.isPhysicalReward,
+                isNoPrize,
                 isActive: b.isActive !== false,
             },
         });
@@ -5888,7 +5931,13 @@ router.patch('/admin/mystery-boxes/:boxId/prizes/:prizeId', async (req, res) => 
         if (b.weight !== undefined) data.weight = parseInt(b.weight) || 1;
         if (b.rewardCouponId !== undefined) data.rewardCouponId = b.rewardCouponId || null;
         if (b.isPhysicalReward !== undefined) data.isPhysicalReward = !!b.isPhysicalReward;
+        if (b.isNoPrize !== undefined) data.isNoPrize = !!b.isNoPrize;
         if (b.isActive !== undefined) data.isActive = !!b.isActive;
+        // ถ้า set isNoPrize=true → force-clear coupon + physical (เป็น invariant)
+        if (data.isNoPrize === true) {
+            data.rewardCouponId = null;
+            data.isPhysicalReward = false;
+        }
         const updated = await prisma.mysteryBoxPrize.update({ where: { id: prizeId }, data });
         res.json({ success: true, prize: updated });
     } catch (e) {

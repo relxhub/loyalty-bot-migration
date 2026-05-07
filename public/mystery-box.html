@@ -297,18 +297,27 @@
                     } else {
                         // OPENED — แสดงประวัติย่อ
                         const prize = t.awardedPrize;
-                        const prizeImg = prize?.imageUrl
-                            ? `<img src="${_esc(prize.imageUrl)}" alt="" class="w-10 h-10 rounded-lg object-cover flex-shrink-0">`
-                            : `<div class="w-10 h-10 rounded-lg bg-zinc-700 flex items-center justify-center text-lg flex-shrink-0">🎉</div>`;
+                        const isNoPrize = !!prize?.isNoPrize;
+                        const prizeImg = isNoPrize
+                            ? `<div class="w-10 h-10 rounded-lg bg-zinc-700 flex items-center justify-center text-lg flex-shrink-0">😢</div>`
+                            : (prize?.imageUrl
+                                ? `<img src="${_esc(prize.imageUrl)}" alt="" class="w-10 h-10 rounded-lg object-cover flex-shrink-0">`
+                                : `<div class="w-10 h-10 rounded-lg bg-zinc-700 flex items-center justify-center text-lg flex-shrink-0">🎉</div>`);
+                        const resultText = isNoPrize
+                            ? '<span class="text-zinc-400">ไม่ได้รับรางวัล (โชคไม่ดี)</span>'
+                            : `ได้รับ: ${_esc(prize?.name || '—')}`;
+                        const resultIcon = isNoPrize
+                            ? '<i class="ri-emotion-unhappy-line text-zinc-500 text-lg"></i>'
+                            : '<i class="ri-check-double-line text-green-400 text-lg"></i>';
                         html += `
                         <div class="rounded-xl p-3 bg-white/5 border border-white/10 item-fade-in opacity-70" style="animation-delay:${i*60}ms">
                             <div class="flex items-center gap-3">
                                 ${prizeImg}
                                 <div class="flex-1 min-w-0">
                                     <div class="text-[10px] text-zinc-500">${_esc(t.boxName || 'กล่อง')}</div>
-                                    <div class="text-sm font-medium text-white truncate">ได้รับ: ${_esc(prize?.name || '—')}</div>
+                                    <div class="text-sm font-medium text-white truncate">${resultText}</div>
                                 </div>
-                                <i class="ri-check-double-line text-green-400 text-lg"></i>
+                                ${resultIcon}
                             </div>
                         </div>`;
                     }
@@ -379,14 +388,19 @@
                             <div class="text-[10px] text-zinc-400 mb-2 uppercase tracking-wider">รางวัลในกล่อง</div>
                             <div class="space-y-1.5">
                             ${box.prizes.map(p => {
-                                const pImg = p.imageUrl
-                                    ? `<img src="${_esc(p.imageUrl)}" alt="" class="w-8 h-8 rounded-md object-cover flex-shrink-0">`
-                                    : `<div class="w-8 h-8 rounded-md bg-zinc-700 flex items-center justify-center text-sm flex-shrink-0">🎁</div>`;
+                                const pImg = p.isNoPrize
+                                    ? `<div class="w-8 h-8 rounded-md bg-zinc-700 flex items-center justify-center text-sm flex-shrink-0">🎲</div>`
+                                    : (p.imageUrl
+                                        ? `<img src="${_esc(p.imageUrl)}" alt="" class="w-8 h-8 rounded-md object-cover flex-shrink-0">`
+                                        : `<div class="w-8 h-8 rounded-md bg-zinc-700 flex items-center justify-center text-sm flex-shrink-0">🎁</div>`);
+                                const pName = p.isNoPrize ? 'ไม่ได้รับรางวัล' : _esc(p.name);
+                                const pColor = p.isNoPrize ? 'text-zinc-400' : 'text-zinc-200';
+                                const pctColor = p.isNoPrize ? 'text-zinc-500' : 'text-yellow-300';
                                 return `
                                 <div class="flex items-center gap-2 text-[12px]">
                                     ${pImg}
-                                    <span class="flex-1 text-zinc-200 truncate">${_esc(p.name)}</span>
-                                    <span class="text-yellow-300 font-bold whitespace-nowrap">${p.chancePercent}%</span>
+                                    <span class="flex-1 ${pColor} truncate">${pName}</span>
+                                    <span class="${pctColor} font-bold whitespace-nowrap">${p.chancePercent}%</span>
                                 </div>`;
                             }).join('')}
                             </div>
@@ -400,7 +414,24 @@
                             <i class="ri-check-line"></i> ตรวจสอบและรับสิทธิ์
                         </button>`;
                     }
+                    // ปุ่มแลกด้วยแต้ม — แสดงเมื่อ pointCost > 0 (เพิ่มได้นอกเหนือจากปุ่ม trigger)
+                    if (box.pointCost && box.pointCost > 0) {
+                        const myPts = Number(window.currentUser?.points || 0);
+                        const enough = myPts >= box.pointCost;
+                        const reachedCap = box.maxPerUser && box.userRemaining === 0;
+                        const disabled = !enough || reachedCap;
+                        const label = reachedCap
+                            ? '✓ รับครบสิทธิ์แล้ว'
+                            : (!enough ? `แต้มไม่พอ (มี ${myPts.toLocaleString('th-TH')})` : `🎯 ใช้ ${box.pointCost.toLocaleString('th-TH')} แต้มเปิดเลย`);
+                        actionBtn += `
+                        <button onclick="redeemPaidBox('${_esc(box.id)}', ${box.pointCost}, this)" ${disabled?'disabled':''} class="mt-2 w-full py-2 rounded-xl ${disabled?'bg-zinc-700 text-zinc-500':'bg-gradient-to-r from-yellow-500 to-orange-500 hover:opacity-90 text-black'} text-sm font-bold active:scale-95 transition disabled:cursor-not-allowed">
+                            ${label}
+                        </button>`;
+                    }
 
+                    const pointCostBadge = (box.pointCost && box.pointCost > 0)
+                        ? `<div class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-200 border border-yellow-400/40 mt-1">💰 ${box.pointCost.toLocaleString('th-TH')} แต้ม</div>`
+                        : '';
                     html += `
                     <div class="bg-white/5 rounded-2xl p-3.5 border border-white/10 item-fade-in" style="animation-delay:${idx*80}ms">
                         <div class="flex items-start gap-3">
@@ -412,7 +443,7 @@
                                     <i class="ri-check-line mt-0.5 flex-shrink-0"></i><span>${_esc(conditionText)}</span>
                                 </div>
                                 <div class="text-[10px] text-zinc-500 mt-0.5">${ticketsInfo}${maxInfo}${tierInfo}</div>
-                                ${progressBadge}
+                                <div class="flex items-center gap-1 flex-wrap">${progressBadge}${pointCostBadge}</div>
                             </div>
                         </div>
                         ${prizesHtml}
@@ -672,6 +703,35 @@
             showReveal('reveal', { prize: data.prize });
         }
 
+        async function redeemPaidBox(boxId, pointCost, btn) {
+            if (!confirm(`ใช้ ${pointCost.toLocaleString('th-TH')} แต้มเปิดกล่องนี้?\n(แต้มจะถูกหักทันที)`)) return;
+            const wasHtml = btn ? btn.innerHTML : '';
+            if (btn) { btn.disabled = true; btn.textContent = 'กำลังแลก...'; }
+            try { tg.hapticFeedback?.impactOccurred?.('medium'); } catch(e){}
+            try {
+                const res = await fetch('/api/mystery-box/redeem', {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ initData: tg.initData, mysteryBoxId: boxId })
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    alert(data.error || 'แลกไม่สำเร็จ');
+                    if (btn) { btn.disabled = false; btn.innerHTML = wasHtml; }
+                    return;
+                }
+                // sync points ใน cache + currentUser
+                if (typeof data.remainingPoints === 'number' && window.currentUser) {
+                    window.currentUser.points = data.remainingPoints;
+                    try { window.AuthCache?.set(window.currentUser); } catch(e){}
+                }
+                // เปิดกล่องเลยทันที (UX ต่อเนื่อง)
+                openTicket(data.ticketId);
+            } catch (e) {
+                alert('เกิดข้อผิดพลาด: ' + e.message);
+                if (btn) { btn.disabled = false; btn.innerHTML = wasHtml; }
+            }
+        }
+
         async function claimChannelBox(boxId, btn) {
             if (btn) { btn.disabled = true; btn.textContent = 'กำลังตรวจสอบ...'; }
             try {
@@ -719,6 +779,20 @@
             }
             if (state === 'reveal' && opts.prize) {
                 const p = opts.prize;
+                if (p.isNoPrize) {
+                    // โชคไม่ดี — ไม่ยิง confetti, ใช้โทนเทา-น้ำเงิน เบาๆ ปลอบใจ
+                    modal.innerHTML = `
+                        <div class="glass-card max-w-sm w-[88%] p-6 text-center bounce-in border border-zinc-500/30">
+                            <p class="text-zinc-400 text-xs uppercase tracking-widest font-bold mb-3">ผลการเปิดกล่อง</p>
+                            <div class="text-6xl mb-4">😢</div>
+                            <h2 class="text-lg font-black text-white mb-1">${_esc(p.name || 'เสียใจด้วย ครั้งนี้โชคไม่ดี')}</h2>
+                            <p class="text-[12px] text-zinc-400 mb-5">${_esc(p.description || 'ลองลุ้นใหม่ครั้งหน้านะ ✨')}</p>
+                            <button onclick="closeReveal()" class="w-full py-3 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white font-bold active:scale-95">
+                                ปิด
+                            </button>
+                        </div>`;
+                    return;
+                }
                 fireConfetti();
                 const prizeImg = p.imageUrl
                     ? `<img src="${_esc(p.imageUrl)}" alt="" class="w-32 h-32 rounded-2xl object-cover mx-auto mb-4 border-2 border-yellow-400/30">`

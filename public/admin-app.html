@@ -4525,6 +4525,11 @@
                         </div>
                     </div>
                     <div>
+                        <label class="text-[11px] text-zinc-400 block mb-1">💰 ค่าแลกเป็นแต้ม (ถ้ามี — เปิดให้ลูกค้ากดซื้อ)</label>
+                        <input id="mb-pointCost" type="number" min="0" value="${b.pointCost||''}" placeholder="ปล่อยว่าง = ไม่เปิดให้แลกด้วยแต้ม" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                        <p class="text-[10px] text-zinc-500 mt-1">เซ็ต = ลูกค้าใช้แต้มเปิดกล่องได้ทันที (ไม่ต้องรอ trigger)</p>
+                    </div>
+                    <div>
                         <label class="text-[11px] text-zinc-400 block mb-1">เงื่อนไข tier</label>
                         <select id="mb-requiredTier" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
                             ${['NONE','SILVER','GOLD'].map(t => `<option value="${t}" ${(b.requiredTier||'NONE')===t?'selected':''}>${t}</option>`).join('')}
@@ -4551,11 +4556,11 @@
                     </div>
                     <div id="mb-prizes-inline" class="space-y-1.5">
                         ${(b.prizes||[]).map(p => `
-                            <div class="flex items-center gap-2 text-xs bg-white/5 border border-white/10 rounded-lg p-2">
-                                ${p.imageUrl ? `<img src="${_esc(p.imageUrl)}" class="w-7 h-7 rounded object-cover">` : '<div class="w-7 h-7 rounded bg-zinc-700 flex items-center justify-center text-sm">🎁</div>'}
+                            <div class="flex items-center gap-2 text-xs ${p.isNoPrize?'bg-zinc-500/10 border-zinc-400/30':'bg-white/5 border-white/10'} border rounded-lg p-2">
+                                ${p.isNoPrize ? '<div class="w-7 h-7 rounded bg-zinc-700 flex items-center justify-center text-sm">🎲</div>' : (p.imageUrl ? `<img src="${_esc(p.imageUrl)}" class="w-7 h-7 rounded object-cover">` : '<div class="w-7 h-7 rounded bg-zinc-700 flex items-center justify-center text-sm">🎁</div>')}
                                 <div class="flex-1 min-w-0">
-                                    <div class="truncate text-white">${_esc(p.name)}</div>
-                                    <div class="text-[10px] text-zinc-500">w${p.weight}${p.isPhysicalReward?' · physical':''}${p.rewardCouponId?' · coupon: '+_esc(p.rewardCouponId):''}</div>
+                                    <div class="truncate text-white">${_esc(p.name)}${p.isNoPrize?' <span class="text-[9px] px-1.5 py-0.5 rounded-full bg-zinc-600/40 text-zinc-300 border border-zinc-500/40 ml-1">ช่องเปล่า</span>':''}</div>
+                                    <div class="text-[10px] text-zinc-500">w${p.weight}${p.isPhysicalReward?' · physical':''}${p.rewardCouponId?' · coupon: '+_esc(p.rewardCouponId):''}${p.isNoPrize?' · โชคไม่ดี':''}</div>
                                 </div>
                                 <button onclick="openPrizeEdit('${_esc(id)}', ${p.id})" class="text-zinc-400 hover:text-white text-base"><i class="ri-edit-line"></i></button>
                                 <button onclick="deletePrize('${_esc(id)}', ${p.id})" class="text-zinc-500 hover:text-red-400 text-base"><i class="ri-delete-bin-line"></i></button>
@@ -4593,6 +4598,7 @@
                 maxPurchaseAmount: document.getElementById('mb-maxPurchaseAmount').value,
                 ticketsPerEvent: document.getElementById('mb-ticketsPerEvent').value,
                 maxPerUser: document.getElementById('mb-maxPerUser').value,
+                pointCost: document.getElementById('mb-pointCost').value,
                 requiredTier: document.getElementById('mb-requiredTier').value,
                 startDate: document.getElementById('mb-startDate').value || null,
                 endDate: document.getElementById('mb-endDate').value || null,
@@ -4636,17 +4642,31 @@
                 ..._couponOptions.map(c => `<option value="${_esc(c.id)}" ${prize?.rewardCouponId===c.id?'selected':''}>${_esc(c.name)} (${_esc(c.id)})</option>`)
             ].join('');
 
+            const isNoPrize = !!prize?.isNoPrize;
+            const defaultName = isNew ? '' : (prize?.name || '');
+            const defaultDesc = isNew ? '' : (prize?.description || '');
             const html = `
                 <div class="flex items-start justify-between mb-3">
                     <h3 class="text-base font-bold">${isNew ? '➕ เพิ่มรางวัล' : '✏️ แก้ไขรางวัล'}</h3>
                     <button onclick="closePrizeModal()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center"><i class="ri-close-line"></i></button>
                 </div>
                 <div class="space-y-3 text-sm">
+                    <label class="flex items-start gap-2 p-2.5 rounded-lg bg-zinc-500/10 border border-zinc-400/30 cursor-pointer">
+                        <input id="pz-isNoPrize" type="checkbox" ${isNoPrize?'checked':''} onchange="onToggleNoPrize()" class="w-4 h-4 accent-zinc-400 mt-0.5">
+                        <div class="flex-1">
+                            <div class="text-zinc-200 font-bold">🎲 ช่องโชคไม่ดี (ไม่ได้รับรางวัล)</div>
+                            <div class="text-[10px] text-zinc-500 mt-0.5">ใช้ถ่วงน้ำหนัก burn ticket ทิ้ง — ลูกค้าเปิดแล้วไม่ได้อะไร</div>
+                        </div>
+                    </label>
                     <div>
-                        <label class="text-[11px] text-zinc-400 block mb-1">ชื่อรางวัล *</label>
-                        <input id="pz-name" type="text" value="${_esc(prize?.name||'')}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
+                        <label id="pz-name-label" class="text-[11px] text-zinc-400 block mb-1">${isNoPrize ? 'ข้อความปลอบใจ *' : 'ชื่อรางวัล *'}</label>
+                        <input id="pz-name" type="text" value="${_esc(defaultName)}" placeholder="${isNoPrize ? 'เสียใจด้วย ครั้งนี้โชคไม่ดี' : ''}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
                     </div>
                     <div>
+                        <label class="text-[11px] text-zinc-400 block mb-1">รายละเอียด${isNoPrize ? ' (ปลอบใจ)' : ''}</label>
+                        <textarea id="pz-description" rows="2" placeholder="${isNoPrize ? 'ลองลุ้นใหม่ครั้งหน้านะ ✨' : ''}" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">${_esc(defaultDesc)}</textarea>
+                    </div>
+                    <div id="pz-imageUrl-row" class="${isNoPrize?'hidden':''}">
                         <label class="text-[11px] text-zinc-400 block mb-1">URL รูป</label>
                         <input id="pz-imageUrl" type="text" value="${_esc(prize?.imageUrl||'')}" placeholder="https://..." class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
                     </div>
@@ -4654,12 +4674,12 @@
                         <label class="text-[11px] text-zinc-400 block mb-1">น้ำหนัก (สูง = มีโอกาสออกมาก)</label>
                         <input id="pz-weight" type="number" value="${prize?.weight||1}" min="1" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">
                     </div>
-                    <div>
+                    <div id="pz-coupon-row" class="${isNoPrize?'hidden':''}">
                         <label class="text-[11px] text-zinc-400 block mb-1">คูปองที่ผูก (optional)</label>
                         <select id="pz-rewardCouponId" class="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white">${couponOpts}</select>
                         <p class="text-[10px] text-zinc-500 mt-1">เลือกคูปอง = หลังเปิดกล่อง ลูกค้าได้คูปองในกระเป๋า</p>
                     </div>
-                    <label class="flex items-center gap-2"><input id="pz-isPhysical" type="checkbox" ${prize?.isPhysicalReward?'checked':''} class="w-4 h-4 accent-purple-500"> เป็นของจริง (admin ต้องส่งไปรษณีย์)</label>
+                    <label id="pz-physical-row" class="flex items-center gap-2 ${isNoPrize?'hidden':''}"><input id="pz-isPhysical" type="checkbox" ${prize?.isPhysicalReward?'checked':''} class="w-4 h-4 accent-purple-500"> เป็นของจริง (admin ต้องส่งไปรษณีย์)</label>
                 </div>
                 <div class="mt-4 flex gap-2">
                     <button onclick="closePrizeModal()" class="flex-1 py-2.5 rounded-xl bg-zinc-700 text-white font-bold">ยกเลิก</button>
@@ -4677,15 +4697,46 @@
             document.getElementById('prize-modal').classList.add('hidden');
         }
 
+        function onToggleNoPrize() {
+            const noPrize = document.getElementById('pz-isNoPrize').checked;
+            const nameLabel = document.getElementById('pz-name-label');
+            const nameInput = document.getElementById('pz-name');
+            const descInput = document.getElementById('pz-description');
+            const imageRow = document.getElementById('pz-imageUrl-row');
+            const couponRow = document.getElementById('pz-coupon-row');
+            const physicalRow = document.getElementById('pz-physical-row');
+            if (noPrize) {
+                nameLabel.textContent = 'ข้อความปลอบใจ *';
+                nameInput.placeholder = 'เสียใจด้วย ครั้งนี้โชคไม่ดี';
+                if (!nameInput.value.trim()) nameInput.value = 'เสียใจด้วย ครั้งนี้โชคไม่ดี';
+                if (descInput && !descInput.value.trim()) descInput.value = 'ลองลุ้นใหม่ครั้งหน้านะ ✨';
+                imageRow.classList.add('hidden');
+                couponRow.classList.add('hidden');
+                physicalRow.classList.add('hidden');
+                // clear ค่าที่ขัดกับ no-prize
+                document.getElementById('pz-imageUrl').value = '';
+                document.getElementById('pz-rewardCouponId').value = '';
+                document.getElementById('pz-isPhysical').checked = false;
+            } else {
+                nameLabel.textContent = 'ชื่อรางวัล *';
+                nameInput.placeholder = '';
+                imageRow.classList.remove('hidden');
+                couponRow.classList.remove('hidden');
+                physicalRow.classList.remove('hidden');
+            }
+        }
+
         async function savePrize() {
             const btn = document.getElementById('pz-save-btn');
             btn.disabled = true; const wasText = btn.textContent; btn.textContent = 'กำลังบันทึก...';
             const body = {
                 name: document.getElementById('pz-name').value,
+                description: document.getElementById('pz-description').value,
                 imageUrl: document.getElementById('pz-imageUrl').value,
                 weight: document.getElementById('pz-weight').value,
                 rewardCouponId: document.getElementById('pz-rewardCouponId').value,
                 isPhysicalReward: document.getElementById('pz-isPhysical').checked,
+                isNoPrize: document.getElementById('pz-isNoPrize').checked,
                 initData: tg.initData,
             };
             try {

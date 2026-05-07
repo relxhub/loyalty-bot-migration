@@ -668,6 +668,106 @@ export async function grantSpecificBox({ customerId, mysteryBoxId, adminName = '
 }
 
 /**
+ * ลูกค้าใช้แต้มซื้อกล่อง — สร้าง ticket ใบเดียว แล้วลูกค้ากดเปิดเอง
+ *
+ * Atomic: หักแต้ม + log PointTransaction + create ticket ใน tx เดียว
+ * เคารพเงื่อนไข maxPerUser, requiredTier, active window เหมือน grant ปกติ
+ *
+ * @param {object} p
+ * @param {string} p.customerId
+ * @param {string} p.mysteryBoxId
+ * @returns {Promise<{ success, ticketId?, remainingPoints?, error? }>}
+ */
+export async function redeemBoxWithPoints({ customerId, mysteryBoxId } = {}) {
+    if (!customerId || !mysteryBoxId) return { success: false, error: 'INVALID_INPUT' };
+
+    const box = await prisma.mysteryBox.findUnique({ where: { id: mysteryBoxId } });
+    if (!box) return { success: false, error: 'BOX_NOT_FOUND' };
+    if (!box.isActive) return { success: false, error: 'BOX_INACTIVE' };
+
+    const cost = Number(box.pointCost);
+    if (!Number.isFinite(cost) || cost <= 0) {
+        return { success: false, error: 'NOT_REDEEMABLE' };
+    }
+
+    const now = new Date();
+    if (box.startDate && now < box.startDate) return { success: false, error: 'NOT_STARTED' };
+    if (box.endDate && now > box.endDate) return { success: false, error: 'EXPIRED' };
+
+    // เงื่อนไข tier — เหมือน grant ปกติ
+    const minCountRequired = tierEnumToMinCount(box.requiredTier);
+    if (minCountRequired > 0) {
+        const m = new Date();
+        const startOfMonth = new Date(m.getFullYear(), m.getMonth(), 1);
+        const endOfMonth = new Date(m.getFullYear(), m.getMonth() + 1, 0, 23, 59, 59, 999);
+        const monthCount = await prisma.referral.count({
+            where: {
+                referrerId: customerId,
+                status: 'COMPLETED',
+                completedAt: { gte: startOfMonth, lte: endOfMonth },
+            },
+        });
+        if (monthCount < minCountRequired) {
+            return { success: false, error: 'TIER_TOO_LOW' };
+        }
+    }
+
+    try {
+        const result = await prisma.$transaction(async (tx) => {
+            // เพดานต่อ user
+            if (box.maxPerUser != null) {
+                const existingCount = await tx.mysteryBoxTicket.count({
+                    where: { customerId, mysteryBoxId: box.id },
+                });
+                if (existingCount >= box.maxPerUser) {
+                    throw new Error('MAX_PER_USER_REACHED');
+                }
+            }
+
+            // เช็คแต้ม
+            const cust = await tx.customer.findUnique({ where: { customerId } });
+            if (!cust) throw new Error('CUSTOMER_NOT_FOUND');
+            if (cust.points < cost) throw new Error('INSUFFICIENT_POINTS');
+
+            // หักแต้ม
+            await tx.customer.update({
+                where: { customerId },
+                data: { points: { decrement: cost } },
+            });
+
+            // log
+            await tx.pointTransaction.create({
+                data: {
+                    customerId,
+                    amount: -cost,
+                    type: 'REDEEM_REWARD',
+                    detail: `แลกกล่องสุ่ม ${box.name} (ID: ${box.id})`,
+                },
+            });
+
+            // create ticket
+            const ticket = await tx.mysteryBoxTicket.create({
+                data: {
+                    customerId,
+                    mysteryBoxId: box.id,
+                    sourceEvent: 'POINT_REDEEM',
+                    sourceMetadata: JSON.stringify({ pointCost: cost }),
+                    status: 'UNOPENED',
+                },
+            });
+
+            return { ticketId: ticket.id, remainingPoints: cust.points - cost };
+        });
+        return { success: true, ...result };
+    } catch (e) {
+        const known = ['MAX_PER_USER_REACHED', 'CUSTOMER_NOT_FOUND', 'INSUFFICIENT_POINTS'];
+        if (known.includes(e.message)) return { success: false, error: e.message };
+        console.error('[MysteryBox] redeemBoxWithPoints failed:', e.message);
+        return { success: false, error: 'REDEEM_FAILED' };
+    }
+}
+
+/**
  * เปิดกล่อง — เลือก prize แบบ weighted random
  *
  * Returns: { success, prize, customerCoupon? }
@@ -782,6 +882,7 @@ function shapeBoxForClient(box) {
         maxPurchaseAmount: box.maxPurchaseAmount != null ? Number(box.maxPurchaseAmount) : null,
         ticketsPerEvent: box.ticketsPerEvent,
         maxPerUser: box.maxPerUser,
+        pointCost: box.pointCost ?? null,
         requiredTier: box.requiredTier, // 'NONE' | 'SILVER' | 'GOLD'
         endDate: box.endDate,
         prizes: (box.prizes || []).map((p) => ({
@@ -802,6 +903,7 @@ function shapePrizeForClient(p) {
         weight: p.weight,
         rewardCouponId: p.rewardCouponId,
         isPhysicalReward: p.isPhysicalReward,
+        isNoPrize: !!p.isNoPrize,
     };
 }
 

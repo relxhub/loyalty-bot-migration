@@ -101,7 +101,7 @@ model Customer {
   isDeleted         Boolean  @default(false)
 
   // Admin-only profile data
-  adminNote String? @db.Text // หมายเหตุของ admin (ลูกค้าไม่เห็น)
+  adminNote String?   @db.Text // หมายเหตุของ admin (ลูกค้าไม่เห็น)
   birthDate DateTime? // ใช้สำหรับ birthday coupon
 
   // Relations (ความสัมพันธ์กับตารางอื่น)
@@ -621,14 +621,14 @@ enum PaymentStatus {
 }
 
 model Payment {
-  id      Int           @id @default(autoincrement())
-  orderId String        @unique
-  slipUrl String // ลิงก์รูปสลิปที่ลูกค้าอัปโหลด (Telegram CDN proxy)
+  id        Int           @id @default(autoincrement())
+  orderId   String        @unique
+  slipUrl   String // ลิงก์รูปสลิปที่ลูกค้าอัปโหลด (Telegram CDN proxy)
   // Fallback storage — base64 ของรูปสลิป (ใช้กรณี Telegram upload fail)
   // เปิดใช้งานเมื่อ slipUrl ว่าง → admin endpoint จะ serve จาก field นี้
-  slipImage String? @db.Text
-  amount  Decimal       @db.Decimal(10, 2)
-  status  PaymentStatus @default(PENDING)
+  slipImage String?       @db.Text
+  amount    Decimal       @db.Decimal(10, 2)
+  status    PaymentStatus @default(PENDING)
 
   // ข้อมูลจาก SlipOK
   slipOkTransactionId String? @unique // รหัสอ้างอิงของธนาคาร ป้องกันสลิปซ้ำ
@@ -647,14 +647,14 @@ model Payment {
 // ---------------------------------------------------------
 // ประวัติทุกครั้งที่ admin ใส่/แก้เลขบิล (ใช้ตรวจ anti-cheat + report time-to-bill)
 model BillAttempt {
-  id          Int      @id @default(autoincrement())
-  orderId     String
-  adminId     String // telegramId ของ admin ที่ใส่
-  billNumber  String // ค่า billNumber ที่ใส่
-  billLength  Int // length ของ billNumber (ใช้ flag suspicious — สั้นมาก = น่าสงสัย)
-  attemptNo   Int // ลำดับครั้งที่ (1, 2, 3, ...)
-  suspicious  Boolean  @default(false) // ตั้งโดย logic: length<5 + แล้วมีรอบถัดมาด้วย bill ที่ยาวกว่า
-  createdAt   DateTime @default(now())
+  id         Int      @id @default(autoincrement())
+  orderId    String
+  adminId    String // telegramId ของ admin ที่ใส่
+  billNumber String // ค่า billNumber ที่ใส่
+  billLength Int // length ของ billNumber (ใช้ flag suspicious — สั้นมาก = น่าสงสัย)
+  attemptNo  Int // ลำดับครั้งที่ (1, 2, 3, ...)
+  suspicious Boolean  @default(false) // ตั้งโดย logic: length<5 + แล้วมีรอบถัดมาด้วย bill ที่ยาวกว่า
+  createdAt  DateTime @default(now())
 
   @@index([orderId])
   @@index([adminId, createdAt])
@@ -662,11 +662,11 @@ model BillAttempt {
 
 // Wishlist — ลูกค้ากด "อยากได้" สินค้าที่หมด แล้วแจ้งเมื่อ restock
 model Wishlist {
-  id           Int       @id @default(autoincrement())
-  customerId   String
-  productId    Int
-  notifiedAt   DateTime? // null = ยังไม่ได้แจ้ง (สินค้ายังหมด/restock เพิ่งกลับมา)
-  createdAt    DateTime  @default(now())
+  id         Int       @id @default(autoincrement())
+  customerId String
+  productId  Int
+  notifiedAt DateTime? // null = ยังไม่ได้แจ้ง (สินค้ายังหมด/restock เพิ่งกลับมา)
+  createdAt  DateTime  @default(now())
 
   @@unique([customerId, productId])
   @@index([productId])
@@ -733,6 +733,10 @@ model MysteryBox {
   // เพดานต่อ user ตลอด lifetime ของ box (null = ไม่จำกัด)
   maxPerUser Int?
 
+  // ค่าแลกเป็นแต้ม — ถ้าเซ็ต → ลูกค้ากดซื้อกล่องด้วยแต้มได้
+  // null หรือ 0 = ปิดการแลกด้วยแต้ม (ใช้เฉพาะ trigger เท่านั้น)
+  pointCost Int?
+
   // เงื่อนไข tier — ผู้รับต้องมี tier นี้ขึ้นไปถึงจะได้กล่อง
   // เลือกใน Prisma Studio → dropdown: NONE / SILVER / GOLD
   // ค่า threshold อ้างอิง SystemConfig (tier_silver_min, tier_gold_min)
@@ -765,6 +769,9 @@ model MysteryBoxPrize {
 
   // ของจริง (ส่งไปรษณีย์เอง) → admin ต้องดำเนินการต่อ
   isPhysicalReward Boolean @default(false)
+
+  // ช่อง "โชคไม่ดี" — เปิดแล้วไม่ได้อะไร (ใช้เป็น sink mechanic)
+  isNoPrize Boolean @default(false)
 
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
