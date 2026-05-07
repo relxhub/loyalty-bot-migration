@@ -3652,6 +3652,35 @@
                             window.updateProductCardCartControl(payload.productId);
                         }
                     });
+
+                    // order_update: ออเดอร์เปลี่ยนสถานะ (เช่น auto-cancel หมดเวลา, admin ยกเลิก,
+                    // สลิปได้รับการตรวจสอบ) → refresh order detail modal ทันที + reload history list
+                    // เคยรอ poll 30 วิ → ปุ่ม "ชำระเงิน" ค้างจนกว่าจะ poll
+                    socket.on('order_update', (payload) => {
+                        if (!payload || !payload.id) return;
+                        const detailsModal = document.getElementById('order-details-modal');
+                        const isModalOpen = detailsModal && !detailsModal.classList.contains('hidden');
+                        // ถ้า modal ของ order นี้เปิดอยู่ → refresh ทันที (server fetch จะคืน order ใหม่)
+                        if (isModalOpen && window.currentOpenOrderId === payload.id) {
+                            if (typeof window.showOrderDetails === 'function') {
+                                window.showOrderDetails(payload.id);
+                            }
+                        }
+                        // ถ้าหน้าประวัติเปิดอยู่ → refresh list ให้ pill/timer ตรง
+                        const historyModal = document.getElementById('history-modal');
+                        if (historyModal && !historyModal.classList.contains('hidden') && typeof fetchHistory === 'function') {
+                            fetchHistory(true); // silent
+                        }
+                        // อัปเดต pending badge บน bottom nav (อาจมี order หาย/เพิ่ม)
+                        if (typeof updatePendingBadge === 'function' && window.allOrders) {
+                            // mutate locally — ถ้ามี order id ตรงและ status ใหม่ → patch
+                            const idx = (window.allOrders || []).findIndex(o => o.id === payload.id);
+                            if (idx !== -1 && payload.status) {
+                                window.allOrders[idx].status = payload.status;
+                                updatePendingBadge(window.allOrders);
+                            }
+                        }
+                    });
                 }
             } catch(e) { /* socket optional */ }
 

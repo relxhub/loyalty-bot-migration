@@ -24,12 +24,35 @@ const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } }); // 50MB limit
 
 // --- Rate Limiters (Phase 8: Security) ---
+//
+// keyGenerator: ถ้ามี Telegram user id (จาก initData / x-init-data / body) → ใช้ user id
+//   เพื่อกัน users หลายคนหลัง NAT/proxy เดียวกันแชร์ quota — fallback ไปใช้ IP
+// skip: silent polls (banner / product list / order list) ไม่นับลง quota
+//   เพราะ background polling ปกติยิงถี่ตามดีไซน์ — ไม่ใช่สัญญาณ abuse
+function extractTgUserId(req) {
+    try {
+        const initData = (req.headers['x-init-data'] && String(req.headers['x-init-data'])) ||
+                         (req.body && typeof req.body.initData === 'string' && req.body.initData) ||
+                         (req.query && typeof req.query.initData === 'string' && req.query.initData) || '';
+        if (!initData) return null;
+        const params = new URLSearchParams(initData);
+        const userJson = params.get('user');
+        if (!userJson) return null;
+        const u = JSON.parse(userJson);
+        return u?.id ? `tg:${u.id}` : null;
+    } catch (e) { return null; }
+}
+const limiterKey = (req, res) => extractTgUserId(req) || `ip:${req.ip}`;
+const isSilentPoll = (req) => req.headers['x-silent-poll'] === 'true';
+
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 200, // Limit each IP to 200 requests per windowMs
+    max: 600, // เพิ่มจาก 200 → 600 (per user/IP) — ปกติ user 1 คน 15 นาที ใช้ 100-300 req
     message: { error: 'ส่งคำขอมากเกินไป กรุณารอสักครู่แล้วลองใหม่ (Rate Limit Exceeded)' },
     standardHeaders: true,
     legacyHeaders: false,
+    keyGenerator: limiterKey,
+    skip: isSilentPoll,
 });
 
 const strictLimiter = rateLimit({
@@ -38,6 +61,7 @@ const strictLimiter = rateLimit({
     message: { error: 'ระบบทำงานหนัก กรุณารอสักครู่ (Strict Rate Limit Exceeded)' },
     standardHeaders: true,
     legacyHeaders: false,
+    keyGenerator: limiterKey,
 });
 
 router.use(apiLimiter); // Apply globally to all /api routes
@@ -3435,6 +3459,7 @@ router.get('/admin/orders', async (req, res) => {
             assignedAdminName: o.assignedAdminId ? (adminNameMap[o.assignedAdminId] || null) : null,
             createdAt: o.createdAt,
             updatedAt: o.updatedAt,
+            expiryMinutes: o.expiryMinutes, // Phase 4 D5 per-order — admin ใช้แสดง countdown
             itemCount: o.items.reduce((s, i) => s + i.quantity, 0),
             customer: o.customer,
             payment: o.payment ? {
@@ -4612,7 +4637,10 @@ router.get('/admin/products', async (req, res) => {
         });
         res.json({ success: true, products: products.map(p => ({
             id: p.id, nameTh: p.nameTh, nameEn: p.nameEn, imageUrl: p.imageUrl, status: p.status,
-            stockQuantity: p.stockQuantity, isNew: p.isNew, isHot: p.isHot,
+            stockQuantity: p.stockQuantity,
+            reservedQuantity: p.reservedQuantity || 0, // จองรอชำระอยู่กี่ชิ้น
+            available: Math.max(0, p.stockQuantity - (p.reservedQuantity || 0)), // พร้อมขาย
+            isNew: p.isNew, isHot: p.isHot,
             allowCoupons: p.allowCoupons, nicotine: p.nicotine,
             category: p.category,
         })) });

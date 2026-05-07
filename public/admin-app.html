@@ -2075,6 +2075,11 @@
                     const kindTag = o.kind === 'PRIZE_DELIVERY' ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300">PRZ</span>' : '';
                     const mismatchTag = o.mismatchLocked ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-300">⚠ ยอดไม่ตรง</span>' : '';
                     const overpaidTag = (o.payment && o.payment.amount > o.totalAmount && !o.overPaidRefundedAt) ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300">เกินยอด</span>' : '';
+                    // PENDING_PAYMENT non-mismatch → แสดง countdown หมดเวลา (ใช้ per-order expiryMinutes)
+                    const showCountdown = o.status === 'PENDING_PAYMENT' && !o.mismatchLocked && o.expiryMinutes;
+                    const countdownTag = showCountdown
+                        ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 font-mono" data-ord-countdown="${_esc(o.id)}" data-created-at="${o.createdAt}" data-expiry-min="${o.expiryMinutes}">⏱ --:--</span>`
+                        : '';
                     return `
                     <div class="bg-white/5 border border-white/10 rounded-xl p-3 item-fade-in cursor-pointer hover:bg-white/10" style="animation-delay:${idx*25}ms" onclick="openOrdDetail('${_esc(o.id)}')">
                         <div class="flex items-center justify-between gap-2 mb-1">
@@ -2084,6 +2089,7 @@
                                 ${statusTag}
                                 ${mismatchTag}
                                 ${overpaidTag}
+                                ${countdownTag}
                             </div>
                             <div class="text-sm font-bold text-emerald-300 whitespace-nowrap">฿${_fmt(o.totalAmount)}</div>
                         </div>
@@ -2094,9 +2100,47 @@
                         </div>
                     </div>`;
                 }).join('');
+                _startOrderCountdownTicker();
             } catch (e) {
                 list.innerHTML = `<div class="text-center text-red-400 py-6 text-sm">${_esc(e.message)}</div>`;
             }
+        }
+
+        // Countdown ticker สำหรับแท็บ "รอชำระ" — รัน 1 interval เดียวที่ทุก data-ord-countdown
+        // re-bind ใหม่ทุกครั้งหลัง loadOrders (เพราะ DOM ถูกแทนที่)
+        let _ordCountdownInterval = null;
+        function _startOrderCountdownTicker() {
+            if (_ordCountdownInterval) clearInterval(_ordCountdownInterval);
+            const tick = () => {
+                const els = document.querySelectorAll('[data-ord-countdown]');
+                if (els.length === 0) return;
+                const now = Date.now();
+                let anyActive = false;
+                els.forEach(el => {
+                    const created = new Date(el.dataset.createdAt).getTime();
+                    const expMin = parseInt(el.dataset.expiryMin, 10) || 0;
+                    const remain = (created + expMin * 60 * 1000) - now;
+                    if (remain <= 0) {
+                        el.textContent = '⏱ หมดเวลา';
+                        el.className = 'text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 font-mono';
+                    } else {
+                        anyActive = true;
+                        const m = Math.floor(remain / 60000);
+                        const s = Math.floor((remain % 60000) / 1000);
+                        el.textContent = `⏱ ${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+                        // เปลี่ยนเป็นสีแดงเมื่อ ≤ 2 นาที
+                        if (remain <= 2 * 60 * 1000) {
+                            el.className = 'text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 font-mono';
+                        }
+                    }
+                });
+                if (!anyActive && _ordCountdownInterval) {
+                    clearInterval(_ordCountdownInterval);
+                    _ordCountdownInterval = null;
+                }
+            };
+            tick();
+            _ordCountdownInterval = setInterval(tick, 1000);
         }
 
         function orderStatusTag(o) {
@@ -2537,12 +2581,17 @@
                 if (p.isHot) tags.push('<span class="text-[9px] px-1 py-0.5 rounded bg-red-500/20 text-red-300">HOT</span>');
                 if (p.isNew) tags.push('<span class="text-[9px] px-1 py-0.5 rounded bg-blue-500/20 text-blue-300">NEW</span>');
                 if (!p.allowCoupons) tags.push('<span class="text-[9px] px-1 py-0.5 rounded bg-zinc-500/20 text-zinc-300">no-coupon</span>');
+                const reserved = p.reservedQuantity || 0;
+                // ถ้ามี reservation อยู่ → โชว์ breakdown ให้ admin เข้าใจว่า "พร้อมขาย" ไม่เท่ากับ stock จริง
+                const stockText = reserved > 0
+                    ? `stock ${p.stockQuantity} · <span class="text-blue-300">📦 จอง ${reserved}</span> · พร้อมขาย ${p.available ?? (p.stockQuantity - reserved)}`
+                    : `stock ${p.stockQuantity}`;
                 return `
                 <div class="bg-white/5 border border-white/10 rounded-xl p-2.5 flex items-center gap-2.5 cursor-pointer hover:bg-white/10 item-fade-in" style="animation-delay:${Math.min(idx,20)*15}ms" onclick="openProdEdit(${p.id})">
                     <img src="${_esc(p.imageUrl)}" class="w-12 h-12 rounded object-cover ${isOut?'opacity-40':''}">
                     <div class="flex-1 min-w-0">
                         <div class="text-xs font-bold text-white truncate">${_esc(p.nameTh || p.nameEn || '—')}</div>
-                        <div class="text-[10px] text-zinc-500">${_esc(p.category?.name||'ไม่มีหมวด')} · stock ${p.stockQuantity}</div>
+                        <div class="text-[10px] text-zinc-500">${_esc(p.category?.name||'ไม่มีหมวด')} · ${stockText}</div>
                         <div class="flex flex-wrap gap-1 mt-0.5">${tags.join('')}</div>
                     </div>
                 </div>`;
