@@ -11,7 +11,7 @@
     "prisma:generate": "npx prisma generate",
     "prisma:studio": "npx prisma studio",
     "prisma:seed": "node prisma/seed.js",
-    "postinstall": "prisma generate && simple-git-hooks",
+    "postinstall": "prisma generate && (simple-git-hooks || echo 'skip simple-git-hooks (no .git/ — likely CI)')",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"

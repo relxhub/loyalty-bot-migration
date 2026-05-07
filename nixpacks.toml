@@ -1,0 +1,15 @@
+# Override Nixpacks default install command
+#
+# เหตุผล: vitest 4.x ดึง rolldown bindings (linux/darwin/win32) เป็น
+# optional deps + @emnapi/* เป็น sub-dep บน Windows npm ข้าม metadata
+# ของ deps ที่เป็น OS อื่น ไม่ใส่ใน package-lock.json
+#
+# ผล: `npm ci` (default ของ Railway) เจอ lock incomplete → fail ทันที
+#
+# ทางออก: ใช้ `npm install` ที่ผ่อนปรนกว่า — จะเติม dep ที่ขาดไปเองตอน
+# install บน Linux โดยไม่ throw
+# `--include=dev` คุม postinstall (`prisma generate`) ให้รันได้แม้ Railway
+# ตั้ง NODE_ENV=production (prisma CLI อยู่ใน devDeps)
+
+[phases.install]
+cmds = ["npm install --include=dev"]
