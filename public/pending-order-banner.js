@@ -61,8 +61,11 @@
         document.body.appendChild(el);
 
         // คลิกที่ banner (ยกเว้นปุ่มปิด) → ไปหน้า payment
+        // SAFETY: ถ้า _expired = true (countdown ถึง 0 หรือ socket แจ้ง CANCELLED แล้ว)
+        // จะไม่นำพาไปหน้าชำระ — กันลูกค้าโอนเงินเข้า order ที่ถูกยกเลิกไปแล้ว
         el.addEventListener('click', (e) => {
             if (e.target.closest('#pob-close')) return;
+            if (el._expired) return;
             if (el._currentOrderId) {
                 window.location.href = `payment.html?orderId=${encodeURIComponent(el._currentOrderId)}`;
             }
@@ -101,6 +104,7 @@
         }
 
         el._currentOrderId = order.id;
+        el._expired = false;
         const titleEl = el.querySelector('#pob-title');
         const subEl = el.querySelector('#pob-sub');
         const ctaEl = el.querySelector('#pob-cta');
@@ -115,16 +119,29 @@
             ctaEl.textContent = 'ชำระต่อ →';
             el.style.background = 'linear-gradient(90deg,rgba(251,146,60,0.95),rgba(239,68,68,0.95))';
             const expiryMs = new Date(order.createdAt).getTime() + (order.expiryMinutes * 60 * 1000);
+            const setExpiredUI = () => {
+                el._expired = true;
+                subEl.textContent = 'หมดเวลาชำระเงินแล้ว — ระบบจะยกเลิกออเดอร์นี้';
+                ctaEl.textContent = 'หมดเวลา';
+                ctaEl.style.opacity = '0.5';
+                el.style.cursor = 'not-allowed';
+                el.style.background = 'linear-gradient(90deg,rgba(120,120,120,0.85),rgba(80,80,80,0.85))';
+            };
             const tick = () => {
                 const remain = expiryMs - Date.now();
                 if (remain <= 0) {
-                    subEl.textContent = 'หมดเวลาชำระเงินแล้ว — ระบบจะยกเลิกออเดอร์นี้';
+                    setExpiredUI();
                     if (_tickInterval) { clearInterval(_tickInterval); _tickInterval = null; }
+                    // refresh ทันที — server expiry job น่าจะเพิ่งยกเลิกพอดี
+                    setTimeout(() => { if (_currentTgId) fetchPending(_currentTgId); }, 1500);
                     return;
                 }
                 const m = Math.floor(remain / 60000);
                 const s = Math.floor((remain % 60000) / 1000);
                 subEl.textContent = `เหลือเวลาชำระ ${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+                // reset cursor/opacity ในกรณี re-render หลัง expired
+                el.style.cursor = 'pointer';
+                ctaEl.style.opacity = '1';
             };
             tick();
             if (_tickInterval) clearInterval(_tickInterval);
@@ -146,6 +163,8 @@
         } catch (e) { /* silent */ }
     }
 
+    let _currentTgId = null;
+
     function init() {
         const tg = window.Telegram && window.Telegram.WebApp;
         const tgUid = tg?.initDataUnsafe?.user?.id;
@@ -154,8 +173,34 @@
             return;
         }
         const telegramId = String(tgUid);
+        _currentTgId = telegramId;
         fetchPending(telegramId);
         setInterval(() => fetchPending(telegramId), POLL_INTERVAL_MS);
+
+        // Realtime: subscribe socket order_update — ลบ/รีเฟรช banner ทันทีที่ order
+        // ใดๆ ของลูกค้าเปลี่ยนสถานะ (เช่น auto-cancel, PAID, mismatchLocked)
+        // SAFETY: กันลูกค้ากด banner ของ order ที่ถูก cancel ไปแล้วเพราะ poll ยังไม่มา
+        try {
+            if (typeof io === 'function') {
+                const socket = io();
+                socket.on('order_update', (payload) => {
+                    if (!payload || !payload.id) return;
+                    const el = document.getElementById('pending-order-banner');
+                    // ถ้าเป็น order ที่กำลังโชว์อยู่และเปลี่ยนเป็น CANCELLED/PAID → freeze ทันที
+                    if (el && el._currentOrderId === payload.id) {
+                        if (payload.status === 'CANCELLED' || payload.status === 'PAID') {
+                            el._expired = true;
+                            el.style.display = 'none'; // ซ่อนเลย — บังคับ refetch จะแสดง order อื่น (ถ้ามี)
+                        }
+                    }
+                    // refetch state สด — รวบทุก case (order ใหม่, mismatch, cancel, ฯลฯ)
+                    fetchPending(telegramId);
+                });
+
+                // Reconnect handler — ถ้า socket หลุดแล้วกลับมา → fetch สดเพื่อ catch event ที่หาย
+                socket.on('connect', () => fetchPending(telegramId));
+            }
+        } catch (e) { /* socket optional */ }
     }
 
     if (document.readyState === 'loading') {

@@ -9,6 +9,7 @@
     <link rel="apple-touch-icon" href="logo.png">
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/js/qr-code-styling.browser.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
@@ -382,6 +383,28 @@
                     const isPrizeDelivery = order.kind === 'PRIZE_DELIVERY';
                     window._isPrizeDelivery = isPrizeDelivery;
 
+                    // ⚠️ SAFETY GUARD: ถ้าออเดอร์ถูกยกเลิก/PAID/SHIPPED ไปแล้ว ห้ามเข้าหน้าชำระ
+                    // กันเคส: banner คลิกผ่าน race window (countdown หมด พอดี server cancel แต่ banner ยังโชว์)
+                    // → block + redirect ทันทีก่อน render UI ใดๆ
+                    if (order.status === 'CANCELLED') {
+                        document.getElementById('loading-screen').classList.add('hidden');
+                        tg.showPopup({
+                            title: tt('payment.cancelled_title', 'ออเดอร์ถูกยกเลิก'),
+                            message: tt('payment.cancelled_msg', 'ออเดอร์ถูกยกเลิก หากมีการโอนเงินมาแล้ว สามารถทักเข้ามาในแชทบอทเพื่อขอคืนเงินได้'),
+                            buttons: [{ id: 'ok', type: 'default', text: tt('common.ok', 'ตกลง') }],
+                        }, () => { window.location.href = 'products.html'; });
+                        return;
+                    }
+                    if (order.status === 'PAID' || order.status === 'PROCESSING' || order.status === 'SHIPPED') {
+                        document.getElementById('loading-screen').classList.add('hidden');
+                        tg.showPopup({
+                            title: tt('payment.success_title', 'ชำระเงินสำเร็จ'),
+                            message: tt('payment.admin_confirmed', 'แอดมินยืนยันการชำระเงินครบเรียบร้อยแล้ว'),
+                            buttons: [{ id: 'ok', type: 'default', text: tt('common.ok', 'ตกลง') }],
+                        }, () => { window.location.href = 'products.html'; });
+                        return;
+                    }
+
                     // Lock UI on initial load if mismatch (under) or over-paid is in flight.
                     // This prevents customer from re-uploading via order-history → payment.html re-entry.
                     if (data.mismatchInfo || order.mismatchLocked) {
@@ -683,14 +706,14 @@
             });
         }
 
-                    // Real-time polling
-            if (!window.isPaymentBlocked) {
-                setInterval(async () => {
-                    if (window.isPaymentBlocked) return;
-                    try {
-                        const pollRes = await fetch(`/api/orders/${orderId}?v=${Date.now()}`, { cache: 'no-cache', headers: { 'x-silent-poll': 'true' } });
-                        const pollData = await pollRes.json();
-                        if (pollData.success && pollData.order && pollData.order.items) {
+                    // Realtime: socket order_update → react ทันทีที่ status เปลี่ยน (ไม่ต้องรอ poll)
+                    // Polling 2 วิเก็บไว้เป็น safety net เผื่อ socket หลุด
+                    async function checkOrderState() {
+                        if (window.isPaymentBlocked) return;
+                        try {
+                            const pollRes = await fetch(`/api/orders/${orderId}?v=${Date.now()}`, { cache: 'no-cache', headers: { 'x-silent-poll': 'true' } });
+                            const pollData = await pollRes.json();
+                            if (pollData.success && pollData.order && pollData.order.items) {
                             // Mismatch lock (under-paid) detected via polling
                             if (pollData.order.mismatchLocked) {
                                 window.isPaymentBlocked = true;
@@ -757,10 +780,22 @@
                                     uploadSection.prepend(warningDiv);
                                 }
                             }
+                            }
+                        } catch(e) {}
+                    }
+                    // Polling 2s — safety net เผื่อ socket หลุด
+                    setInterval(checkOrderState, 2000);
+                    // Realtime via socket — react ทันทีที่ status เปลี่ยน
+                    try {
+                        if (typeof io === 'function') {
+                            const socket = io();
+                            socket.on('order_update', (payload) => {
+                                if (!payload || payload.id !== orderId) return;
+                                checkOrderState(); // re-fetch + handle ตามสถานะใหม่
+                            });
+                            socket.on('connect', () => checkOrderState()); // catch missed events on reconnect
                         }
-                    } catch(e) {}
-                }, 5000); // 5 sec poll
-            }
+                    } catch (e) { /* socket optional */ }
         }
 
         // ============================================================
