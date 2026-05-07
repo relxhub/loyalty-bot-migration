@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#121212">
+    <title data-i18n="orders.title">ออเดอร์ของฉัน</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="apple-touch-icon" href="logo.png">
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/auth-cache.js"></script>
+    <script src="/socket-register.js" defer></script>
+    <script src="/pending-order-banner.js" defer></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <script src="i18n.js?v=4"></script>
+
+    <style>
+        :root {
+            --bg-color: #121212;
+            --secondary-bg: #1E1E1E;
+            --card-bg: #2A2A2A;
+            --text-primary: #FFFFFF;
+            --text-secondary: #B3B3B3;
+        }
+        html, body { overscroll-behavior-y: none; }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: 'Kanit', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            padding-bottom: 100px;
+        }
+        ::-webkit-scrollbar { width: 0; background: transparent; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        body.no-scroll {
+            overflow: hidden !important;
+            position: fixed;
+            width: 100%;
+        }
+
+        #bottom-nav { transition: transform .25s ease, opacity .25s ease; }
+        #bottom-nav.hide { transform: translateY(200%); opacity: 0; pointer-events: none; }
+
+        /* --- Modal slide-up --- */
+        .od-modal {
+            position: fixed; inset: 0; z-index: 90;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(4px);
+            opacity: 0;
+            transition: opacity .25s ease;
+            pointer-events: none;
+        }
+        .od-modal.show { opacity: 1; pointer-events: auto; }
+        .od-modal-content {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: var(--bg-color);
+            border-top-left-radius: 28px; border-top-right-radius: 28px;
+            max-height: 92vh; overflow-y: auto;
+            transform: translateY(100%);
+            transition: transform .3s cubic-bezier(0.4,0,0.2,1);
+            padding: 20px 18px 36px;
+        }
+        .od-modal.show .od-modal-content { transform: translateY(0); }
+
+        /* --- Status dot timeline --- */
+        .od-step-dot {
+            width: 32px; height: 32px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: bold;
+            background: #3f3f46; color: #71717a;
+            transition: all .3s;
+        }
+        .od-step-line {
+            flex: 1; height: 2px; background: #3f3f46;
+            margin: 0 -2px; align-self: center; min-width: 16px;
+        }
+        .od-step.done .od-step-dot {
+            background: linear-gradient(135deg, #fbbf24, #f97316);
+            color: white;
+            box-shadow: 0 0 12px rgba(245,158,11,0.4);
+        }
+        .od-step.current .od-step-dot {
+            background: linear-gradient(135deg, #fbbf24, #f97316);
+            color: white;
+            box-shadow: 0 0 0 4px rgba(245,158,11,0.25);
+            animation: stepPulse 2s infinite;
+        }
+        .od-step.cancelled .od-step-dot {
+            background: #3f3f46; color: #ef4444;
+        }
+        .od-step + .od-step-line.done {
+            background: linear-gradient(90deg, #f97316, #fbbf24);
+        }
+        @keyframes stepPulse {
+            0%,100% { box-shadow: 0 0 0 4px rgba(245,158,11,0.25); }
+            50% { box-shadow: 0 0 0 8px rgba(245,158,11,0.1); }
+        }
+
+        /* --- Card flash highlight on realtime update --- */
+        @keyframes flashUpdate {
+            0%   { box-shadow: 0 0 0 0 rgba(245,158,11,0.6); }
+            50%  { box-shadow: 0 0 0 6px rgba(245,158,11,0.3); }
+            100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); }
+        }
+        .flash-update { animation: flashUpdate 1.5s ease-out; }
+
+        /* --- Item entrance --- */
+        @keyframes itemFadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .item-fade-in { animation: itemFadeIn .35s ease-out forwards; opacity: 0; }
+
+        /* --- Skeleton shimmer --- */
+        .skeleton {
+            background: linear-gradient(90deg, #1e1e1e 0%, #2a2a2a 50%, #1e1e1e 100%);
+            background-size: 200% 100%;
+            animation: shimmer 1.4s infinite;
+        }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        /* --- Bottom nav badge dot --- */
+        .nav-dot {
+            position: absolute; top: 4px; right: 22%;
+            min-width: 16px; height: 16px;
+            background: #f97316; color: white;
+            border-radius: 9999px; padding: 0 4px;
+            font-size: 10px; font-weight: bold;
+            display: flex; align-items: center; justify-content: center;
+            border: 2px solid var(--secondary-bg);
+        }
+
+        /* --- Toast (compact, reuse pattern) --- */
+        #toast-container {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            z-index: 9999; display: flex; flex-direction: column; gap: 10px;
+            width: 90%; max-width: 350px; pointer-events: none;
+        }
+        .toast {
+            background: rgba(30,30,30,0.95); backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.15); color: white;
+            padding: 12px 16px; border-radius: 14px;
+            display: flex; align-items: center; gap: 10px;
+            font-size: 13px; font-weight: 500;
+            opacity: 0; transform: translateY(-20px) scale(0.95);
+            transition: all .35s cubic-bezier(0.68,-0.55,0.27,1.55);
+            pointer-events: auto;
+        }
+        .toast.show { opacity: 1; transform: translateY(0) scale(1); }
+        .toast.success .toast-icon { color: #4ade80; }
+        .toast.error   .toast-icon { color: #f87171; }
+        .toast.info    .toast-icon { color: #60a5fa; }
+    </style>
+</head>
+<body>
+    <!-- Toast container -->
+    <div id="toast-container"></div>
+
+    <!-- Language switcher (top-left, consistent with home.html pattern) -->
+    <button onclick="toggleLang()" class="fixed top-4 left-4 z-[60] text-white active:scale-95 transition inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-full border border-white/20 bg-white/5 backdrop-blur-sm" aria-label="Toggle language">
+        <i class="ri-global-line text-base"></i><span data-i18n="lang.current">TH</span>
+    </button>
+
+    <!-- Loading screen -->
+    <div id="loading-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-[#121212]">
+        <div class="w-12 h-12 border-4 border-zinc-700 border-t-orange-500 rounded-full animate-spin"></div>
+    </div>
+
+    <!-- App content -->
+    <div id="app-content" class="hidden max-w-md mx-auto px-4 pt-5">
+        <!-- Header (lang switcher fixed top-left, header centered) -->
+        <div class="flex items-center justify-center mb-5 gap-2 pt-1">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center shadow-[0_0_18px_rgba(245,158,11,0.35)]">
+                <i class="ri-truck-fill text-white text-lg"></i>
+            </div>
+            <h1 class="text-xl font-bold" data-i18n="orders.title">ออเดอร์ของฉัน</h1>
+        </div>
+
+        <!-- Filter tabs -->
+        <div class="flex gap-2 overflow-x-auto no-scrollbar mb-4 pb-1 -mx-1 px-1 sticky top-0 z-10 bg-[#121212]/95 backdrop-blur py-2">
+            <button data-tab="ALL" class="ord-tab whitespace-nowrap text-xs font-bold px-4 py-1.5 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 text-white shadow-[0_0_15px_rgba(245,158,11,0.3)] active:scale-95 transition flex items-center gap-1.5">
+                <span data-i18n="orders.tabs.all">ทั้งหมด</span> <span class="ord-count text-[10px] bg-white/25 px-1.5 rounded-full" data-tab-count="ALL">0</span>
+            </button>
+            <button data-tab="PENDING" class="ord-tab whitespace-nowrap text-xs font-bold px-4 py-1.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 active:scale-95 transition flex items-center gap-1.5">
+                <span data-i18n="orders.tabs.pending">รอชำระ</span> <span class="ord-count text-[10px] bg-zinc-700 px-1.5 rounded-full" data-tab-count="PENDING">0</span>
+            </button>
+            <button data-tab="SHIPPING" class="ord-tab whitespace-nowrap text-xs font-bold px-4 py-1.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 active:scale-95 transition flex items-center gap-1.5">
+                <span data-i18n="orders.tabs.shipping">กำลังจัดส่ง</span> <span class="ord-count text-[10px] bg-zinc-700 px-1.5 rounded-full" data-tab-count="SHIPPING">0</span>
+            </button>
+            <button data-tab="CANCELLED" class="ord-tab whitespace-nowrap text-xs font-bold px-4 py-1.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 active:scale-95 transition flex items-center gap-1.5">
+                <span data-i18n="orders.tabs.cancelled">ยกเลิก</span> <span class="ord-count text-[10px] bg-zinc-700 px-1.5 rounded-full" data-tab-count="CANCELLED">0</span>
+            </button>
+        </div>
+
+        <!-- Orders list -->
+        <div id="orders-list">
+            <!-- Skeleton on initial load -->
+            <div class="skeleton h-32 rounded-2xl mb-3"></div>
+            <div class="skeleton h-32 rounded-2xl mb-3"></div>
+            <div class="skeleton h-32 rounded-2xl mb-3"></div>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div id="ord-detail-modal" class="od-modal">
+        <div class="od-modal-content">
+            <!-- Drag handle -->
+            <div class="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-4"></div>
+            <div id="ord-detail-body">
+                <!-- Filled by orders.js -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation Bar (5 buttons) -->
+    <div id="bottom-nav" class="fixed bottom-4 left-0 right-0 z-[70] mx-auto w-[calc(100%-2.5rem)] max-w-md bg-[var(--secondary-bg)] shadow-xl rounded-full p-2 flex justify-around items-center">
+        <a href="home.html" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/5 py-1.5 rounded-xl transition active:scale-95">
+            <i class="ri-home-4-line text-xl"></i>
+            <span data-i18n="nav.home">หน้าหลัก</span>
+        </a>
+        <a href="products.html?v=2" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/5 py-1.5 rounded-xl transition active:scale-95">
+            <i class="ri-shopping-cart-line text-xl"></i>
+            <span data-i18n="nav.products">เมนูสินค้า</span>
+        </a>
+        <a href="orders.html" class="flex flex-col items-center text-xs font-medium text-white w-1/5 py-1.5 rounded-xl transition active:scale-95 relative">
+            <i class="ri-truck-fill text-xl"></i>
+            <span data-i18n="nav.orders">ออเดอร์</span>
+            <span id="nav-orders-dot" class="hidden nav-dot"></span>
+        </a>
+        <a href="referral.html" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/5 py-1.5 rounded-xl transition active:scale-95">
+            <i class="ri-team-line text-xl"></i>
+            <span data-i18n="nav.referral">แนะนำเพื่อน</span>
+        </a>
+        <a href="dashboard.html?v=2" class="flex flex-col items-center text-xs font-medium text-gray-400 w-1/5 py-1.5 rounded-xl transition active:scale-95">
+            <i class="ri-wallet-3-line text-xl"></i>
+            <span data-i18n="nav.dashboard">บัตรสมาชิก</span>
+        </a>
+    </div>
+
+    <script src="orders.js?v=1" defer></script>
+</body>
+</html>
