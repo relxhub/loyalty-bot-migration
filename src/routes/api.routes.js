@@ -14,6 +14,7 @@ import * as notifCenter from '../services/notification-center.service.js';
 import * as mysteryBox from '../services/mystery-box.service.js';
 import { getProductPageData } from '../services/product.service.js';
 import * as couponService from '../services/coupon.service.js';
+import * as stockReservation from '../services/stock-reservation.service.js';
 import * as shippingService from '../services/shipping.service.js';
 import { runDailyDigestJob, runBirthdayCouponJob, runWinBackJob, notifyWishlistOnRestock } from '../jobs/engagement.job.js';
 import multer from 'multer';
@@ -287,6 +288,7 @@ router.post('/update-phone', async (req, res) => {
 // 🛍️ ORDERS & CHECKOUT
 // ==================================================
 router.post('/orders/checkout', async (req, res) => {
+    let productNameMap = {}; // populated ระหว่าง preliminary check — ใช้ format error message ใน catch
     try {
         const { initData, cart, shippingAddressId, appliedCouponId, discountAmount, totalAmount } = req.body;
         
@@ -310,6 +312,75 @@ router.post('/orders/checkout', async (req, res) => {
         if (!shippingAddressId) {
             return res.status(400).json({ error: "กรุณาเลือกที่อยู่จัดส่ง" });
         }
+
+        // -----------------------------------------------------------
+        // 🔒 Stock Reservation + Anti-Abuse (Phase 4)
+        // -----------------------------------------------------------
+        const reserveCfg = stockReservation.loadCheckoutConfigs();
+
+        // D1: cart limits (qty / total / distinct)
+        const limitsCheck = stockReservation.validateCartLimits(cart, reserveCfg);
+        if (!limitsCheck.ok) {
+            return res.status(400).json({ success: false, error: limitsCheck.error });
+        }
+
+        // D3: velocity (orders/window per customer)
+        const velocityCheck = await stockReservation.checkVelocity(customer.customerId, reserveCfg);
+        if (!velocityCheck.ok) {
+            // log abuse signal — admin จะเห็นใน audit
+            try {
+                await prisma.adminAuditLog.create({
+                    data: {
+                        adminName: 'SYSTEM',
+                        action: 'CHECKOUT_VELOCITY_BLOCK',
+                        targetId: customer.customerId,
+                        details: JSON.stringify({ count: velocityCheck.count, limit: velocityCheck.limit }),
+                    },
+                });
+            } catch (e) { /* silent */ }
+            return res.status(429).json({ success: false, error: velocityCheck.error });
+        }
+
+        // D2: active reservations (auto-cancel old non-mismatch / block if has mismatch)
+        const active = await stockReservation.getActiveReservations(customer.customerId);
+        if (active.mismatch.length > 0) {
+            return res.status(409).json({
+                success: false,
+                error: 'คุณมีออเดอร์ที่รอแอดมินดำเนินการอยู่ (ออเดอร์ #' + active.mismatch[0].id + ') กรุณาแชทแอดมิน',
+            });
+        }
+        if (active.nonMismatch.length >= reserveCfg.maxActiveReservations) {
+            // auto-cancel old non-mismatch orders + release their reservations
+            const cancelledIds = [];
+            try {
+                await prisma.$transaction(async (tx) => {
+                    for (const o of active.nonMismatch) {
+                        const items = await tx.orderItem.findMany({ where: { orderId: o.id } });
+                        await stockReservation.releaseReservation(tx, items);
+                        await tx.order.update({ where: { id: o.id }, data: { status: 'CANCELLED' } });
+                        cancelledIds.push(o.id);
+                    }
+                });
+                // best-effort notif (don't block if fail)
+                for (const oid of cancelledIds) {
+                    try {
+                        await notifCenter.notifyOrderStatusChanged({
+                            orderId: oid,
+                            customerId: customer.customerId,
+                            status: 'CANCELLED',
+                            note: 'ยกเลิกอัตโนมัติเพราะลูกค้าสร้างออเดอร์ใหม่',
+                        });
+                    } catch (e) { /* silent */ }
+                    try { req.app.get('socketio')?.emit('order_update', { id: oid, status: 'CANCELLED', ts: Date.now() }); } catch (e) {}
+                }
+            } catch (e) {
+                console.error('[checkout] auto-cancel old orders failed:', e.message);
+                // not fatal — proceed with new order
+            }
+        }
+
+        // D5: snapshot expiry minutes ตาม customer tier
+        const effectiveExpiryMinutes = await stockReservation.getEffectiveExpiryMinutes(customer.customerId, reserveCfg);
 
         // -----------------------------------------------------------
         // 🔒 Server-side money calc — กัน client ส่ง discount/total เกินจริง
@@ -377,36 +448,42 @@ router.post('/orders/checkout', async (req, res) => {
 
         // 1. Verify Stock & Generate Order ID inside a transaction
         const orderId = `ORD-${Date.now().toString().slice(-6)}-${Math.floor(1000 + Math.random() * 9000)}`;
-        
-        // --- ADDED: Preliminary Stock Check to handle partial availability ---
+
+        // --- Preliminary Stock Check — ใช้ available (stockQuantity - reservedQuantity) ---
         const stockIssues = [];
         for (const item of cart) {
             const product = await prisma.product.findUnique({ where: { id: parseInt(item.id, 10) } });
             if (!product) {
                 stockIssues.push({ id: item.id, name: item.nameEn, error: 'NOT_FOUND' });
-            } else if (product.status === 'OUT_OF_STOCK' || product.stockQuantity <= 0) {
+                continue;
+            }
+            productNameMap[product.id] = product.nameTh || product.nameEn || `#${product.id}`;
+            const available = product.stockQuantity - product.reservedQuantity;
+            if (product.status === 'OUT_OF_STOCK' || available <= 0) {
                 stockIssues.push({ id: item.id, name: product.nameEn, error: 'OUT_OF_STOCK', available: 0 });
-            } else if (product.stockQuantity < item.quantity) {
-                stockIssues.push({ id: item.id, name: product.nameEn, error: 'INSUFFICIENT_STOCK', available: product.stockQuantity });
+            } else if (available < item.quantity) {
+                stockIssues.push({ id: item.id, name: product.nameEn, error: 'INSUFFICIENT_STOCK', available });
             }
         }
 
         if (stockIssues.length > 0) {
-            return res.status(400).json({ 
-                success: false, 
-                error: 'สินค้าบางรายการมีการเปลี่ยนแปลงสต็อก', 
-                stockIssues 
+            return res.status(400).json({
+                success: false,
+                error: 'สินค้าบางรายการมีการเปลี่ยนแปลงสต็อก',
+                stockIssues
             });
         }
 
+        // เตรียม items สำหรับ reserveStockAtomic (รูปแบบ {productId, qty})
+        const itemsForReserve = cart.map(item => ({
+            productId: parseInt(item.id, 10),
+            qty: parseInt(item.quantity, 10),
+        }));
+
         const result = await prisma.$transaction(async (tx) => {
-            // Re-verify stock inside transaction for safety
-            for (const item of cart) {
-                const product = await tx.product.findUnique({ where: { id: parseInt(item.id, 10) } });
-                if (!product || product.stockQuantity < item.quantity) {
-                    throw new Error(`สต็อกสินค้า ${item.nameEn} มีการเปลี่ยนแปลง กรุณาลองใหม่อีกครั้ง`);
-                }
-            }
+            // Atomic reservation — increments reservedQuantity (D6) + checks D4 ratio
+            // Throws INSUFFICIENT_STOCK / RATIO_EXCEEDED / NOT_FOUND on fail → tx rolls back
+            await stockReservation.reserveStockAtomic(tx, customer.customerId, itemsForReserve, reserveCfg);
 
             // Re-verify coupon ใน tx (กัน race หลัง validate ฝั่งนอก tx — ถูกใช้ไปแล้วระหว่างนั้น)
             if (appliedCouponId) {
@@ -440,6 +517,7 @@ router.post('/orders/checkout', async (req, res) => {
                     discountAmount: discountServer,
                     subtotal: subtotalServer,
                     shippingFee: shippingServer,
+                    expiryMinutes: effectiveExpiryMinutes, // D5 snapshot — อ่านโดย expiry job
                     items: {
                         create: cart.map(item => ({
                             productId: parseInt(item.id, 10),
@@ -466,6 +544,12 @@ router.post('/orders/checkout', async (req, res) => {
 
     } catch (error) {
         console.error("Checkout Error:", error);
+        const msg = String(error?.message || '');
+        // Reservation errors → แปลงเป็นข้อความที่ลูกค้าเข้าใจ
+        if (/^(INSUFFICIENT_STOCK|RATIO_EXCEEDED|NOT_FOUND|INVALID_ITEM)(:|$)/.test(msg)) {
+            const friendly = stockReservation.formatReservationError(msg, productNameMap);
+            return res.status(409).json({ success: false, error: friendly });
+        }
         res.status(400).json({ error: error.message || "เกิดข้อผิดพลาดในการสร้างรายการสั่งซื้อ" });
     }
 });
@@ -716,14 +800,16 @@ router.post('/orders/:orderId/cancel', async (req, res) => {
             return res.status(404).json({ error: "ไม่พบข้อมูลลูกค้า" });
         }
 
-        const order = await prisma.order.findUnique({ where: { id: orderId } });
+        const order = await prisma.order.findUnique({ where: { id: orderId }, include: { items: true } });
         if (!order) return res.status(404).json({ error: "ไม่พบออเดอร์นี้" });
         if (order.customerId !== customer.customerId) return res.status(403).json({ error: "ไม่มีสิทธิ์ยกเลิกออเดอร์นี้" });
         if (order.status !== 'PENDING_PAYMENT') return res.status(400).json({ error: "ออเดอร์นี้ไม่สามารถยกเลิกได้แล้ว" });
+        if (order.mismatchLocked) return res.status(400).json({ error: "ออเดอร์นี้รอแอดมินดำเนินการ ไม่สามารถยกเลิกเองได้" });
 
-        await prisma.order.update({
-            where: { id: orderId },
-            data: { status: 'CANCELLED' }
+        // ยกเลิก + release reservation (PENDING_PAYMENT non-mismatch → stock ยังไม่ถูก decrement)
+        await prisma.$transaction(async (tx) => {
+            await tx.order.update({ where: { id: orderId }, data: { status: 'CANCELLED' } });
+            await stockReservation.releaseReservation(tx, order.items);
         });
 
         // In-app notif (ลูกค้าเป็นคนกดเอง — ไม่ส่ง Telegram ซ้ำ)
@@ -1068,12 +1154,8 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                                 payload: JSON.stringify({ ...slipData.data, mismatchUnder: true, expected, actual, diff }),
                             },
                         });
-                        for (const item of order.items) {
-                            await tx.product.update({
-                                where: { id: item.productId },
-                                data: { stockQuantity: { decrement: item.quantity } },
-                            });
-                        }
+                        // Convert reservation → hard decrement (atomic stock-- + reserved--)
+                        await stockReservation.convertReservationToHardDecrement(tx, order.items);
                         if (order.appliedCouponId) {
                             const cc = await tx.customerCoupon.findFirst({
                                 where: { customerId: order.customerId, couponId: order.appliedCouponId, status: 'AVAILABLE' },
@@ -1223,13 +1305,8 @@ router.post('/orders/:orderId/verify-slip', upload.array('files'), async (req, r
                 }
             });
 
-            // C. Deduct Stock
-            for (const item of order.items) {
-                await tx.product.update({
-                    where: { id: item.productId },
-                    data: { stockQuantity: { decrement: item.quantity } }
-                });
-            }
+            // C. Convert reservation → hard decrement (atomic stock-- + reserved--)
+            await stockReservation.convertReservationToHardDecrement(tx, order.items);
 
             // D. Deduct Coupon (if any)
             if (order.appliedCouponId) {
@@ -3593,6 +3670,7 @@ router.post('/admin/orders/:id/reject', async (req, res) => {
         await prisma.$transaction(async (tx) => {
             await tx.order.update({ where: { id: order.id }, data: { status: 'CANCELLED', mismatchLocked: false } });
             if (wasLocked) {
+                // mismatchLocked → stock ถูกตัดไปแล้ว + coupon USED → revert ทั้งสอง
                 for (const item of order.items) {
                     await tx.product.update({ where: { id: item.productId }, data: { stockQuantity: { increment: item.quantity } } });
                 }
@@ -3602,6 +3680,9 @@ router.post('/admin/orders/:id/reject', async (req, res) => {
                         await tx.customerCoupon.update({ where: { id: cc.id }, data: { status: 'AVAILABLE', usedAt: null } });
                     }
                 }
+            } else {
+                // !wasLocked + PENDING_PAYMENT → reservation ยังถือ stock อยู่ (เคยจองแต่ยังไม่ตัด) → ปล่อย
+                await stockReservation.releaseReservation(tx, order.items);
             }
             if (order.payment) {
                 await tx.payment.update({ where: { id: order.payment.id }, data: { status: 'REJECTED' } });
@@ -3825,6 +3906,8 @@ router.delete('/admin/orders/:id/items/:itemId', async (req, res) => {
         const isFullRemove = decrementBy >= target.quantity;
 
         let cancelled = false;
+        // PENDING_PAYMENT non-mismatch → release reservation; else → stock++ (เดิม)
+        const wasPendingNoMismatch = order.status === 'PENDING_PAYMENT' && !order.mismatchLocked;
         await prisma.$transaction(async (tx) => {
             if (isFullRemove) {
                 await tx.orderItem.delete({ where: { id: itemId } });
@@ -3834,10 +3917,14 @@ router.delete('/admin/orders/:id/items/:itemId', async (req, res) => {
                     data: { quantity: { decrement: decrementBy } },
                 });
             }
-            await tx.product.update({
-                where: { id: target.productId },
-                data: { stockQuantity: { increment: decrementBy } },
-            });
+            if (wasPendingNoMismatch) {
+                await stockReservation.releaseReservation(tx, [{ productId: target.productId, quantity: decrementBy }]);
+            } else {
+                await tx.product.update({
+                    where: { id: target.productId },
+                    data: { stockQuantity: { increment: decrementBy } },
+                });
+            }
             // คำนวณ remaining items หลังการตัด — สำหรับเช็คว่าออเดอร์ว่างหรือไม่ + recalc total
             const remaining = order.items
                 .map(it => it.id === itemId
@@ -3974,22 +4061,31 @@ router.post('/admin/orders/:id/cancel', async (req, res) => {
         if (order.status === 'CANCELLED') return res.status(400).json({ success: false, error: 'ยกเลิกไปแล้ว' });
         if (order.status === 'SHIPPED') return res.status(400).json({ success: false, error: 'ออเดอร์ส่งแล้ว ยกเลิกไม่ได้' });
 
+        // Branch on status: PENDING_PAYMENT non-mismatch → release reservation;
+        //                   else (PAID/PROCESSING/PENDING+mismatch) → stock++ + revert coupon
+        const wasPendingNoMismatch = order.status === 'PENDING_PAYMENT' && !order.mismatchLocked;
         await prisma.$transaction(async (tx) => {
             await tx.order.update({ where: { id: order.id }, data: { status: 'CANCELLED' } });
             if (order.kind === 'PRODUCT') {
-                for (const item of order.items) {
-                    await tx.product.update({ where: { id: item.productId }, data: { stockQuantity: { increment: item.quantity } } });
-                }
-                if (order.appliedCouponId) {
-                    const cc = await tx.customerCoupon.findFirst({ where: { customerId: order.customerId, couponId: order.appliedCouponId } });
-                    if (cc && cc.status === 'USED') {
-                        await tx.customerCoupon.update({ where: { id: cc.id }, data: { status: 'AVAILABLE', usedAt: null } });
+                if (wasPendingNoMismatch) {
+                    // ของยังไม่ถูกตัด — แค่ปล่อย reservation
+                    await stockReservation.releaseReservation(tx, order.items);
+                } else {
+                    // ของถูกตัดแล้ว (PAID/PROCESSING) หรือ mismatchLocked → คืนสต็อก + คืน coupon
+                    for (const item of order.items) {
+                        await tx.product.update({ where: { id: item.productId }, data: { stockQuantity: { increment: item.quantity } } });
+                    }
+                    if (order.appliedCouponId) {
+                        const cc = await tx.customerCoupon.findFirst({ where: { customerId: order.customerId, couponId: order.appliedCouponId } });
+                        if (cc && cc.status === 'USED') {
+                            await tx.customerCoupon.update({ where: { id: cc.id }, data: { status: 'AVAILABLE', usedAt: null } });
+                        }
                     }
                 }
             }
             await tx.adminAuditLog.create({
                 data: { adminName: a.admin?.name || a.telegramId, action: 'ORDER_CANCEL', targetId: order.customerId,
-                    details: JSON.stringify({ orderId: order.id, prevStatus: order.status, via: 'mini-app' }) },
+                    details: JSON.stringify({ orderId: order.id, prevStatus: order.status, via: 'mini-app', releasedReservation: wasPendingNoMismatch }) },
             });
         });
         try { await notifCenter.notifyOrderStatusChanged({ orderId: order.id, customerId: order.customerId, status: 'CANCELLED' }); } catch (e) {}
@@ -4988,16 +5084,26 @@ router.get('/admin/stock-alert', async (req, res) => {
         const setting = await prisma.storeSetting.findUnique({ where: { id: 1 } });
         const lowT = setting?.lowStockThreshold ?? 50;
         const outT = setting?.outOfStockThreshold ?? 20;
+        // alert บนพื้นฐาน available (stockQuantity - reservedQuantity) ไม่ใช่ stockQuantity ดิบ
+        // เพราะลูกค้ามองเห็น available; admin ต้องเตรียมสต็อกตาม available
         const products = await prisma.product.findMany({
-            where: { stockQuantity: { lte: lowT }, status: 'IN_STOCK' },
+            where: { status: 'IN_STOCK' },
             include: { category: { select: { id: true, name: true } } },
             orderBy: { stockQuantity: 'asc' },
         });
-        const out = products.map(p => ({
+        const filtered = products
+            .map(p => ({ ...p, available: Math.max(0, p.stockQuantity - p.reservedQuantity) }))
+            .filter(p => p.available <= lowT);
+        const out = filtered.map(p => ({
             id: p.id, nameTh: p.nameTh, nameEn: p.nameEn, imageUrl: p.imageUrl,
-            stockQuantity: p.stockQuantity, category: p.category,
-            level: p.stockQuantity <= outT ? 'critical' : 'low',
+            stockQuantity: p.stockQuantity,
+            reservedQuantity: p.reservedQuantity,
+            availableQuantity: p.available,
+            category: p.category,
+            level: p.available <= outT ? 'critical' : 'low',
         }));
+        // เรียงตาม available (น้อยสุดก่อน — เร่งด่วนกว่า)
+        out.sort((a, b) => a.availableQuantity - b.availableQuantity);
         res.json({ success: true, lowThreshold: lowT, outThreshold: outT, products: out });
     } catch (e) { res.status(500).json({ success: false, error: 'load failed' }); }
 });

@@ -1798,8 +1798,9 @@
                                 <div class="text-[10px] text-zinc-500">${_esc(p.category?.name||'ไม่มีหมวด')}</div>
                             </div>
                             <div class="text-right">
-                                <div class="text-base font-bold ${p.level==='critical'?'text-red-300':'text-orange-300'}">${p.stockQuantity}</div>
+                                <div class="text-base font-bold ${p.level==='critical'?'text-red-300':'text-orange-300'}">${p.availableQuantity ?? p.stockQuantity}</div>
                                 <div class="text-[9px] text-zinc-500">${p.level === 'critical' ? '⚠️ ด่วน' : 'ใกล้หมด'}</div>
+                                ${(p.reservedQuantity ?? 0) > 0 ? `<div class="text-[9px] text-blue-300 mt-0.5">📦 ${p.stockQuantity} ทั้งหมด · จอง ${p.reservedQuantity}</div>` : ''}
                             </div>
                         </div>
                     `).join('')}

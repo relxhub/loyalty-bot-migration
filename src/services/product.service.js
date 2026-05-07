@@ -39,6 +39,7 @@ export const getProductPageData = async () => {
           isNew: true,
           isHot: true,
           stockQuantity: true,
+          reservedQuantity: true,
           nicotine: true,
           coolnessLevel: true,
           sweetnessLevel: true,
@@ -80,11 +81,18 @@ export const getProductPageData = async () => {
     });
 
     // Step 4: Merge the ratings into the product data
-    const productsWithRatings = products.map(product => ({
-      ...product,
-      averageRating: ratingMap.get(product.id)?.averageRating || 0,
-      reviewCount: ratingMap.get(product.id)?.reviewCount || 0,
-    }));
+    // ลูกค้าเห็น stockQuantity = available (= stockQuantity DB - reservedQuantity)
+    // → frontend ที่อ้าง p.stockQuantity ใช้งานต่อได้โดยไม่ต้องแก้
+    const productsWithRatings = products.map(product => {
+      const available = Math.max(0, product.stockQuantity - (product.reservedQuantity || 0));
+      const { reservedQuantity, ...rest } = product; // ซ่อน reservedQuantity จาก response
+      return {
+        ...rest,
+        stockQuantity: available,
+        averageRating: ratingMap.get(product.id)?.averageRating || 0,
+        reviewCount: ratingMap.get(product.id)?.reviewCount || 0,
+      };
+    });
 
     console.log('[SERVICE TRACE] getProductPageData: Database transaction and aggregation successful.');
     const tickerMessage = tickerConfig ? tickerConfig.value : "🎉 ยินดีต้อนรับสู่ร้าน Loyalty Shop! สินค้าคุณภาพพร้อมส่ง";

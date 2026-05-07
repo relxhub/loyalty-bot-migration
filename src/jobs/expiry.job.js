@@ -176,49 +176,62 @@ export async function runCouponExpiringWarningJob() {
 
 /**
  * E-commerce: Auto-cancel pending orders that have exceeded their expiry time.
+ *
+ * ใช้ per-order Order.expiryMinutes snapshot (ตั้งใน /orders/checkout ตาม customer tier)
+ * ออเดอร์เก่าก่อน Phase 4 (expiryMinutes=null) → fallback StoreSetting.orderExpiryMinutes
+ *
+ * เมื่อ cancel: release reservation (Product.reservedQuantity--) ของแต่ละ item
  */
 export async function runOrderExpiryJob() {
     try {
         const storeSetting = await prisma.storeSetting.findUnique({ where: { id: 1 } });
-        const expiryMinutes = storeSetting?.orderExpiryMinutes || 30;
-        
-        // Calculate the cutoff time (orders older than this are expired)
-        const cutoffTime = new Date(Date.now() - (expiryMinutes * 60 * 1000));
-        
-        const expiredOrders = await prisma.order.findMany({
-            where: {
-                status: 'PENDING_PAYMENT',
-                createdAt: { lt: cutoffTime },
-                mismatchLocked: false, // skip orders awaiting admin top-up confirmation (no expiry)
-            },
-            select: { id: true, customerId: true }
-        });
+        const fallbackMinutes = storeSetting?.orderExpiryMinutes || 30;
+
+        // Per-order expiry: createdAt + COALESCE(expiryMinutes, fallback) minutes < NOW()
+        const expiredOrders = await prisma.$queryRaw`
+            SELECT id, "customerId"
+            FROM "Order"
+            WHERE status = 'PENDING_PAYMENT'
+              AND "mismatchLocked" = false
+              AND "createdAt" + (COALESCE("expiryMinutes", ${fallbackMinutes}) || ' minutes')::interval < NOW()
+        `;
 
         if (expiredOrders.length === 0) return; // Silent return
 
-        console.log(`[OrderExpiryJob] 🔍 Found ${expiredOrders.length} expired orders. Cancelling...`);
+        console.log(`[OrderExpiryJob] 🔍 Found ${expiredOrders.length} expired orders. Cancelling + releasing reservations...`);
 
-        await prisma.$transaction(async (tx) => {
-            const orderIds = expiredOrders.map(o => o.id);
+        const { releaseReservation } = await import('../services/stock-reservation.service.js');
 
-            await tx.order.updateMany({
-                where: { id: { in: orderIds } },
-                data: { status: 'CANCELLED' }
-            });
+        // Per-order tx — กัน 1 ออเดอร์ fail ทำให้ทั้งชุด rollback
+        for (const o of expiredOrders) {
+            try {
+                await prisma.$transaction(async (tx) => {
+                    const items = await tx.orderItem.findMany({
+                        where: { orderId: o.id },
+                        select: { productId: true, quantity: true },
+                    });
+                    await releaseReservation(tx, items);
+                    await tx.order.update({ where: { id: o.id }, data: { status: 'CANCELLED' } });
+                });
+            } catch (e) {
+                console.error(`[OrderExpiryJob] failed cancel ${o.id}:`, e.message);
+            }
+        }
 
-            await tx.systemLog.create({
+        try {
+            await prisma.systemLog.create({
                 data: {
                     level: 'INFO',
                     source: 'CRON',
                     action: 'ORDER_AUTO_CANCEL',
-                    message: `Auto-cancelled ${orderIds.length} expired orders: ${orderIds.join(', ')}`
+                    message: `Auto-cancelled ${expiredOrders.length} expired orders: ${expiredOrders.map(o => o.id).join(', ')}`
                 }
             });
+        } catch (e) { /* silent */ }
 
-            console.log(`[OrderExpiryJob] ✅ Successfully cancelled orders: ${orderIds.join(', ')}`);
-        });
+        console.log(`[OrderExpiryJob] ✅ processed=${expiredOrders.length}`);
 
-        // In-app notif หลัง tx (best-effort)
+        // In-app notif (best-effort)
         const { emitSocket } = await import('../services/notification-center.service.js');
         for (const o of expiredOrders) {
             try {
@@ -229,7 +242,6 @@ export async function runOrderExpiryJob() {
                     note: 'หมดเวลาชำระเงิน — ออเดอร์ถูกยกเลิกอัตโนมัติ',
                 });
             } catch (e) { /* silent */ }
-            // realtime: admin list refresh
             emitSocket('order_update', { id: o.id, status: 'CANCELLED', ts: Date.now() });
         }
 
