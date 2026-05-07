@@ -3698,8 +3698,8 @@ router.post('/admin/orders/:id/set-tracking', async (req, res) => {
     }
 });
 
-// PATCH /admin/orders/:id/note { adminNote }
-router.patch('/admin/orders/:id/note', async (req, res) => {
+// POST /admin/orders/:id/note { adminNote } — ใช้ POST ให้สอดคล้องกับ ordAction() ตัวอื่นๆ
+router.post('/admin/orders/:id/note', async (req, res) => {
     const a = await authAdmin(req);
     if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
     try {
