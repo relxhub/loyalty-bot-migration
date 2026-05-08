@@ -404,7 +404,87 @@
         </a>
         <!-- [END] Referral Entry Card -->
 
+        <!-- [START] Profile / Birthday Card -->
+        <div class="glass-card p-4">
+            <div class="flex items-center gap-2 mb-3">
+                <i class="ri-user-3-fill text-orange-400 text-lg"></i>
+                <div class="font-bold text-base text-white" data-i18n="profile.title">ข้อมูลส่วนตัว</div>
+            </div>
 
+            <!-- Birthday row: empty state -->
+            <button id="birthday-set-btn" type="button" onclick="openBirthdayModal()"
+                class="hidden w-full flex items-center gap-3 bg-gradient-to-br from-yellow-400/15 to-orange-500/15 border border-orange-400/30 hover:from-yellow-400/25 hover:to-orange-500/25 transition active:scale-95 rounded-xl p-3 text-left">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center flex-shrink-0">
+                    <i class="ri-cake-3-fill text-white text-xl"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="text-sm font-bold text-white" data-i18n="profile.birthday.cta">ตั้งวันเกิด</div>
+                    <div class="text-[11px] text-zinc-400" data-i18n="profile.birthday.cta_sub">รับสิทธิพิเศษวันเกิด · ตั้งได้ครั้งเดียว</div>
+                </div>
+                <i class="ri-arrow-right-s-line text-xl text-zinc-500"></i>
+            </button>
+
+            <!-- Birthday row: filled state -->
+            <div id="birthday-readonly" class="hidden flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl p-3">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center flex-shrink-0">
+                    <i class="ri-cake-3-fill text-white text-xl"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="text-[11px] text-zinc-400" data-i18n="profile.birthday.label">วันเกิด</div>
+                    <div id="birthday-display" class="text-sm font-bold text-white">—</div>
+                </div>
+                <div class="flex items-center gap-1 text-zinc-500 text-xs">
+                    <i class="ri-lock-2-line"></i>
+                    <span class="text-[10px]" data-i18n="profile.birthday.locked">ล็อกแล้ว</span>
+                </div>
+            </div>
+        </div>
+        <!-- [END] Profile / Birthday Card -->
+
+    </div>
+
+    <!-- 🎂 Birthday Modal -->
+    <div id="birthday-modal" class="hidden fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm opacity-0 transition-opacity duration-300">
+        <div id="birthday-modal-content" class="bg-[var(--secondary-bg)] border border-white/10 w-full sm:w-[90%] sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 transform translate-y-full sm:translate-y-0 sm:scale-95 transition-transform duration-300">
+            <div class="text-center mb-5">
+                <div class="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center mb-3 shadow-lg shadow-orange-500/30">
+                    <i class="ri-cake-3-fill text-white text-3xl"></i>
+                </div>
+                <h3 class="text-xl font-bold text-white mb-1" data-i18n="profile.birthday.modal_title">ตั้งวันเกิด</h3>
+                <p class="text-xs text-zinc-400" data-i18n="profile.birthday.modal_sub">ใช้สำหรับรับสิทธิพิเศษวันเกิดจากร้าน</p>
+            </div>
+
+            <!-- ⚠️ Warning -->
+            <div class="bg-yellow-500/10 border border-yellow-500/40 rounded-xl p-3 mb-4 flex items-start gap-2">
+                <i class="ri-error-warning-fill text-yellow-400 text-lg flex-shrink-0 mt-0.5"></i>
+                <div class="text-[12px] text-yellow-200 leading-relaxed" data-i18n="profile.birthday.warning">
+                    วันเกิดสามารถตั้งได้เพียง <b>ครั้งเดียว</b> และไม่สามารถแก้ไขได้ในภายหลัง โปรดตรวจสอบให้ถูกต้องก่อนยืนยัน
+                </div>
+            </div>
+
+            <!-- Date input -->
+            <label class="text-xs text-zinc-400 ml-1" data-i18n="profile.birthday.label">วันเกิด</label>
+            <input id="birthday-input" type="date"
+                class="w-full bg-black/30 border border-zinc-600 rounded-xl p-3 text-white focus:outline-none focus:border-orange-400 text-base mb-1"
+                onchange="onBirthdayInputChange()">
+            <div id="birthday-preview" class="text-[11px] text-zinc-500 ml-1 mb-3 min-h-[16px]"></div>
+            <div id="birthday-error" class="hidden text-[12px] text-red-400 ml-1 mb-3"></div>
+
+            <!-- Confirm checkbox -->
+            <label class="flex items-start gap-2 mb-5 cursor-pointer select-none">
+                <input id="birthday-confirm-check" type="checkbox" class="mt-0.5 w-4 h-4 accent-orange-500" onchange="updateBirthdaySubmitState()">
+                <span class="text-[12px] text-zinc-300 leading-relaxed" data-i18n="profile.birthday.confirm_check">ฉันเข้าใจว่าวันเกิดจะถูกล็อกหลังจากบันทึก และไม่สามารถแก้ไขได้</span>
+            </label>
+
+            <div class="flex gap-2">
+                <button type="button" onclick="closeBirthdayModal()"
+                    class="flex-1 bg-zinc-700/60 hover:bg-zinc-700 text-white py-3 rounded-xl font-bold transition active:scale-95"
+                    data-i18n="profile.birthday.cancel">ยกเลิก</button>
+                <button id="birthday-submit-btn" type="button" onclick="submitBirthday()" disabled
+                    class="flex-1 bg-gradient-to-br from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 disabled:opacity-40 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold transition active:scale-95"
+                    data-i18n="profile.birthday.save">บันทึก</button>
+            </div>
+        </div>
     </div>
 
     <div id="link-modal" class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/80 hidden opacity-0 transition-opacity duration-300">
@@ -1114,6 +1194,9 @@
             // --- [START] SuperAdmin Button Logic ---
             // Logic removed: Product Menu is now visible to all via static nav bar
             // --- [END] SuperAdmin Button Logic ---
+
+            // 🎂 Birthday section
+            try { renderBirthdaySection(user); } catch(e) { console.warn('birthday render warn', e); }
         }
 
         // --- Logic การเชื่อมต่อ (Link) ---
@@ -1753,6 +1836,163 @@
             const nav = document.getElementById('bottom-nav');
             if (nav) nav.classList.remove('hide');
         }
+
+        // ==========================================
+        // 🎂 Birthday — one-time setting
+        // ==========================================
+        function _birthdayPad(n) { return String(n).padStart(2, '0'); }
+
+        function _birthdayBangkokParts(value) {
+            const d = value instanceof Date ? value : new Date(value);
+            if (isNaN(d.getTime())) return null;
+            const fmt = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Asia/Bangkok',
+                year: 'numeric', month: '2-digit', day: '2-digit'
+            });
+            const parts = fmt.formatToParts(d);
+            const get = (t) => parts.find(p => p.type === t)?.value;
+            return { day: get('day'), month: get('month'), year: parseInt(get('year'), 10) };
+        }
+
+        function formatBirthdayLocalized(value) {
+            const p = _birthdayBangkokParts(value);
+            if (!p) return '';
+            const yr = (window.__lang === 'en') ? p.year : (p.year + 543);
+            return `${p.day}-${p.month}-${yr}`;
+        }
+
+        function renderBirthdaySection(user) {
+            const setBtn = document.getElementById('birthday-set-btn');
+            const ro = document.getElementById('birthday-readonly');
+            const display = document.getElementById('birthday-display');
+            if (!setBtn || !ro || !display) return;
+            if (user && user.birthDate) {
+                display.innerText = formatBirthdayLocalized(user.birthDate);
+                ro.classList.remove('hidden');
+                ro.classList.add('flex');
+                setBtn.classList.add('hidden');
+            } else {
+                ro.classList.add('hidden');
+                ro.classList.remove('flex');
+                setBtn.classList.remove('hidden');
+            }
+        }
+
+        function openBirthdayModal() {
+            const modal = document.getElementById('birthday-modal');
+            const content = document.getElementById('birthday-modal-content');
+            const input = document.getElementById('birthday-input');
+            const checkbox = document.getElementById('birthday-confirm-check');
+            const errEl = document.getElementById('birthday-error');
+            const preview = document.getElementById('birthday-preview');
+            if (!modal || !input) return;
+
+            // Set min/max: age 18-100
+            const today = new Date();
+            const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+            const minDate = new Date(today.getFullYear() - 100, today.getMonth(), today.getDate());
+            const fmtISO = (d) => `${d.getFullYear()}-${_birthdayPad(d.getMonth() + 1)}-${_birthdayPad(d.getDate())}`;
+            input.min = fmtISO(minDate);
+            input.max = fmtISO(maxDate);
+            input.value = '';
+            if (checkbox) checkbox.checked = false;
+            if (errEl) errEl.classList.add('hidden');
+            if (preview) preview.textContent = '';
+            updateBirthdaySubmitState();
+
+            modal.classList.remove('hidden');
+            requestAnimationFrame(() => {
+                modal.classList.remove('opacity-0');
+                modal.classList.add('opacity-100');
+                if (content) {
+                    content.classList.remove('translate-y-full', 'sm:scale-95');
+                    content.classList.add('translate-y-0', 'sm:scale-100');
+                }
+            });
+            try { Telegram.WebApp.hapticFeedback.impactOccurred('light'); } catch(e){}
+        }
+
+        function closeBirthdayModal() {
+            const modal = document.getElementById('birthday-modal');
+            const content = document.getElementById('birthday-modal-content');
+            if (!modal) return;
+            modal.classList.remove('opacity-100');
+            modal.classList.add('opacity-0');
+            if (content) {
+                content.classList.add('translate-y-full', 'sm:scale-95');
+                content.classList.remove('translate-y-0', 'sm:scale-100');
+            }
+            setTimeout(() => modal.classList.add('hidden'), 280);
+        }
+
+        function onBirthdayInputChange() {
+            const input = document.getElementById('birthday-input');
+            const preview = document.getElementById('birthday-preview');
+            const errEl = document.getElementById('birthday-error');
+            if (errEl) errEl.classList.add('hidden');
+            if (preview && input && input.value) {
+                preview.textContent = formatBirthdayLocalized(input.value + 'T00:00:00Z');
+            } else if (preview) {
+                preview.textContent = '';
+            }
+            updateBirthdaySubmitState();
+        }
+
+        function updateBirthdaySubmitState() {
+            const input = document.getElementById('birthday-input');
+            const checkbox = document.getElementById('birthday-confirm-check');
+            const submit = document.getElementById('birthday-submit-btn');
+            if (!submit) return;
+            const hasDate = !!(input && input.value && /^\d{4}-\d{2}-\d{2}$/.test(input.value));
+            const confirmed = !!(checkbox && checkbox.checked);
+            submit.disabled = !(hasDate && confirmed);
+        }
+
+        async function submitBirthday() {
+            const input = document.getElementById('birthday-input');
+            const submit = document.getElementById('birthday-submit-btn');
+            const errEl = document.getElementById('birthday-error');
+            if (!input || !input.value) return;
+            if (!tg.initData) { showToast('กรุณาใช้งานผ่าน Telegram', 'error'); return; }
+
+            submit.disabled = true;
+            try {
+                const res = await fetch('/api/customer/birthdate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData, birthDate: input.value })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    if (errEl) {
+                        errEl.textContent = data.error || 'เกิดข้อผิดพลาด';
+                        errEl.classList.remove('hidden');
+                    }
+                    submit.disabled = false;
+                    try { Telegram.WebApp.hapticFeedback.notificationOccurred('error'); } catch(e){}
+                    return;
+                }
+                if (window.currentUser) {
+                    window.currentUser.birthDate = data.birthDate;
+                    try { window.AuthCache?.set(window.currentUser); } catch(e){}
+                }
+                renderBirthdaySection(window.currentUser);
+                closeBirthdayModal();
+                showToast(t('profile.birthday.saved', 'บันทึกวันเกิดเรียบร้อย'), 'success');
+                try { Telegram.WebApp.hapticFeedback.notificationOccurred('success'); } catch(e){}
+            } catch (e) {
+                if (errEl) {
+                    errEl.textContent = 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ';
+                    errEl.classList.remove('hidden');
+                }
+                submit.disabled = false;
+            }
+        }
+
+        // Close on backdrop click
+        document.getElementById('birthday-modal')?.addEventListener('click', function(e) {
+            if (e.target === this) closeBirthdayModal();
+        });
 
         initApp();
     </script>

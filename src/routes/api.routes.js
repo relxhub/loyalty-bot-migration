@@ -309,6 +309,62 @@ router.post('/update-phone', async (req, res) => {
 });
 
 // ==================================================
+// 🎂 SET BIRTHDAY (one-time, immutable)
+// ==================================================
+router.post('/customer/birthdate', async (req, res) => {
+    try {
+        const { initData, birthDate } = req.body;
+
+        if (!verifyTelegramWebAppData(initData)) {
+            return res.status(401).json({ error: "Invalid Telegram Data" });
+        }
+
+        if (!birthDate || typeof birthDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
+            return res.status(400).json({ error: "รูปแบบวันที่ไม่ถูกต้อง (ต้องเป็น YYYY-MM-DD)" });
+        }
+
+        const [y, m, d] = birthDate.split('-').map(Number);
+        const birth = new Date(Date.UTC(y, m - 1, d));
+        if (isNaN(birth.getTime()) || birth.getUTCFullYear() !== y || birth.getUTCMonth() !== m - 1 || birth.getUTCDate() !== d) {
+            return res.status(400).json({ error: "วันที่ไม่ถูกต้อง" });
+        }
+
+        const today = new Date();
+        if (birth.getTime() > today.getTime()) {
+            return res.status(400).json({ error: "ไม่สามารถตั้งวันเกิดเป็นวันที่ในอนาคตได้" });
+        }
+
+        let age = today.getUTCFullYear() - y;
+        const monthDiff = today.getUTCMonth() - (m - 1);
+        if (monthDiff < 0 || (monthDiff === 0 && today.getUTCDate() < d)) age--;
+        if (age < 18 || age > 100) {
+            return res.status(400).json({ error: "อายุต้องอยู่ระหว่าง 18 ถึง 100 ปี" });
+        }
+
+        const urlParams = new URLSearchParams(initData);
+        const userData = JSON.parse(urlParams.get('user'));
+        const telegramId = userData.id.toString();
+
+        const customer = await getCustomerByTelegramId(telegramId);
+        if (!customer) {
+            return res.status(404).json({ error: "ไม่พบข้อมูลลูกค้า" });
+        }
+
+        if (customer.birthDate) {
+            return res.status(409).json({ error: "วันเกิดถูกตั้งค่าแล้ว ไม่สามารถแก้ไขได้" });
+        }
+
+        await updateCustomer(customer.customerId, { birthDate: birth });
+
+        return res.json({ success: true, birthDate: birth.toISOString() });
+
+    } catch (error) {
+        console.error("Set Birthday Error:", error);
+        return res.status(500).json({ error: "เกิดข้อผิดพลาดในการบันทึกวันเกิด" });
+    }
+});
+
+// ==================================================
 // 🛍️ ORDERS & CHECKOUT
 // ==================================================
 router.post('/orders/checkout', async (req, res) => {
